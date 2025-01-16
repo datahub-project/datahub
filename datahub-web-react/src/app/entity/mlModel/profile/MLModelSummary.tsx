@@ -48,6 +48,8 @@ export default function MLModelSummary() {
     const model = baseEntity?.mlModel;
     const entityRegistry = useEntityRegistry();
 
+    console.log("model", model);
+
     const propertyTableColumns = [
         {
             title: 'Name',
@@ -68,9 +70,11 @@ export default function MLModelSummary() {
 
     const renderTrainingJobs = () => {
         const lineageTrainingJobs = model?.properties?.mlModelLineageInfo?.trainingJobs || [];
+        console.log("lineageTrainingJobs", model?.properties?.mlModelLineageInfo?.trainingJobs);
         
         if (lineageTrainingJobs.length === 0) return '-';
         
+        // TODO: get job name from job URN
         return lineageTrainingJobs.map((jobUrn, index) => (
             <div key={jobUrn}>
                 <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, jobUrn)}>

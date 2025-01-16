@@ -296,6 +296,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         name
         description
         origin
+        tags {
+            ...globalTagsFields
+        }
         platform {
             ...platformFields
         }
@@ -304,6 +307,21 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        properties {
+            createdTS: created {
+                time
+                actor
+            }
+            modelVersion: version
+            tags
+            customProperties {
+                key
+                value
+            }
+        }
+        editableProperties {
+            description
         }
         structuredProperties {
             properties {

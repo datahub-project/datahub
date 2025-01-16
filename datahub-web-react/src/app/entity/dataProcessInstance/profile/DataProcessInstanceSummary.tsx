@@ -41,7 +41,7 @@ export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
 
-    print("dpi TRP", dpi?.mlTrainingRunProperties);
+    console.log("dpi", dpi);
 
     const formatDate = (timestamp?: number) => {
         if (!timestamp) return '-';

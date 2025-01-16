@@ -1,15 +1,218 @@
 import time
-from typing import Iterable
+from dataclasses import dataclass
+from typing import List, Optional
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, DatasetUrn
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
+from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+
+class ContainerKeyWithId(ContainerKey):
+    id: str
+
+
+@dataclass
+class Container:
+    key: ContainerKeyWithId
+    subtype: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+    def generate_mcp(self) -> List[MetadataChangeProposalWrapper]:
+        container_urn = self.key.as_urn()
+        current_time = int(time.time() * 1000)
+
+        # Create container aspects
+        container_subtype = models.SubTypesClass(typeNames=[self.subtype])
+        container_info = models.ContainerPropertiesClass(
+            name=self.name or self.key.id,
+            description=self.description,
+            created=models.TimeStampClass(
+                time=current_time,
+                actor="urn:li:corpuser:datahub"
+            ),
+            lastModified=models.TimeStampClass(
+                time=current_time,
+                actor="urn:li:corpuser:datahub"
+            ),
+            customProperties={},
+        )
+        browse_path = models.BrowsePathsV2Class(path=[])
+        dpi = models.DataPlatformInstanceClass(
+            platform=self.key.platform,
+            instance=self.key.instance,
+        )
+
+        mcps = []
+
+        # Add container aspects
+        mcps.extend([
+            MetadataChangeProposalWrapper(
+                entityType="container",
+                entityUrn=str(container_urn),
+                aspectName="subTypes",
+                aspect=container_subtype,
+                changeType=models.ChangeTypeClass.UPSERT
+            ),
+            MetadataChangeProposalWrapper(
+                entityType="container",
+                entityUrn=str(container_urn),
+                aspectName="containerProperties",
+                aspect=container_info,
+                changeType=models.ChangeTypeClass.UPSERT
+            ),
+            MetadataChangeProposalWrapper(
+                entityType="container",
+                entityUrn=str(container_urn),
+                aspectName="dataPlatformInstance",
+                aspect=dpi,
+                changeType=models.ChangeTypeClass.UPSERT
+            ),
+            MetadataChangeProposalWrapper(
+                entityType="container",
+                entityUrn=str(container_urn),
+                aspectName="status",
+                aspect=models.StatusClass(removed=False),
+                changeType=models.ChangeTypeClass.UPSERT
+            )
+        ])
+
+        return mcps
+
+
+def create_training_job(
+        experiment_key: ContainerKeyWithId,
+        run_id: str,
+        input_dataset_urn: str
+) -> tuple[DataProcessInstance, List[MetadataChangeProposalWrapper]]:
+    """Create a training job instance"""
+    data_process_instance = DataProcessInstance.from_container(
+        container_key=experiment_key,
+        id=run_id
+    )
+
+    data_process_instance.platform = experiment_key.platform
+    data_process_instance.subtype = "Training Run"
+    data_process_instance.inlets = [DatasetUrn.from_string(input_dataset_urn)]
+    data_process_instance.container = experiment_key.as_urn()  # Set container relationship here
+
+    created_at = int(time.time() * 1000)
+
+    # First get base MCPs from the instance
+    mcps = list(data_process_instance.generate_mcp(
+        created_ts_millis=created_at,
+        materialize_iolets=True
+    ))
+
+    # Create and add DPI properties aspect
+    dpi_props = models.DataProcessInstancePropertiesClass(
+        name=f"Training {run_id}",
+        created=models.AuditStampClass(
+            time=created_at,
+            actor="urn:li:corpuser:datahub"
+        ),
+        externalUrl="http://mlflow:5000",
+        customProperties={
+            "framework": "sklearn",
+            "python_version": "3.8",
+            "experiment_id": experiment_key.id,
+        },
+    )
+
+    # Create training run properties
+    training_run_props = models.MLTrainingRunPropertiesClass(
+        customProperties={
+            "learning_rate": "0.01",
+            "batch_size": "64",
+        },
+        externalUrl="http://mlflow:5000",
+        hyperParams=[
+            models.MLHyperParamClass(
+                name="n_estimators",
+                value="100",
+                description="Number of trees"
+            ),
+            models.MLHyperParamClass(
+                name="max_depth",
+                value="10",
+                description="Maximum tree depth"
+            )
+        ],
+        trainingMetrics=[
+            models.MLMetricClass(
+                name="accuracy",
+                value="0.95",
+                description="Test accuracy"
+            ),
+            models.MLMetricClass(
+                name="f1_score",
+                value="0.93",
+                description="Test F1 score"
+            )
+        ],
+        outputUrls=["s3://mlflow/outputs"],
+        id=run_id,
+    )
+
+    # Add custom aspects
+    mcps.extend([
+        MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            entityType="dataProcessInstance",
+            aspectName="dataProcessInstanceProperties",
+            aspect=dpi_props,
+            changeType=models.ChangeTypeClass.UPSERT
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            entityType="dataProcessInstance",
+            aspectName="mlTrainingRunProperties",
+            aspect=training_run_props,
+            changeType=models.ChangeTypeClass.UPSERT
+        )
+    ])
+
+    # Add run events
+    start_time = created_at
+    end_time = start_time + (45 * 60 * 1000)  # 45 minutes duration
+
+    # mcps.extend([
+    #     MetadataChangeProposalWrapper(
+    #         entityUrn=str(data_process_instance.urn),
+    #         entityType="dataProcessInstance",
+    #         aspectName="dataProcessInstanceRunEvent",
+    #         aspect=models.DataProcessInstanceRunEventClass(
+    #             timestampMillis=start_time,
+    #             eventGranularity="TASK"
+    #         ),
+    #         changeType=models.ChangeTypeClass.UPSERT
+    #     ),
+    #     MetadataChangeProposalWrapper(
+    #         entityUrn=str(data_process_instance.urn),
+    #         entityType="dataProcessInstance",
+    #         aspectName="dataProcessInstanceRunEvent",
+    #         aspect=models.DataProcessInstanceRunEventClass(
+    #             timestampMillis=end_time,
+    #             eventGranularity="TASK",
+    #             result=InstanceRunResult.SUCCESS
+    #         ),
+    #         changeType=models.ChangeTypeClass.UPSERT
+    #     )
+    # ])
+
+    return data_process_instance, mcps
+
 
 def create_model_group() -> tuple[MlModelGroupUrn, MetadataChangeProposalWrapper]:
     """Create a model group and return its URN and MCP"""
     model_group_urn = MlModelGroupUrn(platform="mlflow", name="simple_model_group")
     current_time = int(time.time() * 1000)
-    
+
     model_group_info = models.MLModelGroupPropertiesClass(
         description="Simple ML model group example",
         customProperties={
@@ -24,56 +227,33 @@ def create_model_group() -> tuple[MlModelGroupUrn, MetadataChangeProposalWrapper
             time=current_time,
             actor="urn:li:corpuser:datahub"
         ),
-        trainingJobs=[],
     )
 
-    model_group_mcp = MetadataChangeProposalWrapper(
+    return model_group_urn, MetadataChangeProposalWrapper(
         entityUrn=str(model_group_urn),
+        entityType="mlModelGroup",
+        aspectName="mlModelGroupProperties",
         aspect=model_group_info,
+        changeType=models.ChangeTypeClass.UPSERT
     )
-    
-    return model_group_urn, model_group_mcp
+
 
 def create_single_model(
-    model_name: str,
-    model_group_urn: str,
-) -> MetadataChangeProposalWrapper:
+        model_name: str,
+        model_group_urn: str,
+        training_job_urn: str,
+) -> tuple[MlModelUrn, List[MetadataChangeProposalWrapper]]:
     """Create a single ML model and return its MCP"""
     model_urn = MlModelUrn(platform="mlflow", name=model_name)
     current_time = int(time.time() * 1000)
-    
-    # Define example metrics and hyperparameters
-    training_metrics = [
-        models.MLMetricClass(
-            name="accuracy",
-            value="0.95",
-            description="Test accuracy"
-        ),
-        models.MLMetricClass(
-            name="f1_score",
-            value="0.93",
-            description="Test F1 score"
-        )
-    ]
-    
-    hyper_params = [
-        models.MLHyperParamClass(
-            name="n_estimators",
-            value="100",
-            description="Number of trees"
-        ),
-        models.MLHyperParamClass(
-            name="max_depth",
-            value="10",
-            description="Maximum tree depth"
-        )
-    ]
+
+    mcps = []
 
     model_info = models.MLModelPropertiesClass(
-        name=model_name,
         description="Simple example ML model",
         version=models.VersionTagClass(versionTag="1"),
         groups=[str(model_group_urn)],
+        trainingJobs=[str(training_job_urn)],
         date=current_time,
         lastModified=models.TimeStampClass(
             time=current_time,
@@ -84,27 +264,124 @@ def create_single_model(
             actor="urn:li:corpuser:datahub"
         ),
         tags=["stage:production", "team:data_science"],
-        trainingMetrics=training_metrics,
-        hyperParams=hyper_params,
-        trainingJobs=[],
-        downstreamJobs=[],
+        trainingMetrics=[
+            models.MLMetricClass(
+                name="accuracy",
+                value="0.95",
+                description="Test accuracy"
+            ),
+            models.MLMetricClass(
+                name="f1_score",
+                value="0.93",
+                description="Test F1 score"
+            )
+        ],
+        hyperParams=[
+            models.MLHyperParamClass(
+                name="n_estimators",
+                value="100",
+                description="Number of trees"
+            ),
+            models.MLHyperParamClass(
+                name="max_depth",
+                value="10",
+                description="Maximum tree depth"
+            )
+        ],
     )
 
-    return MetadataChangeProposalWrapper(
-        entityUrn=str(model_urn),
-        aspect=model_info,
+    # print(str(model_urn))
+    # model_version_info = models.VersionPropertiesClass(
+    #     version=models.VersionTagClass(versionTag="1"),
+    #     versionSet="urn:li:mlModel:(urn:li:dataPlatform:mlflow,simple_model,PROD)",
+    #     aliases=[models.VersionTagClass(versionTag="latest")],
+    #     sortId="",
+    # )
+    #
+    # mcps.append(
+    #     MetadataChangeProposalWrapper(
+    #         entityUrn=str(model_urn),
+    #         entityType="mlModel",
+    #         aspectName="versionProperties",
+    #         aspect=model_version_info,
+    #         changeType=models.ChangeTypeClass.UPSERT
+    #     )
+    # )
+
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=str(model_urn),
+            entityType="mlModel",
+            aspectName="mlModelProperties",
+            aspect=model_info,
+            changeType=models.ChangeTypeClass.UPSERT
+        )
     )
+
+    return model_urn, mcps
+
 
 def main():
-    # Create the model group and model
+    # Create emitter with authentication token
+    token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjE3ZjkyMDVjLTEzMzAtNGYzMC1iYjhhLWU4MjdiNDE1MTRjOSIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3Mzk2MTc1NjEsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.QNx813PkhRVEmX7t12-j2uaum0WDpjlCf_j66rzDnWw"
+    emitter = DatahubRestEmitter(
+        gms_server="http://localhost:8080",
+        extra_headers={
+            "Authorization": f"Bearer {token}"
+        }
+    )
+
+    # Create the model group
     model_group_urn, model_group_mcp = create_model_group()
-    model_mcp = create_single_model("simple_model", str(model_group_urn))
-    
-    # Emit the metadata to DataHub
-    with get_default_graph() as graph:
-        graph.emit(model_group_mcp)
-        graph.emit(model_mcp)
-        print("Successfully created model group and model in DataHub")
+
+    # Create experiment container
+    experiment = Container(
+        key=ContainerKeyWithId(
+            platform="urn:li:dataPlatform:mlflow",
+            # instance="prod",
+            id="airline_forecast_experiment",
+        ),
+        subtype="ML Experiment",
+        name="Airline Forecast Experiment",
+        description="Experiment for forecasting airline passengers",
+    )
+
+    # Create training job instance
+    training_job, training_mcps = create_training_job(
+        experiment_key=experiment.key,
+        run_id="run_1",
+        input_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,airline_passengers,PROD)"
+    )
+
+    # Create the model with training job reference
+    model_urn, model_mcps = create_single_model(
+        "simple_model",
+        str(model_group_urn),
+        str(training_job.urn)
+    )
+
+    # Emit all metadata
+    # First, emit model group
+    print("Emitting model group...")
+    emitter.emit(model_group_mcp)
+
+    # Emit experiment container
+    print("Emitting container aspects...")
+    for mcp in experiment.generate_mcp():
+        emitter.emit(mcp)
+
+    # Emit training job properties and events
+    print("Emitting training job aspects...")
+    for mcp in training_mcps:
+        emitter.emit(mcp)
+
+    # Finally emit the model and its aspects
+    print("Emitting model aspects...")
+    for mcp in model_mcps:
+        emitter.emit(mcp)
+
+    print("Successfully created model group, training job, and model in DataHub")
+
 
 if __name__ == "__main__":
     main()

@@ -100,8 +100,8 @@ export default function MLGroupModels() {
         return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
     };
 
+    console.log("modelGroup", modelGroup);
     console.log("models", models);
-    console.log("model properties", models[0].properties.customProperties[0]);
 
     const columns = [
         {
@@ -127,32 +127,32 @@ export default function MLGroupModels() {
             ),
         },
         {
-            title: 'Registered At',
-            key: 'date',
+            title: 'Created At',
+            key: 'createdAt',
             width: 150,
             render: (_: any, record: EntityType.Mlmodel) => (
-                <Typography.Text>{formatDate(record.properties?.date)}</Typography.Text>
+                <Typography.Text>{formatDate(record.properties?.created?.time)}</Typography.Text>
             ),
         },
         // use versionProperties for aliases
-        // {
-        //     title: 'Aliases',
-        //     key: 'aliases',
-        //     width: 200,
-        //     render: (_: any, record: EntityType.Mlmodel) => {
-        //         const aliases = record.versionProperties?.aliases?.map(va => va.aliasVersion) || [];
+        {
+            title: 'Aliases',
+            key: 'aliases',
+            width: 200,
+            render: (_: any, record: EntityType.Mlmodel) => {
+                const aliases = record.versionProperties?.aliases?.map(va => va.aliasVersion) || [];
 
-        //         return (
-        //             <TagContainer>
-        //                 {aliases.map((alias) => (
-        //                     <AliasePill>
-        //                         {alias}
-        //                     </AliasePill>
-        //                 ))}
-        //             </TagContainer>
-        //         );
-        //     },
-        // },
+                return (
+                    <TagContainer>
+                        {aliases.map((alias) => (
+                            <AliasePill>
+                                {alias}
+                            </AliasePill>
+                        ))}
+                    </TagContainer>
+                );
+            },
+        },
         {
             title: 'Tags',
             key: 'tags',
@@ -194,10 +194,10 @@ export default function MLGroupModels() {
             <Typography.Title level={3}>Model Group Details</Typography.Title>
             <InfoItemContainer justifyContent="left">
                 <InfoItem title="Created At">
-                    <InfoItemContent>{modelGroup?.properties?.created?.time ? formatDate(modelGroup.properties.createdAt) : '-'}</InfoItemContent>
+                    <InfoItemContent>{modelGroup?.properties?.created?.time ? formatDate(modelGroup.properties?.created?.time) : '-'}</InfoItemContent>
                 </InfoItem>
                 <InfoItem title="Last Modified At">
-                    <InfoItemContent>{modelGroup?.properties?.lastModified?.time ? formatDate(modelGroup.properties.lastModified) : '-'}</InfoItemContent>
+                    <InfoItemContent>{modelGroup?.properties?.lastModified?.time ? formatDate(modelGroup.properties?.lastModified?.time) : '-'}</InfoItemContent>
                 </InfoItem>
                 {modelGroup?.properties?.created?.actor && (
                     <InfoItem title="Created By">
