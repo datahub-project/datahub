@@ -24,7 +24,7 @@ const solutionsDropdownContent = {
             title: "DataHub Core",
             description: "Get started with the Open Source platform.",
             iconImage: "/img/solutions/icon-dropdown-core.png",
-            href: "/",
+            href: "/docs/quickstart",
         },
         {
             title: "Cloud vs Core",
