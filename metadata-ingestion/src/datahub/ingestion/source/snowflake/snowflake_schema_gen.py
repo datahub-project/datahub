@@ -427,78 +427,36 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags != TagOption.skip:
-            snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
-                schema_name=schema_name, db_name=db_name, domain="schema"
-            )
+            self._process_tags(snowflake_schema, schema_name, db_name, domain="schema")
 
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
-        # We need to do this first so that we can use it when fetching columns.
+        tables, views, streams = [], [], []
+
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
-        if self.config.include_views:
-            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
-
-        if self.config.include_streams:
-            self.streams = self.fetch_streams_for_schema(
-                snowflake_schema, db_name, schema_name
+            db_tables[schema_name] = tables
+            yield from self._process_tables(
+                tables, snowflake_schema, db_name, schema_name
             )
 
-        if self.config.include_tables:
-            db_tables[schema_name] = tables
-
-            if self.config.include_technical_schema:
-                data_reader = self.make_data_reader()
-                for table in tables:
-                    table_wu_generator = self._process_table(
-                        table, snowflake_schema, db_name
-                    )
-
-                    yield from classification_workunit_processor(
-                        table_wu_generator,
-                        self.classification_handler,
-                        data_reader,
-                        [db_name, schema_name, table.name],
-                    )
-
         if self.config.include_views:
-            if self.aggregator:
-                for view in views:
-                    view_identifier = self.identifiers.get_dataset_identifier(
-                        view.name, schema_name, db_name
-                    )
-                    if view.is_secure and not view.view_definition:
-                        view.view_definition = self.fetch_secure_view_definition(
-                            view.name, schema_name, db_name
-                        )
-                    if view.view_definition:
-                        self.aggregator.add_view_definition(
-                            view_urn=self.identifiers.gen_dataset_urn(view_identifier),
-                            view_definition=view.view_definition,
-                            default_db=db_name,
-                            default_schema=schema_name,
-                        )
-                    elif view.is_secure:
-                        self.report.num_secure_views_missing_definition += 1
-
-            if self.config.include_technical_schema:
-                for view in views:
-                    yield from self._process_view(view, snowflake_schema, db_name)
-
-        if self.config.include_technical_schema and snowflake_schema.tags:
-            for tag in snowflake_schema.tags:
-                yield from self._process_tag(tag)
+            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+            yield from self._process_views(
+                views, snowflake_schema, db_name, schema_name
+            )
 
         if self.config.include_streams:
-            for stream in self.streams:
-                yield from self._process_stream(stream, snowflake_schema, db_name)
+            streams = self.fetch_streams_for_schema(
+                snowflake_schema, db_name, schema_name
+            )
+            yield from self._process_streams(streams, snowflake_schema, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
-            for tag in snowflake_schema.tags:
-                yield from self._process_tag(tag)
+            yield from self._process_tags_in_schema(snowflake_schema)
 
         if (
             not snowflake_schema.views
@@ -510,6 +468,71 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 message="If objects exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
+
+    def _process_tags(self, snowflake_schema, schema_name, db_name, domain):
+        snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
+            schema_name=schema_name, db_name=db_name, domain=domain
+        )
+
+    def _process_tables(
+        self,
+        tables: list,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.config.include_technical_schema:
+            data_reader = self.make_data_reader()
+            for table in tables:
+                table_wu_generator = self._process_table(
+                    table, snowflake_schema, db_name
+                )
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    data_reader,
+                    [db_name, schema_name, table.name],
+                )
+
+    def _process_views(
+        self,
+        views: list,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.aggregator:
+            for view in views:
+                view_identifier = self.identifiers.get_dataset_identifier(
+                    view.name, schema_name, db_name
+                )
+                if view.is_secure and not view.view_definition:
+                    view.view_definition = self.fetch_secure_view_definition(
+                        view.name, schema_name, db_name
+                    )
+                if view.view_definition:
+                    self.aggregator.add_view_definition(
+                        view_urn=self.identifiers.gen_dataset_urn(view_identifier),
+                        view_definition=view.view_definition,
+                        default_db=db_name,
+                        default_schema=schema_name,
+                    )
+                elif view.is_secure:
+                    self.report.num_secure_views_missing_definition += 1
+
+        if self.config.include_technical_schema:
+            for view in views:
+                yield from self._process_view(view, snowflake_schema, db_name)
+
+    def _process_streams(
+        self, streams: list, snowflake_schema: SnowflakeSchema, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        for stream in streams:
+            yield from self._process_stream(stream, snowflake_schema, db_name)
+
+    def _process_tags_in_schema(self, snowflake_schema):
+        for tag in snowflake_schema.tags:
+            yield from self._process_tag(tag)
 
     def fetch_secure_view_definition(
         self, table_name: str, schema_name: str, db_name: str
@@ -973,7 +996,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         ).as_workunit()
 
     def gen_column_tags_as_structured_properties(
-        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream]
+        self,
+        dataset_urn: str,
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
