@@ -3,7 +3,11 @@ from typing import Any, Dict, List
 import pytest
 
 import datahub.ingestion.source.tableau.tableau_constant as c
-from datahub.ingestion.source.tableau.tableau import TableauSiteSource
+from datahub.ingestion.source.tableau.tableau import (
+    DEFAULT_PAGE_SIZE,
+    TableauPageSizeConfig,
+    TableauSiteSource,
+)
 from datahub.ingestion.source.tableau.tableau_common import (
     get_filter_pages,
     make_filter,
@@ -247,3 +251,100 @@ def test_optimize_query_filter_handles_no_duplicates():
     assert len(result) == 2
     assert result[c.ID_WITH_IN] == ["id1", "id2"]
     assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
+
+
+class TestTableauPageSizeConfig:
+    def test_defaults(self):
+        config = TableauPageSizeConfig()
+        assert config.effective_database_server_page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_workbook_page_size == 1
+        assert config.effective_sheet_page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_dashboard_page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_embedded_datasource_page_size == DEFAULT_PAGE_SIZE
+        assert (
+            config.effective_embedded_datasource_field_upstream_page_size
+            == DEFAULT_PAGE_SIZE * 10
+        )
+        assert config.effective_published_datasource_page_size == DEFAULT_PAGE_SIZE
+        assert (
+            config.effective_published_datasource_field_upstream_page_size
+            == DEFAULT_PAGE_SIZE * 10
+        )
+        assert config.effective_custom_sql_table_page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_database_table_page_size == DEFAULT_PAGE_SIZE
+
+    def test_page_size_fallbacks(self):
+        page_size = 33
+        config = TableauPageSizeConfig(page_size=page_size)
+        assert config.effective_database_server_page_size == page_size
+        assert config.effective_workbook_page_size == 1
+        assert config.effective_sheet_page_size == page_size
+        assert config.effective_dashboard_page_size == page_size
+        assert config.effective_embedded_datasource_page_size == page_size
+        assert (
+            config.effective_embedded_datasource_field_upstream_page_size
+            == page_size * 10
+        )
+        assert config.effective_published_datasource_page_size == page_size
+        assert (
+            config.effective_published_datasource_field_upstream_page_size
+            == page_size * 10
+        )
+        assert config.effective_custom_sql_table_page_size == page_size
+        assert config.effective_database_table_page_size == page_size
+
+    def test_fine_grained(self):
+        any_page_size = 55
+        config = TableauPageSizeConfig(database_server_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_database_server_page_size == any_page_size
+
+        config = TableauPageSizeConfig(workbook_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_workbook_page_size == any_page_size
+
+        config = TableauPageSizeConfig(workbook_page_size=None)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_workbook_page_size == DEFAULT_PAGE_SIZE
+
+        config = TableauPageSizeConfig(sheet_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_sheet_page_size == any_page_size
+
+        config = TableauPageSizeConfig(dashboard_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_dashboard_page_size == any_page_size
+
+        config = TableauPageSizeConfig(embedded_datasource_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_embedded_datasource_page_size == any_page_size
+
+        config = TableauPageSizeConfig(
+            embedded_datasource_field_upstream_page_size=any_page_size
+        )
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert (
+            config.effective_embedded_datasource_field_upstream_page_size
+            == any_page_size
+        )
+
+        config = TableauPageSizeConfig(published_datasource_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_published_datasource_page_size == any_page_size
+
+        config = TableauPageSizeConfig(
+            published_datasource_field_upstream_page_size=any_page_size
+        )
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert (
+            config.effective_published_datasource_field_upstream_page_size
+            == any_page_size
+        )
+
+        config = TableauPageSizeConfig(custom_sql_table_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_custom_sql_table_page_size == any_page_size
+
+        config = TableauPageSizeConfig(database_table_page_size=any_page_size)
+        assert config.page_size == DEFAULT_PAGE_SIZE
+        assert config.effective_database_table_page_size == any_page_size

@@ -344,59 +344,18 @@ class PermissionIngestionConfig(ConfigModel):
     )
 
 
-class TableauConfig(
-    DatasetLineageProviderConfigBase,
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    TableauConnectionConfig,
-):
-    projects: Optional[List[str]] = Field(
-        default=["default"],
-        description="[deprecated] Use project_pattern instead. List of tableau "
-        "projects ",
-    )
-    _deprecate_projects = pydantic_field_deprecated("projects")
-    # Tableau project pattern
-    project_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="[deprecated] Use project_path_pattern instead. Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
-        "By default, all Projects nested inside a matching Project will be included in ingestion. "
-        "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
-        "Deny patterns always take precedence over allow patterns. "
-        "By default, all projects will be ingested.",
-    )
-    _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
+class TableauPageSizeConfig(ConfigModel):
+    """
+    Configuration for setting page sizes for different Tableau metadata objects.
 
-    project_path_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
-        " This is also useful when you need to exclude all nested projects under a particular project."
-        " You can allow or deny projects by specifying their path or a regular expression pattern."
-        " Deny patterns always override allow patterns."
-        " By default, all projects are ingested.",
-    )
+    Some considerations:
+    - All have default values, so no setting is mandatory.
+    - In general, with the `effective_` methods, if not specifically set fine-grained metrics fallback to `page_size`
+    or correlate with `page_size`.
 
-    project_path_separator: str = Field(
-        default="/",
-        description="The separator used for the project_path_pattern field between project names. By default, we use a slash. "
-        "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
-    )
-
-    default_schema_map: Dict[str, str] = Field(
-        default={}, description="Default schema to use when schema is not found."
-    )
-    ingest_tags: Optional[bool] = Field(
-        default=False,
-        description="Ingest Tags from source. This will override Tags entered from UI",
-    )
-    ingest_owner: Optional[bool] = Field(
-        default=False,
-        description="Ingest Owner from source. This will override Owner info entered from UI",
-    )
-    ingest_tables_external: bool = Field(
-        default=False,
-        description="Ingest details for tables external to (not embedded in) tableau as entities.",
-    )
+    Measuring the impact of changing these values can be done by looking at the
+    `num_(filter_|paginated_)?queries_by_connection_type` metrics in the report.
+    """
 
     page_size: int = Field(
         default=DEFAULT_PAGE_SIZE,
@@ -466,7 +425,7 @@ class TableauConfig(
     # To increase the batching and so reduce the number of queries, we can increase the page size for that
     # particular case.
     #
-    # `num_(filter_|paginated_)?queries_by_connection_type` metrics in the report will help to understand the impact of this change.
+    # That's why unless specifically set, we will effectively use 10 times the page size as the default page size.
     embedded_datasource_field_upstream_page_size: Optional[int] = Field(
         default=None,
         description="[advanced] Number of upstream fields to query at a time for embedded datasources using the Tableau API; fallbacks to `page_size` * 10 if not set.",
@@ -511,6 +470,62 @@ class TableauConfig(
     @property
     def effective_database_table_page_size(self) -> int:
         return self.database_table_page_size or self.page_size
+
+
+class TableauConfig(
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    TableauConnectionConfig,
+    TableauPageSizeConfig,
+):
+    projects: Optional[List[str]] = Field(
+        default=["default"],
+        description="[deprecated] Use project_pattern instead. List of tableau "
+        "projects ",
+    )
+    _deprecate_projects = pydantic_field_deprecated("projects")
+    # Tableau project pattern
+    project_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="[deprecated] Use project_path_pattern instead. Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
+        "By default, all Projects nested inside a matching Project will be included in ingestion. "
+        "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. "
+        "By default, all projects will be ingested.",
+    )
+    _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
+
+    project_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
+        " This is also useful when you need to exclude all nested projects under a particular project."
+        " You can allow or deny projects by specifying their path or a regular expression pattern."
+        " Deny patterns always override allow patterns."
+        " By default, all projects are ingested.",
+    )
+
+    project_path_separator: str = Field(
+        default="/",
+        description="The separator used for the project_path_pattern field between project names. By default, we use a slash. "
+        "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
+    )
+
+    default_schema_map: Dict[str, str] = Field(
+        default={}, description="Default schema to use when schema is not found."
+    )
+    ingest_tags: Optional[bool] = Field(
+        default=False,
+        description="Ingest Tags from source. This will override Tags entered from UI",
+    )
+    ingest_owner: Optional[bool] = Field(
+        default=False,
+        description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    ingest_tables_external: bool = Field(
+        default=False,
+        description="Ingest details for tables external to (not embedded in) tableau as entities.",
+    )
 
     env: str = Field(
         default=builder.DEFAULT_ENV,
