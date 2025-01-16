@@ -1204,7 +1204,6 @@ enum EntityType {
   INCIDENT
 
   """
-  "
   A Role from an organisation
   """
   ROLE
@@ -1215,31 +1214,26 @@ enum EntityType {
   DATA_CONTRACT
 
   """
-  "
   An structured property on entities
   """
   STRUCTURED_PROPERTY
 
   """
-  "
   A form entity on entities
   """
   FORM
 
   """
-  "
   A data type registered to DataHub
   """
   DATA_TYPE
 
   """
-  "
   A type of entity registered to DataHub
   """
   ENTITY_TYPE
 
   """
-  "
   A type of entity that is restricted to the user
   """
   RESTRICTED
