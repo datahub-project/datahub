@@ -27,6 +27,8 @@ from datahub.errors import SdkUsageError
 from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
+    DataJobUrn,
+    DatasetUrn,
     OwnershipTypeUrn,
     TagUrn,
     Urn,
@@ -37,6 +39,9 @@ if TYPE_CHECKING:
     from datahub.sdk.container import Container
 
 UrnOrStr: TypeAlias = Union[Urn, str]
+DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
+DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
+
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
 
