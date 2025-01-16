@@ -45,6 +45,12 @@ _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
+if sys.version_info >= (3, 12):
+    click.secho(
+        "Python versions above 3.11 are not tested with. Please use Python 3.11.",
+        fg="red",
+    )
+
 
 @click.group(
     context_settings=dict(
