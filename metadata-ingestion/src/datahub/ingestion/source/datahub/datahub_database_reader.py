@@ -109,37 +109,34 @@ class DataHubDatabaseReader:
         # Relies on createdon order to reflect version order
         # Ordering of entries with the same createdon is handled by VersionOrderer
         return f"""
-        SELECT *
-        FROM (
-            SELECT
-                mav.urn,
-                mav.aspect,
-                mav.metadata,
-                mav.systemmetadata,
-                mav.createdon,
-                mav.version,
-                removed
-            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
-            LEFT JOIN (
+        WITH non_removed_entities AS (
+            SELECT urn
+            FROM (
                 SELECT
-                    *,
+                    urn,
                     JSON_EXTRACT(metadata, '$.removed') as removed
                 FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
-                WHERE aspect = 'status'
-                AND version = 0
-            ) as sd ON sd.urn = mav.urn
-            WHERE 1 = 1
-                {"" if self.config.include_all_versions else "AND mav.version = 0"}
-                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
-                AND mav.createdon >= %(since_createdon)s
-            ORDER BY
-                createdon,
-                urn,
-                aspect,
-                version
-        ) as t
+                WHERE 1=1
+                  AND aspect = 'status'
+                  AND version = 0
+            ) as removal_status
+            WHERE (removal_status.removed = false OR removal_status.removed IS NULL)
+        )
+        SELECT
+            mav.urn,
+            mav.aspect,
+            mav.metadata,
+            mav.systemmetadata,
+            mav.createdon,
+            mav.version
+        FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
+        {"" if self.config.include_soft_deleted_entities else "LEFT JOIN non_removed_entities as nre ON nre.urn = mav.urn"}
         WHERE 1=1
-            {"" if self.config.include_soft_deleted_entities else "AND (removed = false or removed is NULL)"}
+            AND {"1=1" if self.config.include_all_versions else "mav.version = 0"}
+            AND {"1=1" if not self.config.exclude_aspects else "mav.aspect NOT IN %(exclude_aspects)s"}
+            AND mav.createdon >= %(since_createdon)s
+            AND mav.createdon < %(before_createdon)s
+            AND {"1=1" if self.config.include_soft_deleted_entities else "nre.urn IS NOT NULL"}
         ORDER BY
             createdon,
             urn,
@@ -150,8 +147,10 @@ class DataHubDatabaseReader:
     def execute_server_cursor(
         self, query: str, params: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
+        dialect = self.engine.dialect.name
+        logger.info(f"Executing {dialect} query: {query} with params: {params}")
         with self.engine.connect() as conn:
-            if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
+            if dialect in ["postgresql", "mysql", "mariadb"]:
                 with conn.begin():  # Transaction required for PostgreSQL server-side cursor
                     # Note that stream_results=True is mainly supported by PostgreSQL and MySQL-based dialects.
                     # https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Connection.execution_options.params.stream_results
@@ -163,7 +162,7 @@ class DataHubDatabaseReader:
                     for row in result:
                         yield dict(row)
             else:
-                raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
+                raise ValueError(f"Unsupported dialect: {dialect}")
 
     def _get_rows(
         self, from_createdon: datetime, stop_time: datetime
@@ -171,6 +170,7 @@ class DataHubDatabaseReader:
         params = {
             "exclude_aspects": list(self.config.exclude_aspects),
             "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
+            "before_createdon": stop_time.strftime(DATETIME_FORMAT),
         }
         yield from self.execute_server_cursor(self.query, params)
 
