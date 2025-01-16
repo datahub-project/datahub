@@ -1,0 +1,22 @@
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+ .dropdownNavbarItemMobile {
+  cursor: pointer;
+}
+
+.dropdown__menu {
+  width: fit-content;
+  height: fit-content;
+  padding: 1rem;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.98219rem;
+  border-radius: var(--number-scales-2s-20, 1.25rem);
+  background: #FFF;
+  box-shadow: 0px 16px 16px 0px rgba(0, 0, 0, 0.25);
+}

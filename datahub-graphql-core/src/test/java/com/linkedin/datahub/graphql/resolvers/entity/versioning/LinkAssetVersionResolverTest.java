@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.LinkVersionInput;
+import com.linkedin.datahub.graphql.generated.VersionSet;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
@@ -56,8 +57,8 @@ public class LinkAssetVersionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    String result = resolver.get(mockEnv).get();
-    assertEquals(result, TEST_ENTITY_URN);
+    VersionSet result = resolver.get(mockEnv).get();
+    assertEquals(result.getUrn(), TEST_ENTITY_URN);
   }
 
   @Test
