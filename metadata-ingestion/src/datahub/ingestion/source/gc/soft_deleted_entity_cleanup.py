@@ -276,10 +276,11 @@ class SoftDeletedEntitiesCleanup:
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
-            if not scroll_across_entities or not scroll_across_entities.get("count"):
+            if not scroll_across_entities:
                 break
             search_results = scroll_across_entities.get("searchResults")
-            if not search_results:
+            count = scroll_across_entities.get("count")
+            if not count or not search_results:
                 # Due to a server bug we cannot rely on just count as it was returning response like this
                 # {'count': 1, 'nextScrollId': None, 'searchResults': []}
                 break
