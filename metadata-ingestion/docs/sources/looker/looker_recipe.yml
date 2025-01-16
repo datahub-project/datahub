@@ -20,7 +20,7 @@ source:
     #   db: "test-db"
 
     # LookML Constant
-    # lookml_constant:
+    # lookml_constants:
     #   star_award_winner_year: "public.winner_2025"
 
 # sink configs

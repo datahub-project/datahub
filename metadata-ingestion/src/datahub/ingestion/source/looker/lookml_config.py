@@ -165,11 +165,12 @@ class LookMLSourceConfig(
         "view.sql_table_name. Defaults to an empty dictionary.",
     )
 
-    lookml_constant: Dict[str, str] = Field(
+    lookml_constants: Dict[str, str] = Field(
         {},
         description=(
-            "A dictionary containing LookML constant (`@{constant_name}`) and their values. "
-            "Parameters are used to define dynamic references in LookML views, such as `view.sql_table_name`."
+            "A dictionary containing LookML constants (`@{constant_name}`) and their values. "
+            "If a constant is defined in the `manifest.lkml` file, its value will be used. "
+            "If not found in the manifest, the value from this config will be used instead. "
             "Defaults to an empty dictionary."
         ),
     )

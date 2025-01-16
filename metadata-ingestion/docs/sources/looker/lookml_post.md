@@ -8,24 +8,20 @@
        db: ANALYTICS_PROD
    ```
 
-2. If a view contains a LookML constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value will be resolved by first checking the manifest file and, if not found, then checking the config as shown below:.
+2. If a view contains a LookML constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value is resolved in the following order:
 
-   ```yml
-   lookml_constant:
-     db: ANALYTICS_PROD
-   ```
+- **First, checks the `manifest.lkml` file** for the constant definition.
+    ```manifest.lkml
+      constant: db {
+          value: "ANALYTICS_PROD"
+      }
+    ```
+- **If not found, falls back to `config`**
 
-   **Example**:
-
-   ```lkml
-   sql_table_name: @{db}.kafka_streaming.events;;
-   ```
-
-   **Resolved Output**:
-
-   ```
-   ANALYTICS_PROD.kafka_streaming.events
-   ```
+  ```yml
+  lookml_constants:
+    db: ANALYTICS_PROD
+  ``` 
 
 ### Multi-Project LookML (Advanced)
 
