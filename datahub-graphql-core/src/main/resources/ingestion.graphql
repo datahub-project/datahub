@@ -15,7 +15,9 @@ extend type Query {
   """
   List all ingestion sources
   """
-  listIngestionSources(input: ListIngestionSourcesInput!): ListIngestionSourcesResult
+  listIngestionSources(
+    input: ListIngestionSourcesInput!
+  ): ListIngestionSourcesResult
 
   """
   Fetch a specific ingestion source
@@ -54,7 +56,10 @@ extend type Mutation {
   """
   Update an existing ingestion source
   """
-  updateIngestionSource(urn: String!, input: UpdateIngestionSourceInput!): String
+  updateIngestionSource(
+    urn: String!
+    input: UpdateIngestionSourceInput!
+  ): String
 
   """
   Delete an existing ingestion source
@@ -65,12 +70,16 @@ extend type Mutation {
   Create a request to execute an ingestion job
   input: Input required for creating an ingestion execution request
   """
-  createIngestionExecutionRequest(input: CreateIngestionExecutionRequestInput!): String
+  createIngestionExecutionRequest(
+    input: CreateIngestionExecutionRequestInput!
+  ): String
 
   """
   Cancel a running execution request, provided the urn of the original execution request
   """
-  cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
+  cancelIngestionExecutionRequest(
+    input: CancelIngestionExecutionRequestInput!
+  ): String
 
   """
   Create a request to execute a test ingestion connection job
@@ -152,7 +161,6 @@ type ExecutionRequestResult {
   A structured report for this Execution Request
   """
   structuredReport: StructuredReport
-
 }
 
 """
@@ -196,7 +204,6 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
-
 }
 
 """
@@ -353,7 +360,6 @@ type IngestionConfig {
 The runs associated with an Ingestion Source managed by DataHub
 """
 type IngestionRun {
-
   """
   The urn of the execution request associated with the user
   """
@@ -604,10 +610,10 @@ input UpdateSecretInput {
 Input arguments for retrieving the plaintext values of a set of secrets
 """
 input GetSecretValuesInput {
-   """
-   A list of secret names
-   """
-   secrets: [String!]!
+  """
+  A list of secret names
+  """
+  secrets: [String!]!
 }
 
 """
@@ -634,4 +640,3 @@ input RollbackIngestionInput {
   """
   runId: String!
 }
-
