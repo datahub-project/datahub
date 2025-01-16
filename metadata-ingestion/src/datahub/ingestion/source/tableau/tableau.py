@@ -2829,7 +2829,7 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Emmitting tables that came from Tableau metadata
+        # Emitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
             query=database_tables_graphql_query,
             connection_type=c.DATABASE_TABLES_CONNECTION,
