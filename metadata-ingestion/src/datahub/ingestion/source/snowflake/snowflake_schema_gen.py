@@ -973,7 +973,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         ).as_workunit()
 
     def gen_column_tags_as_structured_properties(
-        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView]
+        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream]
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
