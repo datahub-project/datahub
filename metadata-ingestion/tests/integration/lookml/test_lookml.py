@@ -18,7 +18,10 @@ from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
     resolve_liquid_variable,
 )
-from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_config import (
+    LookMLSourceConfig,
+    LookMLSourceReport,
+)
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -823,8 +826,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
 
     manifest = load_and_preprocess_file(
-        path=manifest_file,
-        source_config=MagicMock(),
+        path=manifest_file, source_config=MagicMock(), reporter=LookMLSourceReport()
     )
 
     assert manifest
@@ -869,15 +871,11 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
             "dev_database_prefix": "employee",
             "dev_schema_prefix": "public",
         },
-        "_dev_database_attributes": {
-            "dev_database_prefix": "customer",
-        },
         "dw_eff_dt_date": {
             "_is_selected": True,
         },
         "source_region": "ap-south-1",
     }
-    new_recipe["source"]["config"]["lookml_constant"] = {"winner_table": "dev"}
 
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
@@ -885,6 +883,31 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
     pipeline.raise_from_status(raise_warnings=True)
 
     golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "vv_lineage_lookml_constant_golden.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/vv-lineage-and-lookml-constant",
+    )
+
+    new_recipe["source"]["config"]["lookml_constants"] = {"winner_table": "dev"}
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "vv_lineage_lookml_constant_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,
@@ -956,8 +979,7 @@ def test_special_liquid_variables():
 
     # Match template after resolution of liquid variables
     actual_text = resolve_liquid_variable(
-        text=text,
-        liquid_variable=input_liquid_variable,
+        text=text, liquid_variable=input_liquid_variable, report=LookMLSourceReport()
     )
 
     expected_text: str = (

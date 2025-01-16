@@ -10,9 +10,6 @@ include: "environment_activity_logs.view.lkml"
 include: "employee_income_source_as_per_env.view.lkml"
 include: "rent_as_employee_income_source.view.lkml"
 include: "child_view.view.lkml"
-include: "star_award_winner.view.lkml"
-include: "star_award_winner_dev.view.lkml"
-
 
 explore: activity_logs {
 }
@@ -42,10 +39,4 @@ explore: rent_as_employee_income_source {
 }
 
 explore: child_view {
-}
-
-explore: star_award_winner {
-}
-
-explore: star_award_winner_dev {
 }
