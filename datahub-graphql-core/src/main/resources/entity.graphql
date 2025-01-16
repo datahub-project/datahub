@@ -12061,7 +12061,6 @@ The subject for a Query
 type QuerySubject {
   """
   The dataset which is the subject of the Query.
-  If schemaField is not empty, this field represents the parent dataset of the schmeaField.
   """
   dataset: Dataset!
 }
