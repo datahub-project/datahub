@@ -280,6 +280,8 @@ class SoftDeletedEntitiesCleanup:
                 break
             search_results = scroll_across_entities.get("searchResults")
             if not search_results:
+                # Due to a server bug we cannot rely on just count as it was returning response like this
+                # {'count': 1, 'nextScrollId': None, 'searchResults': []}
                 break
             if entity_type == "DATA_PROCESS_INSTANCE":
                 # Temp workaround. See note in beginning of the function
