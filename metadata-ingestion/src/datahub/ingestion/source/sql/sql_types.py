@@ -93,7 +93,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "regtype": None,
     "regrole": None,
     "regnamespace": None,
-    "super": None,
+    "super": NullType,
     "uuid": StringType,
     "pg_lsn": None,
     "tsvector": None,  # text search vector
@@ -384,7 +384,6 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "varchar": StringType,
     "char": StringType,
     "varbinary": BytesType,
-    "json": RecordType,
     "date": DateType,
     "time": TimeType,
     "timestamp": TimeType,

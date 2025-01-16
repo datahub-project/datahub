@@ -36,7 +36,7 @@ def my_logging_fn():
     logger.warning("This is a warning message")
     logger.error("this is an error with no stack trace")
     try:
-        1 / 0
+        _ = 1 / 0
     except ZeroDivisionError:
         logger.exception("failed to divide by zero")
 
