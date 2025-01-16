@@ -1,5 +1,3 @@
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-
 import collections
 import concurrent.futures
 import contextlib
@@ -12,6 +10,7 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
