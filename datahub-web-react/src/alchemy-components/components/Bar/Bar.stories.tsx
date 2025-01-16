@@ -35,7 +35,7 @@ const meta: Meta<typeof Bar> = {
         size: {
             description: 'Size of the bars.',
             control: 'select',
-            options: ['small', 'default'],
+            options: ['sm', 'lg', 'default'],
             table: {
                 defaultValue: { summary: 'default' },
             },
