@@ -169,7 +169,7 @@ class PlatformDetail(ConfigModel):
     )
     include_schema_in_urn: bool = pydantic.Field(
         default=True,
-        description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the connector name.",
+        description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
     )
 
 
