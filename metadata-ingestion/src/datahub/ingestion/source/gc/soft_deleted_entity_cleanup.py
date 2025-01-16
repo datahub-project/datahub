@@ -99,7 +99,8 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
 
 @dataclass
 class SoftDeletedEntitiesReport(SourceReport):
-    num_queries_found: int = 0
+    num_calls_made: Dict[str, int] = field(default_factory=dict)
+    num_entities_found: Dict[str, int] = field(default_factory=dict)
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
     num_soft_deleted_entity_removal_started: int = 0
@@ -231,8 +232,22 @@ class SoftDeletedEntitiesCleanup:
     def _get_soft_deleted(self, graphql_query: str, entity_type: str) -> Iterable[str]:
         assert self.ctx.graph
         scroll_id: Optional[str] = None
+
+        batch_size = self.config.batch_size
+        if entity_type == "DATA_PROCESS_INSTANCE":
+            # Due to a bug in Data process instance querying this is a temp workaround
+            # to avoid a giant stacktrace by having a smaller batch size in first call
+            # This will be remove in future version after server with fix has been
+            # around for a while
+            batch_size = 10
+
         while True:
             try:
+                if entity_type not in self.report.num_calls_made:
+                    self.report.num_calls_made[entity_type] = 1
+                else:
+                    self.report.num_calls_made[entity_type] += 1
+                self._print_report()
                 result = self.ctx.graph.execute_graphql(
                     graphql_query,
                     {
@@ -240,7 +255,7 @@ class SoftDeletedEntitiesCleanup:
                             "types": [entity_type],
                             "query": "*",
                             "scrollId": scroll_id if scroll_id else None,
-                            "count": self.config.batch_size,
+                            "count": batch_size,
                             "orFilters": [
                                 {
                                     "and": [
@@ -261,11 +276,25 @@ class SoftDeletedEntitiesCleanup:
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
-            if not scroll_across_entities or not scroll_across_entities.get("count"):
+            if not scroll_across_entities:
                 break
+            search_results = scroll_across_entities.get("searchResults")
+            count = scroll_across_entities.get("count")
+            if not count or not search_results:
+                # Due to a server bug we cannot rely on just count as it was returning response like this
+                # {'count': 1, 'nextScrollId': None, 'searchResults': []}
+                break
+            if entity_type == "DATA_PROCESS_INSTANCE":
+                # Temp workaround. See note in beginning of the function
+                # We make the batch size = config after call has succeeded once
+                batch_size = self.config.batch_size
             scroll_id = scroll_across_entities.get("nextScrollId")
-            self.report.num_queries_found += scroll_across_entities.get("count")
-            for query in scroll_across_entities.get("searchResults"):
+            if entity_type not in self.report.num_entities_found:
+                self.report.num_entities_found[entity_type] = 0
+            self.report.num_entities_found[entity_type] += scroll_across_entities.get(
+                "count"
+            )
+            for query in search_results:
                 yield query["entity"]["urn"]
 
     def _get_urns(self) -> Iterable[str]:
