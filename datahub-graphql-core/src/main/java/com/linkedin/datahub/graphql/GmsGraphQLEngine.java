@@ -58,6 +58,7 @@ import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
+import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
@@ -662,7 +663,7 @@ public class GmsGraphQLEngine {
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
     this.postType = new PostType(entityClient);
-    this.dataProcessInstanceType = new DataProcessInstanceType(entityClient);
+    this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -1056,6 +1057,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("tag", getResolver(tagType))
                 .dataFetcher("dataFlow", getResolver(dataFlowType))
                 .dataFetcher("dataJob", getResolver(dataJobType))
+                .dataFetcher("dataProcessInstance", getResolver(dataProcessInstanceType))
                 .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
                 .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
                 .dataFetcher("domain", getResolver((domainType)))
@@ -3305,6 +3307,35 @@ public class GmsGraphQLEngine {
         "DataProcessInstance",
         typeWiring ->
             typeWiring
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        (env) -> {
+                          final DataProcessInstance dataProcessInstance = env.getSource();
+                          return dataProcessInstance.getDataPlatformInstance() != null
+                              ? dataProcessInstance.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final DataProcessInstance dataProcessInstance = env.getSource();
+                          return dataProcessInstance.getPlatform() != null
+                              ? dataProcessInstance.getPlatform().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher(
+                    "container",
+                    new LoadableTypeResolver<>(
+                        containerType,
+                        (env) -> {
+                          final DataProcessInstance dpi = env.getSource();
+                          return dpi.getContainer() != null ? dpi.getContainer().getUrn() : null;
+                        }))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",

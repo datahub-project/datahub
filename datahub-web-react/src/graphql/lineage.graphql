@@ -280,6 +280,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         name
         description
         origin
+        tags {
+            ...globalTagsFields
+        }
         platform {
             ...platformFields
         }
@@ -288,6 +291,22 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        properties {
+            createdTS: created {
+                time
+                actor
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        editableProperties {
+            description
         }
         structuredProperties {
             properties {
@@ -359,6 +378,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on Restricted {
         urn
         type
+    }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
     }
 }
 
