@@ -270,9 +270,9 @@ def test_tableau_upstream_reference():
     assert ref.connection_type == "snowflake"
 
     try:
-        ref = TableauUpstreamReference.create(None)
-        assert (
-            False
-        ), "TableauUpstreamReference.create with None should have raised exception"
+        ref = TableauUpstreamReference.create(None)  # type: ignore[arg-type]
+        raise AssertionError(
+            "TableauUpstreamReference.create with None should have raised exception"
+        )
     except ValueError:
         assert True
