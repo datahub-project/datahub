@@ -11,9 +11,10 @@ from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import SdkUsageError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.metadata.urns import DatajobUrn, DatasetUrn, SchemaFieldUrn, Urn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ContainerInputType,
+    DatasetUrnOrStr,
     Entity,
     HasContainer,
     HasOwnership,
@@ -24,10 +25,6 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
-
-UrnOrStr: TypeAlias = Union[str, Urn]
-DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
-DatajobUrnOrStr: TypeAlias = Union[str, DatajobUrn]
 
 
 class DatasetEditMode(Enum):
@@ -55,12 +52,14 @@ UpstreamInputType: TypeAlias = Union[
     # Column upstream variants.
     models.FineGrainedLineageClass,
 ]
+# Mapping of { downstream_column -> [upstream_columns] }
+ColumnLineageMapping: TypeAlias = Dict[str, List[str]]
 UpstreamLineageInputType: TypeAlias = Union[
     models.UpstreamLineageClass,
     List[UpstreamInputType],
     # Combined variant.
     # Map of { upstream_dataset -> { downstream_column -> [upstream_column] } }
-    Dict[DatasetUrnOrStr, Dict[str, List[str]]],
+    Dict[DatasetUrnOrStr, ColumnLineageMapping],
 ]
 
 
@@ -78,6 +77,28 @@ def _parse_upstream_input(
         )
     else:
         assert_never(upstream_input)
+
+
+def _parse_cll_mapping(
+    *,
+    upstream: DatasetUrnOrStr,
+    downstream: DatasetUrnOrStr,
+    cll_mapping: ColumnLineageMapping,
+) -> List[models.FineGrainedLineageClass]:
+    cll = []
+    for downstream_column, upstream_columns in cll_mapping.items():
+        cll.append(
+            models.FineGrainedLineageClass(
+                upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[
+                    SchemaFieldUrn(upstream, upstream_column).urn()
+                    for upstream_column in upstream_columns
+                ],
+                downstreams=[SchemaFieldUrn(downstream, downstream_column).urn()],
+            )
+        )
+    return cll
 
 
 def _parse_upstream_lineage_input(
@@ -112,19 +133,15 @@ def _parse_upstream_lineage_input(
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
-            for column_name, upstream_columns in column_lineage.items():
-                cll.append(
-                    models.FineGrainedLineageClass(
-                        upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
-                        upstreams=[
-                            SchemaFieldUrn(dataset_urn, upstream_column).urn()
-                            for upstream_column in upstream_columns
-                        ],
-                        downstreams=[SchemaFieldUrn(downstream_urn, column_name).urn()],
-                    )
+            cll.extend(
+                _parse_cll_mapping(
+                    upstream=dataset_urn,
+                    downstream=downstream_urn,
+                    cll_mapping=column_lineage,
                 )
-        raise NotImplementedError("TODO")
+            )
+
+        return models.UpstreamLineageClass(upstreams=tll, fineGrainedLineages=cll)
     else:
         assert_never(upstream_input)
 
