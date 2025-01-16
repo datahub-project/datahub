@@ -5,8 +5,6 @@ import traceback
 from functools import wraps
 from typing import Callable, Tuple, Type, Union
 
-from couchbase.exceptions import CouchbaseException
-
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +36,7 @@ def retry(
                 for retry_number in range(retry_count + 1):
                     try:
                         return func(*args, **kwargs)
-                    except CouchbaseException as err:
+                    except Exception as err:
                         if always_raise_list and isinstance(err, always_raise_list):
                             raise
 
@@ -66,7 +64,7 @@ def retry(
                 for retry_number in range(retry_count + 1):
                     try:
                         return await func(*args, **kwargs)
-                    except CouchbaseException as err:
+                    except Exception as err:
                         if always_raise_list and isinstance(err, always_raise_list):
                             raise
 

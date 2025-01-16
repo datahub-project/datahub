@@ -9,6 +9,7 @@ from acouchbase.scope import AsyncScope
 from couchbase.auth import PasswordAuthenticator
 from couchbase.bucket import Bucket
 from couchbase.cluster import Cluster
+from couchbase.diagnostics import ServiceType
 from couchbase.exceptions import BucketNotFoundException, InternalServerFailureException
 from couchbase.management.buckets import BucketManager, BucketSettings
 from couchbase.management.collections import CollectionManager, ScopeSpec
@@ -17,6 +18,7 @@ from couchbase.options import (
     ClusterTimeoutOptions,
     LockMode,
     TLSVerifyMode,
+    WaitUntilReadyOptions,
 )
 
 from datahub.ingestion.source.couchbase.retry import retry
@@ -68,7 +70,12 @@ class CouchbaseConnect:
     @retry()
     def connect(self) -> Cluster:
         cluster = Cluster.connect(self.cb_connect_string, self.cluster_options)
-        cluster.wait_until_ready(timedelta(seconds=10))
+        cluster.wait_until_ready(
+            timedelta(seconds=10),
+            WaitUntilReadyOptions(
+                service_types=[ServiceType.KeyValue, ServiceType.Query]
+            ),
+        )
         return cluster
 
     @retry(always_raise_list=(BucketNotFoundException,))
@@ -84,7 +91,12 @@ class CouchbaseConnect:
             self.cb_connect_string, self.cluster_options
         )
         await cluster.on_connect()
-        await cluster.wait_until_ready(timedelta(seconds=10))
+        await cluster.wait_until_ready(
+            timedelta(seconds=10),
+            WaitUntilReadyOptions(
+                service_types=[ServiceType.KeyValue, ServiceType.Query]
+            ),
+        )
         return cluster
 
     @retry(always_raise_list=(BucketNotFoundException,))
