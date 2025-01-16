@@ -8,6 +8,10 @@ from couchbase.exceptions import DocumentNotFoundException
 from couchbase.result import GetResult
 
 from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
+from datahub.ingestion.source.couchbase.couchbase_sql import (
+    SELECT_COLLECTION_COUNT,
+    SELECT_DOC_IDS,
+)
 from datahub.ingestion.source.couchbase.retry import retry
 
 logger = logging.getLogger(__name__)
@@ -48,18 +52,30 @@ class CouchbaseAggregate:
             return {}
 
     @retry()
-    async def get_keys(self):
-        query = f"select meta().id from {self.connector.collection_name}"
-        if self.max_sample_size > 0:
-            query += f" limit {self.max_sample_size}"
-
-        keys: List[str] = []
+    async def run_query(
+        self, query: str, offset: int = 0, limit: int = 0
+    ) -> List[dict]:
+        if offset > 0:
+            query += f" OFFSET {offset}"
+        if limit > 0:
+            query += f" LIMIT {limit}"
         result = self.scope.query(query)
-        async for row in result.rows():
-            keys.append(row.get("id"))
+        documents = [row async for row in result]
+        return documents
 
-        for key in keys:
-            yield key
+    async def collection_count(self) -> int:
+        query = SELECT_COLLECTION_COUNT.format(self.connector.collection_name)
+
+        result = await self.run_query(query)
+        document = [row for row in result]
+        return document[0].get("count") if document else 0
+
+    async def get_keys(self):
+        query = SELECT_DOC_IDS.format(self.connector.collection_name)
+
+        results = await self.run_query(query, limit=self.max_sample_size)
+        for row in results:
+            yield row.get("id")
 
     async def get_key_chunks(self) -> AsyncGenerator[List[str], None]:
         keys = []
