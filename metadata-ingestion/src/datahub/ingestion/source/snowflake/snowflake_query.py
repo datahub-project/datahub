@@ -971,7 +971,3 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
-
-    @staticmethod
-    def streams_for_schema(schema_name: str, db_name: str) -> str:
-        return f"""SHOW STREAMS IN SCHEMA {db_name}.{schema_name}"""
