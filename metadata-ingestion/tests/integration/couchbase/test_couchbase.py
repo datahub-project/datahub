@@ -18,6 +18,12 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+retries = Retry(total=5, backoff_factor=2, status_forcelist=[404, 405, 500, 503])
+adapter = HTTPAdapter(max_retries=retries)
+session = requests.Session()
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
 
 class BasicAuth(AuthBase):
     def __init__(self, username, password):
@@ -35,6 +41,27 @@ class BasicAuth(AuthBase):
         return r
 
 
+def http_test_get(url: str, auth: BasicAuth) -> int:
+    response = session.get(
+        url,
+        verify=False,
+        timeout=15,
+        auth=auth,
+    )
+    return response.status_code
+
+
+def http_test_post(url: str, auth: BasicAuth, data: dict) -> int:
+    response = session.post(
+        url,
+        verify=False,
+        timeout=15,
+        auth=auth,
+        data=data,
+    )
+    return response.status_code
+
+
 @pytest.mark.integration_batch_2
 def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/couchbase"
@@ -49,19 +76,18 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
 
         wait_for_port(docker_services, "testdb", 8093)
 
-        retries = Retry(total=5, backoff_factor=1, status_forcelist=[404])
-        adapter = HTTPAdapter(max_retries=retries)
-        session = requests.Session()
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        response = session.get(
+        result = http_test_get(
             "http://127.0.0.1:8091/pools/default/buckets/data",
-            verify=False,
-            timeout=15,
             auth=BasicAuth("Administrator", "password"),
         )
+        assert result == 200
 
-        assert response.status_code == 200
+        result = http_test_post(
+            "http://127.0.0.1:8093/query/service",
+            auth=BasicAuth("Administrator", "password"),
+            data={"statement": "SELECT count(*) as count FROM data.data.customers"},
+        )
+        assert result == 200
 
         time.sleep(2)
 
