@@ -253,6 +253,7 @@ def test_optimize_query_filter_handles_no_duplicates():
     assert result[c.ID_WITH_IN] == ["id1", "id2"]
     assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
 
+
 def test_tableau_upstream_reference():
     d = {
         "id": "7127b695-3df5-4a3a-4837-eb0f4b572337",
@@ -279,7 +280,7 @@ def test_tableau_upstream_reference():
         )
     except ValueError:
         assert True
-    
+
 
 class TestTableauPageSizeConfig:
     def test_defaults(self):
