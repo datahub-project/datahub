@@ -5,9 +5,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
-import TimeRangeSelect from '../components/TimeRangeSelect';
-import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
-import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import NoPermission from '../NoPermission';
 import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHistoryDrawer';
 import ChangeHistoryPopover from './components/ChangeHistoryPopover';
@@ -22,11 +19,7 @@ import useOperationsStatsSummary from './hooks/useGetOperationsSummary';
 import { AnyOperationType, OperationsData } from './types';
 import { addPrefixToOperationType } from './utils';
 
-// DAY, WEEKDAY, ALL time ranges are not available for the change history graph
-const NOT_AVAILABLE_RANGES = [TimeRange.Week];
-const TIME_RANGE_OPTIONS = AGGRAGATION_TIME_RANGE_OPTIONS.filter(
-    (option) => !NOT_AVAILABLE_RANGES.includes(option.value),
-);
+const CHANGE_HISTORY_TIME_RANGE = TimeRange.Year;
 
 export default function ChangeHistoryGraph() {
     const {
@@ -37,30 +30,25 @@ export default function ChangeHistoryGraph() {
         permissions: { canViewDatasetOperations },
     } = useStatsSectionsContext();
 
-    // The time range select
-    const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(TIME_RANGE_OPTIONS, oldestOperationTime);
-    const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>();
-    useEffect(() => {
-        setSelectedTimeRange(
-            timeRangeOptions.length
-                ? (timeRangeOptions[timeRangeOptions.length - 1].value as TimeRange)
-                : TimeRange.Month,
-        );
-    }, [timeRangeOptions, setSelectedTimeRange]);
-
     const { data: summary, customOperationTypes } = useOperationsStatsSummary(
         statsEntityUrn,
-        selectedTimeRange || TimeRange.Month,
+        CHANGE_HISTORY_TIME_RANGE,
     );
 
     // The day details drawer
     const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
-    const [dayOfDayDetailsDrawer, setDayOfDayDetailsDrawer] = useState<string>();
-    const [drawerOperationValue, setDrawerOperationValue] = useState<OperationsData | undefined>();
+    const [dayOfDayDetailsDrawer, setDayOfDayDetailsDrawer] = useState<string | null>();
+    const [drawerOperationValue, setDrawerOperationValue] = useState<OperationsData | undefined | null>();
     const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
         setDayOfDayDetailsDrawer(dayData.day);
         setDrawerOperationValue(dayData.value);
         setIsDayDetailsDrawerShown(true);
+    };
+
+    const hideDayDetailsDrawer = () => {
+        setDayOfDayDetailsDrawer(null);
+        setDrawerOperationValue(null);
+        setIsDayDetailsDrawerShown(false);
     };
 
     // Operation types
@@ -86,16 +74,29 @@ export default function ChangeHistoryGraph() {
         setSelectedOperationTypes([...DEFAULT_OPERATION_TYPES, ...(prefixedCustomOperationTypes ?? [])]);
     }, [prefixedCustomOperationTypes]);
 
+    const toggleOperationType = (operationType: AnyOperationType) => {
+        setSelectedOperationTypes((currentOperations) => {
+            // Untoggling the last type should select all available types
+            if (currentOperations.length === 1 && currentOperations[0] === operationType) {
+                return operationTypesOptions.map((option) => option.value);
+            }
+
+            // In other cases just select single type
+            return [operationType];
+        });
+    };
+
     // The data of change history
     const { data, loading: dataLoading } = useChangeHistoryData(
         statsEntityUrn,
-        selectedTimeRange,
+        CHANGE_HISTORY_TIME_RANGE,
         customOperationTypes,
     );
     // Map of color accessors for day and each operation type
     const colorAccessors = useColorAccessors(summary, data, selectedOperationTypes);
     // The interval of the calendar chart
-    const { startDay: calendarStartDay, endDay: calendarEndDay } = useGetCalendarRangeByTimeRange(selectedTimeRange);
+    const { startDay: calendarStartDay, endDay: calendarEndDay } =
+        useGetCalendarRangeByTimeRange(CHANGE_HISTORY_TIME_RANGE);
     // The interval of the data
     const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(data, oldestOperationTime);
 
@@ -113,7 +114,8 @@ export default function ChangeHistoryGraph() {
                 subTitle={
                     <Subtitle
                         summary={summary}
-                        onTypeClick={(operationType) => setSelectedOperationTypes([operationType])}
+                        onTypeClick={(operationType) => toggleOperationType(operationType)}
+                        selectedOperationTypes={selectedOperationTypes}
                     />
                 }
                 isEmpty={data.length === 0 || !canViewDatasetOperations}
@@ -128,13 +130,6 @@ export default function ChangeHistoryGraph() {
                             onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
                             loading={loading}
                         />
-
-                        <TimeRangeSelect
-                            options={timeRangeOptions}
-                            values={selectedTimeRange ? [selectedTimeRange] : []}
-                            onUpdate={(values) => setSelectedTimeRange(values[0] as TimeRange)}
-                            loading={loading}
-                        />
                     </>
                 )}
                 loading={loading}
@@ -144,7 +139,9 @@ export default function ChangeHistoryGraph() {
                         startDate={calendarStartDay}
                         endDate={calendarEndDay}
                         colorAccessor={colorAccessors.day}
+                        selectedDay={dayOfDayDetailsDrawer}
                         onDayClick={(datum) => showDayDetailsDrawer(datum)}
+                        showPopover={!isDayDetailsDrawerShown}
                         popoverRenderer={(datum) => (
                             <ChangeHistoryPopover
                                 datum={datum}
@@ -165,7 +162,7 @@ export default function ChangeHistoryGraph() {
                     selectedDay={dayOfDayDetailsDrawer}
                     urn={statsEntityUrn}
                     open={isDayDetailsDrawerShown}
-                    onClose={() => setIsDayDetailsDrawerShown(false)}
+                    onClose={() => hideDayDetailsDrawer()}
                     operationTypesOptions={operationTypesOptions}
                     value={drawerOperationValue}
                 />

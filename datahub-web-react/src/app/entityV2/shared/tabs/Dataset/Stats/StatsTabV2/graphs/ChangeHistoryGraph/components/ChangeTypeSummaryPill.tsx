@@ -18,14 +18,18 @@ const Container = styled.div`
 type ChangeTypeSummaryPillProps = {
     operation: Operation;
     onClick?: () => void;
+    selected?: boolean;
 };
 
-export default function ChangeTypeSummaryPill({ operation, onClick }: ChangeTypeSummaryPillProps) {
+export default function ChangeTypeSummaryPill({ operation, onClick, selected }: ChangeTypeSummaryPillProps) {
     const label = useMemo(() => {
         return `${abbreviateNumber(operation.value)} ${pluralize(operation.value, operation.name)}`;
     }, [operation]);
 
-    const colorScheme = useMemo(() => GROUP_TO_PILL_COLOR_MAPPING.get(operation.group), [operation]);
+    const colorScheme = useMemo(
+        () => (selected ? GROUP_TO_PILL_COLOR_MAPPING.get(operation.group) : 'gray'),
+        [operation, selected],
+    );
 
     return (
         <Container>

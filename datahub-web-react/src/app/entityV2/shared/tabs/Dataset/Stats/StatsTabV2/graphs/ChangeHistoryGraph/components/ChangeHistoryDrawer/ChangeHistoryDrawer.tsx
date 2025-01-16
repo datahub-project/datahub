@@ -1,6 +1,6 @@
-import { Drawer, SelectOption, SimpleSelect } from '@components';
+import { Drawer, SelectOption } from '@components';
 import { OperationType } from '@src/types.generated';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { AnyOperationType, OperationsData } from '../../types';
 import TypesSelect from '../TypesSelect';
@@ -10,6 +10,7 @@ import useGetOperations from './useGetOperations';
 import useGetUsers from './useGetUsers';
 import useSelectUserOptions from './useSelectUserOptions';
 import { getUniqueActorsFromOperations } from './utils';
+import UsersSelect from './components/UsersSelect';
 
 const FlexRow = styled.div`
     display: flex;
@@ -33,11 +34,11 @@ const DrawerContent = styled.div`
 
 type ChangeHistoryDrawerProps = {
     urn: string;
-    selectedDay?: string;
+    selectedDay?: string | null;
     onClose: () => void;
     open: boolean;
     operationTypesOptions: SelectOption[];
-    value?: OperationsData;
+    value?: OperationsData | null;
 };
 
 export const ChangeHistoryDrawer = ({
@@ -57,6 +58,7 @@ export const ChangeHistoryDrawer = ({
     );
 
     const [selectedActors, setSelectedActors] = useState<string[]>([]);
+    const [isUsersSelectUpdated, setIsUsersSelectUpdated] = useState<boolean>(false);
 
     const filteredOperationTypesOptions = useMemo(() => {
         return operationTypesOptions.filter((option) => keysFromValue.includes(option.value));
@@ -69,8 +71,9 @@ export const ChangeHistoryDrawer = ({
         urn,
         selectedDay,
         selectedOperationTypes,
-        selectedActors,
+        isUsersSelectUpdated ? selectedActors : undefined,
     );
+
     const actors = useMemo(() => getUniqueActorsFromOperations(operations), [operations]);
     const { users, loading: usersLoading } = useGetUsers(actors);
     // FYI: add 150ms offset before turning loading to false
@@ -79,25 +82,21 @@ export const ChangeHistoryDrawer = ({
     const loading = useDebounceFalse(150, operationsLoading, usersLoading);
     const selectUsersOptions = useSelectUserOptions(users, loading);
 
-    useEffect(() => {
-        if (
-            !selectedActors.every((actor) => selectUsersOptions.filter((option) => option.value === actor).length > 0)
-        ) {
-            setSelectedActors([]);
-        }
-    }, [selectedActors, selectUsersOptions]);
+    const initialSelectedUsers = useMemo(() => selectUsersOptions.map((option) => option.value), [selectUsersOptions]);
 
     return (
         <Drawer title="Change History Details" open={open} onClose={onClose} maskTransparent>
             <DrawerContent>
                 <Controls>
                     <ControlWrapper>
-                        <SimpleSelect
-                            placeholder="User"
+                        <UsersSelect
                             options={selectUsersOptions}
-                            onUpdate={(values) => setSelectedActors(values)}
-                            width="full"
-                            isDisabled={users.length === 0 || loading || selectUsersOptions.length === 0}
+                            values={isUsersSelectUpdated ? selectedActors : initialSelectedUsers}
+                            onUpdate={(values) => {
+                                setSelectedActors(values);
+                                setIsUsersSelectUpdated(true);
+                            }}
+                            isDisabled={loading || selectUsersOptions.length === 0}
                         />
                     </ControlWrapper>
                     <ControlWrapper>

@@ -12,9 +12,9 @@ dayjs.extend(utc);
 
 export default function useGetOperations(
     urn: string,
-    day: string | undefined,
+    day: string | undefined | null,
     selectedOperationTypes: AnyOperationType[],
-    selectedActors: string[],
+    selectedActors: string[] | undefined,
 ) {
     const [start, end] = useMemo(() => {
         if (!day) return [undefined, undefined];
@@ -27,7 +27,7 @@ export default function useGetOperations(
         .map((operationType) => removePrefixFromOperationType(operationType));
 
     const actorsFilter: FacetFilterInput | undefined = useMemo(() => {
-        if (selectedActors.length > 0) {
+        if (selectedActors !== undefined) {
             return {
                 field: 'actor',
                 values: selectedActors,

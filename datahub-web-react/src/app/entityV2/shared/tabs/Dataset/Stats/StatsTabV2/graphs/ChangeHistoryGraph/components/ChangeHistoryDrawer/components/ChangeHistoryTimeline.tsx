@@ -14,7 +14,7 @@ const TimelineWrapper = styled.div`
 `;
 
 type ChangeHistoryTimelineProps = {
-    selectedDay?: string;
+    selectedDay?: string | null;
     operations: Operation[];
     users: CorpUser[];
     loading?: boolean;
