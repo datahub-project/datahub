@@ -623,9 +623,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 if msg_timestamp > 1e10:
                     msg_timestamp = msg_timestamp / 1000.0
                 # Handle potential out of range timestamps
-                if (
-                    msg_timestamp < 0 or msg_timestamp > 2147483647
-                ):  # Max unix timestamp
+                if msg_timestamp < 0 or msg_timestamp > 2147483647:
                     msg_timestamp = datetime.now().timestamp()
                 timestamp_str = datetime.fromtimestamp(msg_timestamp).isoformat()
             except (ValueError, OSError, OverflowError):
@@ -639,7 +637,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Process key if present
             if key:
-                processed_key = self._process_payload(key, topic, is_key=True)
+                processed_key = self._process_message_part(
+                    key, "key", topic, is_key=True
+                )
                 if isinstance(processed_key, dict):
                     sample.update({f"key_{k}": v for k, v in processed_key.items()})
                 else:
@@ -647,7 +647,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Process value
             if value:
-                processed_value = self._process_payload(value, topic, is_key=False)
+                processed_value = self._process_message_part(
+                    value, "value", topic, is_key=False
+                )
                 if isinstance(processed_value, dict):
                     sample.update(processed_value)
                 else:
@@ -658,14 +660,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Error processing message: {e}")
             return None
 
-    def _process_payload(self, payload: Any, topic: str, is_key: bool = False) -> Any:
-        """Process a message payload (key or value) with Avro support."""
-        if payload is None:
+    def _process_message_part(
+        self, data: Any, prefix: str, topic: str, is_key: bool = False
+    ) -> Optional[Any]:
+        """Process either key or value part of a message using schema registry for decoding."""
+        if data is None:
             return None
 
-        if isinstance(payload, bytes):
+        if isinstance(data, bytes):
             try:
-                # First try Avro decoding with schema registry
+                # Get schema metadata
                 schema_metadata = self.schema_registry_client.get_schema_metadata(
                     topic, make_data_platform_urn(self.platform), False
                 )
@@ -684,7 +688,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             # Parse schema and create reader
                             schema = avro.schema.parse(schema_str)
                             # Decode Avro data - first 5 bytes are magic byte and schema ID
-                            decoder = avro.io.BinaryDecoder(io.BytesIO(payload[5:]))
+                            decoder = avro.io.BinaryDecoder(io.BytesIO(data[5:]))
                             reader = avro.io.DatumReader(schema)
                             decoded_value = reader.read(decoder)
 
@@ -699,7 +703,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Fallback to JSON decode if no schema or Avro decode fails
                 try:
-                    decoded = json.loads(payload.decode("utf-8"))
+                    decoded = json.loads(data.decode("utf-8"))
                     if isinstance(decoded, (dict, list)):
                         if isinstance(decoded, list):
                             decoded = {"item": decoded}
@@ -707,13 +711,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     return decoded
                 except Exception:
                     # If JSON fails, use base64 as last resort
-                    return base64.b64encode(payload).decode("utf-8")
+                    return base64.b64encode(data).decode("utf-8")
 
             except Exception as e:
                 logger.debug(f"Failed to process message part: {e}")
-                return base64.b64encode(payload).decode("utf-8")
+                return base64.b64encode(data).decode("utf-8")
 
-        return payload
+        return data
 
     def get_profiling_workunit(
         self,
@@ -722,24 +726,48 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Generate profiling workunit for a topic."""
+        if not self.source_config.profiling.enabled:
+            return
 
         try:
+            # Get sample data
             samples = self._get_sample_data(
                 topic,
                 self.source_config.profiling.max_sample_time_seconds,
                 self.source_config.profiling.sample_size,
             )
 
-            if samples:
-                field_sample_map = self._process_sample_data(samples, schema_metadata)
-                profile = self._create_profile_class(field_sample_map, len(samples))
+            if not samples:
+                logger.debug(f"No samples collected for topic {topic}")
+                return
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=profile
-                ).as_workunit()
+            logger.debug(f"Processing {len(samples)} samples for topic {topic}")
+            field_sample_map = self._process_sample_data(samples, schema_metadata)
+
+            # Create profile with all available metrics
+            profile = self._create_profile_class(field_sample_map, len(samples))
+
+            # Create and yield the workunit
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=profile,
+            )
+
+            wu = mcp.as_workunit()
+            wu.id = f"{dataset_urn}-profile"
+            yield wu
+
+            logger.debug(f"Successfully generated profile for topic {topic}")
 
         except Exception as e:
-            logger.warning(f"Error generating profile for topic {topic}: {e}")
+            logger.warning(
+                f"Error generating profile for topic {topic}: {e}", exc_info=True
+            )
+            self.report.report_warning(
+                message="Failed to profile topic",
+                context=topic,
+                exc=e,
+            )
 
     def get_dataset_description(
         self,
