@@ -968,9 +968,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
-            f"""FROM '{stream_pagination_marker}'"""
-            if SHOW_STREAM_MAX_PAGE_SIZE
-            else ""
+            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
 
