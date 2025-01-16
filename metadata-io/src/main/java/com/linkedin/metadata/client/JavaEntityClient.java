@@ -775,7 +775,8 @@ public class JavaEntityClient implements EntityClient {
 
     List<String> updatedUrns = new ArrayList<>();
     Iterators.partition(
-            metadataChangeProposals.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
+            metadataChangeProposals.iterator(),
+            Math.max(1, entityClientConfig.getBatchIngestSize()))
         .forEachRemaining(
             batch -> {
               AspectsBatch aspectsBatch =
