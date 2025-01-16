@@ -53,9 +53,13 @@ class CouchbaseAggregate:
         if self.max_sample_size > 0:
             query += f" limit {self.max_sample_size}"
 
+        keys: List[str] = []
         result = self.scope.query(query)
-        async for row in result:
-            yield row.get("id")
+        async for row in result.rows():
+            keys.append(row.get("id"))
+
+        for key in keys:
+            yield key
 
     async def get_key_chunks(self) -> AsyncGenerator[List[str], None]:
         keys = []
