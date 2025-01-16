@@ -979,13 +979,13 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
             time
             actor
         }
+        mlModelLineageInfo {
+            trainingJobs
+            downstreamJobs
+    }
     }
     browsePathV2 {
         ...browsePathV2Fields
-    }
-    mlModelLineageInfo {
-        trainingJobs
-        downstreamJobs
     }
 }
 
