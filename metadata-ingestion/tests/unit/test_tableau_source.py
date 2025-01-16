@@ -250,7 +250,7 @@ def test_optimize_query_filter_handles_no_duplicates():
     assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
 
 
-def testTableaUpstreamReference():
+def test_tableau_upstream_reference():
     d = {
         "id": "7127b695-3df5-4a3a-4837-eb0f4b572337",
         "name": "TABLE1",
@@ -268,3 +268,9 @@ def testTableaUpstreamReference():
     assert ref.schema == "SCHEMA1"
     assert ref.table == "TABLE1"
     assert ref.connection_type == "snowflake"
+
+    try:
+        ref = TableauUpstreamReference.create(None)
+        assert False, "TableauUpstreamReference.create with None should have raised exception"
+    except ValueError:
+        assert True
