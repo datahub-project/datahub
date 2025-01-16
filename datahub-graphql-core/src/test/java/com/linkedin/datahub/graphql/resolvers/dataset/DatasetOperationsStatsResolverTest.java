@@ -33,7 +33,8 @@ public class DatasetOperationsStatsResolverTest {
 
   private static final Dataset TEST_SOURCE = new Dataset();
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";
-  private static final OperationsStatsInput TEST_INPUT = new OperationsStatsInput(TimeRange.MONTH);
+  private static final OperationsStatsInput TEST_INPUT =
+      new OperationsStatsInput(TimeRange.MONTH, null);
 
   static {
     TEST_SOURCE.setUrn(TEST_DATASET_URN);

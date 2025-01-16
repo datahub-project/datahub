@@ -2,6 +2,7 @@ import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
 import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
+import moment from 'moment';
 import { useEffect, useMemo } from 'react';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { useStatsSectionsContext } from '../../../StatsSectionsContext';
@@ -27,7 +28,7 @@ export default function useChangeHistoryData(
 
     useEffect(() => {
         if (urn && range && canViewDatasetOperations)
-            getOperationsStatsBuckets({ variables: { urn, input: { range } } });
+            getOperationsStatsBuckets({ variables: { urn, input: { range, timeZone: moment.tz.guess() } } });
     }, [urn, range, getOperationsStatsBuckets, canViewDatasetOperations]);
 
     const preparedData = useMemo(() => {
@@ -35,7 +36,7 @@ export default function useChangeHistoryData(
         const convertedData = (data?.dataset?.operationsStats?.buckets ?? []).map((bucket) => {
             const value = convertAggregationsToValue(bucket?.aggregations, defaultCustomOperationTypes);
             return {
-                day: dayjs(bucket?.bucket).utcOffset(0).utc(true).format(CALENDAR_DATE_FORMAT),
+                day: dayjs(bucket?.bucket).format(CALENDAR_DATE_FORMAT),
                 value,
             };
         });

@@ -1686,8 +1686,9 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     Statistics about how this Dataset is used
     The first parameter, `resource`, is deprecated and no longer needs to be provided
+    timeZone accepts standard IANA time zone identifier ie. America/New_York
     """
-    usageStats(resource: String, range: TimeRange): UsageQueryResult
+    usageStats(resource: String, range: TimeRange, timeZone: String): UsageQueryResult
 
     """
     Experimental - Summary operational & usage statistics about a Dataset

@@ -1,6 +1,7 @@
 import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
 import { useEffect, useState } from 'react';
+import moment from 'moment';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
@@ -73,7 +74,7 @@ export default function useQueryCountData(
     useEffect(() => {
         if (timeRange && !initialData && urn !== undefined && canViewDatasetUsage) {
             getTimeRangeUsageAggregations({
-                variables: { urn, timeRange },
+                variables: { urn, timeRange, timeZone: moment.tz.guess() },
             });
         }
     }, [timeRange, initialData, getTimeRangeUsageAggregations, urn, canViewDatasetUsage]);

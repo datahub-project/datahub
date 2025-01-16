@@ -18,8 +18,7 @@ export default function useGetOperations(
 ) {
     const [start, end] = useMemo(() => {
         if (!day) return [undefined, undefined];
-        const utcDay = dayjs(day).utc(true);
-        return [utcDay.startOf('day').toDate().getTime(), utcDay.endOf('day').toDate().getTime()];
+        return [dayjs(day).startOf('day').toDate().getTime(), dayjs(day).endOf('day').toDate().getTime()];
     }, [day]);
 
     const customOperationTypes = selectedOperationTypes

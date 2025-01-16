@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -79,6 +80,16 @@ public class OperationsServiceUtil {
       @Nonnull String resource,
       @Nonnull WindowDuration duration,
       UsageTimeRange range) {
+    return queryRange(opContext, timeseriesAspectService, resource, duration, range, null);
+  }
+
+  public static OperationsQueryResult queryRange(
+      @Nonnull OperationContext opContext,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String resource,
+      @Nonnull WindowDuration duration,
+      UsageTimeRange range,
+      @Nullable String timeZone) {
 
     final long now = Instant.now().toEpochMilli();
     return query(
@@ -87,7 +98,8 @@ public class OperationsServiceUtil {
         resource,
         duration,
         TimeseriesUtils.convertRangeToStartTime(range, now),
-        now);
+        now,
+        timeZone);
   }
 
   public static OperationsQueryResult query(
@@ -96,7 +108,8 @@ public class OperationsServiceUtil {
       @Nonnull String resource,
       @Nonnull WindowDuration duration,
       @Nullable Long startTime,
-      @Nullable Long endTime) {
+      @Nullable Long endTime,
+      @Nullable String timeZone) {
 
     // 1. Populate the filter. This is common for all queries.
     Filter filter = new Filter();
@@ -112,7 +125,7 @@ public class OperationsServiceUtil {
     // 2. Get buckets of aggregations by type per day
     timer = MetricUtils.timer(OperationsServiceUtil.class, "aggregateByDay").time();
     OperationsAggregationArray buckets =
-        aggregateByDay(opContext, timeseriesAspectService, filter, resource, duration);
+        aggregateByDay(opContext, timeseriesAspectService, filter, resource, duration, timeZone);
     took = timer.stop();
     log.info(
         "Operations for resource {} returned {} buckets in {} ms",
@@ -134,10 +147,12 @@ public class OperationsServiceUtil {
     return new OperationsQueryResult().setAggregations(aggregations).setBuckets(buckets);
   }
 
-  private static GroupingBucket getTimestampBucket(@Nonnull WindowDuration duration) {
+  private static GroupingBucket getTimestampBucket(
+      @Nonnull WindowDuration duration, @Nullable String timeZone) {
     return new GroupingBucket()
         .setKey(LAST_UPDATED_TIME)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeZone(timeZone, SetMode.IGNORE_NULL)
         .setTimeWindowSize(
             new TimeWindowSize()
                 .setMultiple(1)
@@ -149,10 +164,11 @@ public class OperationsServiceUtil {
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull Filter filter,
       @Nonnull String resource,
-      @Nonnull WindowDuration duration) {
+      @Nonnull WindowDuration duration,
+      @Nullable String timeZone) {
     // Construct the Grouping buckets with ts bucket for day 1st, and the operationType 2nd
     GroupingBucket[] groupingBuckets =
-        new GroupingBucket[] {getTimestampBucket(duration), OPERATION_TYPE_BUCKET};
+        new GroupingBucket[] {getTimestampBucket(duration, timeZone), OPERATION_TYPE_BUCKET};
     AggregationSpec[] aggregationSpecs = new AggregationSpec[] {TIMESTAMP_SPEC};
     GenericTable operationsTable =
         getOperationsTable(
@@ -213,7 +229,8 @@ public class OperationsServiceUtil {
           filter,
           resource,
           duration,
-          timestampToAggregationsResult);
+          timestampToAggregationsResult,
+          timeZone);
     }
 
     // 5. Loop over map and create OperationsAggregation for each entry and add to
@@ -247,11 +264,12 @@ public class OperationsServiceUtil {
       @Nonnull Filter filter,
       @Nonnull String resource,
       @Nonnull WindowDuration duration,
-      @Nonnull Map<Long, OperationsAggregationsResult> timestampToAggregationsResult) {
+      @Nonnull Map<Long, OperationsAggregationsResult> timestampToAggregationsResult,
+      @Nullable String timeZone) {
     // Construct the Grouping buckets with ts bucket for day 1st, and the customOperationType 2nd
     AggregationSpec[] aggregationSpecs = new AggregationSpec[] {TIMESTAMP_SPEC};
     GroupingBucket[] groupingBuckets =
-        new GroupingBucket[] {getTimestampBucket(duration), CUSTOM_OPERATION_TYPE_BUCKET};
+        new GroupingBucket[] {getTimestampBucket(duration, timeZone), CUSTOM_OPERATION_TYPE_BUCKET};
     GenericTable operationsTable =
         getOperationsTable(
             opContext, timeseriesAspectService, filter, aggregationSpecs, groupingBuckets, 3);
