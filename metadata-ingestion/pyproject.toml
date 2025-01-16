@@ -11,13 +11,22 @@ extend-exclude = '''
 include = '\.pyi?$'
 target-version = ['py38', 'py39', 'py310', 'py311']
 
-[tool.isort]
-combine_as_imports = true
-indent = '    '
-known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub.sql_parsing._sqlglot_patch']
-profile = 'black'
-sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
-skip_glob = 'src/datahub/metadata'
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["datahub"]
+extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = false
+force-wrap-aliases = false
+split-on-trailing-comma = false
+order-by-type = true
+relative-imports-order = "closest-to-furthest"
+force-single-line = false
+single-line-exclusions = ["typing"]
+length-sort = false
+from-first = false
+required-imports = []
+classes = ["typing"]
 
 [tool.pyright]
 extraPaths = ['tests']
@@ -47,6 +56,7 @@ select = [
     "C90",
     "E",
     "F",
+    "I", # For isort
     "TID",
 ]
 ignore = [
