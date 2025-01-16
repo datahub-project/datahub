@@ -58,12 +58,11 @@ ignore = [
     "B019",
     # Allow function call in argument defaults
     "B008",
-    # TODO: Enable these later as mentioned in original config
+    # TODO: Enable these later
     "B006",  # Mutable args
     "B007",  # Unused loop control variable
-    # Below these were added while migrating flake8 to ruff to avoid making lot of changes
-    "B904", 
-    "B017",
+    "B017",  # Do not assert blind exception
+    "B904",  # Checks for raise statements in exception handlers that lack a from clause
 ]
 
 [tool.ruff.lint.mccabe]
