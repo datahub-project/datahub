@@ -593,9 +593,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "black==23.3.0",
-    "flake8>=6.0.0",
-    "flake8-tidy-imports>=4.3.0",
-    "flake8-bugbear==23.3.12",
+    "ruff==0.9.1",
     "isort>=5.7.0",
     "mypy==1.10.1",
 }

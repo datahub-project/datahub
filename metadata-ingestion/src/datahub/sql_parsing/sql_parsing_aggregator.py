@@ -284,6 +284,7 @@ class SqlAggregatorReport(Report):
 
     # Queries.
     num_queries_entities_generated: int = 0
+    num_queries_used_in_lineage: Optional[int] = None
     num_queries_skipped_due_to_filters: int = 0
 
     # Usage-related.
@@ -1200,6 +1201,7 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
+        self.report.num_queries_used_in_lineage = len(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps(queries_generated)
         yield from self._gen_remaining_queries(queries_generated)

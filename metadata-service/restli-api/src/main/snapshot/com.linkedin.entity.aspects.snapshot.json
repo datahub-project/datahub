@@ -1382,6 +1382,10 @@
       "name" : "versionTag",
       "type" : "string",
       "optional" : true
+    }, {
+      "name" : "metadataAttribution",
+      "type" : "MetadataAttribution",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
