@@ -424,7 +424,7 @@ class TableauConfig(
     # To increase the batching and so reduce the number of queries, we can increase the page size for that
     # particular case.
     #
-    # `get_connection_objects_query_*` metrics in the report will help to understand the impact of this change.
+    # `num_(filter_|paginated_)?queries_by_connection_type` metrics in the report will help to understand the impact of this change.
     embedded_datasource_field_upstream_page_size: int = Field(
         default=100,
         description="[advanced] Number of upstream fields to query at a time for embedded datasources using the Tableau API.",
@@ -711,13 +711,20 @@ class TableauSourceReport(
         default_factory=(lambda: defaultdict(int))
     )
 
-    get_connection_objects_query_counter: Dict[str, int] = dataclass_field(
+    # Counters for tracking the number of queries made to get_connection_objects method
+    # by connection type (static and short set of keys):
+    # - num_queries_by_connection_type: total number of queries
+    # - num_filter_queries_by_connection_type: number of paginated queries due to splitting query filters
+    # - num_paginated_queries_by_connection_type: total number of queries due to Tableau pagination
+    # These counters are useful to understand the impact of changing the page size.
+
+    num_queries_by_connection_type: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
-    get_connection_objects_query_filter_pages_counter: Dict[str, int] = dataclass_field(
+    num_filter_queries_by_connection_type: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
-    get_connection_objects_query_total_pages_counter: Dict[str, int] = dataclass_field(
+    num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
 
@@ -1451,10 +1458,10 @@ class TableauSiteSource:
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
-        self.report.get_connection_objects_query_counter[connection_type] += 1
-        self.report.get_connection_objects_query_filter_pages_counter[
-            connection_type
-        ] += len(filter_pages)
+        self.report.num_queries_by_connection_type[connection_type] += 1
+        self.report.num_filter_queries_by_connection_type[connection_type] += len(
+            filter_pages
+        )
 
         for filter_page in filter_pages:
             has_next_page = 1
@@ -1462,7 +1469,7 @@ class TableauSiteSource:
             while has_next_page:
                 filter_: str = make_filter(filter_page)
 
-                self.report.get_connection_objects_query_total_pages_counter[
+                self.report.num_paginated_queries_by_connection_type[
                     connection_type
                 ] += 1
 
