@@ -48,7 +48,7 @@ public class UnlinkAssetVersionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertTrue(resolver.get(mockEnv).get());
+    assertNotNull(resolver.get(mockEnv).get());
 
     Mockito.verify(mockService)
         .unlinkVersion(

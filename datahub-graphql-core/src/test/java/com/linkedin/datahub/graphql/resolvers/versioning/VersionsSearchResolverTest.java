@@ -52,7 +52,7 @@ public class VersionsSearchResolverTest {
 
   private static final SearchAcrossEntitiesInput BASIC_INPUT =
       new SearchAcrossEntitiesInput(
-          List.of(EntityType.DATASET), "", 0, 10, null, null, null, null, null, null, null, null);
+          List.of(EntityType.DATASET), "", 0, 10, null, null, null, null, null);
 
   private static final SearchAcrossEntitiesInput COMPLEX_INPUT =
       new SearchAcrossEntitiesInput(
@@ -99,10 +99,7 @@ public class VersionsSearchResolverTest {
                           .setField("sortField2")
                           .setSortOrder(SortOrder.ASCENDING)
                           .build()))
-              .build(),
-          null,
-          null,
-          null);
+              .build());
 
   @Test
   public void testGetSuccessBasic() throws Exception {
