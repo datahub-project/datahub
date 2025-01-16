@@ -41,7 +41,7 @@ async def test_couchbase_driver(
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "couchbase"
     ) as docker_services:
-        wait_for_port(docker_services, "testdb", 8091)
+        wait_for_port(docker_services, "testdb", 8093)
 
         retries = Retry(total=5, backoff_factor=1, status_forcelist=[404])
         adapter = HTTPAdapter(max_retries=retries)

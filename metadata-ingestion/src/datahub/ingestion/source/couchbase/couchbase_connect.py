@@ -170,6 +170,7 @@ class CouchbaseConnect:
             )
         return tuple(keyspace_vector)
 
+    @retry(factor=0.05)
     def collection_count(self, keyspace: str) -> int:
         if not self.cluster:
             raise RuntimeError("cluster is not initialized")
@@ -192,7 +193,7 @@ class CouchbaseConnect:
         settings: BucketSettings = self.bucket_manager.get_bucket(bucket_name)
         return settings
 
-    @retry()
+    @retry(factor=0.05)
     def collection_infer(
         self, sample_size: int, sample_values: int, keyspace: str
     ) -> dict:

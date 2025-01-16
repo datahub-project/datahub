@@ -42,7 +42,7 @@ class CouchbaseAggregate:
             self.keyspace
         )
 
-    @retry()
+    @retry(factor=0.05)
     async def collection_get(self, key: str) -> dict:
         try:
             result: GetResult = await self.collection.get(key)
@@ -51,7 +51,7 @@ class CouchbaseAggregate:
             logger.warning(f"Document ID {key} not found")
             return {}
 
-    @retry()
+    @retry(factor=0.05)
     async def run_query(
         self, query: str, offset: int = 0, limit: int = 0
     ) -> List[dict]:

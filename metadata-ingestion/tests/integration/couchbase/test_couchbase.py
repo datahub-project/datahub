@@ -35,7 +35,7 @@ class BasicAuth(AuthBase):
         return r
 
 
-@pytest.mark.integration
+@pytest.mark.integration_batch_2
 def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/couchbase"
 
@@ -47,7 +47,7 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
             file_handler = logging.FileHandler(log_file)
             logging.getLogger().addHandler(file_handler)
 
-        wait_for_port(docker_services, "testdb", 8091)
+        wait_for_port(docker_services, "testdb", 8093)
 
         retries = Retry(total=5, backoff_factor=1, status_forcelist=[404])
         adapter = HTTPAdapter(max_retries=retries)

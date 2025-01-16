@@ -76,7 +76,7 @@ fi
 
 echo "Configuring Couchbase Server"
 
-/opt/couchbase/bin/couchbase-cli cluster-init -c 10.10.1.2 --cluster-username Administrator --cluster-password password --services data,query,index --cluster-ramsize 2048
+/opt/couchbase/bin/couchbase-cli cluster-init -c 10.10.1.2 --cluster-username Administrator --cluster-password password --services data,query,index --cluster-ramsize 1024
 
 sleep 2
 echo "Importing Test Data"
