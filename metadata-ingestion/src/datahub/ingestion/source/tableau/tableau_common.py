@@ -642,8 +642,11 @@ class TableauUpstreamReference:
 
     @classmethod
     def create(
-        cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
+        cls, d: Dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
+        if d is None:
+            raise ValueError("TableauUpstreamReference.create: d is None")
+
         # Values directly from `table` object from Tableau
         database_dict = (
             d.get(c.DATABASE) or {}
@@ -717,7 +720,7 @@ class TableauUpstreamReference:
         #  schema
 
         # TODO: Validate the startswith check. Currently required for our integration tests
-        if full_name is None or not full_name.startswith("["):
+        if full_name is None:
             return None
 
         return full_name.replace("[", "").replace("]", "").split(".")
