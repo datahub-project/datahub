@@ -212,14 +212,14 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                             },
                             "my_confluent_cloud_connector_id": {
                                 "platform": "kafka",
-                                "include_schema": False,
+                                "include_schema_in_urn": False,
                                 "database": "kafka_prod",
                             },
                         },
                         "destination_to_platform_instance": {
                             "my_confluent_cloud_connector_id": {
                                 "platform": "kafka",
-                                "include_schema": False,
+                                "include_schema_in_urn": False,
                                 "database": "kafka_prod",
                             }
                         },
@@ -322,14 +322,14 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                             "my_confluent_cloud_connector_id": {
                                 "platform": "kafka",
                                 "database": "kafka_prod",
-                                "include_schema": False,
+                                "include_schema_in_urn": False,
                             },
                         },
                         "destination_to_platform_instance": {
                             "my_confluent_cloud_connector_id": {
                                 "platform": "kafka",
                                 "database": "kafka_prod",
-                                "include_schema": False,
+                                "include_schema_in_urn": False,
                             }
                         },
                     },

@@ -121,7 +121,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         for lineage in connector.lineage:
             source_table = (
                 lineage.source_table
-                if source_details.include_schema
+                if source_details.include_schema_in_urn
                 else lineage.source_table.split(".", 1)[1]
             )
             input_dataset_urn = DatasetUrn.create_from_ids(
@@ -138,7 +138,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             destination_table = (
                 lineage.destination_table
-                if destination_details.include_schema
+                if destination_details.include_schema_in_urn
                 else lineage.destination_table.split(".", 1)[1]
             )
             output_dataset_urn = DatasetUrn.create_from_ids(
