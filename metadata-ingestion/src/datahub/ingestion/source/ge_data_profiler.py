@@ -267,7 +267,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",
     }
