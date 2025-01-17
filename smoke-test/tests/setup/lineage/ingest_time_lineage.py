@@ -1,7 +1,6 @@
 from typing import List
 
 from datahub.ingestion.graph.client import DataHubGraph
-
 from tests.setup.lineage.ingest_data_job_change import (
     get_data_job_change_urns,
     ingest_data_job_change,

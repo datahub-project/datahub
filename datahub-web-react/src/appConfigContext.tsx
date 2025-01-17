@@ -57,6 +57,7 @@ export const DEFAULT_APP_CONFIG = {
         editableDatasetNameEnabled: false,
         showSeparateSiblings: false,
         showManageStructuredProperties: false,
+        entityVersioningEnabled: false,
     },
 };
 
