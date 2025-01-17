@@ -387,7 +387,7 @@ class OktaSource(StatefulIngestionSourceBase):
         # Step 3: Produce MetadataWorkUnits for CorpUsers.
         if self.config.ingest_users:
             # we can just throw away collected okta users so far and fetch them all
-            okta_users = self._get_okta_users(event_loop)
+            okta_users = set(self._get_okta_users(event_loop))
 
         if okta_users:
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
