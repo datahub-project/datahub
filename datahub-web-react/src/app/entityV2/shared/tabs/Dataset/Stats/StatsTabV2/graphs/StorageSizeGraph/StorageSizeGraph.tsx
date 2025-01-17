@@ -8,6 +8,7 @@ import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
@@ -82,6 +83,7 @@ export default function StorageSizeGraph() {
                     )}
                 />
             )}
+            moreInfoModalContent={<MoreInfoModalContent />}
         />
     );
 }

@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import NoPermission from '../graphs/NoPermission';
+import MoreInfoModalContent from '../graphs/components/MoreInfoModalContent';
 import { getMockTopUsersData, getUserOrGroupAvatarUrl } from '../utils';
 
 const CardWrapper = styled.div`
@@ -77,6 +78,7 @@ const TopUsers = ({ users }: Props) => {
                 renderGraph={renderTopUsersTable}
                 isEmpty={!isUsersDataPresent || !canViewDatasetUsage}
                 emptyContent={!canViewDatasetUsage && <NoPermission statName="top users" />}
+                moreInfoModalContent={<MoreInfoModalContent />}
             />
         </CardWrapper>
     );

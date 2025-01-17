@@ -7,6 +7,7 @@ import { useGetStatsData } from '../../useGetStatsData';
 import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
@@ -87,6 +88,7 @@ const QueryCountChart = () => {
             loading={loading}
             isEmpty={chartData.length === 0 || !canViewDatasetUsage}
             emptyContent={!canViewDatasetUsage && <NoPermission statName="daily query count" />}
+            moreInfoModalContent={<MoreInfoModalContent />}
         />
     );
 };

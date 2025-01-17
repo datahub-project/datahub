@@ -9,6 +9,7 @@ import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
@@ -85,6 +86,7 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
                     )}
                 />
             )}
+            moreInfoModalContent={<MoreInfoModalContent />}
         />
     );
 }

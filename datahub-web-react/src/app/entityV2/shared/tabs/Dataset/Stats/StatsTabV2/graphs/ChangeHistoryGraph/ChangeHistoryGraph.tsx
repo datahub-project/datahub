@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import NoPermission from '../NoPermission';
 import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHistoryDrawer';
 import ChangeHistoryPopover from './components/ChangeHistoryPopover';
@@ -155,6 +156,7 @@ export default function ChangeHistoryGraph() {
                     />
                 )}
                 graphHeight="fit-content"
+                moreInfoModalContent={<MoreInfoModalContent />}
             />
 
             {statsEntityUrn && isDayDetailsDrawerShown && (
