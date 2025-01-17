@@ -12,7 +12,6 @@ import {
 } from './components';
 
 export const checkboxDefaults: CheckboxProps = {
-    label: 'Label',
     error: '',
     isChecked: false,
     isDisabled: false,
@@ -42,9 +41,11 @@ export const Checkbox = ({
 
     return (
         <CheckboxContainer>
-            <Label aria-label={label}>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label ? (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            ) : null}
             <CheckboxBase
                 onClick={() => {
                     if (!isDisabled) {
