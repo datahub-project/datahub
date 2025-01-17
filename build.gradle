@@ -193,7 +193,7 @@ project.ext.externalDependency = [
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
-    'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
+    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.5',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",

@@ -292,6 +292,7 @@ class DataHubGcSource(Source):
             tokens = list_access_tokens.get("tokens", [])
             total = list_access_tokens.get("total", 0)
             if tokens == []:
+                # Due to a server bug we cannot rely on just total
                 break
             for token in tokens:
                 self.report.expired_tokens_revoked += 1

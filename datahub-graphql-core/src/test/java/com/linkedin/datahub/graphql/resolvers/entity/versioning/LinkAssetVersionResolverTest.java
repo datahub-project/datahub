@@ -57,8 +57,8 @@ public class LinkAssetVersionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    VersionSet result = resolver.get(mockEnv).get();
-    assertEquals(result.getUrn(), TEST_ENTITY_URN);
+
+    assertEquals(resolver.get(mockEnv).get().getUrn(), TEST_VERSION_SET_URN);
   }
 
   @Test
