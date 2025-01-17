@@ -3,9 +3,11 @@ import time
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import datahub.emitter.mce_builder as builder
 import networkx as nx
 import pytest
+from pydantic import BaseModel, validator
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -18,17 +20,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     EdgeClass,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageClass as FineGrainedLineage,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
-)
-from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     QueryLanguageClass,
     QueryPropertiesClass,
@@ -43,8 +37,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-from pydantic import BaseModel, validator
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
