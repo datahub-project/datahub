@@ -477,6 +477,20 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
 query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
     dataset(urn: $urn) {
         operationsStats(input: $input) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
             buckets {
                 bucket
                 aggregations {

@@ -1,5 +1,5 @@
 import { OperationsAggregationsResult, OperationType } from '@src/types.generated';
-import { convertAggregationsToValue } from '../utils';
+import { convertAggregationsToOperationsData } from '../utils';
 import { AggregationGroup } from '../types';
 
 const EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES: OperationsAggregationsResult = {
@@ -27,11 +27,11 @@ const EXAMPLE_AGGREGATION_WITHOUT_CUSTOM_TYPES: OperationsAggregationsResult = {
     customOperationsMap: null,
 };
 
-describe('convertAggregationsToValue', () => {
+describe('convertAggregationsToOperationsData', () => {
     it('should return correct value when aggregation has custom types and defaults provided', () => {
         const defaultTypes = ['custom_type_3'];
 
-        const response = convertAggregationsToValue(EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES, defaultTypes);
+        const response = convertAggregationsToOperationsData(EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES, defaultTypes);
 
         expect(response?.summary.totalCustomOperations).toBe(3);
         expect(response?.summary.totalOperations).toBe(24);
@@ -106,7 +106,7 @@ describe('convertAggregationsToValue', () => {
     });
 
     it('should return correct value when aggregation has custom types and defaults not provided', () => {
-        const response = convertAggregationsToValue(EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES);
+        const response = convertAggregationsToOperationsData(EXAMPLE_AGGREGATION_WITH_CUSTOM_TYPES);
 
         expect(response?.summary.totalCustomOperations).toBe(3);
         expect(response?.summary.totalOperations).toBe(24);
@@ -175,7 +175,7 @@ describe('convertAggregationsToValue', () => {
     it('should return correct value when aggregation has no custom types and defaults provided', () => {
         const defaultTypes = ['custom_type_3'];
 
-        const response = convertAggregationsToValue(EXAMPLE_AGGREGATION_WITHOUT_CUSTOM_TYPES, defaultTypes);
+        const response = convertAggregationsToOperationsData(EXAMPLE_AGGREGATION_WITHOUT_CUSTOM_TYPES, defaultTypes);
 
         expect(response?.summary.totalCustomOperations).toBe(0);
         expect(response?.summary.totalOperations).toBe(21);
@@ -234,7 +234,7 @@ describe('convertAggregationsToValue', () => {
     });
 
     it('should return correct value when aggregation has no custom types and defaults not provided', () => {
-        const response = convertAggregationsToValue(EXAMPLE_AGGREGATION_WITHOUT_CUSTOM_TYPES);
+        const response = convertAggregationsToOperationsData(EXAMPLE_AGGREGATION_WITHOUT_CUSTOM_TYPES);
 
         expect(response?.summary.totalCustomOperations).toBe(0);
         expect(response?.summary.totalOperations).toBe(21);
@@ -287,7 +287,7 @@ describe('convertAggregationsToValue', () => {
     it('should return correct value when aggregation is undefined and defaults provided', () => {
         const defaultTypes = ['custom_type_3'];
 
-        const response = convertAggregationsToValue(undefined, defaultTypes);
+        const response = convertAggregationsToOperationsData(undefined, defaultTypes);
 
         expect(response?.summary.totalCustomOperations).toBe(0);
         expect(response?.summary.totalOperations).toBe(0);
@@ -346,7 +346,7 @@ describe('convertAggregationsToValue', () => {
     });
 
     it('should return correct value when aggregation is undefined and defaults not provided', () => {
-        const response = convertAggregationsToValue(undefined);
+        const response = convertAggregationsToOperationsData(undefined);
 
         expect(response?.summary.totalCustomOperations).toBe(0);
         expect(response?.summary.totalOperations).toBe(0);

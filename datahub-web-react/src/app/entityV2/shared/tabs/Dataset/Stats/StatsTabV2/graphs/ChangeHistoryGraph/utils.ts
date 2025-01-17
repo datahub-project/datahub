@@ -13,7 +13,7 @@ export function getCustomOperationsFromAggregations(
     return customOperationTypes;
 }
 
-export function convertAggregationsToValue(
+export function convertAggregationsToOperationsData(
     aggregations: OperationsAggregationsResult | undefined | null,
     defaultCustomOperationTypes?: CustomOperationType[],
 ): OperationsData {
@@ -30,11 +30,11 @@ export function convertAggregationsToValue(
 
     const prefixedCustomOperations: CustomOperations = customOperationTypes.reduce((accumulatedOperations, key) => {
         // Add prefixes to custom operation types in order to workaround keys overlap with predefined operation types
-        const customKey = addPrefixToOperationType(key, true);
+        const customKey = addPrefix(key);
         return {
             ...accumulatedOperations,
             [customKey]: {
-                value: aggregations?.customOperationsMap?.filter((value) => value.key === key)?.[0]?.value ?? 0,
+                value: aggregations?.customOperationsMap?.find((value) => value.key === key)?.value ?? 0,
                 group: AggregationGroup.Purple,
                 type: OperationType.Custom,
                 customType: key,
@@ -54,42 +54,42 @@ export function convertAggregationsToValue(
         operations: {
             inserts: {
                 value: inserts,
-                key: addPrefixToOperationType(OperationType.Insert),
+                key: OperationType.Insert,
                 group: AggregationGroup.Purple,
                 type: OperationType.Insert,
                 name: 'Insert',
             },
             updates: {
                 value: updates,
-                key: addPrefixToOperationType(OperationType.Update),
+                key: OperationType.Update,
                 group: AggregationGroup.Purple,
                 type: OperationType.Update,
                 name: 'Update',
             },
             deletes: {
                 value: deletes,
-                key: addPrefixToOperationType(OperationType.Delete),
+                key: OperationType.Delete,
                 group: AggregationGroup.Red,
                 type: OperationType.Delete,
                 name: 'Delete',
             },
             alters: {
                 value: alters,
-                key: addPrefixToOperationType(OperationType.Alter),
+                key: OperationType.Alter,
                 group: AggregationGroup.Purple,
                 type: OperationType.Alter,
                 name: 'Alter',
             },
             creates: {
                 value: creates,
-                key: addPrefixToOperationType(OperationType.Create),
+                key: OperationType.Create,
                 group: AggregationGroup.Purple,
                 type: OperationType.Create,
                 name: 'Create',
             },
             drops: {
                 value: drops,
-                key: addPrefixToOperationType(OperationType.Drop),
+                key: OperationType.Drop,
                 group: AggregationGroup.Red,
                 type: OperationType.Drop,
                 name: 'Drop',
@@ -115,7 +115,7 @@ export function getSumOfOperationsByAggregationGroup(
                     operationTypes.includes(valueOfOperation.type) ||
                     (valueOfOperation.type === OperationType.Custom &&
                         valueOfOperation.customType &&
-                        operationTypes?.includes?.(addPrefixToOperationType(valueOfOperation.customType))),
+                        operationTypes?.includes?.(addPrefix(valueOfOperation.customType))),
             )
             .reduce((sumOfValues, valueOfOperation) => sumOfValues + valueOfOperation.value, 0)
     );
@@ -181,19 +181,15 @@ export function createColorAccessors(
     };
 }
 
-export function addPrefixToOperationType(operationType: AnyOperationType, isOnlyCustom = false): string {
-    if (!isOnlyCustom && Object.values(OperationType).includes(operationType as OperationType)) {
-        return operationType as string;
-    }
-    return `${CUSTOM_KEY_PREFIX}${operationType}`;
+export function addPrefix(value: string, prefix = CUSTOM_KEY_PREFIX): string {
+    return `${prefix}${value}`;
 }
 
-export function removePrefixFromOperationType(operationType: AnyOperationType): string {
-    if (operationType in OperationType) return OperationType[operationType];
-    if (operationType.startsWith(CUSTOM_KEY_PREFIX)) return operationType.slice(CUSTOM_KEY_PREFIX.length);
-    return operationType;
+export function hasPrefix(value: string, prefix = CUSTOM_KEY_PREFIX): boolean {
+    return value.startsWith(prefix);
 }
 
-export function isPrefixedAsCustom(operationType: AnyOperationType): boolean {
-    return operationType.startsWith(CUSTOM_KEY_PREFIX);
+export function removePrefix(value: string, prefix = CUSTOM_KEY_PREFIX): string {
+    if (hasPrefix(value, prefix)) return value.slice(prefix.length);
+    return value;
 }

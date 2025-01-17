@@ -1,6 +1,6 @@
 import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
-import { TimeRange } from '@src/types.generated';
+import { OperationsQueryResult, OperationType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import moment from 'moment';
 import { useEffect, useMemo } from 'react';
@@ -8,18 +8,63 @@ import { CalendarData } from '@src/alchemy-components/components/CalendarChart/t
 import { useStatsSectionsContext } from '../../../StatsSectionsContext';
 import { addMonthOverMonthValue } from '../../utils';
 import { CustomOperationType, OperationsData } from '../types';
-import { convertAggregationsToValue } from '../utils';
+import { convertAggregationsToOperationsData, getCustomOperationsFromAggregations } from '../utils';
 
 type ResponseType = {
-    data: CalendarData<OperationsData>[];
+    buckets: CalendarData<OperationsData>[];
+    summary: OperationsData | undefined;
+    defaultOperationTypes: OperationType[];
+    customOperationTypes: CustomOperationType[];
     loading: boolean;
 };
 
-export default function useChangeHistoryData(
-    urn: string | undefined,
-    range: TimeRange | undefined,
-    defaultCustomOperationTypes?: CustomOperationType[],
-): ResponseType {
+const EMPTY_RESPONSE: ResponseType = {
+    buckets: [],
+    summary: undefined,
+    defaultOperationTypes: [],
+    customOperationTypes: [],
+    loading: false,
+};
+
+function extractSummary(operationsStats: OperationsQueryResult | undefined | null) {
+    return convertAggregationsToOperationsData(operationsStats?.aggregations);
+}
+
+function extractCustomOperationTypes(operationsStats: OperationsQueryResult | undefined | null) {
+    return getCustomOperationsFromAggregations(operationsStats?.aggregations);
+}
+
+function extractDefaultOperationTypes(summary: OperationsData | undefined | null) {
+    return Object.entries(summary?.operations || {})
+        .map(([_, operation]) => operation)
+        .filter((operation) => !operation.customType)
+        .filter((operation) => operation.value > 0)
+        .map((operation) => operation.type);
+}
+
+function extractBuckets(operationsStats: OperationsQueryResult | undefined | null, customTypes: CustomOperationType[]) {
+    const convertedData = (operationsStats?.buckets ?? []).map((bucket) => {
+        const value = convertAggregationsToOperationsData(bucket?.aggregations, customTypes);
+        return {
+            day: dayjs(bucket?.bucket).format(CALENDAR_DATE_FORMAT),
+            value,
+        };
+    });
+
+    // FYI: the data from backend come unsorted. Sort them by date
+    const sortedData = [...convertedData].sort((a, b) => a.day.localeCompare(b.day));
+
+    return addMonthOverMonthValue(
+        sortedData,
+        (d) => d.day,
+        (d) => d.value?.summary?.totalOperations,
+    ).map((datum) => ({
+        day: datum.day,
+        value: { ...datum.value, mom: datum.mom },
+    }));
+}
+
+export default function useChangeHistoryData(urn: string | undefined, range: TimeRange | undefined): ResponseType {
     const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery();
 
     const {
@@ -31,35 +76,21 @@ export default function useChangeHistoryData(
             getOperationsStatsBuckets({ variables: { urn, input: { range, timeZone: moment.tz.guess() } } });
     }, [urn, range, getOperationsStatsBuckets, canViewDatasetOperations]);
 
-    const preparedData = useMemo(() => {
-        if (loading) return [];
-        const convertedData = (data?.dataset?.operationsStats?.buckets ?? []).map((bucket) => {
-            const value = convertAggregationsToValue(bucket?.aggregations, defaultCustomOperationTypes);
-            return {
-                day: dayjs(bucket?.bucket).format(CALENDAR_DATE_FORMAT),
-                value,
-            };
-        });
+    return useMemo(() => {
+        if (!canViewDatasetOperations) return EMPTY_RESPONSE;
+        if (loading) return { ...EMPTY_RESPONSE, loading };
 
-        // FYI: the data from backend come unsorted. Sort them by date
-        const sortedData = [...convertedData].sort((a, b) => a.day.localeCompare(b.day));
+        const summary = extractSummary(data?.dataset?.operationsStats);
+        const defaultOperationTypes = extractDefaultOperationTypes(summary);
+        const customOperationTypes = extractCustomOperationTypes(data?.dataset?.operationsStats);
+        const buckets = extractBuckets(data?.dataset?.operationsStats, customOperationTypes);
 
-        return addMonthOverMonthValue(
-            sortedData,
-            (d) => d.day,
-            (d) => d.value?.summary?.totalOperations,
-        ).map((datum) => ({
-            day: datum.day,
-            value: { ...datum.value, mom: datum.mom },
-        }));
-    }, [data, loading, defaultCustomOperationTypes]);
-
-    if (!canViewDatasetOperations) {
         return {
-            data: [],
-            loading: false,
+            buckets,
+            summary,
+            defaultOperationTypes,
+            customOperationTypes,
+            loading,
         };
-    }
-
-    return { data: preparedData as CalendarData<OperationsData>[], loading };
+    }, [canViewDatasetOperations, data, loading]);
 }

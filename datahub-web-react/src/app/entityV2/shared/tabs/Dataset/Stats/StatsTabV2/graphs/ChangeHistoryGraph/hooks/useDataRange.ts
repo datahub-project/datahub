@@ -11,7 +11,7 @@ export default function useDataRange(data: CalendarData<OperationsData>[], start
     const startDay = useMemo(() => {
         if (!startTimeOfData || data.length === 0) return undefined;
 
-        const maxTimeMillis = Math.min(...[startTimeOfData, dayjs(data[0].day).utc(true).toDate().getTime()]);
+        const maxTimeMillis = Math.min(...[startTimeOfData, dayjs(data[0].day).toDate().getTime()]);
         return dayjs(maxTimeMillis).format(CALENDAR_DATE_FORMAT);
     }, [startTimeOfData, data]);
 

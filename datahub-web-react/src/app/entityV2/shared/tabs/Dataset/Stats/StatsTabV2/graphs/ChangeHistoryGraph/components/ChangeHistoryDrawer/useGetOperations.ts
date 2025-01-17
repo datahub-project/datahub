@@ -5,7 +5,7 @@ import utc from 'dayjs/plugin/utc';
 import { uniq } from 'lodash';
 import { useMemo } from 'react';
 import { AnyOperationType } from '../../types';
-import { isPrefixedAsCustom, removePrefixFromOperationType } from '../../utils';
+import { hasPrefix, removePrefix } from '../../utils';
 import { OPERATIONS_LIMIT } from './constants';
 
 dayjs.extend(utc);
@@ -22,8 +22,8 @@ export default function useGetOperations(
     }, [day]);
 
     const customOperationTypes = selectedOperationTypes
-        .filter((operationType) => isPrefixedAsCustom(operationType))
-        .map((operationType) => removePrefixFromOperationType(operationType));
+        .filter((operationType) => hasPrefix(operationType))
+        .map((operationType) => removePrefix(operationType));
 
     const actorsFilter: FacetFilterInput | undefined = useMemo(() => {
         if (selectedActors !== undefined) {

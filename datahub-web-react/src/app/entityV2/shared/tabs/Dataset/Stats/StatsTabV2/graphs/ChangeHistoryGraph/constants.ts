@@ -1,4 +1,3 @@
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
 import { AggregationGroup } from './types';
 
@@ -12,11 +11,6 @@ export const AVAILABLE_OPERATION_TYPES = [
 ];
 
 export const DEFAULT_OPERATION_TYPES = AVAILABLE_OPERATION_TYPES;
-
-export const OPERATION_TYPE_OPTIONS = AVAILABLE_OPERATION_TYPES.map((operationType) => ({
-    value: operationType.toString(),
-    label: capitalizeFirstLetter(operationType) as string,
-}));
 
 export const CUSTOM_KEY_PREFIX = 'custom_';
 

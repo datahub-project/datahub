@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { OperationType } from '@src/types.generated';
 import { AnyOperationType, CustomOperationType, Operation, OperationsData } from '../types';
-import { convertAggregationsToValue } from '../utils';
+import { convertAggregationsToOperationsData } from '../utils';
 
 const Container = styled.div`
     display: flex;
@@ -63,13 +63,14 @@ export default function ChangeHistoryPopover({
     const operations = useMemo(
         () =>
             Object.entries(
-                (datum.value?.operations ?? convertAggregationsToValue({}, defaultCustomOperationTypes)?.operations) ||
+                (datum.value?.operations ??
+                    convertAggregationsToOperationsData({}, defaultCustomOperationTypes)?.operations) ||
                     {},
             )
                 .map(([_, value]) => value)
                 .filter((value) => selectedOperationTypes.includes(value.key))
                 .filter((value) => value.value > 0)
-                // order from newest to oldest
+                // order from most changes to least
                 .sort((a, b) => b.value - a.value),
         [datum.value?.operations, selectedOperationTypes, defaultCustomOperationTypes],
     );
