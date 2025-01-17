@@ -59,7 +59,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
-    _split_qualified_name,
+    split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -886,48 +886,42 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         custom_properties = {}
 
         if isinstance(table, SnowflakeTable):
-            if table.clustering_key:
-                custom_properties["CLUSTERING_KEY"] = table.clustering_key
-
-            if table.is_hybrid:
-                custom_properties["IS_HYBRID"] = "true"
-
-            if table.is_dynamic:
-                custom_properties["IS_DYNAMIC"] = "true"
-
-            if table.is_iceberg:
-                custom_properties["IS_ICEBERG"] = "true"
+            custom_properties.update(
+                {
+                    k: v
+                    for k, v in {
+                        "CLUSTERING_KEY": table.clustering_key,
+                        "IS_HYBRID": "true" if table.is_hybrid else None,
+                        "IS_DYNAMIC": "true" if table.is_dynamic else None,
+                        "IS_ICEBERG": "true" if table.is_iceberg else None,
+                    }.items()
+                    if v
+                }
+            )
 
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"
 
         elif isinstance(table, SnowflakeStream):
-            if table.source_type:
-                custom_properties["SOURCE_TYPE"] = table.source_type
-
-            if table.type:
-                custom_properties["TYPE"] = table.type
-
-            if table.stale:
-                custom_properties["STALE"] = table.stale
-
-            if table.mode:
-                custom_properties["MODE"] = table.mode
-
-            if table.invalid_reason:
-                custom_properties["INVALID_REASON"] = table.invalid_reason
-
-            if table.owner_role_type:
-                custom_properties["OWNER_ROLE_TYPE"] = table.owner_role_type
-
-            if table.table_name:
-                custom_properties["TABLE_NAME"] = table.table_name
-
-            if table.base_tables:
-                custom_properties["BASE_TABLES"] = table.base_tables
-
-            if table.stale_after:
-                custom_properties["STALE_AFTER"] = table.stale_after.isoformat()
+            custom_properties.update(
+                {
+                    k: v
+                    for k, v in {
+                        "SOURCE_TYPE": table.source_type,
+                        "TYPE": table.type,
+                        "STALE": table.stale,
+                        "MODE": table.mode,
+                        "INVALID_REASON": table.invalid_reason,
+                        "OWNER_ROLE_TYPE": table.owner_role_type,
+                        "TABLE_NAME": table.table_name,
+                        "BASE_TABLES": table.base_tables,
+                        "STALE_AFTER": table.stale_after.isoformat()
+                        if table.stale_after
+                        else None,
+                    }.items()
+                    if v
+                }
+            )
 
         return DatasetProperties(
             name=table.name,
@@ -1386,7 +1380,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         columns: List[SnowflakeColumn] = []
 
-        source_parts = _split_qualified_name(source_object)
+        source_parts = split_qualified_name(source_object)
 
         source_db, source_schema, source_name = source_parts
 
@@ -1446,48 +1440,45 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         Populate Streams upstream tables excluding the metadata columns
         """
-        if self.aggregator:
-            source_parts = _split_qualified_name(stream.table_name)
-            source_db, source_schema, source_name = source_parts
+        source_parts = split_qualified_name(stream.table_name)
+        source_db, source_schema, source_name = source_parts
 
-            downstream_identifier = self.identifiers.get_dataset_identifier(
-                stream.name, schema_name, db_name
-            )
-            downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
+        downstream_identifier = self.identifiers.get_dataset_identifier(
+            stream.name, schema_name, db_name
+        )
+        downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
 
-            upstream_identifier = self.identifiers.get_dataset_identifier(
-                source_name, source_schema, source_db
-            )
-            upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
+        upstream_identifier = self.identifiers.get_dataset_identifier(
+            source_name, source_schema, source_db
+        )
+        upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
 
-            column_lineage = []
-            for col in stream.columns:
-                if not col.name.startswith("METADATA$"):
-                    column_lineage.append(
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                dataset=downstream_urn,
+        column_lineage = []
+        for col in stream.columns:
+            if not col.name.startswith("METADATA$"):
+                column_lineage.append(
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            dataset=downstream_urn,
+                            column=self.identifiers.snowflake_identifier(col.name),
+                        ),
+                        upstreams=[
+                            ColumnRef(
+                                table=upstream_urn,
                                 column=self.identifiers.snowflake_identifier(col.name),
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table=upstream_urn,
-                                    column=self.identifiers.snowflake_identifier(
-                                        col.name
-                                    ),
-                                )
-                            ],
-                        )
-                    )
-
-            if column_lineage:
-                self.aggregator.add_known_query_lineage(
-                    known_query_lineage=KnownQueryLineageInfo(
-                        query_id=f"stream_lineage_{stream.name}",
-                        query_text="",
-                        upstreams=[upstream_urn],
-                        downstream=downstream_urn,
-                        column_lineage=column_lineage,
-                        timestamp=stream.created if stream.created else None,
+                            )
+                        ],
                     )
                 )
+
+        if column_lineage:
+            self.aggregator.add_known_query_lineage(
+                known_query_lineage=KnownQueryLineageInfo(
+                    query_id=f"stream_lineage_{stream.name}",
+                    query_text="",
+                    upstreams=[upstream_urn],
+                    downstream=downstream_urn,
+                    column_lineage=column_lineage,
+                    timestamp=stream.created if stream.created else None,
+                )
+            )

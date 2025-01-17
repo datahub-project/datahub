@@ -131,7 +131,7 @@ class SnowflakeFilter:
         if _is_sys_table(dataset_name):
             return False
 
-        dataset_params = _split_qualified_name(dataset_name)
+        dataset_params = split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
@@ -193,17 +193,17 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
-def _split_qualified_name(qualified_name: str) -> List[str]:
+def split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
 
-    >>> _split_qualified_name("db.my_schema.my_table")
+    >>> split_qualified_name("db.my_schema.my_table")
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('"db"."my_schema"."my_table"')
+    >>> split_qualified_name('"db"."my_schema"."my_table"')
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    >>> split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
     ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
-    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    >>> split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
     ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
     """
 
@@ -241,7 +241,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = _split_qualified_name(qualified_name)
+    name_parts = split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(

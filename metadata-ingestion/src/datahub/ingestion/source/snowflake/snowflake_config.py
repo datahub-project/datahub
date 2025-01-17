@@ -278,11 +278,6 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
-    stream_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for streams to filter in ingestion.",
-    )
-
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
