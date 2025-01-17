@@ -58,7 +58,7 @@ jobs:
           ./gradlew --info docs-website:build
 
       - name: Deploy
-        if: github.event_name == 'push' && github.repository == 'datahub-project/datahub'
+        if: github.event_name == 'push' && github.repository == 'acryldata/datahub'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

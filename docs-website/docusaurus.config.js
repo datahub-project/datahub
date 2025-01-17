@@ -339,6 +339,9 @@ module.exports = {
             require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
+        gtag: {
+          trackingID: "G-2G54RXWD4D",
+        },
         pages: {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",

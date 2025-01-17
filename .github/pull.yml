@@ -1,0 +1,6 @@
+version: "1"
+rules:
+  - base: master
+    upstream: datahub-project:master
+    mergeMethod: merge
+    mergeUnstable: true
