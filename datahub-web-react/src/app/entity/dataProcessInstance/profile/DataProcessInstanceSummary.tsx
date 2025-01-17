@@ -71,9 +71,6 @@ export default function MLModelSummary() {
                     <InfoItem title="Created At">
                         <InfoItemContent>{formatDate(dpi?.properties?.created?.time)}</InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Created By">
-                        <InfoItemContent>{dpi?.properties?.created?.actor}</InfoItemContent>
-                    </InfoItem>
                     <InfoItem title="Status">
                         <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>
                     </InfoItem>
@@ -82,6 +79,9 @@ export default function MLModelSummary() {
                     </InfoItem>
                     <InfoItem title="Run ID">
                         <InfoItemContent>{dpi?.mlTrainingRunProperties?.id}</InfoItemContent>
+                    </InfoItem>
+                    <InfoItem title="Created By">
+                        <InfoItemContent>{dpi?.properties?.created?.actor}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <InfoItemContainer justifyContent="left">

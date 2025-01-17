@@ -104,11 +104,11 @@ export default function MLModelSummary() {
                     <InfoItem title="Last Modified At">
                         <InfoItemContent>{formatDate(model?.properties?.lastModified?.time)}</InfoItemContent>
                     </InfoItem>
-                </InfoItemContainer>
-                <InfoItemContainer justifyContent="left">
                     <InfoItem title="Created By">
                         <InfoItemContent>{model?.properties?.created?.actor}</InfoItemContent>
                     </InfoItem>
+                </InfoItemContainer>
+                <InfoItemContainer justifyContent="left">
                     <InfoItem title="Aliases">
                         <InfoItemContent>
                             {model?.versionProperties?.aliases?.map((alias, index) => (
