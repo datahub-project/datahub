@@ -2,6 +2,8 @@ import itertools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
+from duckdb.duckdb import aggregate
+
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -1440,45 +1442,46 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         Populate Streams upstream tables excluding the metadata columns
         """
-        source_parts = split_qualified_name(stream.table_name)
-        source_db, source_schema, source_name = source_parts
+        if self.aggregator:
+            source_parts = split_qualified_name(stream.table_name)
+            source_db, source_schema, source_name = source_parts
 
-        downstream_identifier = self.identifiers.get_dataset_identifier(
-            stream.name, schema_name, db_name
-        )
-        downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
+            downstream_identifier = self.identifiers.get_dataset_identifier(
+                stream.name, schema_name, db_name
+            )
+            downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
 
-        upstream_identifier = self.identifiers.get_dataset_identifier(
-            source_name, source_schema, source_db
-        )
-        upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
+            upstream_identifier = self.identifiers.get_dataset_identifier(
+                source_name, source_schema, source_db
+            )
+            upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
 
-        column_lineage = []
-        for col in stream.columns:
-            if not col.name.startswith("METADATA$"):
-                column_lineage.append(
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(
-                            dataset=downstream_urn,
-                            column=self.identifiers.snowflake_identifier(col.name),
-                        ),
-                        upstreams=[
-                            ColumnRef(
-                                table=upstream_urn,
+            column_lineage = []
+            for col in stream.columns:
+                if not col.name.startswith("METADATA$"):
+                    column_lineage.append(
+                        ColumnLineageInfo(
+                            downstream=DownstreamColumnRef(
+                                dataset=downstream_urn,
                                 column=self.identifiers.snowflake_identifier(col.name),
-                            )
-                        ],
+                            ),
+                            upstreams=[
+                                ColumnRef(
+                                    table=upstream_urn,
+                                    column=self.identifiers.snowflake_identifier(col.name),
+                                )
+                            ],
+                        )
+                    )
+
+            if column_lineage:
+                self.aggregator.add_known_query_lineage(
+                    known_query_lineage=KnownQueryLineageInfo(
+                        query_id=f"stream_lineage_{stream.name}",
+                        query_text="",
+                        upstreams=[upstream_urn],
+                        downstream=downstream_urn,
+                        column_lineage=column_lineage,
+                        timestamp=stream.created if stream.created else None,
                     )
                 )
-
-        if column_lineage:
-            self.aggregator.add_known_query_lineage(
-                known_query_lineage=KnownQueryLineageInfo(
-                    query_id=f"stream_lineage_{stream.name}",
-                    query_text="",
-                    upstreams=[upstream_urn],
-                    downstream=downstream_urn,
-                    column_lineage=column_lineage,
-                    timestamp=stream.created if stream.created else None,
-                )
-            )
