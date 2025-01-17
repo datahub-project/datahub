@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import logging
 
 import pytest
@@ -10,6 +11,7 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.couchbase.couchbase_aggregate import CouchbaseAggregate
 from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
+from datahub.ingestion.source.couchbase.retry import retry
 from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ def http_test_get(url: str, auth: BasicAuth) -> int:
     return response.status_code
 
 
-def http_test_post(url: str, auth: BasicAuth, data: dict) -> int:
+def http_test_post(url: str, auth: BasicAuth, data: dict) -> dict:
     response = session.post(
         url,
         verify=False,
@@ -54,7 +56,8 @@ def http_test_post(url: str, auth: BasicAuth, data: dict) -> int:
         auth=auth,
         data=data,
     )
-    return response.status_code
+    assert response.status_code == 200
+    return json.loads(response.text)
 
 
 @pytest.mark.slow
@@ -75,12 +78,17 @@ async def test_couchbase_driver(
         )
         assert result == 200
 
-        result = http_test_post(
-            "http://127.0.0.1:8093/query/service",
-            auth=BasicAuth("Administrator", "password"),
-            data={"statement": "SELECT count(*) as count FROM data.data.customers"},
-        )
-        assert result == 200
+        @retry(factor=1)
+        def collection_wait():
+            response = http_test_post(
+                "http://127.0.0.1:8093/query/service",
+                auth=BasicAuth("Administrator", "password"),
+                data={"statement": "SELECT count(*) as count FROM data.data.customers"},
+            )
+            results = response.get("results", [{}])
+            assert results[0].get("count", 0) == 1000
+
+        collection_wait()
 
         await asyncio.sleep(2)
 

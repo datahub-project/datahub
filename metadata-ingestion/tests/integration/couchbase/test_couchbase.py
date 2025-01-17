@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import os
 import shutil
@@ -15,6 +16,7 @@ from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
 from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
 from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.couchbase.retry import retry
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -51,7 +53,7 @@ def http_test_get(url: str, auth: BasicAuth) -> int:
     return response.status_code
 
 
-def http_test_post(url: str, auth: BasicAuth, data: dict) -> int:
+def http_test_post(url: str, auth: BasicAuth, data: dict) -> dict:
     response = session.post(
         url,
         verify=False,
@@ -59,7 +61,8 @@ def http_test_post(url: str, auth: BasicAuth, data: dict) -> int:
         auth=auth,
         data=data,
     )
-    return response.status_code
+    assert response.status_code == 200
+    return json.loads(response.text)
 
 
 @pytest.mark.integration_batch_2
@@ -82,12 +85,17 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         )
         assert result == 200
 
-        result = http_test_post(
-            "http://127.0.0.1:8093/query/service",
-            auth=BasicAuth("Administrator", "password"),
-            data={"statement": "SELECT count(*) as count FROM data.data.customers"},
-        )
-        assert result == 200
+        @retry(factor=1)
+        def collection_wait():
+            response = http_test_post(
+                "http://127.0.0.1:8093/query/service",
+                auth=BasicAuth("Administrator", "password"),
+                data={"statement": "SELECT count(*) as count FROM data.data.customers"},
+            )
+            results = response.get("results", [{}])
+            assert results[0].get("count", 0) == 1000
+
+        collection_wait()
 
         time.sleep(2)
 
