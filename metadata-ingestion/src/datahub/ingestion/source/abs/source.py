@@ -613,7 +613,7 @@ class ABSSource(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

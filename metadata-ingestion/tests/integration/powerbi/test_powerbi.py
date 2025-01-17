@@ -1438,7 +1438,7 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "Missing Lineage For Tile":
             is_entry_present = True
             break
@@ -1563,7 +1563,7 @@ def test_powerbi_app_ingest_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "App Ingestion Is Disabled":
             is_entry_present = True
             break

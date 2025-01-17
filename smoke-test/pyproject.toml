@@ -42,5 +42,3 @@ warn_unused_configs = true
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
 
-[tool.pyright]
-extraPaths = ['tests']
