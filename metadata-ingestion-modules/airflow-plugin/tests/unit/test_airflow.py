@@ -8,12 +8,12 @@ from unittest.mock import Mock
 
 import airflow.configuration
 import airflow.version
-import datahub.emitter.mce_builder as builder
 import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
 
+import datahub.emitter.mce_builder as builder
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin._airflow_shims import (
     AIRFLOW_PATCHED,
