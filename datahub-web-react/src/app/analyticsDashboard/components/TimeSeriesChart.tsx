@@ -84,6 +84,32 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
     return returnLines;
 }
 
+const formatAxisDate = (value: number, chartData: TimeSeriesChartType) => {
+    const date = new Date(value);
+
+    // force UTC
+    const utcDate = new Date(
+        Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate()
+        )
+    );
+    
+    return chartData.interval === 'MONTH'
+        ? utcDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            year: 'numeric',
+            timeZone: 'UTC'
+        })
+        : utcDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            timeZone: 'UTC'
+        });
+};
+
 export const TimeSeriesChart = ({
     chartData,
     width,
@@ -117,6 +143,7 @@ export const TimeSeriesChart = ({
                     strokeWidth={style?.axisWidth}
                     tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
                     numTicks={3}
+                    tickFormat={(value) => formatAxisDate(value, chartData)}
                 />
                 <Axis
                     orientation="right"
@@ -151,9 +178,10 @@ export const TimeSeriesChart = ({
                         tooltipData?.nearestDatum && (
                             <div>
                                 <div>
-                                    {new Date(
-                                        Number(accessors.xAccessor(tooltipData.nearestDatum.datum)),
-                                    ).toDateString()}
+                                    {formatAxisDate(
+                                        accessors.xAccessor(tooltipData.nearestDatum.datum),
+                                        chartData
+                                    )}
                                 </div>
                                 <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
                             </div>
