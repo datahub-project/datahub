@@ -14,7 +14,7 @@ requires-python = ">=3.9"
 [tool.ruff]
 # Enable ruff format
 target-version = "py310"
-line-length = 88  # Same as black's default
+line-length = 88
 extend-exclude = ["tmp", "venv"]
 
 [tool.ruff.format]
@@ -50,7 +50,6 @@ select = [
     "TID",
 ]
 ignore = [
-    'E501', # Ignore line length, since ruff format handles that
     'D203', # Ignore 1 blank line required before class docstring
     'B904', # exception with `raise ... from err` or `raise ... from None` to distinguish
     'TID252', # Prefer absolute imports over relative imports
