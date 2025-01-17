@@ -1221,6 +1221,11 @@ enum EntityType {
     A Business Attribute
     """
     BUSINESS_ATTRIBUTE
+
+    """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
 }
 
 """
@@ -10098,7 +10103,7 @@ type MLModelProperties {
     """
     The display name of the model used in the UI
     """
-    name: String!
+    name: String
 
     """
     Detailed description of the model's purpose and characteristics
