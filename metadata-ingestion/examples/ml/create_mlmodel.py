@@ -159,6 +159,27 @@ def create_training_job(
         id=run_id,
     )
 
+    start_time_millis = created_at
+    end_time_millis = start_time_millis + 360000
+    result = InstanceRunResult.SUCCESS
+    result_type = "SUCCESS"
+
+    run_start_event = models.DataProcessInstanceRunEventClass(
+            status=models.DataProcessRunStatusClass.STARTED,
+            timestampMillis=start_time_millis,
+        )
+
+    run_end_event = models.DataProcessInstanceRunEventClass(
+            status=models.DataProcessRunStatusClass.COMPLETE,
+            timestampMillis=end_time_millis,
+            durationMillis=end_time_millis - start_time_millis,
+            result=models.DataProcessInstanceRunResultClass(
+                type=result,
+                nativeResultType=(
+                    result_type if result_type is not None else "mlflow"                ),
+            ),
+        )
+
     # Add custom aspects
     mcps.extend([
         MetadataChangeProposalWrapper(
@@ -173,6 +194,20 @@ def create_training_job(
             entityType="dataProcessInstance",
             aspectName="mlTrainingRunProperties",
             aspect=training_run_props,
+            changeType=models.ChangeTypeClass.UPSERT
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            entityType="dataProcessInstance",
+            aspectName="dataProcessInstanceRunEvent",
+            aspect=run_start_event,
+            changeType=models.ChangeTypeClass.UPSERT
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            entityType="dataProcessInstance",
+            aspectName="dataProcessInstanceRunEvent",
+            aspect=run_end_event,
             changeType=models.ChangeTypeClass.UPSERT
         )
     ])
@@ -375,7 +410,9 @@ def main():
     )
 
     # Create the model group
-    model_group_urn, model_group_mcp = create_model_group(str(training_job.urn))
+    model_group_urn, model_group_mcp = create_model_group(
+        str(training_job.urn)
+    )
 
     # Create the model with training job reference
     model_urn, model_mcps = create_single_model(
