@@ -6,10 +6,11 @@ extend type Mutation {
     """
     Input required to create a new incident
     """
-    input: RaiseIncidentInput!): String
+    input: RaiseIncidentInput!
+  ): String
 
   """
-  Update an existing incident for a resource (asset)
+  Update the status of an existing incident for a resource (asset)
   """
   updateIncidentStatus(
     """
@@ -20,7 +21,8 @@ extend type Mutation {
     """
     Input required to update the state of an existing incident
     """
-    input: UpdateIncidentStatusInput!): Boolean
+    input: UpdateIncidentStatusInput!
+  ): Boolean
 }
 
 """
@@ -177,7 +179,6 @@ enum IncidentType {
   CUSTOM
 }
 
-
 """
 Details about the status of an asset incident
 """
@@ -292,15 +293,16 @@ extend type Dataset {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type DataJob {
@@ -311,15 +313,16 @@ extend type DataJob {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type DataFlow {
@@ -330,15 +333,16 @@ extend type DataFlow {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type Dashboard {
@@ -349,15 +353,16 @@ extend type Dashboard {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type Chart {
@@ -368,13 +373,14 @@ extend type Chart {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
