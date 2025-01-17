@@ -84,21 +84,8 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateTime end,
       final String title,
       final DateInterval interval) {
-
-    final DateRange dateRange;
-
-    // adjust month to show 1st of month rather than last day of previous month
-    if (interval == DateInterval.MONTH) {
-      dateRange =
-          new DateRange(
-              String.valueOf(beginning.plusDays(1).getMillis()), // Shift start by 1 day
-              String.valueOf(end.plusDays(1).getMillis()) // Shift end by 1 day
-              );
-    } else {
-      // week display starting Sundays
-      dateRange =
-          new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
-    }
+    final DateRange dateRange =
+        new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
 
     final List<NamedLine> timeSeriesLines =
         _analyticsService.getTimeseriesChart(
@@ -109,7 +96,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             ImmutableMap.of(),
             Collections.emptyMap(),
             Optional.of("browserId"));
-
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)
