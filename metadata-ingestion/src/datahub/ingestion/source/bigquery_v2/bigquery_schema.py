@@ -62,11 +62,9 @@ RANGE_PARTITION_NAME: str = "RANGE"
 
 @dataclass
 class PartitionInfo:
-    partition_field: Optional[str] = None
-    fields: List[str] = field(default_factory=list)
-    partition_column: Optional[BigqueryColumn] = None
-    columns: List[BigqueryColumn] = field(default_factory=list)
+    field: str
     # Data type is optional as we not have it when we set it from TimePartitioning
+    column: Optional[BigqueryColumn] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
     require_partition_filter: bool = False
@@ -76,13 +74,8 @@ class PartitionInfo:
     def from_time_partitioning(
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
-        """
-        Create PartitionInfo from a time-based partitioning configuration.
-        See https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables
-        """
         return cls(
-            partition_field=time_partitioning.field or "_PARTITIONTIME",
-            fields=[time_partitioning.field or "_PARTITIONTIME"],
+            field=time_partitioning.field or "_PARTITIONTIME",
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -92,40 +85,27 @@ class PartitionInfo:
     def from_range_partitioning(
         cls, range_partitioning: Dict[str, Any]
     ) -> Optional["PartitionInfo"]:
-        """
-        Create PartitionInfo from a range-based partitioning configuration.
-        See https://cloud.google.com/bigquery/docs/partitioned-tables#integer_range
-        """
-        partition_field: Optional[str] = range_partitioning.get("field")
-        if not partition_field:
+        field: Optional[str] = range_partitioning.get("field")
+        if not field:
             return None
 
         return cls(
-            fields=[partition_field],
+            field=field,
             type=RANGE_PARTITION_NAME,
         )
 
     @classmethod
     def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
-        # Handle existing time partitioning
+        RANGE_PARTITIONING_KEY: str = "rangePartitioning"
+
         if table_info.time_partitioning:
-            return cls.from_time_partitioning(table_info.time_partitioning)
-        elif "rangePartitioning" in table_info._properties:
-            return cls.from_range_partitioning(
-                table_info._properties["rangePartitioning"]
+            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+        elif RANGE_PARTITIONING_KEY in table_info._properties:
+            return PartitionInfo.from_range_partitioning(
+                table_info._properties[RANGE_PARTITIONING_KEY]
             )
-        # Add support for multiple partition columns
-        elif "partitioning" in table_info._properties:
-            fields = [
-                field["name"]
-                for field in table_info._properties.get("partitioning", {}).get(
-                    "fields", []
-                )
-            ]
-            if fields:
-                return cls(partition_field=fields[0], fields=fields)
+        else:
             return None
-        return None
 
 
 @dataclass
@@ -139,50 +119,9 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
-    partition_details: Optional[Dict[str, Any]] = None
     external: bool = False
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
-
-    @staticmethod
-    def _make_bigquery_table(
-        table: bigquery.Row, table_basic: Optional[TableListItem]
-    ) -> "BigqueryTable":
-        try:
-            expiration = table_basic.expires if table_basic else None
-        except OverflowError:
-            logger.info(f"Invalid expiration time for table {table.table_name}.")
-            expiration = None
-
-        _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
-
-        partition_info = None
-        partition_details = None
-        if table_basic:
-            partition_info = PartitionInfo.from_table_info(table_basic)
-            partition_details = table_basic._properties.get("partitioning")
-
-        return BigqueryTable(
-            name=table.table_name,
-            created=table.created,
-            table_type=table.table_type,
-            last_altered=parse_ts_millis(table.get("last_altered")),
-            size_in_bytes=table.get("bytes"),
-            rows_count=table.get("row_count"),
-            comment=table.comment,
-            ddl=table.ddl,
-            expires=expiration,
-            labels=table_basic.labels if table_basic else None,
-            partition_info=partition_info,
-            partition_details=partition_details,
-            clustering_fields=table_basic.clustering_fields if table_basic else None,
-            max_partition_id=table.get("max_partition_id"),
-            max_shard_id=shard,
-            num_partitions=table.get("num_partitions"),
-            active_billable_bytes=table.get("active_billable_bytes"),
-            long_term_billable_bytes=table.get("long_term_billable_bytes"),
-            external=(table.table_type == BigqueryTableType.EXTERNAL),
-        )
 
 
 @dataclass
