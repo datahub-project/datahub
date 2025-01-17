@@ -3,8 +3,14 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 
 [tool.ruff]
-target-version = "py38"
 line-length = 88
+target-version = "py38"
+exclude = [
+    ".git",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
 
 [tool.ruff.format]
 quote-style = "double"

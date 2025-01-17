@@ -5,6 +5,12 @@ requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+exclude = [
+    ".git",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -48,7 +54,6 @@ ignore = [
 max-complexity = 15
 
 [tool.ruff.lint.flake8-tidy-imports]
-# Disallow all relative imports.
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
