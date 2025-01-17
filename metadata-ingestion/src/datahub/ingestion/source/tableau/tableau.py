@@ -3605,7 +3605,7 @@ class TableauSiteSource:
                 parent_container_key=parent_project_key,
             )
 
-        for id_, project in self.tableau_project_registry.items():
+        for project in self.tableau_project_registry.values():
             logger.debug(
                 f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
             )

@@ -10,11 +10,50 @@ extend-exclude = '''
 '''
 include = '\.pyi?$'
 
-[tool.isort]
-indent = '    '
-known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub_provider._airflow_compat']
-profile = 'black'
-sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["datahub"]
+extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = false
+force-wrap-aliases = false
+split-on-trailing-comma = false
+order-by-type = true
+relative-imports-order = "closest-to-furthest"
+force-single-line = false
+single-line-exclusions = ["typing"]
+length-sort = false
+from-first = false
+required-imports = []
+classes = ["typing"]
 
-[tool.pyright]
-extraPaths = ['tests']
+[tool.ruff.lint]
+select = [
+    "B",
+    "C90",
+    "E",
+    "F",
+    "I", # For isort
+    "TID",
+]
+ignore = [
+    # Ignore line length violations (handled by Black)
+    "E501",
+    # Ignore whitespace before ':' (matches Black)
+    "E203",
+    "E203",
+    # Allow usages of functools.lru_cache
+    "B019",
+    # Allow function call in argument defaults
+    "B008",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

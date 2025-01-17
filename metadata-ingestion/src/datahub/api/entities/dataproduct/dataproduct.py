@@ -438,7 +438,7 @@ class DataProduct(ConfigModel):
             for replace_index, replace_value in patches_replace.items():
                 list_to_manipulate[replace_index] = replace_value
 
-            for drop_index, drop_value in patches_drop.items():
+            for drop_value in patches_drop.values():
                 list_to_manipulate.remove(drop_value)
 
             for add_value in patches_add:
