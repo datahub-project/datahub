@@ -15,9 +15,9 @@ assert AIRFLOW_PATCHED
 logger = logging.getLogger(__name__)
 
 
-_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and not os.getenv(
+_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and os.getenv(
     "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
-).lower() in ("true", "1")
+).lower() not in ("true", "1")
 
 if _USE_AIRFLOW_LISTENER_INTERFACE:
     try:
@@ -32,7 +32,7 @@ if _USE_AIRFLOW_LISTENER_INTERFACE:
 
 
 with contextlib.suppress(Exception):
-    if not os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() in (
+    if os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() not in (
         "true",
         "1",
     ):
@@ -56,8 +56,8 @@ class DatahubPlugin(AirflowPlugin):
     if _USE_AIRFLOW_LISTENER_INTERFACE:
         try:
             if not NEEDS_AIRFLOW_LISTENER_MODULE:
-                from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
-                    get_airflow_plugin_listener,
+                from datahub_airflow_plugin.datahub_listener import (
+                    get_airflow_plugin_listener,  # type: ignore[misc]
                 )
 
                 listeners: list = list(filter(None, [get_airflow_plugin_listener()]))

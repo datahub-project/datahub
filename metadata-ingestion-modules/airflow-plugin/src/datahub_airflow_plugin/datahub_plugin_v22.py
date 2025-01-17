@@ -7,9 +7,9 @@ import airflow
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
+
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.telemetry import telemetry
-
 from datahub_airflow_plugin._airflow_shims import (
     MappedOperator,
     get_task_inlets,

@@ -1070,7 +1070,7 @@ def test_unsupported_data_platform():
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "Non-Data Platform Expression":
             is_entry_present = True
             break
@@ -1163,7 +1163,7 @@ def test_m_query_timeout(mock_get_lark_parser):
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in warn_entries.items():
+    for entry in warn_entries.values():
         if entry.title == "M-Query Parsing Timeout":
             is_entry_present = True
             break

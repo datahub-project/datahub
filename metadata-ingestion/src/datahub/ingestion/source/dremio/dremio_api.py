@@ -181,7 +181,7 @@ class DremioAPIOperations:
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
-        for retry in range(1, self._retry_count + 1):
+        for _ in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
