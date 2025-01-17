@@ -8,20 +8,20 @@
        db: ANALYTICS_PROD
    ```
 
-2. If a view contains a LookML constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value is resolved in the following order:
+2. If your LookML code references a constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value is resolved in the following order:
 
 - **First, checks the `manifest.lkml` file** for the constant definition.
-    ```manifest.lkml
-      constant: db {
-          value: "ANALYTICS_PROD"
-      }
-    ```
+  ```manifest.lkml
+    constant: db {
+        value: "ANALYTICS_PROD"
+    }
+  ```
 - **If not found, falls back to `config`**
 
   ```yml
   lookml_constants:
     db: ANALYTICS_PROD
-  ``` 
+  ```
 
 ### Multi-Project LookML (Advanced)
 
