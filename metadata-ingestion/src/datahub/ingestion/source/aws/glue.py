@@ -495,6 +495,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _gen_full_table_name(self, database_name: str, table_name: str) -> str:
+        return ".".join(
+            filter(
+                None,
+                [self.source_config.athena_catalog_name, database_name, table_name],
+            )
+        )
+
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
@@ -511,15 +519,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-                full_table_name = ".".join(
-                    filter(
-                        None,
-                        [
-                            self.source_config.athena_catalog_name,
-                            node_args["database"],
-                            node_args["table_name"],
-                        ],
-                    )
+                full_table_name = self._gen_full_table_name(
+                    node_args["database"], node_args["table_name"]
                 )
                 # we know that the table will already be covered when ingesting Glue tables
                 node_urn = make_dataset_urn_with_platform_instance(
@@ -1144,16 +1145,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def _gen_table_wu(self, table: TablePaginatorTypeDef) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = ".".join(
-            filter(
-                None,
-                [
-                    self.source_config.athena_catalog_name,
-                    database_name,
-                    table_name,
-                ],
-            )
-        )
+        full_table_name = self._gen_full_table_name(database_name, table_name)
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name

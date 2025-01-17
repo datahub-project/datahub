@@ -7,6 +7,8 @@ import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
+from moto import mock_athena, mock_sts
+from moto.core import DEFAULT_ACCOUNT_ID
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -14,6 +16,7 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    DEFAULT_CATALOG_NAME,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
@@ -715,3 +718,71 @@ def test_glue_ingest_with_profiling(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+
+@mock_athena
+@mock_sts
+@pytest.mark.parametrize(
+    ("platform", "catalog_id", "expected"),
+    [
+        ("athena", None, DEFAULT_CATALOG_NAME),
+        ("athena", DEFAULT_ACCOUNT_ID, DEFAULT_CATALOG_NAME),
+        ("glue", None, None),
+        ("glue", DEFAULT_ACCOUNT_ID, None),
+    ],
+)
+def test_athena_catalog_name(
+    platform: str, catalog_id: Optional[str], expected: Optional[str]
+) -> None:
+    pipeline_context = PipelineContext(run_id="glue-source-test")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform=platform,
+            catalog_id=catalog_id,
+        ),
+    )
+    assert source.source_config.athena_catalog_name == expected
+
+
+@mock_athena
+@mock_sts
+@pytest.mark.parametrize(
+    ("platform", "catalog_id", "database", "table", "expected"),
+    [
+        (
+            "athena",
+            None,
+            "test_db",
+            "test_table",
+            f"{DEFAULT_CATALOG_NAME}.test_db.test_table",
+        ),
+        (
+            "athena",
+            DEFAULT_ACCOUNT_ID,
+            "test_db",
+            "test_table",
+            f"{DEFAULT_CATALOG_NAME}.test_db.test_table",
+        ),
+        ("glue", None, "test_db", "test_table", "test_db.test_table"),
+        ("glue", DEFAULT_ACCOUNT_ID, "test_db", "test_table", "test_db.test_table"),
+    ],
+)
+def test_gen_full_table_name(
+    platform: str,
+    catalog_id: Optional[str],
+    database: str,
+    table: str,
+    expected: Optional[str],
+) -> None:
+    pipeline_context = PipelineContext(run_id="glue-source-test")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform=platform,
+            catalog_id=catalog_id,
+        ),
+    )
+    assert source._gen_full_table_name(database, table) == expected
