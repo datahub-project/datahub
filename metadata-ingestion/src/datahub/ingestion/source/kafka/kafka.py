@@ -3,11 +3,11 @@ import concurrent.futures
 import io
 import json
 import logging
+import math
 import random
-import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
 
 import avro.io
 import avro.schema
@@ -72,22 +72,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    CalendarIntervalClass,
     DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
+    HistogramClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
     QuantileClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
-    TimeWindowClass,
-    TimeWindowSizeClass,
+    ValueFrequencyClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -103,6 +100,32 @@ class KafkaTopicConfigKeys(StrEnum):
     CLEANUP_POLICY_CONFIG = "cleanup.policy"
     MAX_MESSAGE_SIZE_CONFIG = "max.message.bytes"
     UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
+
+
+@dataclass
+class KafkaFieldStatistics:
+    field_path: str
+    sample_values: List[str]
+    unique_count: int = 0
+    unique_proportion: float = 0.0
+    null_count: int = 0
+    null_proportion: float = 0.0
+    min_value: Optional[Any] = None
+    max_value: Optional[Any] = None
+    mean_value: Optional[float] = None
+    median_value: Optional[Any] = None
+    stdev: Optional[float] = None
+    quantiles: Optional[List[QuantileClass]] = None
+    distinct_value_frequencies: Optional[Dict[str, int]] = None
+    data_type: Optional[str] = None
+
+    def __post_init__(self):
+        if self.distinct_value_frequencies is None:
+            self.distinct_value_frequencies = {}
+        if self.quantiles is None:
+            self.quantiles = []
+        if self.sample_values is None:
+            self.sample_values = []
 
 
 class ProfilerConfig(GEProfilingBaseConfig):
@@ -176,6 +199,223 @@ class KafkaSourceConfig(
         default=ProfilerConfig(),
         description="Settings for message sampling and profiling",
     )
+
+
+class KafkaProfiler:
+    """Handles advanced profiling of Kafka message samples"""
+
+    def __init__(self, profiler_config: GEProfilingBaseConfig):
+        self.profiler_config = profiler_config
+
+    def profile_samples(self, samples: List[Dict[str, Any]]) -> DatasetProfileClass:
+        """Profile a collection of samples and generate statistics"""
+        field_values: Dict[str, List[Any]] = {}
+
+        # Extract field values from samples
+        for sample in samples:
+            for field_name, value in sample.items():
+                if field_name not in ("offset", "timestamp"):
+                    if field_name not in field_values:
+                        field_values[field_name] = []
+                    field_values[field_name].append(value)
+
+        # Process each field
+        field_stats = {}
+        for field_name, values in field_values.items():
+            field_stats[field_name] = self._process_field_statistics(
+                field_path=field_name,
+                values=values,
+            )
+
+        return self.create_profile_data(field_stats, len(samples))
+
+    def _process_field_statistics(
+        self,
+        field_path: str,
+        values: List[Any],
+    ) -> KafkaFieldStatistics:
+        """Calculate statistics for a single field based on profiling config"""
+        total_count = len(values)
+        non_null_values = [v for v in values if v is not None and v != ""]
+
+        stats = KafkaFieldStatistics(
+            field_path=field_path,
+            sample_values=random.sample(
+                [str(v) for v in non_null_values] if non_null_values else [""],
+                min(3, len(non_null_values)) if non_null_values else 1,
+            )
+            if self.profiler_config.include_field_sample_values
+            else [],
+        )
+
+        # Calculate null statistics - always calculate for all types
+        if self.profiler_config.include_field_null_count:
+            stats.null_count = total_count - len(non_null_values)
+            stats.null_proportion = (
+                stats.null_count / total_count if total_count > 0 else 0
+            )
+
+        # Calculate distinct value stats - always calculate for all types
+        if self.profiler_config.include_field_distinct_count:
+            value_counts: Dict[str, int] = {}
+            for value in values:
+                str_value = str(value)
+                value_counts[str_value] = value_counts.get(str_value, 0) + 1
+
+            stats.unique_count = len(value_counts)
+            stats.unique_proportion = (
+                stats.unique_count / total_count if total_count > 0 else 0
+            )
+
+        # Only calculate other statistics for numeric fields
+        if non_null_values:
+            try:
+                numeric_values = [
+                    float(v)
+                    for v in non_null_values
+                    if str(v).replace(".", "").isdigit()
+                ]
+                if numeric_values:
+                    if self.profiler_config.include_field_min_value:
+                        stats.min_value = min(numeric_values)
+                    if self.profiler_config.include_field_max_value:
+                        stats.max_value = max(numeric_values)
+                    if self.profiler_config.include_field_mean_value:
+                        stats.mean_value = sum(numeric_values) / len(numeric_values)
+                    if self.profiler_config.include_field_median_value:
+                        stats.median_value = sorted(numeric_values)[
+                            len(numeric_values) // 2
+                        ]
+
+                    # Calculate standard deviation if enabled
+                    if (
+                        self.profiler_config.include_field_stddev_value
+                        and len(numeric_values) > 1
+                    ):
+                        mean = stats.mean_value or 0
+                        variance = sum((x - mean) ** 2 for x in numeric_values) / (
+                            len(numeric_values) - 1
+                        )
+                        stats.stdev = math.sqrt(variance)
+
+                    # Calculate quantiles if enabled
+                    if self.profiler_config.include_field_quantiles:
+                        sorted_values = sorted(numeric_values)
+                        stats.quantiles = [
+                            QuantileClass(
+                                quantile=str(0.25),
+                                value=str(
+                                    sorted_values[int(len(sorted_values) * 0.25)]
+                                ),
+                            ),
+                            QuantileClass(
+                                quantile=str(0.5),
+                                value=str(sorted_values[int(len(sorted_values) * 0.5)]),
+                            ),
+                            QuantileClass(
+                                quantile=str(0.75),
+                                value=str(
+                                    sorted_values[int(len(sorted_values) * 0.75)]
+                                ),
+                            ),
+                        ]
+
+                    stats.data_type = "NUMERIC"
+                else:
+                    stats.data_type = "STRING"
+            except (ValueError, TypeError):
+                stats.data_type = "STRING"
+
+        return stats
+
+    def create_profile_data(
+        self, field_stats: Dict[str, KafkaFieldStatistics], sample_count: int
+    ) -> DatasetProfileClass:
+        """Create DataHub profile class from field statistics"""
+        timestamp_millis = int(datetime.now().timestamp() * 1000)
+        field_profiles = []
+
+        for field_path, stats in field_stats.items():
+            histogram = None
+            if (
+                self.profiler_config.include_field_histogram
+                and stats.distinct_value_frequencies
+            ):
+                sorted_frequencies = sorted(
+                    stats.distinct_value_frequencies.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )[:10]
+
+                boundaries = [str(value) for value, _ in sorted_frequencies]
+                heights = [float(freq) for _, freq in sorted_frequencies]
+
+                histogram = HistogramClass(boundaries=boundaries, heights=heights)
+
+            field_profile = DatasetFieldProfileClass(
+                fieldPath=field_path,
+                sampleValues=stats.sample_values
+                if self.profiler_config.include_field_sample_values
+                else None,
+                uniqueCount=stats.unique_count
+                if self.profiler_config.include_field_distinct_count
+                else None,
+                uniqueProportion=stats.unique_proportion
+                if self.profiler_config.include_field_distinct_count
+                else None,
+                nullCount=stats.null_count
+                if self.profiler_config.include_field_null_count
+                else None,
+                nullProportion=stats.null_proportion
+                if self.profiler_config.include_field_null_count
+                else None,
+                min=str(stats.min_value)
+                if self.profiler_config.include_field_min_value
+                and stats.min_value is not None
+                else None,
+                max=str(stats.max_value)
+                if self.profiler_config.include_field_max_value
+                and stats.max_value is not None
+                else None,
+                mean=str(stats.mean_value)
+                if self.profiler_config.include_field_mean_value
+                and stats.mean_value is not None
+                else None,
+                median=str(stats.median_value)
+                if self.profiler_config.include_field_median_value
+                and stats.median_value is not None
+                else None,
+                stdev=str(stats.stdev)
+                if self.profiler_config.include_field_stddev_value
+                and hasattr(stats, "stdev")
+                else None,
+                quantiles=stats.quantiles
+                if self.profiler_config.include_field_quantiles
+                and hasattr(stats, "quantiles")
+                else None,
+                distinctValueFrequencies=[
+                    ValueFrequencyClass(value=str(value), frequency=freq)
+                    for value, freq in sorted(
+                        stats.distinct_value_frequencies.items(),
+                        key=lambda x: x[1],
+                        reverse=True,
+                    )[:10]
+                ]
+                if self.profiler_config.include_field_distinct_value_frequencies
+                and stats.distinct_value_frequencies
+                else None,
+                histogram=histogram
+                if self.profiler_config.include_field_histogram
+                else None,
+            )
+            field_profiles.append(field_profile)
+
+        return DatasetProfileClass(
+            timestampMillis=timestamp_millis,
+            columnCount=len(field_profiles),
+            rowCount=sample_count,
+            fieldProfiles=field_profiles,
+        )
 
 
 def get_kafka_consumer(
@@ -384,6 +624,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 graph=self.ctx.graph,
             )
 
+        self.profiler = KafkaProfiler(profiler_config=self.source_config.profiling)
+
         self.meta_processor = OperationProcessor(
             self.source_config.meta_mapping,
             self.source_config.tag_prefix,
@@ -456,210 +698,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         "subject", f"Exception while extracting topic {subject}: {e}"
                     )
 
-    def _process_sample_data(
-        self,
-        samples: List[Dict[str, Any]],
-        schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> Dict[str, Any]:
-        """Process sample data to extract field information."""
-        field_sample_map: Dict[str, List[str]] = {}
-
-        # Initialize from schema if available
-        if schema_metadata and schema_metadata.fields:
-            for schema_field in schema_metadata.fields:
-                field_sample_map[schema_field.fieldPath] = []
-
-        # Process each sample
-        for sample in samples:
-            for field_name, value in sample.items():
-                if field_name not in field_sample_map:
-                    field_sample_map[field_name] = []
-                if value is not None:
-                    field_sample_map[field_name].append(str(value))
-
-        return field_sample_map
-
-    def _create_profile_class(
-        self,
-        field_sample_map: Dict[str, List[str]],
-        row_count: int,
-    ) -> DatasetProfileClass:
-        """Create profile class from processed samples with complete statistical metrics."""
-        field_profiles = []
-
-        for field_path, samples in field_sample_map.items():
-            if not samples:
-                continue
-
-            # Convert string samples to numeric where possible
-            numeric_samples = []
-            for sample in samples:
-                try:
-                    numeric_samples.append(float(sample))
-                except (ValueError, TypeError):
-                    pass
-
-            sorted_samples = sorted(numeric_samples) if numeric_samples else []
-            q1_idx = len(sorted_samples) // 4 if len(sorted_samples) >= 4 else 0
-            q3_idx = (3 * len(sorted_samples)) // 4 if len(sorted_samples) >= 4 else 0
-
-            # Create the profile with mandatory and optional fields
-            profile = DatasetFieldProfileClass(
-                fieldPath=field_path,
-                # Required fields with fallbacks
-                sampleValues=random.sample(samples, min(3, len(samples)))
-                if samples and self.source_config.profiling.include_field_sample_values
-                else None,
-                nullCount=row_count - len(samples)
-                if self.source_config.profiling.include_field_null_count
-                else None,
-                uniqueCount=len(set(samples))
-                if self.source_config.profiling.include_field_distinct_count
-                else None,
-                # Numeric statistics
-                min=str(min(numeric_samples))
-                if numeric_samples
-                and self.source_config.profiling.include_field_min_value
-                else None,
-                max=str(max(numeric_samples))
-                if numeric_samples
-                and self.source_config.profiling.include_field_max_value
-                else None,
-                mean=str(statistics.mean(numeric_samples))
-                if numeric_samples
-                and self.source_config.profiling.include_field_mean_value
-                else None,
-                median=str(statistics.median(numeric_samples))
-                if numeric_samples
-                and self.source_config.profiling.include_field_median_value
-                else None,
-                stdev=str(statistics.stdev(numeric_samples))
-                if len(numeric_samples) > 1
-                and self.source_config.profiling.include_field_stddev_value
-                else None,
-                # Quartile statistics
-                quantiles=[
-                    QuantileClass(
-                        quantile=str(0.25), value=str(sorted_samples[q1_idx])
-                    ),
-                    QuantileClass(
-                        quantile=str(0.75), value=str(sorted_samples[q3_idx])
-                    ),
-                ]
-                if len(sorted_samples) >= 4
-                and self.source_config.profiling.include_field_quantiles
-                else None,
-                # Set unused fields to None
-                histogram=None,
-                distinctValueFrequencies=None,
-            )
-            field_profiles.append(profile)
-
-        # Create the dataset profile with timing information
-        timestamp_millis = int(datetime.now().timestamp() * 1000)
-        return DatasetProfileClass(
-            timestampMillis=timestamp_millis,
-            rowCount=row_count,
-            columnCount=len(field_profiles),
-            fieldProfiles=field_profiles,
-            # Add time window information
-            eventGranularity=TimeWindowSizeClass(
-                unit=CalendarIntervalClass.SECOND,
-                multiple=self.source_config.profiling.max_sample_time_seconds,
-            ),
-            # Add partition specification
-            partitionSpec=PartitionSpecClass(
-                partition=f"SAMPLE ({self.source_config.profiling.sample_size}/{self.source_config.profiling.max_sample_time_seconds} seconds)",
-                type=PartitionTypeClass.QUERY,
-                timePartition=TimeWindowClass(
-                    startTimeMillis=timestamp_millis,
-                    length=TimeWindowSizeClass(
-                        unit=CalendarIntervalClass.SECOND,
-                        multiple=self.source_config.profiling.max_sample_time_seconds,
-                    ),
-                ),
-            ),
-        )
-
-    def _get_sample_data(
-        self,
-        topic: str,
-        timeout_seconds: int,
-        max_samples: int,
-    ) -> List[Dict[str, Any]]:
-        """Get sample messages from Kafka topic."""
-        samples: List[Dict[str, Any]] = []
-        self.consumer.subscribe([topic])
-
-        end_time = datetime.now() + timedelta(seconds=timeout_seconds)
-
-        try:
-            while datetime.now() < end_time and len(samples) < max_samples:
-                msg = self.consumer.poll(timeout=1.0)
-                if msg is None or msg.error():
-                    continue
-
-                sample_data = self._process_message(msg, topic)
-                if sample_data:
-                    samples.append(sample_data)
-
-            return samples
-
-        finally:
-            self.consumer.unsubscribe()
-
-    def _process_message(
-        self, msg: confluent_kafka.Message, topic: str
-    ) -> Optional[Dict[str, Any]]:
-        """Process a single Kafka message into a sample."""
-        try:
-            key = msg.key() if callable(msg.key) else msg.key
-            value = msg.value() if callable(msg.value) else msg.value
-
-            # Fix timestamp handling
-            msg_timestamp = msg.timestamp()[1]
-            try:
-                # If timestamp is in milliseconds (> 1e10), convert to seconds
-                if msg_timestamp > 1e10:
-                    msg_timestamp = msg_timestamp / 1000.0
-                # Handle potential out of range timestamps
-                if msg_timestamp < 0 or msg_timestamp > 2147483647:
-                    msg_timestamp = datetime.now().timestamp()
-                timestamp_str = datetime.fromtimestamp(msg_timestamp).isoformat()
-            except (ValueError, OSError, OverflowError):
-                # Fallback to current time if timestamp conversion fails
-                timestamp_str = datetime.now().isoformat()
-
-            sample = {
-                "offset": msg.offset(),
-                "timestamp": timestamp_str,
-            }
-
-            # Process key if present
-            if key:
-                processed_key = self._process_message_part(
-                    key, "key", topic, is_key=True
-                )
-                if isinstance(processed_key, dict):
-                    sample.update({f"key_{k}": v for k, v in processed_key.items()})
-                else:
-                    sample["key"] = processed_key
-
-            # Process value
-            if value:
-                processed_value = self._process_message_part(
-                    value, "value", topic, is_key=False
-                )
-                if isinstance(processed_value, dict):
-                    sample.update(processed_value)
-                else:
-                    sample["value"] = processed_value
-
-            return sample
-        except Exception as e:
-            logger.warning(f"Error processing message: {e}")
-            return None
-
     def _process_message_part(
         self, data: Any, prefix: str, topic: str, is_key: bool = False
     ) -> Optional[Any]:
@@ -699,7 +737,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 return flatten_json(decoded_value)
                             return decoded_value
                         except Exception as e:
-                            logger.debug(f"Failed to decode Avro message: {e}")
+                            logger.warning(f"Failed to decode Avro message: {e}")
 
                 # Fallback to JSON decode if no schema or Avro decode fails
                 try:
@@ -714,60 +752,222 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     return base64.b64encode(data).decode("utf-8")
 
             except Exception as e:
-                logger.debug(f"Failed to process message part: {e}")
+                logger.warning(f"Failed to process message part: {e}")
                 return base64.b64encode(data).decode("utf-8")
 
         return data
 
-    def get_profiling_workunit(
+    def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
+        """
+        Collects sample messages from a Kafka topic, handling both key and value fields.
+        """
+        samples: List[Dict[str, Any]] = []
+        try:
+            self.consumer.subscribe([topic])
+
+            # Poll for messages until timeout or we get desired number of samples
+            end_time = datetime.now() + timedelta(
+                seconds=float(self.source_config.profiling.max_sample_time_seconds)
+            )
+
+            while datetime.now() < end_time:
+                msg = self.consumer.poll(timeout=1.0)
+
+                if msg is None:
+                    continue
+
+                if msg.error():
+                    logger.warning(f"Error while consuming from {topic}: {msg.error()}")
+                    break
+
+                try:
+                    # Process both key and value
+                    key = msg.key() if callable(msg.key) else msg.key
+                    value = msg.value() if callable(msg.value) else msg.value
+                    processed_key = self._process_message_part(
+                        key, "key", topic, is_key=True
+                    )
+                    processed_value = self._process_message_part(
+                        value, "value", topic, is_key=False
+                    )
+
+                    msg_timestamp = msg.timestamp()[1]
+                    timestamp_dt = datetime.fromtimestamp(
+                        msg_timestamp / 1000.0
+                        if msg_timestamp > 1e10
+                        else msg_timestamp
+                    )
+
+                    sample = {
+                        "offset": msg.offset(),
+                        "timestamp": timestamp_dt.isoformat(),
+                    }
+
+                    # Add key and value data with proper prefixing
+                    if processed_key is not None:
+                        if isinstance(processed_key, dict):
+                            # Don't prefix with 'key.'
+                            sample.update(processed_key)
+                        else:
+                            sample["key"] = processed_key
+
+                    if processed_value is not None:
+                        if isinstance(processed_value, dict):
+                            # Add value fields without prefix
+                            sample.update(processed_value)
+                        else:
+                            sample["value"] = processed_value
+
+                    samples.append(sample)
+
+                    if len(samples) >= self.source_config.profiling.sample_size:
+                        break
+
+                except Exception as e:
+                    logger.warning(f"Failed to decode message from {topic}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Failed to collect samples from {topic}: {e}")
+        finally:
+            self.consumer.unsubscribe()
+
+        return samples
+
+    def _process_sample_data(
         self,
-        dataset_urn: str,
+        samples: List[Dict[str, Any]],
+        schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> Dict[str, Any]:
+        """Process sample data to extract field information from both key and value schemas."""
+        all_keys: Set[str] = set()
+        field_sample_map: Dict[str, List[str]] = {}
+        key_field_path: Optional[str] = None
+
+        # Initialize from schema if available
+        if schema_metadata is not None and isinstance(
+            schema_metadata.platformSchema, KafkaSchemaClass
+        ):
+            # Find the key field path from schema metadata fields
+            key_field = next(
+                (
+                    schema_field
+                    for schema_field in (schema_metadata.fields or [])
+                    if schema_field.fieldPath.endswith("[key=True]")
+                ),
+                None,
+            )
+            if key_field:
+                key_field_path = key_field.fieldPath
+                all_keys.add(key_field_path)
+                field_sample_map[key_field_path] = []
+
+            # Handle all schema fields (both key and value)
+            for schema_field in schema_metadata.fields or []:
+                field_path = schema_field.fieldPath
+                if field_path not in field_sample_map:
+                    field_sample_map[field_path] = []
+                    all_keys.add(field_path)
+
+        # Process samples
+        for sample in samples:
+            # Process each field in the sample
+            for field_name, value in sample.items():
+                if field_name not in ["offset", "timestamp"]:
+                    # For sample data, we need to map the simplified field names back to full paths
+                    matching_schema_field = None
+                    if schema_metadata and schema_metadata.fields:
+                        clean_field = clean_field_path(field_name, preserve_types=False)
+
+                        # Special handling for key field
+                        if field_name == "key" and key_field_path:
+                            matching_schema_field = next(
+                                schema_field
+                                for schema_field in schema_metadata.fields
+                                if schema_field.fieldPath == key_field_path
+                            )
+                        else:
+                            # Find matching schema field by comparing the end of the path
+                            for schema_field in schema_metadata.fields:
+                                if (
+                                    clean_field_path(
+                                        schema_field.fieldPath, preserve_types=False
+                                    )
+                                    == clean_field
+                                ):
+                                    matching_schema_field = schema_field
+                                    break
+
+                    # Use the full path from schema if found, otherwise use original field name
+                    field_path = (
+                        matching_schema_field.fieldPath
+                        if matching_schema_field
+                        else field_name
+                    )
+
+                    if field_path not in field_sample_map:
+                        field_sample_map[field_path] = []
+                        all_keys.add(field_path)
+                    field_sample_map[field_path].append(str(value))
+
+        return {"all_keys": all_keys, "field_sample_map": field_sample_map}
+
+    def _create_profile_data(
+        self, all_keys: set, field_sample_map: Dict[str, List[str]], sample_count: int
+    ) -> DatasetProfileClass:
+        """Create profile data from processed samples."""
+        timestamp_millis = int(datetime.now().timestamp() * 1000)
+        return DatasetProfileClass(
+            timestampMillis=timestamp_millis,
+            columnCount=len(all_keys),
+            fieldProfiles=[
+                DatasetFieldProfileClass(
+                    fieldPath=field_name,
+                    sampleValues=random.sample(
+                        field_samples, min(3, len(field_samples))
+                    ),
+                )
+                for field_name, field_samples in field_sample_map.items()
+            ],
+        )
+
+    def create_profiling_wu(
+        self,
+        entity_urn: str,
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate profiling workunit for a topic."""
+        """Create samples work unit incorporating both schema fields and sample values."""
+        # Only proceed if profiling is enabled
         if not self.source_config.profiling.enabled:
             return
 
-        try:
-            # Get sample data
-            samples = self._get_sample_data(
-                topic,
-                self.source_config.profiling.max_sample_time_seconds,
-                self.source_config.profiling.sample_size,
+        samples = self.get_sample_messages(topic)
+        if not samples:
+            return
+
+        # Respect sample size limit if configured
+        if self.source_config.profiling.limit:
+            samples = samples[: self.source_config.profiling.limit]
+
+        # Apply offset if configured
+        if self.source_config.profiling.offset:
+            samples = samples[self.source_config.profiling.offset :]
+
+        # If table-level only profiling is enabled, skip detailed field profiling
+        if self.source_config.profiling.profile_table_level_only:
+            profile_data = DatasetProfileClass(
+                timestampMillis=int(datetime.now().timestamp() * 1000),
+                rowCount=len(samples),
+                columnCount=len({k for sample in samples for k in sample.keys()}),
+            )
+        else:
+            profile_data = self.profiler.profile_samples(
+                samples=samples,
             )
 
-            if not samples:
-                logger.debug(f"No samples collected for topic {topic}")
-                return
-
-            logger.debug(f"Processing {len(samples)} samples for topic {topic}")
-            field_sample_map = self._process_sample_data(samples, schema_metadata)
-
-            # Create profile with all available metrics
-            profile = self._create_profile_class(field_sample_map, len(samples))
-
-            # Create and yield the workunit
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=profile,
-            )
-
-            wu = mcp.as_workunit()
-            wu.id = f"{dataset_urn}-profile"
-            yield wu
-
-            logger.debug(f"Successfully generated profile for topic {topic}")
-
-        except Exception as e:
-            logger.warning(
-                f"Error generating profile for topic {topic}: {e}", exc_info=True
-            )
-            self.report.report_warning(
-                message="Failed to profile topic",
-                context=topic,
-                exc=e,
-            )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=entity_urn, aspect=profile_data
+        ).as_workunit()
 
     def get_dataset_description(
         self,
@@ -872,7 +1072,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
+            aspects=[StatusClass(removed=False)],  # we append to this list later on
         )
 
         if schema_metadata is not None:
@@ -946,8 +1146,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # 9. Emit sample values
         if not is_subject and self.source_config.profiling.enabled:
-            yield from self.get_profiling_workunit(
-                dataset_urn=dataset_urn,
+            yield from self.create_profiling_wu(
+                entity_urn=dataset_urn,
                 topic=topic,
                 schema_metadata=schema_metadata,
             )
