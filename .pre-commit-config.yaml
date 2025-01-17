@@ -444,4 +444,3 @@ repos:
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
-

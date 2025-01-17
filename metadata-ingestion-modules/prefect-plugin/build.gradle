@@ -54,14 +54,12 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ && " +
     "ruff check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ && " +
     "ruff check --fix src/ tests/"
     "mypy src/ tests/ "
 }

@@ -5,12 +5,12 @@ requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 [tool.ruff]
 # Enable Ruff's formatter
 extend-exclude = ["/tmp"]
-line-length = 88  # Same as Black's default
-target-version = "py37"  # Adjust based on your Python version
+line-length = 88
+target-version = "py38"
 respect-gitignore = true
 
 [tool.ruff.format]
-quote-style = "double"  # Black uses double quotes
+quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
