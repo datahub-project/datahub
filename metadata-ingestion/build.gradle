@@ -23,8 +23,10 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${python_executable} -m venv ${venv_name} && set -x && " +
-    "${venv_name}/bin/python -m pip install --upgrade uv && " +
+    "if [ ! -d ${venv_name} ]; then ${python_executable} -m venv ${venv_name}; fi && " +
+    "set -x && " +
+    // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
+    "if [ ! -f ${venv_name}/bin/uv ]; then ${venv_name}/bin/python -m pip install --upgrade uv; else ${venv_name}/bin/python -m uv pip install --upgrade uv; fi && " +
     "touch ${sentinel_file}"
 }
 
