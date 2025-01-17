@@ -218,36 +218,53 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
         """Profile a collection of samples and generate statistics"""
+        # Initialize collections
         field_values: Dict[str, List[Any]] = {}
         key_field_path: Optional[str] = None
+        all_keys: Set[str] = set()
 
-        # Extract key field path from schema if available
-        if schema_metadata and schema_metadata.fields:
+        # Initialize from schema if available
+        if schema_metadata is not None and isinstance(
+            schema_metadata.platformSchema, KafkaSchemaClass
+        ):
+            # Find the key field path from schema metadata fields
             key_field = next(
                 (
-                    field
-                    for field in schema_metadata.fields
-                    if field.fieldPath.endswith("[key=True]")
+                    schema_field
+                    for schema_field in (schema_metadata.fields or [])
+                    if schema_field.fieldPath.endswith("[key=True]")
                 ),
                 None,
             )
             if key_field:
                 key_field_path = key_field.fieldPath
+                all_keys.add(key_field_path)
+                field_values[key_field_path] = []
 
-        # Extract field values from samples
+            # Initialize all schema fields
+            for schema_field in schema_metadata.fields or []:
+                field_path = schema_field.fieldPath
+                if field_path not in field_values:
+                    field_values[field_path] = []
+                    all_keys.add(field_path)
+
+        # Process each sample
         for sample in samples:
             for field_name, value in sample.items():
                 if field_name not in ("offset", "timestamp"):
-                    # Map field name to schema field path if available
-                    field_path = field_name
+                    matching_schema_field = None
                     if schema_metadata and schema_metadata.fields:
+                        clean_field = clean_field_path(field_name, preserve_types=False)
+
+                        # Special handling for key field
                         if field_name == "key" and key_field_path:
-                            field_path = key_field_path
-                        else:
-                            # Try to find matching schema field
-                            clean_field = clean_field_path(
-                                field_name, preserve_types=False
+                            matching_schema_field = next(
+                                schema_field
+                                for schema_field in schema_metadata.fields
+                                if schema_field.fieldPath == key_field_path
                             )
+                        else:
+                            # Find matching schema field by comparing the end of the path
                             for schema_field in schema_metadata.fields:
                                 if (
                                     clean_field_path(
@@ -255,13 +272,22 @@ class KafkaProfiler:
                                     )
                                     == clean_field
                                 ):
-                                    field_path = schema_field.fieldPath
+                                    matching_schema_field = schema_field
                                     break
+
+                    # Use full path from schema if found, otherwise use original field name
+                    field_path = (
+                        matching_schema_field.fieldPath
+                        if matching_schema_field
+                        else field_name
+                    )
 
                     if field_path not in field_values:
                         field_values[field_path] = []
+                        all_keys.add(field_path)
                     field_values[field_path].append(value)
 
+        # Process field statistics
         field_stats = {}
         for field_name, values in field_values.items():
             field_stats[field_name] = self._process_field_statistics(
