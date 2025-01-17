@@ -4443,13 +4443,13 @@
             {
                 "op": "add",
                 "path": "/customProperties/STALE_AFTER",
-                "value": "2021-06-22T00:00:00"
+                "value": "2021-06-22T00:00:00+00:00"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-foacth",
+        "runId": "snowflake-2022_06_07-17_00_00-ftc9zc",
         "lastRunId": "no-run-id-provided"
     }
 },

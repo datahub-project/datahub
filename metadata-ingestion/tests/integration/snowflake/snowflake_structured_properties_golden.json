@@ -4149,24 +4149,24 @@
                 "OWNER_ROLE_TYPE": "ROLE",
                 "TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
                 "BASE_TABLES": "TEST_DB.TEST_SCHEMA.TABLE_1",
-                "STALE_AFTER": "2021-06-22T00:00:00"
+                "STALE_AFTER": "2021-06-22T00:00:00+00:00"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/STREAM_1/",
             "name": "STREAM_1",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.STREAM_1",
             "description": "Comment for Stream 1",
             "created": {
-                "time": 1623124800000
+                "time": 1623110400000
             },
             "lastModified": {
-                "time": 1623124800000
+                "time": 1623110400000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_16-14_38_38-5znjnn",
+        "runId": "snowflake-2025_01_17-13_30_28-vz7bmd",
         "lastRunId": "no-run-id-provided"
     }
 },

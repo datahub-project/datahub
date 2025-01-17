@@ -299,7 +299,7 @@ def default_query_results(  # noqa: C901
         # TODO: Add tests for stream pagination.
         return [
             {
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "name": f"STREAM_{stream_idx}",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -311,7 +311,7 @@ def default_query_results(  # noqa: C901
                 "type": "DELTA",
                 "stale": "false",
                 "mode": "DEFAULT",
-                "stale_after": datetime(2021, 6, 22, 0, 0, 0, 0),
+                "stale_after": datetime(2021, 6, 22, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "invalid_reason": None,
                 "owner_role_type": "ROLE",
             }
