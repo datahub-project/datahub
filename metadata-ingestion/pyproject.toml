@@ -11,13 +11,10 @@ extend-exclude = '''
 include = '\.pyi?$'
 target-version = ['py38', 'py39', 'py310', 'py311']
 
-
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
-known-first-party = ["datahub"]
-
-#combine-as-imports = true
+combine-as-imports = true
 
 [tool.ruff]
 # Same as Black.
@@ -59,7 +56,6 @@ extend-ignore = [
 max-complexity = 20
 
 [tool.ruff.lint.flake8-tidy-imports]
-# Disallow all relative imports.
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
