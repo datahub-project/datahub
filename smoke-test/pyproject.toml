@@ -51,8 +51,6 @@ select = [
 ]
 ignore = [
     "E501",  # Line length violations (handled by formatter)
-    "B019",  # Allow functools.lru_cache usage
-    "B008",  # Allow function calls in argument defaults
     "B904",  # exception with `raise ... from err` or `raise ... from None` to distinguish
     "TID252",# Prefer absolute imports over relative imports
 ]
