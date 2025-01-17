@@ -57,7 +57,6 @@ mypy_stubs = {
 dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
     "ruff==0.9.1",
     "mypy>=1.4.0",
