@@ -17,6 +17,7 @@ sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_par
 combine-as-imports = true
 
 [tool.ruff]
+target-version = "py38"
 # Same as Black.
 line-length = 88
 # Exclude directories matching these patterns.
