@@ -212,19 +212,56 @@ class KafkaProfiler:
     def __init__(self, profiler_config: ProfilerConfig):
         self.profiler_config = profiler_config
 
-    def profile_samples(self, samples: List[Dict[str, Any]]) -> DatasetProfileClass:
+    def profile_samples(
+        self,
+        samples: List[Dict[str, Any]],
+        schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> DatasetProfileClass:
         """Profile a collection of samples and generate statistics"""
         field_values: Dict[str, List[Any]] = {}
+        key_field_path: Optional[str] = None
+
+        # Extract key field path from schema if available
+        if schema_metadata and schema_metadata.fields:
+            key_field = next(
+                (
+                    field
+                    for field in schema_metadata.fields
+                    if field.fieldPath.endswith("[key=True]")
+                ),
+                None,
+            )
+            if key_field:
+                key_field_path = key_field.fieldPath
 
         # Extract field values from samples
         for sample in samples:
             for field_name, value in sample.items():
                 if field_name not in ("offset", "timestamp"):
-                    if field_name not in field_values:
-                        field_values[field_name] = []
-                    field_values[field_name].append(value)
+                    # Map field name to schema field path if available
+                    field_path = field_name
+                    if schema_metadata and schema_metadata.fields:
+                        if field_name == "key" and key_field_path:
+                            field_path = key_field_path
+                        else:
+                            # Try to find matching schema field
+                            clean_field = clean_field_path(
+                                field_name, preserve_types=False
+                            )
+                            for schema_field in schema_metadata.fields:
+                                if (
+                                    clean_field_path(
+                                        schema_field.fieldPath, preserve_types=False
+                                    )
+                                    == clean_field
+                                ):
+                                    field_path = schema_field.fieldPath
+                                    break
 
-        # Process each field
+                    if field_path not in field_values:
+                        field_values[field_path] = []
+                    field_values[field_path].append(value)
+
         field_stats = {}
         for field_name, values in field_values.items():
             field_stats[field_name] = self._process_field_statistics(
@@ -977,12 +1014,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if self.source_config.profiling.profile_table_level_only:
             profile_data = DatasetProfileClass(
                 timestampMillis=int(datetime.now().timestamp() * 1000),
-                rowCount=len(samples),
                 columnCount=len({k for sample in samples for k in sample.keys()}),
             )
         else:
             profile_data = self.profiler.profile_samples(
-                samples=samples,
+                samples=samples, schema_metadata=schema_metadata
             )
 
         yield MetadataChangeProposalWrapper(
