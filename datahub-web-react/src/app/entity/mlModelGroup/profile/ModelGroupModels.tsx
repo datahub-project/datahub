@@ -61,7 +61,7 @@ const VersionContainer = styled.div`
     align-items: center;
 `;
 
-const AliasePill = styled.div`
+const AliasPill = styled.div`
     padding: 2px 8px;
     display: inline-flex;
     align-items: center;
@@ -117,13 +117,12 @@ export default function MLGroupModels() {
                 </NameContainer>
             ),
         },
-        // TODO: shoudl we use versionProperties for this? 
         {
             title: 'Version',
             key: 'version',
             width: 70,
             render: (_: any, record: EntityType.Mlmodel) => (
-                <VersionContainer>{record.properties?.modelVersion || '-'}</VersionContainer>
+                <VersionContainer>{record.versionProperties?.version?.versionTag || '-'}</VersionContainer>
             ),
         },
         {
@@ -131,23 +130,22 @@ export default function MLGroupModels() {
             key: 'createdAt',
             width: 150,
             render: (_: any, record: EntityType.Mlmodel) => (
-                <Typography.Text>{formatDate(record.properties?.created?.time)}</Typography.Text>
+                <Typography.Text>{formatDate(record.properties?.createdTS?.time)}</Typography.Text>
             ),
         },
-        // use versionProperties for aliases
         {
             title: 'Aliases',
             key: 'aliases',
             width: 200,
             render: (_: any, record: EntityType.Mlmodel) => {
-                const aliases = record.versionProperties?.aliases?.map(va => va.aliasVersion) || [];
-
+                const aliases = record.versionProperties?.aliases || [];
+        
                 return (
                     <TagContainer>
-                        {aliases.map((alias) => (
-                            <AliasePill>
-                                {alias}
-                            </AliasePill>
+                        {aliases.map((alias, index) => (
+                            <AliasPill key={`${alias.versionTag}-${index}`}>
+                                {alias.versionTag}
+                            </AliasPill>
                         ))}
                     </TagContainer>
                 );

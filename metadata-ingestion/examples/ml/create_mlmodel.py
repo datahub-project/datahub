@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, DatasetUrn
+from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, DatasetUrn, VersionSetUrn
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
@@ -208,7 +208,9 @@ def create_training_job(
     return data_process_instance, mcps
 
 
-def create_model_group() -> tuple[MlModelGroupUrn, MetadataChangeProposalWrapper]:
+def create_model_group(
+        training_job_urn: str
+) -> tuple[MlModelGroupUrn, MetadataChangeProposalWrapper]:
     """Create a model group and return its URN and MCP"""
     model_group_urn = MlModelGroupUrn(platform="mlflow", name="simple_model_group")
     current_time = int(time.time() * 1000)
@@ -227,7 +229,10 @@ def create_model_group() -> tuple[MlModelGroupUrn, MetadataChangeProposalWrapper
             time=current_time,
             actor="urn:li:corpuser:datahub"
         ),
+        trainingJobs=[str(training_job_urn)],
     )
+
+
 
     return model_group_urn, MetadataChangeProposalWrapper(
         entityUrn=str(model_group_urn),
@@ -290,23 +295,42 @@ def create_single_model(
         ],
     )
 
-    # print(str(model_urn))
-    # model_version_info = models.VersionPropertiesClass(
-    #     version=models.VersionTagClass(versionTag="1"),
-    #     versionSet="urn:li:mlModel:(urn:li:dataPlatform:mlflow,simple_model,PROD)",
-    #     aliases=[models.VersionTagClass(versionTag="latest")],
-    #     sortId="",
-    # )
-    #
-    # mcps.append(
-    #     MetadataChangeProposalWrapper(
-    #         entityUrn=str(model_urn),
-    #         entityType="mlModel",
-    #         aspectName="versionProperties",
-    #         aspect=model_version_info,
-    #         changeType=models.ChangeTypeClass.UPSERT
-    #     )
-    # )
+    print(str(model_urn))
+
+    # define version_set
+    version_set_urn = VersionSetUrn(id="mlmodelgroup_id", entity_type="mlModel") # since the model is version of the model group
+
+    # somehow link the version_set and model_urn
+    version_entity = models.VersionSetPropertiesClass(
+        latest=str(model_urn), # should be the version of the model
+        versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",
+    )
+
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=str(version_set_urn),
+            entityType="versionSet",
+            aspectName="versionSetProperties",
+            aspect=version_entity,
+            changeType=models.ChangeTypeClass.UPSERT
+        )
+    )
+    # emit version properties
+    model_version_info = models.VersionPropertiesClass(
+        version=models.VersionTagClass(versionTag="1"),
+        versionSet=str(version_set_urn),
+        aliases=[models.VersionTagClass(versionTag="latest")],
+        sortId="AAAAAAAA",
+    )
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=str(model_urn),
+            entityType="mlModel",
+            aspectName="versionProperties",
+            aspect=model_version_info,
+            changeType=models.ChangeTypeClass.UPSERT
+        )
+    )
 
     mcps.append(
         MetadataChangeProposalWrapper(
@@ -323,16 +347,13 @@ def create_single_model(
 
 def main():
     # Create emitter with authentication token
-    token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjE3ZjkyMDVjLTEzMzAtNGYzMC1iYjhhLWU4MjdiNDE1MTRjOSIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3Mzk2MTc1NjEsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.QNx813PkhRVEmX7t12-j2uaum0WDpjlCf_j66rzDnWw"
+    token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6ImQ2MDBlNjYyLTliYjgtNGU5MS1hMGY4LTUxZjdkYjVjMzkyYiIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3Mzk2NjA1MTgsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.6X37g3hQ2Ki3P0GABzl5_dUwZtB0b15h_E4WQyzVX_Y"
     emitter = DatahubRestEmitter(
         gms_server="http://localhost:8080",
         extra_headers={
             "Authorization": f"Bearer {token}"
         }
     )
-
-    # Create the model group
-    model_group_urn, model_group_mcp = create_model_group()
 
     # Create experiment container
     experiment = Container(
@@ -352,6 +373,9 @@ def main():
         run_id="run_1",
         input_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,airline_passengers,PROD)"
     )
+
+    # Create the model group
+    model_group_urn, model_group_mcp = create_model_group(str(training_job.urn))
 
     # Create the model with training job reference
     model_urn, model_mcps = create_single_model(
@@ -375,7 +399,7 @@ def main():
     for mcp in training_mcps:
         emitter.emit(mcp)
 
-    # Finally emit the model and its aspects
+    # # Finally emit the model and its aspects
     print("Emitting model aspects...")
     for mcp in model_mcps:
         emitter.emit(mcp)

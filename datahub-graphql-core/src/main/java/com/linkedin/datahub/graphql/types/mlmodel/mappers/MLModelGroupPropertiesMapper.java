@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.MLModelGroupProperties;
 import com.linkedin.datahub.graphql.generated.MLModelLineageInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.TimeStampToAuditStampMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,6 +36,13 @@ public class MLModelGroupPropertiesMapper
       result.setVersion(VersionTagMapper.map(context, mlModelGroupProperties.getVersion()));
     }
     result.setCreatedAt(mlModelGroupProperties.getCreatedAt());
+    if (mlModelGroupProperties.hasCreated()) {
+        result.setCreated(TimeStampToAuditStampMapper.map(context, mlModelGroupProperties.getCreated()));
+    }
+
+    if (mlModelGroupProperties.hasLastModified()) {
+        result.setLastModified(TimeStampToAuditStampMapper.map(context, mlModelGroupProperties.getLastModified()));
+    }
 
     result.setCustomProperties(
         CustomPropertiesMapper.map(mlModelGroupProperties.getCustomProperties(), entityUrn));

@@ -25,23 +25,24 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import SummaryTab from './profile/DataProcessInstanceSummary';
 
-const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+const getProcessPlatformName = (data?: DataProcessInstance): string => {
+    return (
+        data?.dataPlatformInstance?.platform?.properties?.displayName ||
+        capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
+        ''
+    );
+};
 
+const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    if (!parentEntity?.entity) return [];
+    const containerEntity = data?.container?.entity;
 
-    // Convert to GeneratedEntity
-    return [
-        {
-            type: parentEntity.entity.type,
-            urn: (parentEntity.entity as any).urn, // Make sure urn exists
-            relationships: (parentEntity.entity as any).relationships,
-        },
-    ];
+    return parentEntity ? [parentEntity.entity as Entity<DataJob>] : []; // TODO: HACK
 };
+
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */

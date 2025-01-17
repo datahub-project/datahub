@@ -7,6 +7,7 @@ import { useBaseEntity } from '../../shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
 import { Link } from 'react-router-dom';
+import { notEmpty } from '../../shared/utils';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -69,20 +70,24 @@ export default function MLModelSummary() {
     };
 
     const renderTrainingJobs = () => {
-        const lineageTrainingJobs = model?.properties?.mlModelLineageInfo?.trainingJobs || [];
-        console.log("lineageTrainingJobs", model?.properties?.mlModelLineageInfo?.trainingJobs);
+        const trainingJobs = model?.trainedBy?.relationships
+            ?.map((relationship) => relationship.entity)
+            .filter(notEmpty) || [];
         
-        if (lineageTrainingJobs.length === 0) return '-';
-        
-        // TODO: get job name from job URN
-        return lineageTrainingJobs.map((jobUrn, index) => (
-            <div key={jobUrn}>
-                <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, jobUrn)}>
-                    {jobUrn}
-                </JobLink>
-                {index < lineageTrainingJobs.length - 1 && ', '}
+        if (trainingJobs.length === 0) return '-';
+    
+        return (
+            <div>
+                {trainingJobs.map((job, index) => (
+                    <span key={job?.urn}>
+                        <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, job.urn)}>
+                            {job?.name || job?.urn}
+                        </JobLink>
+                        {index < trainingJobs.length - 1 && ', '}
+                    </span>
+                ))}
             </div>
-        ));
+        );
     };
 
     return (
@@ -90,9 +95,8 @@ export default function MLModelSummary() {
             <Space direction="vertical" style={{ width: '100%' }} size="large">
             <Typography.Title level={3}>Model Details</Typography.Title>
                 <InfoItemContainer justifyContent="left">
-                    {/* TODO: should use versionProperties? */}
                     <InfoItem title="Version">
-                        <InfoItemContent>{model?.properties?.version}</InfoItemContent>
+                        <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Registered At">
                         <InfoItemContent>{formatDate(model?.properties?.created?.time)}</InfoItemContent>
@@ -107,12 +111,11 @@ export default function MLModelSummary() {
                     </InfoItem>
                     <InfoItem title="Aliases">
                         <InfoItemContent>
-                            {/* use versionProperties for aliases */}
-                            {/* {model?.versionProperties?.aliases?.map((alias, index) => (
-                                <VersionTagContainer key={`${alias.version}-${index}`}>
-                                    {alias.version}
+                            {model?.versionProperties?.aliases?.map((alias, index) => (
+                                <VersionTagContainer key={`${alias.versionTag}-${index}`}>
+                                    {alias.versionTag}
                                 </VersionTagContainer>
-                            ))} */}
+                            ))}
                         </InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Source Run">

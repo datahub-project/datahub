@@ -308,12 +308,24 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        versionProperties {
+            versionSet {
+                urn
+                type
+            }
+            version {
+                versionTag
+            }
+            aliases {
+                versionTag
+            }
+            comment
+        }
         properties {
             createdTS: created {
                 time
                 actor
             }
-            modelVersion: version
             tags
             customProperties {
                 key
