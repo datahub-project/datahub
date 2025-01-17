@@ -30,12 +30,13 @@ exclude = [
 
 [tool.ruff.lint]
 extend-select = [
-    "B",
+    "B",  # Bugbear
     "C90",
     "E",
     "F",
-    "I", # For isort
-    "TID",
+    "G010",  # logging.warn -> logging.warning
+    "I",  # Import sorting
+    "TID",  # Tidy imports
 ]
 extend-ignore = [
     # Ignore line length violations (handled by Black)
