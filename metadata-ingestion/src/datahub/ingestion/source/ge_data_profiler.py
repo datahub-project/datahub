@@ -1,5 +1,3 @@
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-
 import collections
 import concurrent.futures
 import contextlib
@@ -12,6 +10,7 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
@@ -266,7 +265,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_min",
         "get_column_max",
         "get_column_mean",
-        "get_column_stdev",
         "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",

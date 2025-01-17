@@ -115,17 +115,17 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 ```
 
-#### ingest --list-source-runs
+#### ingest list-source-runs
 
-The `--list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
+The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
 start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
 filtering or the --source option to filter by source name (partial or complete matches are supported).
 
 ```shell
 # List all ingestion runs
-datahub ingest --list-source-runs
+datahub ingest list-source-runs
 # Filter runs by a source name containing "demo"
-datahub ingest --list-source-runs --source "demo"
+datahub ingest list-source-runs --source "demo"
 ```
 
 #### ingest --preview

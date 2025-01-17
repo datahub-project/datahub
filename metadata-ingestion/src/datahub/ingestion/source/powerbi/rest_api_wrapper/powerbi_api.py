@@ -96,7 +96,7 @@ class PowerBiAPI:
             url: str = e.request.url if e.request else "URL not available"
             self.reporter.warning(
                 title="Metadata API Timeout",
-                message=f"Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
+                message="Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
                 context=f"url={url}",
             )
 
@@ -173,7 +173,7 @@ class PowerBiAPI:
                 entity=entity_name,
                 entity_id=entity_id,
             )
-        except:  # It will catch all type of exception
+        except Exception:
             e = self.log_http_error(
                 message=f"Unable to fetch users for {entity_name}({entity_id})."
             )
@@ -210,7 +210,7 @@ class PowerBiAPI:
                             message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                             context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                         )
-        except:
+        except Exception:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
             )
@@ -260,7 +260,7 @@ class PowerBiAPI:
 
             groups = self._get_resolver().get_groups(filter_=filter_)
 
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of workspaces")
             # raise  # we want this exception to bubble up
 
@@ -292,7 +292,7 @@ class PowerBiAPI:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
         return modified_workspace_ids
@@ -303,8 +303,8 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_ids=workspace_ids
             )
-        except:
-            e = self.log_http_error(message=f"Unable to fetch get scan result.")
+        except Exception:
+            e = self.log_http_error(message="Unable to fetch get scan result.")
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "

@@ -1,10 +1,9 @@
-from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
-
 import dataclasses
 import functools
 import logging
 import traceback
 from collections import defaultdict
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pydantic.dataclasses

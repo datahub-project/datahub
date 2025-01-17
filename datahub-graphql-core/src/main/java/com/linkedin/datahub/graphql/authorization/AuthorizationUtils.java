@@ -232,6 +232,10 @@ public class AuthorizationUtils {
     try {
       Object[] args =
           allFields.stream()
+              // New versions of graphql.codegen generate serialVersionUID
+              // We need to filter serialVersionUID out because serialVersionUID is
+              // never part of the entity type constructor
+              .filter(field -> !field.getName().contains("serialVersionUID"))
               .map(
                   field -> {
                     // properties are often not required but only because
