@@ -645,6 +645,7 @@ export const dataset3 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    versionProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {

@@ -12,14 +12,18 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.UnlinkVersionInput;
+import com.linkedin.datahub.graphql.generated.VersionSet;
+import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class UnlinkAssetVersionResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UnlinkAssetVersionResolver implements DataFetcher<CompletableFuture<VersionSet>> {
 
   private final EntityVersioningService entityVersioningService;
   private final FeatureFlags featureFlags;
@@ -31,7 +35,7 @@ public class UnlinkAssetVersionResolver implements DataFetcher<CompletableFuture
   }
 
   @Override
-  public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<VersionSet> get(DataFetchingEnvironment environment) throws Exception {
     if (!featureFlags.isEntityVersioning()) {
       throw new IllegalAccessError(
           "Entity Versioning is not configured, please enable before attempting to use this feature.");
@@ -58,8 +62,15 @@ public class UnlinkAssetVersionResolver implements DataFetcher<CompletableFuture
     }
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          entityVersioningService.unlinkVersion(opContext, versionSetUrn, entityUrn);
-          return true;
+          List<RollbackResult> results =
+              entityVersioningService.unlinkVersion(opContext, versionSetUrn, entityUrn);
+          if (results.isEmpty() || results.stream().allMatch(RollbackResult::isNoOp)) {
+            return null;
+          }
+          VersionSet versionSet = new VersionSet();
+          versionSet.setUrn(versionSetUrn.toString());
+          versionSet.setType(EntityType.VERSION_SET);
+          return versionSet;
         },
         this.getClass().getSimpleName(),
         "get");
