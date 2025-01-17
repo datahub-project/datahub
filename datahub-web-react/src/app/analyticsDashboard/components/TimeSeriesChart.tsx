@@ -87,21 +87,33 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
 const formatAxisDate = (value: number, chartData: TimeSeriesChartType) => {
     const date = new Date(value);
 
-    // force UTC
-    const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-
-    return chartData.interval === 'MONTH'
-        ? utcDate.toLocaleDateString('en-US', {
-              month: 'short',
-              year: 'numeric',
-              timeZone: 'UTC',
-          })
-        : utcDate.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              timeZone: 'UTC',
-          });
+    switch (chartData.interval) {
+        case 'MONTH':
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+            });
+        case 'WEEK':
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+            });
+        case 'DAY':
+            return date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+            });
+        default:
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                timeZone: 'UTC',
+            });
+    }
 };
 
 export const TimeSeriesChart = ({
