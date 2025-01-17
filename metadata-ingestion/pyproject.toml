@@ -17,8 +17,7 @@ section-order = ["future", "patch", "standard-library", "third-party", "first-pa
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
 known-first-party = ["datahub"]
 
-combine-as-imports = true
-relative-imports-order = "closest-to-furthest"
+#combine-as-imports = true
 
 [tool.ruff]
 # Same as Black.
@@ -33,7 +32,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = [
+extend-select = [
     "B",
     "C90",
     "E",
@@ -41,7 +40,7 @@ select = [
     "I", # For isort
     "TID",
 ]
-ignore = [
+extend-ignore = [
     # Ignore line length violations (handled by Black)
     "E501",
     # Ignore whitespace before ':' (matches Black)
@@ -62,7 +61,6 @@ max-complexity = 20
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.
 ban-relative-imports = "all"
-
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
