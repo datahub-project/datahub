@@ -4,6 +4,7 @@ import tempfile
 from random import randint
 
 import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -23,7 +24,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
-
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,

@@ -6,6 +6,7 @@ from typing import List
 
 import pytest
 import tenacity
+
 from datahub.emitter.mce_builder import datahub_guid, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -19,7 +20,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
 )
 from datahub.utilities.urns.urn import Urn
-
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,

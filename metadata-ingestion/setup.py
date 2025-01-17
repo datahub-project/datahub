@@ -593,7 +593,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "black==23.3.0",
-    "ruff==0.9.1",
+    "ruff==0.9.2",
     "mypy==1.10.1",
 }
 
