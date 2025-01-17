@@ -2,8 +2,6 @@ import itertools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
-from duckdb.duckdb import aggregate
-
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -1468,7 +1466,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             upstreams=[
                                 ColumnRef(
                                     table=upstream_urn,
-                                    column=self.identifiers.snowflake_identifier(col.name),
+                                    column=self.identifiers.snowflake_identifier(
+                                        col.name
+                                    ),
                                 )
                             ],
                         )
