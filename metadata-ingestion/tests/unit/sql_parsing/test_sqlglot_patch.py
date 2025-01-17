@@ -1,6 +1,5 @@
-from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
-
 import time
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import pytest
 import sqlglot

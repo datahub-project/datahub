@@ -1,0 +1,67 @@
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.dropdownNavbarItemMobile {
+  cursor: pointer;
+}
+
+.dropdown__menu {
+  display: flex;
+  width: 13.875rem;
+  padding: 0.875rem 1.63694rem;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.98219rem;
+  border-radius: var(--number-scales-2s-20, 1.25rem);
+  background: #FFF;
+  box-shadow: 0px 16px 16px 0px rgba(0, 0, 0, 0.25);
+}
+
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem; 
+}
+
+.card {
+  display: flex;
+  align-items: center; 
+  padding: 1rem 0.8rem;
+  text-align: left;
+  gap: 0.5rem; 
+  border-radius: 0.72681rem;
+  background: #F7F7F7;
+  width: 12rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        text-decoration: none;
+        color: inherit;
+    }
+}
+
+.icon {
+    flex-shrink: 0;
+    width: 1.3rem;
+    height: 1.3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.title {
+    flex-grow: 1;
+    color: #1E1E1E;
+    font-family: Manrope, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    letter-spacing: -0.011rem;
+}
