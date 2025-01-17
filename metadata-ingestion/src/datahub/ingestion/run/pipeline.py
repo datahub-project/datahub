@@ -76,8 +76,9 @@ class LoggingCallback(WriteCallback):
         failure_metadata: dict,
     ) -> None:
         logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {failure_exception} and info {failure_metadata}"
+            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}",
+            extra={"failure_metadata": failure_metadata},
+            exc_info=failure_exception,
         )
 
 
