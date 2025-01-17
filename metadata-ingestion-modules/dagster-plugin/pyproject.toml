@@ -40,10 +40,9 @@ select = [
     "TID",  # flake8-tidy-imports
 ]
 ignore = [
-    "E501",  # Ignore line length violations (handled by formatter)
-    "E203",  # Ignore whitespace before ':' (matches formatter)
-    "B019",  # Allow usages of functools.lru_cache
-    "B008",  # Allow function call in argument defaults
+    "E501",  # Line length violations (handled by formatter)
+    "B019",  # Allow functools.lru_cache usage
+    "B008",  # Allow function calls in argument defaults
 ]
 
 [tool.ruff.lint.mccabe]

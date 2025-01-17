@@ -42,7 +42,6 @@ select = [
 ]
 ignore = [
     "E501",  # Line length violations (handled by formatter)
-    "E203",  # Whitespace before ':' (matches Black style)
     "B019",  # Allow functools.lru_cache usage
     "B008",  # Allow function calls in argument defaults
 ]

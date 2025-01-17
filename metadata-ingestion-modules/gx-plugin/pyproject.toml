@@ -32,22 +32,17 @@ classes = ["typing"]
 
 [tool.ruff.lint]
 select = [
-    "B",
-    "C90",
-    "E",
-    "F",
-    "I", # For isort
-    "TID",
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
 ignore = [
-    "E501",
-    # Ignore whitespace before ':' (matches Black)
-    "E203",
-    "E203",
-    # Allow usages of functools.lru_cache
-    "B019",
-    # Allow function call in argument defaults
-    "B008",
+    "E501",  # Line length violations (handled by formatter)
+    "B019",  # Allow functools.lru_cache usage
+    "B008",  # Allow function calls in argument defaults
 ]
 
 [tool.ruff.lint.mccabe]
