@@ -35,8 +35,8 @@ from dagster._core.definitions.sensor_definition import DefaultSensorStatus
 try:
     from dagster._core.definitions.sensor_definition import SensorReturnTypesUnion
 except ImportError:
-    from dagster._core.definitions.sensor_definition import (
-        RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion,  # type: ignore
+    from dagster._core.definitions.sensor_definition import (  # type: ignore
+        RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion,
     )
 
 from dagster._core.definitions.target import ExecutableDefinition

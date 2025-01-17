@@ -56,8 +56,8 @@ class DatahubPlugin(AirflowPlugin):
     if _USE_AIRFLOW_LISTENER_INTERFACE:
         try:
             if not NEEDS_AIRFLOW_LISTENER_MODULE:
-                from datahub_airflow_plugin.datahub_listener import (
-                    get_airflow_plugin_listener,  # type: ignore[misc]
+                from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
+                    get_airflow_plugin_listener,
                 )
 
                 listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
