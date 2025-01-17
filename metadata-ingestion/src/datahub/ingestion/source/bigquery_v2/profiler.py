@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -75,135 +75,107 @@ class BigqueryProfiler(GenericProfiler):
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
         partitioned table.
+        Supports both legacy single-column partitioning and multi-column partitioning schemes.
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
         logger.debug(
-            f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
+            f"generate partition profiler query for project: {project} schema: {schema} "
+            f"and table {table.name}, partition_datetime: {partition_datetime}"
         )
         partition = table.max_partition_id
         if table.partition_info and partition:
             partition_where_clauses: List[str] = []
 
-            if table.partition_info.type == RANGE_PARTITION_NAME:
-                if table.partition_info.column:
-                    # For range partitioned tables
-                    if isinstance(table.partition_info.column, list):
-                        for col in table.partition_info.column:
-                            partition_where_clauses.append(f"{col.name} >= {partition}")
-                    else:
+            # Handle legacy single column partitioning
+            if isinstance(table.partition_info.partition_field, str):
+                if table.partition_info.type == RANGE_PARTITION_NAME:
+                    if table.partition_info.partition_column:
                         partition_where_clauses.append(
-                            f"{table.partition_info.column.name} >= {partition}"
+                            f"{table.partition_info.partition_column.name} >= {partition}"
                         )
-                else:
-                    logger.warning(
-                        f"Partitioned table {table.name} without partition column"
-                    )
-                    self.report.profiling_skipped_invalid_partition_ids[
-                        f"{project}.{schema}.{table.name}"
-                    ] = partition
-                    return None, None
-            else:
-                logger.debug(
-                    f"{table.name} is partitioned and partition column is {partition}"
-                )
-                try:
-                    (
-                        partition_datetime,
-                        upper_bound_partition_datetime,
-                    ) = self.get_partition_range_from_partition_id(
-                        partition, partition_datetime
-                    )
-
-                    if table.partition_info.column:
-                        if isinstance(table.partition_info.column, list):
-                            # Handle multiple partition columns
-                            for col in table.partition_info.column:
-                                if col.name in ["year", "month", "day"]:
-                                    # Extract the appropriate part from partition_datetime
-                                    date_part = getattr(partition_datetime, col.name)
-                                    partition_where_clauses.append(
-                                        f"`{col.name}` = {date_part}"
-                                    )
-                                else:
-                                    # For other columns use the partition value
-                                    partition_where_clauses.append(
-                                        f"`{col.name}` = '{partition}'"
-                                    )
-                        else:
-                            # Original single column handling
-                            partition_column_name = table.partition_info.column.name
-                            partition_data_type = table.partition_info.column.data_type
-
-                            if table.partition_info.type in (
-                                "HOUR",
-                                "DAY",
-                                "MONTH",
-                                "YEAR",
-                            ):
-                                partition_where_clauses.append(
-                                    f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                                )
                     else:
-                        # Default to TIMESTAMP for data type
-                        partition_data_type = "TIMESTAMP"
-                        # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
-                        # See more about this at
-                        # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
-                        partition_column_name = "_PARTITIONTIME"
-
-                        if table.partition_info.type in (
-                            "HOUR",
-                            "DAY",
-                            "MONTH",
-                            "YEAR",
-                        ):
-                            partition_where_clauses.append(
-                                f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                            )
-                        else:
-                            logger.warning(
-                                f"Not supported partition type {table.partition_info.type}"
-                            )
-                            self.report.profiling_skipped_invalid_partition_type[
-                                f"{project}.{schema}.{table.name}"
-                            ] = table.partition_info.type
-                            return None, None
-
-                except ValueError as e:
-                    logger.error(
-                        f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
+                        logger.warning(
+                            f"Partitioned table {table.name} without partition column"
+                        )
+                        self.report.profiling_skipped_invalid_partition_ids[
+                            f"{project}.{schema}.{table.name}"
+                        ] = partition
+                        return None, None
+                else:
+                    logger.debug(
+                        f"{table.name} is partitioned and partition column is {partition}"
                     )
-                    self.report.profiling_skipped_invalid_partition_ids[
-                        f"{project}.{schema}.{table.name}"
-                    ] = partition
-                    return None, None
+                    try:
+                        (
+                            partition_datetime,
+                            upper_bound_partition_datetime,
+                        ) = self.get_partition_range_from_partition_id(
+                            partition, partition_datetime
+                        )
+                    except ValueError as e:
+                        logger.error(
+                            f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
+                        )
+                        self.report.profiling_skipped_invalid_partition_ids[
+                            f"{project}.{schema}.{table.name}"
+                        ] = partition
+                        return None, None
 
-            if not partition_where_clauses:
-                logger.warning(
-                    f"Not supported partition type {table.partition_info.type}"
-                )
-                self.report.profiling_skipped_invalid_partition_type[
-                    f"{project}.{schema}.{table.name}"
-                ] = table.partition_info.type
-                return None, None
+                    partition_data_type: str = "TIMESTAMP"
+                    partition_column_name = "_PARTITIONTIME"
+                    if table.partition_info.partition_column:
+                        partition_column_name = (
+                            table.partition_info.partition_column.name
+                        )
+                        partition_data_type = (
+                            table.partition_info.partition_column.data_type
+                        )
+                    if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                        partition_where_clauses.append(
+                            f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') "
+                            f"AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                        )
+                    else:
+                        logger.warning(
+                            f"Not supported partition type {table.partition_info.type}"
+                        )
+                        self.report.profiling_skipped_invalid_partition_type[
+                            f"{project}.{schema}.{table.name}"
+                        ] = table.partition_info.type
+                        return None, None
+            # Handle multiple partition columns
+            elif isinstance(table.partition_info.fields, list):
+                for field, column in zip(
+                    table.partition_info.fields, table.partition_info.columns or []
+                ):
+                    if not column:
+                        logger.warning(
+                            f"Partitioned table {table.name} missing column info for {field}"
+                        )
+                        self.report.profiling_skipped_invalid_partition_ids[
+                            f"{project}.{schema}.{table.name}"
+                        ] = field
+                        return None, None
+                    # For each partition column, add a filter condition using the current date
+                    partition_datetime_value = partition_datetime or datetime.now(
+                        timezone.utc
+                    )
+                    partition_where_clauses.append(
+                        f"`{column.name}` = {column.data_type}('{partition_datetime_value}')"
+                    )
 
-            combined_where_clause = " AND ".join(partition_where_clauses)
-
-            custom_sql = """
+            if partition_where_clauses:
+                where_clause = " AND ".join(partition_where_clauses)
+                custom_sql = f"""
 SELECT
     *
 FROM
-    `{table_catalog}.{table_schema}.{table_name}`
+    `{project}.{schema}.{table.name}`
 WHERE
-    {partition_where_clause}
-            """.format(
-                table_catalog=project,
-                table_schema=schema,
-                table_name=table.name,
-                partition_where_clause=combined_where_clause,
-            )
+    {where_clause}
+                """
+                return (partition, custom_sql)
 
-            return (partition, custom_sql)
         elif table.max_shard_id:
             # For sharded table we want to get the partition id but not needed to generate custom query
             return table.max_shard_id, None
