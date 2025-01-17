@@ -263,7 +263,7 @@ def test_generate_multiple_partition_columns_profiler_query():
     ]
 
     partition_info = PartitionInfo(
-        partition_field=None,  # This ensures we use the multi-column path
+        partition_field=None,
         fields=["year", "month", "feedhandler", "region"],
         columns=columns,
     )
@@ -294,7 +294,7 @@ SELECT
 FROM
     `test_project.test_dataset.test_multi_partition_table`
 WHERE
-    `year` = INT64('2020-01-01 00:00:00+00:00') AND `month` = INT64('2020-01-01 00:00:00+00:00') AND `feedhandler` = STRING('2020-01-01 00:00:00+00:00') AND `region` = STRING('2020-01-01 00:00:00+00:00')
+    `year` = 2020 AND `month` = 1 AND `feedhandler` = '2020-01-01 00:00:00+00:00' AND `region` = '2020-01-01 00:00:00+00:00'
 """.strip()
 
     assert "20200101" == query[0]
