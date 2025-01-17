@@ -6,6 +6,7 @@ import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import EntityRegistryProvider from './EntityRegistryProvider';
 import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
+import { NavBarProvider } from './homeV2/layout/navBarRedesign/NavBarContext';
 
 interface Props {
     children: React.ReactNode;
@@ -19,7 +20,9 @@ export default function AppProviders({ children }: Props) {
                     <BrowserTitleProvider>
                         <EducationStepsProvider>
                             <QuickFiltersProvider>
-                                <SearchContextProvider>{children}</SearchContextProvider>
+                                <SearchContextProvider>
+                                    <NavBarProvider>{children}</NavBarProvider>
+                                </SearchContextProvider>
                             </QuickFiltersProvider>
                         </EducationStepsProvider>
                     </BrowserTitleProvider>

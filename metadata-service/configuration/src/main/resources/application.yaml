@@ -471,7 +471,8 @@ featureFlags:
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
-  platformBrowseV2: ${PLATFORM_BROWSE_V2:false} # Enables the platform browse experience, instead of the entity-oriented browse default.
+  platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
+  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
@@ -482,9 +483,17 @@ featureFlags:
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
+  themeV2Enabled: ${THEME_V2_ENABLED:false} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
+  themeV2Default: ${THEME_V2_DEFAULT:false} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
+  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
+  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
+  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
 
 entityChangeEvents:
@@ -581,6 +590,10 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+
+chromeExtension:
+  enabled: ${CHROME_EXTENSION_ENABLED:true}
+  lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}
 
 forms:
   hook:

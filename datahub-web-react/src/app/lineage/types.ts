@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
 import {
     Chart,
@@ -18,6 +19,7 @@ import {
     MlModelGroup,
     MlPrimaryKey,
     SchemaMetadata,
+    ScrollResults,
     SiblingProperties,
     Status,
     StructuredProperties,
@@ -42,6 +44,7 @@ export type FetchedEntity = {
     type: EntityType;
     subtype?: string;
     icon?: string;
+    siblingIcon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
     upstreamRelationships?: Array<LineageRelationship>;
@@ -55,11 +58,14 @@ export type FetchedEntity = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: FineGrainedLineage[];
     siblings?: Maybe<SiblingProperties>;
+    siblingsSearch?: Maybe<ScrollResults>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Maybe<Health[]>;
     structuredProperties?: Maybe<StructuredProperties>;
+    parents?: GenericEntityProperties[];
+    parent?: GenericEntityProperties;
 };
 
 export type NodeData = {
