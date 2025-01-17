@@ -5,7 +5,6 @@ requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 [tool.ruff]
 target-version = "py38"
 line-length = 88
-extend-exclude = ["tmp"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -4,7 +4,6 @@ requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 
 [tool.ruff]
 line-length = 88
-extend-exclude = ["tmp"]
 target-version = "py38"
 
 [tool.ruff.format]
