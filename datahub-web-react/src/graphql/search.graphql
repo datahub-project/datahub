@@ -949,6 +949,11 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
 }
 
 fragment searchResultFields on Entity {
