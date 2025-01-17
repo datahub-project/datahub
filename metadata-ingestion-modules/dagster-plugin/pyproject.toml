@@ -2,13 +2,16 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 
-[tool.black]
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-^/tmp
-'''
-include = '\.pyi?$'
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+extend-exclude = ["tmp"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -29,30 +32,24 @@ classes = ["typing"]
 
 [tool.ruff.lint]
 select = [
-    "B",
-    "C90",
-    "E",
-    "F",
-    "I", # For isort
-    "TID",
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
 ignore = [
-    # Ignore line length violations (handled by Black)
-    "E501",
-    # Ignore whitespace before ':' (matches Black)
-    "E203",
-    "E203",
-    # Allow usages of functools.lru_cache
-    "B019",
-    # Allow function call in argument defaults
-    "B008",
+    "E501",  # Ignore line length violations (handled by formatter)
+    "E203",  # Ignore whitespace before ':' (matches formatter)
+    "B019",  # Allow usages of functools.lru_cache
+    "B008",  # Allow function call in argument defaults
 ]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
 [tool.ruff.lint.flake8-tidy-imports]
-# Disallow all relative imports.
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
