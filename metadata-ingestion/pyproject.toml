@@ -13,21 +13,12 @@ target-version = ['py38', 'py39', 'py310', 'py311']
 
 
 [tool.ruff.lint.isort]
-combine-as-imports = true
-known-first-party = ["datahub"]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
-force-sort-within-sections = false
-force-wrap-aliases = false
-split-on-trailing-comma = false
-order-by-type = true
+known-first-party = ["datahub"]
+
+combine-as-imports = true
 relative-imports-order = "closest-to-furthest"
-force-single-line = false
-single-line-exclusions = ["typing"]
-length-sort = false
-from-first = false
-required-imports = []
-classes = ["typing"]
 
 [tool.ruff]
 # Same as Black.
