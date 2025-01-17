@@ -72,6 +72,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    CalendarIntervalClass,
     DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -80,10 +81,14 @@ from datahub.metadata.schema_classes import (
     HistogramClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
     QuantileClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
+    TimeWindowClass,
+    TimeWindowSizeClass,
     ValueFrequencyClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
@@ -204,7 +209,7 @@ class KafkaSourceConfig(
 class KafkaProfiler:
     """Handles advanced profiling of Kafka message samples"""
 
-    def __init__(self, profiler_config: GEProfilingBaseConfig):
+    def __init__(self, profiler_config: ProfilerConfig):
         self.profiler_config = profiler_config
 
     def profile_samples(self, samples: List[Dict[str, Any]]) -> DatasetProfileClass:
@@ -413,7 +418,22 @@ class KafkaProfiler:
         return DatasetProfileClass(
             timestampMillis=timestamp_millis,
             columnCount=len(field_profiles),
-            rowCount=sample_count,
+            eventGranularity=TimeWindowSizeClass(
+                unit=CalendarIntervalClass.SECOND,
+                multiple=self.profiler_config.max_sample_time_seconds,
+            ),
+            # Add partition specification
+            partitionSpec=PartitionSpecClass(
+                partition=f"SAMPLE ({self.profiler_config.sample_size}/{self.profiler_config.max_sample_time_seconds} seconds)",
+                type=PartitionTypeClass.QUERY,
+                timePartition=TimeWindowClass(
+                    startTimeMillis=timestamp_millis,
+                    length=TimeWindowSizeClass(
+                        unit=CalendarIntervalClass.SECOND,
+                        multiple=self.profiler_config.max_sample_time_seconds,
+                    ),
+                ),
+            ),
             fieldProfiles=field_profiles,
         )
 
