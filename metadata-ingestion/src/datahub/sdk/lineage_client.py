@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.errors import SdkUsageError
@@ -14,12 +14,25 @@ class LineageClient:
     def __init__(self, graph: DataHubGraph):
         self._graph = graph
 
-    def add_dataset_lineage(
+    def add_dataset_copy_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+        column_lineage: Union[None, ColumnLineageMapping, Literal["auto"]] = "auto",
+    ) -> None:
+        # TODO: Add support for the auto lineage mapping.
+        # This should be a more advanced, fuzzy match based on the column names.
+        raise NotImplementedError("TODO")
+
+    def add_dataset_transform_lineage(
         self,
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
         column_lineage: Optional[ColumnLineageMapping] = None,
+        query_text: Optional[str] = None,
+        query_lang: str = "sql",
     ) -> None:
         upstream = DatasetUrn.from_string(upstream)
         downstream = DatasetUrn.from_string(downstream)
@@ -32,11 +45,7 @@ class LineageClient:
                 cll_mapping=column_lineage,
             )
 
-        if not self._graph.exists(str(downstream)):
-            # TODO: add a force mechanism here
-            raise SdkUsageError(
-                f"Dataset {downstream} does not exist. Cannot add lineage."
-            )
+        # TODO: Create a query entity + link to it from the lineage class.
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
@@ -48,8 +57,8 @@ class LineageClient:
         for cl in cll or []:
             updater.add_fine_grained_upstream_lineage(cl)
 
-        # TODO: instead of doing the check above, should we just rely on the update method to do it?
-        SDKGraph(self._graph).update(updater, check_exists=False)
+        # Will throw if the dataset does not exist.
+        SDKGraph(self._graph).update(updater)
 
     def add_datajob_lineage(
         self,
