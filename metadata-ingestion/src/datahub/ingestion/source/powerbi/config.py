@@ -225,9 +225,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 def default_for_dataset_type_mapping() -> Dict[str, str]:
     dict_: dict = {}
     for item in SupportedDataPlatform:
-        dict_[
-            item.value.powerbi_data_platform_name
-        ] = item.value.datahub_data_platform_name
+        dict_[item.value.powerbi_data_platform_name] = (
+            item.value.datahub_data_platform_name
+        )
 
     return dict_
 
@@ -303,15 +303,15 @@ class PowerBiDashboardSourceConfig(
     # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
     # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
-    dataset_type_mapping: Union[
-        Dict[str, str], Dict[str, PlatformDetail]
-    ] = pydantic.Field(
-        default_factory=default_for_dataset_type_mapping,
-        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
-        "DataHub supported datasources."
-        "You can configured platform instance for dataset lineage. "
-        "See Quickstart Recipe for mapping",
-        hidden_from_docs=True,
+    dataset_type_mapping: Union[Dict[str, str], Dict[str, PlatformDetail]] = (
+        pydantic.Field(
+            default_factory=default_for_dataset_type_mapping,
+            description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+            "DataHub supported datasources."
+            "You can configured platform instance for dataset lineage. "
+            "See Quickstart Recipe for mapping",
+            hidden_from_docs=True,
+        )
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[

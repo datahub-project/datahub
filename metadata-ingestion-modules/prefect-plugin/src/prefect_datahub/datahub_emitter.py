@@ -351,9 +351,9 @@ class DatahubEmitter(Block):
 
             for prefect_future in flow_run_ctx.task_run_futures:
                 if prefect_future.task_run is not None:
-                    task_run_key_map[
-                        str(prefect_future.task_run.id)
-                    ] = prefect_future.task_run.task_key
+                    task_run_key_map[str(prefect_future.task_run.id)] = (
+                        prefect_future.task_run.task_key
+                    )
 
             for node in graph_json:
                 datajob_urn = DataJobUrn.create_from_ids(

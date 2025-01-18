@@ -9,8 +9,7 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 class HasCustomPropertiesPatch(MetadataPatchProposal):
     @classmethod
     @abstractmethod
-    def _custom_properties_location(self) -> Tuple[str, PatchPath]:
-        ...
+    def _custom_properties_location(self) -> Tuple[str, PatchPath]: ...
 
     def add_custom_property(self, key: str, value: str) -> Self:
         """Add a custom property to the entity.

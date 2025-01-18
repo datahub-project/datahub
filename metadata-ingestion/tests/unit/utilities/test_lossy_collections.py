@@ -34,7 +34,7 @@ def test_lossyset_sampling(length, sampling):
     assert len(lossy_set) == min(10, length)
     assert lossy_set.sampled is sampling
     if sampling:
-        assert f"... sampled with at most {length-10} elements missing" in str(
+        assert f"... sampled with at most {length - 10} elements missing" in str(
             lossy_set
         )
     else:
@@ -66,7 +66,7 @@ def test_lossydict_sampling(length, sampling, sub_length):
                 element_length_map[i] = len(lossy_dict[i])
 
             current_list = lossy_dict.get(i, LossyList())
-            current_list.append(f"{i}:{round(time.time(),2)} Hello World")
+            current_list.append(f"{i}:{round(time.time(), 2)} Hello World")
             lossy_dict[i] = current_list
             element_length_map[i] += 1
 
