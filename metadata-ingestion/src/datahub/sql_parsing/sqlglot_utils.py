@@ -1,8 +1,9 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import functools
 import hashlib
 import logging
 import re
-from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot

@@ -12,43 +12,43 @@ exclude = [
     "__pycache__",
 ]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
 [tool.ruff.lint.isort]
+section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
 combine-as-imports = true
-known-first-party = ["datahub"]
-extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
-force-sort-within-sections = false
-force-wrap-aliases = false
-split-on-trailing-comma = false
-order-by-type = true
-relative-imports-order = "closest-to-furthest"
-force-single-line = false
-single-line-exclusions = ["typing"]
-length-sort = false
-from-first = false
-required-imports = []
-classes = ["typing"]
+
+[tool.ruff]
+target-version = "py38"
+# Same as Black.
+line-length = 88
+# Exclude directories matching these patterns.
+exclude = [
+    ".git",
+    "src/datahub/metadata",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
 
 [tool.ruff.lint]
-select = [
-    "B",    # flake8-bugbear
-    "C90",  # mccabe complexity
-    "E",    # pycodestyle errors
-    "F",    # pyflakes
-    "I",    # isort
-    "TID",  # flake8-tidy-imports
+extend-select = [
+    "B",  # Bugbear
+    "C90",
+    "E",
+    "F",
+    "G010",  # logging.warn -> logging.warning
+    "I",  # Import sorting
+    "TID",  # Tidy imports
 ]
-ignore = [
-    "E501",  # Line length violations (handled by formatter)
-    "E203",  # Ignore whitespace before ':' (matches Black)
-    "B019",  # Allow usages of functools.lru_cache
-    "B008",  # Allow function call in argument defaults
+extend-ignore = [
+    # Ignore line length violations (handled by Black)
+    "E501",
+    # Ignore whitespace before ':' (matches Black)
+    "E203",
+    # Allow usages of functools.lru_cache
+    "B019",
+    # Allow function call in argument defaults
+    "B008",
     # TODO: Enable these later
     "B006",  # Mutable args
     "B017",  # Do not assert blind exception
