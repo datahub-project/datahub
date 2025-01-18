@@ -123,9 +123,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             transforms.append(transform)
             for key in self.connector_manifest.config.keys():
                 if key.startswith(f"transforms.{name}."):
-                    transform[
-                        key.replace(f"transforms.{name}.", "")
-                    ] = self.connector_manifest.config[key]
+                    transform[key.replace(f"transforms.{name}.", "")] = (
+                        self.connector_manifest.config[key]
+                    )
 
         return self.JdbcParser(
             db_connection_url,

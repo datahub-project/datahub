@@ -682,10 +682,10 @@ class SqlParsingAggregator(Closeable):
         query_id = self._known_lineage_query_id()
 
         # Generate CLL if schema of downstream is known
-        column_lineage: List[
-            ColumnLineageInfo
-        ] = self._generate_identity_column_lineage(
-            upstream_urn=upstream_urn, downstream_urn=downstream_urn
+        column_lineage: List[ColumnLineageInfo] = (
+            self._generate_identity_column_lineage(
+                upstream_urn=upstream_urn, downstream_urn=downstream_urn
+            )
         )
 
         # Register the query.
@@ -1044,9 +1044,9 @@ class SqlParsingAggregator(Closeable):
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_ids in self._temp_lineage_map[session_id].items():
                 for query_id in query_ids:
-                    temp_table_schemas[
-                        temp_table_urn
-                    ] = self._inferred_temp_schemas.get(query_id)
+                    temp_table_schemas[temp_table_urn] = (
+                        self._inferred_temp_schemas.get(query_id)
+                    )
                     if temp_table_schemas:
                         break
 
@@ -1073,9 +1073,9 @@ class SqlParsingAggregator(Closeable):
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[
-                view_urn
-            ] = f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            self.report.views_parse_failures[view_urn] = (
+                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
@@ -1583,9 +1583,9 @@ class SqlParsingAggregator(Closeable):
                                     temp_query_lineage_info
                                 )
                             else:
-                                temp_upstream_queries[
-                                    upstream
-                                ] = temp_query_lineage_info
+                                temp_upstream_queries[upstream] = (
+                                    temp_query_lineage_info
+                                )
 
             # Compute merged upstreams.
             new_upstreams = OrderedSet[UrnStr]()
@@ -1665,9 +1665,9 @@ class SqlParsingAggregator(Closeable):
         composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
-        self.report.queries_with_temp_upstreams[
-            composite_query_id
-        ] = composed_of_queries_truncated
+        self.report.queries_with_temp_upstreams[composite_query_id] = (
+            composed_of_queries_truncated
+        )
 
         merged_query_text = ";\n\n".join(
             [q.formatted_query_string for q in ordered_queries]

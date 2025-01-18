@@ -4,6 +4,7 @@ import tempfile
 from random import randint
 
 import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -23,7 +24,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
-
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,
@@ -250,14 +250,14 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
     assert res_data, "Response should not be empty"
     assert "data" in res_data, "Response should contain 'data' field"
     print("RESPONSE DATA:" + str(res_data))
-    assert (
-        "scrollAcrossEntities" in res_data["data"]
-    ), "Response should contain 'scrollAcrossEntities' field"
+    assert "scrollAcrossEntities" in res_data["data"], (
+        "Response should contain 'scrollAcrossEntities' field"
+    )
 
     search_results = res_data["data"]["scrollAcrossEntities"]
-    assert (
-        "searchResults" in search_results
-    ), "Response should contain 'searchResults' field"
+    assert "searchResults" in search_results, (
+        "Response should contain 'searchResults' field"
+    )
 
     results = search_results["searchResults"]
     assert len(results) > 0, "Should find at least one result"

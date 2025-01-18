@@ -257,9 +257,9 @@ class BaseStatGenerator(ABC):
 
         for row in rows:
             logger.debug(row)
-            entity_stat_aspect[
-                self.get_entity_stat_key(row)
-            ] = self.to_entity_timeseries_stat_aspect(row)
+            entity_stat_aspect[self.get_entity_stat_key(row)] = (
+                self.to_entity_timeseries_stat_aspect(row)
+            )
 
         return entity_stat_aspect
 
@@ -385,10 +385,8 @@ class BaseStatGenerator(ABC):
         entity_rows: List[Dict] = self._execute_query(
             entity_query_with_filters, "entity_query"
         )
-        entity_usage_stat: Dict[
-            Tuple[str, str], Any
-        ] = self._process_entity_timeseries_rows(
-            entity_rows
+        entity_usage_stat: Dict[Tuple[str, str], Any] = (
+            self._process_entity_timeseries_rows(entity_rows)
         )  # Any type to pass mypy unbound Aspect type error
 
         user_wise_query_with_filters: LookerQuery = self._append_filters(

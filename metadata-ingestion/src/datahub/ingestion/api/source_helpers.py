@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
+    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
 
