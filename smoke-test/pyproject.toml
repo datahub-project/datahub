@@ -41,13 +41,14 @@ required-imports = []
 classes = ["typing"]
 
 [tool.ruff.lint]
-select = [
-    "B",
-    "C90",
-    "E",
-    "F",
-    "I", # For isort
-    "TID",
+extend-select = [
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
 ignore = [
     "E501",  # Line length violations (handled by formatter)

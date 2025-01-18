@@ -22,13 +22,13 @@ exclude = [
 
 [tool.ruff.lint]
 extend-select = [
-    "B",     # Bugbear
-    "C90",
-    "E",
-    "F",
-    "G010",  # logging.warn -> logging.warning
-    "I",     # Import sorting
-    "TID",   # Tidy imports
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
 extend-ignore = [
     "E501",  # Handled by formatter
