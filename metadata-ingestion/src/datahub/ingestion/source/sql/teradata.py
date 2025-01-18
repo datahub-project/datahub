@@ -599,7 +599,12 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
-                lambda self, connection, table_name, schema=None, use_qvci=self.config.use_qvci, **kw: optimized_get_columns(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                use_qvci=self.config.use_qvci,
+                **kw: optimized_get_columns(
                     self,
                     connection,
                     table_name,
@@ -613,7 +618,11 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_pk_constraint",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_pk_constraint(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_pk_constraint(
                     self, connection, table_name, schema, **kw
                 ),
             )
@@ -621,7 +630,11 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_foreign_keys",
-                lambda self, connection, table_name, schema=None, **kw: optimized_get_foreign_keys(
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                **kw: optimized_get_foreign_keys(
                     self, connection, table_name, schema, **kw
                 ),
             )

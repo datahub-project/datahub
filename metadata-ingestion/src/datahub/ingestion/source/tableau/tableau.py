@@ -281,9 +281,9 @@ class TableauConnectionConfig(ConfigModel):
         return authentication
 
     def make_tableau_client(self, site: str) -> Server:
-        authentication: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.get_tableau_auth(site)
+        authentication: Union[TableauAuth, PersonalAccessTokenAuth] = (
+            self.get_tableau_auth(site)
+        )
         try:
             server = Server(
                 self.connect_uri,
@@ -635,7 +635,7 @@ class TableauConfig(
         project_path_pattern = values.get("project_path_pattern")
         if project_pattern is None and project_path_pattern is None and projects:
             logger.warning(
-                "projects is deprecated, please use " "project_path_pattern instead."
+                "projects is deprecated, please use project_path_pattern instead."
             )
             logger.info("Initializing project_pattern from projects")
             values["project_pattern"] = AllowDenyPattern(
@@ -708,18 +708,18 @@ class DatabaseTable:
     """
 
     urn: str
-    id: Optional[
-        str
-    ] = None  # is not None only for tables that came from Tableau metadata
+    id: Optional[str] = (
+        None  # is not None only for tables that came from Tableau metadata
+    )
     num_cols: Optional[int] = None
 
-    paths: Optional[
-        Set[str]
-    ] = None  # maintains all browse paths encountered for this table
+    paths: Optional[Set[str]] = (
+        None  # maintains all browse paths encountered for this table
+    )
 
-    parsed_columns: Optional[
-        Set[str]
-    ] = None  # maintains all columns encountered for this table during parsing SQL queries
+    parsed_columns: Optional[Set[str]] = (
+        None  # maintains all columns encountered for this table during parsing SQL queries
+    )
 
     def update_table(
         self,
@@ -2310,8 +2310,7 @@ class TableauSiteSource:
             c.EMBEDDED_DATA_SOURCE,
         ):
             logger.debug(
-                f"datasource {ds.get(c.NAME)} type {ds.get(c.TYPE_NAME)} is "
-                f"unsupported"
+                f"datasource {ds.get(c.NAME)} type {ds.get(c.TYPE_NAME)} is unsupported"
             )
             return None
 
@@ -2493,9 +2492,9 @@ class TableauSiteSource:
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
     ) -> None:
-        in_tables_schemas: Dict[
-            str, Set[str]
-        ] = transform_parsing_result_to_in_tables_schemas(parsing_result)
+        in_tables_schemas: Dict[str, Set[str]] = (
+            transform_parsing_result_to_in_tables_schemas(parsing_result)
+        )
 
         if not in_tables_schemas:
             logger.info("Unable to extract table schema from parsing result")
@@ -3559,25 +3558,25 @@ class TableauSiteSource:
 
             generated_project_keys.add(project_key.guid())
 
-            parent_project_key: Optional[
-                Union[ProjectKey, SiteKey]
-            ] = None  # It is going
+            parent_project_key: Optional[Union[ProjectKey, SiteKey]] = (
+                None  # It is going
+            )
             # to be used as a parent container key for the current tableau project
 
             if project_.parent_id is not None:
                 # Go to the parent project as we need to generate container first for parent
                 parent_project_key = self.gen_project_key(project_.parent_id)
 
-                parent_tableau_project: Optional[
-                    TableauProject
-                ] = self.tableau_project_registry.get(project_.parent_id)
+                parent_tableau_project: Optional[TableauProject] = (
+                    self.tableau_project_registry.get(project_.parent_id)
+                )
 
                 if (
                     parent_tableau_project is None
                 ):  # It is not in project registry because of project_pattern
-                    assert (
-                        project_.parent_name
-                    ), f"project {project_.name} should not be null"
+                    assert project_.parent_name, (
+                        f"project {project_.name} should not be null"
+                    )
                     parent_tableau_project = TableauProject(
                         id=project_.parent_id,
                         name=project_.parent_name,
@@ -3605,7 +3604,7 @@ class TableauSiteSource:
                 parent_container_key=parent_project_key,
             )
 
-        for id_, project in self.tableau_project_registry.items():
+        for project in self.tableau_project_registry.values():
             logger.debug(
                 f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
             )
@@ -3669,16 +3668,16 @@ class TableauSiteSource:
             if self.config.extract_usage_stats:
                 with PerfTimer() as timer:
                     self._populate_usage_stat_registry()
-                    self.report.extract_usage_stats_timer[
-                        self.site_content_url
-                    ] = timer.elapsed_seconds(digits=2)
+                    self.report.extract_usage_stats_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )
 
             if self.config.permission_ingestion:
                 with PerfTimer() as timer:
                     self._fetch_groups()
-                    self.report.fetch_groups_timer[
-                        self.site_content_url
-                    ] = timer.elapsed_seconds(digits=2)
+                    self.report.fetch_groups_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )
 
             # Populate the map of database names and database hostnames to be used later to map
             # databases to platform instances.
@@ -3691,9 +3690,9 @@ class TableauSiteSource:
 
             with PerfTimer() as timer:
                 self._populate_projects_registry()
-                self.report.populate_projects_registry_timer[
-                    self.site_content_url
-                ] = timer.elapsed_seconds(digits=2)
+                self.report.populate_projects_registry_timer[self.site_content_url] = (
+                    timer.elapsed_seconds(digits=2)
+                )
 
             if self.config.add_site_container:
                 yield from self.emit_site_container()
@@ -3701,23 +3700,23 @@ class TableauSiteSource:
 
             with PerfTimer() as timer:
                 yield from self.emit_workbooks()
-                self.report.emit_workbooks_timer[
-                    self.site_content_url
-                ] = timer.elapsed_seconds(digits=2)
+                self.report.emit_workbooks_timer[self.site_content_url] = (
+                    timer.elapsed_seconds(digits=2)
+                )
 
             if self.sheet_ids:
                 with PerfTimer() as timer:
                     yield from self.emit_sheets()
-                    self.report.emit_sheets_timer[
-                        self.site_content_url
-                    ] = timer.elapsed_seconds(digits=2)
+                    self.report.emit_sheets_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )
 
             if self.dashboard_ids:
                 with PerfTimer() as timer:
                     yield from self.emit_dashboards()
-                    self.report.emit_dashboards_timer[
-                        self.site_content_url
-                    ] = timer.elapsed_seconds(digits=2)
+                    self.report.emit_dashboards_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )
 
             if self.embedded_datasource_ids_being_used:
                 with PerfTimer() as timer:
@@ -3743,6 +3742,6 @@ class TableauSiteSource:
             if self.database_tables:
                 with PerfTimer() as timer:
                     yield from self.emit_upstream_tables()
-                    self.report.emit_upstream_tables_timer[
-                        self.site_content_url
-                    ] = timer.elapsed_seconds(digits=2)
+                    self.report.emit_upstream_tables_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )

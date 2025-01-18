@@ -506,16 +506,18 @@ class DBTNode:
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
-    missing_from_catalog: bool  # indicates if the node was missing from the catalog.json
+    missing_from_catalog: (
+        bool  # indicates if the node was missing from the catalog.json
+    )
 
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
-    raw_sql_parsing_result: Optional[
-        SqlParsingResult
-    ] = None  # only set for nodes that don't depend on ephemeral models
+    raw_sql_parsing_result: Optional[SqlParsingResult] = (
+        None  # only set for nodes that don't depend on ephemeral models
+    )
     cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -869,10 +871,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 "platform": DBT_PLATFORM,
                                 "name": node.dbt_name,
                                 "instance": self.config.platform_instance,
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
                                 **(
-                                    # Ideally we'd include the env unconditionally. However, we started out
-                                    # not including env in the guid, so we need to maintain backwards compatibility
-                                    # with existing PROD assertions.
                                     {"env": self.config.env}
                                     if self.config.env != mce_builder.DEFAULT_ENV
                                     and self.config.include_env_in_assertion_guid
