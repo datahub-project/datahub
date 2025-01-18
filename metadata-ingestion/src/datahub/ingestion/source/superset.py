@@ -22,8 +22,11 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_term_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -35,6 +38,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -47,6 +51,12 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+)
+from datahub.metadata._schema_classes import (
+    AuditStampClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermInfoClass,
+    GlossaryTermsClass,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -80,7 +90,6 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
 
-
 chart_type_from_viz_type = {
     "line": ChartTypeClass.LINE,
     "big_number": ChartTypeClass.LINE,
@@ -96,7 +105,6 @@ chart_type_from_viz_type = {
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
 }
-
 
 platform_without_databases = ["druid"]
 
@@ -231,6 +239,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 cached_domains=[domain_id for domain_id in self.config.domain],
                 graph=self.ctx.graph,
             )
+        self.sink_config = ctx.pipeline_config.sink.config
         self.session = self.login()
 
     def login(self) -> requests.Session:
@@ -583,6 +592,71 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def check_if_term_exists(self, term_urn):
+        graph = DataHubGraph(
+            DatahubClientConfig(
+                server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
+        )
+        # Query multiple aspects from entity
+        result = graph.get_entity_semityped(
+            entity_urn=term_urn,
+            aspects=["glossaryTermInfo"],
+        )
+
+        if result.get("glossaryTermInfo"):
+            return True
+        return False
+
+    def parse_glossary_terms_from_metrics(
+        self, metrics, last_modified
+    ) -> GlossaryTermsClass:
+        glossary_term_urns = []
+        for metric in metrics:
+            expression = metric.get("expression", "")
+            certification_details = metric.get("extra", "")
+            metric_name = metric.get("metric_name", "")
+            description = metric.get("description", "")
+            term_urn = make_term_urn(metric_name)
+
+            if self.check_if_term_exists(term_urn):
+                logger.info(f"Term {term_urn} already exists")
+                glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+                continue
+
+            term_properties_aspect = GlossaryTermInfoClass(
+                name=metric_name,
+                definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
+                termSource="",
+            )
+
+            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                entityUrn=term_urn,
+                aspect=term_properties_aspect,
+            )
+
+            # Create rest emitter
+            rest_emitter = DatahubRestEmitter(
+                gms_server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
+            rest_emitter.emit(event)
+            logger.info(f"Created Glossary term {term_urn}")
+            glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+
+        return GlossaryTermsClass(terms=glossary_term_urns, auditStamp=last_modified)
+
+    def _is_certified_metric(self, response_result: dict) -> bool:
+        # We only want to ingest certified metrics for physical preset dataset
+        metrics = response_result.get("metrics", {})
+        extra = response_result.get("extra", {})
+        kind = response_result.get("kind")
+        if metrics and extra and "certification" in extra and kind == "physical":
+            return True
+        else:
+            return False
+
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
@@ -591,6 +665,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
+        now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on") or now).timestamp() * 1000
+        )
+        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
 
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
@@ -602,6 +682,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             else None,
             externalUrl=dataset_url,
         )
+
         aspects_items: List[Any] = []
         aspects_items.extend(
             [
@@ -609,6 +690,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                 dataset_info,
             ]
         )
+
+        response_result = dataset_response.get("result", {})
+
+        if self._is_certified_metric(response_result):
+            glossary_terms = self.parse_glossary_terms_from_metrics(
+                response_result.get("metrics", {}), last_modified
+            )
+            aspects_items.append(glossary_terms)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
