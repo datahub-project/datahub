@@ -218,82 +218,50 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
         """Profile a collection of samples and generate statistics"""
-        # Initialize collections
         field_values: Dict[str, List[Any]] = {}
-        key_field_path: Optional[str] = None
-        all_keys: Set[str] = set()
+        field_paths: Dict[str, str] = {}  # Map from clean name to full schema path
 
-        # Initialize from schema if available
-        if schema_metadata is not None and isinstance(
-            schema_metadata.platformSchema, KafkaSchemaClass
-        ):
-            # Find the key field path from schema metadata fields
+        # If we have schema metadata, build our field mappings
+        if schema_metadata and schema_metadata.fields:
+            # Map the key field first
             key_field = next(
                 (
                     schema_field
-                    for schema_field in (schema_metadata.fields or [])
-                    if schema_field.fieldPath.endswith("[key=True]")
+                    for schema_field in schema_metadata.fields
+                    if "[key=True]" in schema_field.fieldPath
                 ),
                 None,
             )
             if key_field:
-                key_field_path = key_field.fieldPath
-                all_keys.add(key_field_path)
-                field_values[key_field_path] = []
+                clean_key = "key"
+                field_paths[clean_key] = key_field.fieldPath
 
-            # Initialize all schema fields
-            for schema_field in schema_metadata.fields or []:
-                field_path = schema_field.fieldPath
-                if field_path not in field_values:
-                    field_values[field_path] = []
-                    all_keys.add(field_path)
+            # Map all other fields
+            for schema_field in schema_metadata.fields:
+                clean_name = clean_field_path(
+                    schema_field.fieldPath, preserve_types=False
+                )
+                field_paths[clean_name] = schema_field.fieldPath
 
-        # Process each sample
+        # Process samples
         for sample in samples:
             for field_name, value in sample.items():
                 if field_name not in ("offset", "timestamp"):
-                    matching_schema_field = None
-                    if schema_metadata and schema_metadata.fields:
-                        clean_field = clean_field_path(field_name, preserve_types=False)
-
-                        # Special handling for key field
-                        if field_name == "key" and key_field_path:
-                            matching_schema_field = next(
-                                schema_field
-                                for schema_field in schema_metadata.fields
-                                if schema_field.fieldPath == key_field_path
-                            )
-                        else:
-                            # Find matching schema field by comparing the end of the path
-                            for schema_field in schema_metadata.fields:
-                                if (
-                                    clean_field_path(
-                                        schema_field.fieldPath, preserve_types=False
-                                    )
-                                    == clean_field
-                                ):
-                                    matching_schema_field = schema_field
-                                    break
-
-                    # Use full path from schema if found, otherwise use original field name
-                    field_path = (
-                        matching_schema_field.fieldPath
-                        if matching_schema_field
-                        else field_name
-                    )
+                    # Use schema path if available, otherwise use original field name
+                    field_path = field_paths.get(field_name, field_name)
 
                     if field_path not in field_values:
                         field_values[field_path] = []
-                        all_keys.add(field_path)
                     field_values[field_path].append(value)
 
         # Process field statistics
         field_stats = {}
-        for field_name, values in field_values.items():
-            field_stats[field_name] = self._process_field_statistics(
-                field_path=field_name,
-                values=values,
-            )
+        for field_path, values in field_values.items():
+            if values:  # Only process fields that have values
+                field_stats[field_path] = self._process_field_statistics(
+                    field_path=field_path,
+                    values=values,
+                )
 
         return self.create_profile_data(field_stats, len(samples))
 
@@ -670,6 +638,10 @@ class KafkaConnectionTest:
     SourceCapability.SCHEMA_METADATA,
     "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
 )
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration.",
+)
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -847,6 +819,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]] = []
         try:
             self.consumer.subscribe([topic])
+            logger.debug(f"Subscribed to topic {topic}")
 
             # Poll for messages until timeout or we get desired number of samples
             end_time = datetime.now() + timedelta(
@@ -913,6 +886,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Failed to collect samples from {topic}: {e}")
         finally:
             self.consumer.unsubscribe()
+
+        logger.debug(
+            f"{len(samples)} messages retrieved for topic {topic}. Sample message: {samples[0] if len(samples)>0 else str()}"
+        )
 
         return samples
 
@@ -1228,6 +1205,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # 9. Emit sample values
         if not is_subject and self.source_config.profiling.enabled:
+            logger.debug(
+                f"Profiling topic {topic} for dataset {dataset_urn}"
+                f"Schema metadata: {schema_metadata}"
+            )
             yield from self.create_profiling_wu(
                 entity_urn=dataset_urn,
                 topic=topic,
