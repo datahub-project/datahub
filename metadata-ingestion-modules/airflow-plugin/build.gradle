@@ -74,6 +74,7 @@ task lint(type: Exec, dependsOn: installDev) {
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
     "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {

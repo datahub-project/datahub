@@ -111,6 +111,7 @@ task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "ruff check src/ tests/ examples/ && " +
+    "ruff format --check src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 

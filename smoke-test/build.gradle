@@ -73,15 +73,14 @@ task installDev(type: Exec) {
 task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff tests/ && " +
         "ruff check tests/ && " +
+        "ruff format --check tests/ && " +
         "mypy tests/"
 }
 
 task pythonLintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black tests/ && " +
         "ruff check --fix tests/ && " +
         "ruff format src/ tests/ && " +
         "mypy src/ tests/"
