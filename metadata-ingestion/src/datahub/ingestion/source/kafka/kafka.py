@@ -1206,7 +1206,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # 9. Emit sample values
         if not is_subject and self.source_config.profiling.enabled:
             logger.debug(
-                f"Profiling topic {topic} for dataset {dataset_urn}"
+                f"Profiling topic {topic} for dataset {dataset_urn}. "
                 f"Schema metadata: {schema_metadata}"
             )
             yield from self.create_profiling_wu(
