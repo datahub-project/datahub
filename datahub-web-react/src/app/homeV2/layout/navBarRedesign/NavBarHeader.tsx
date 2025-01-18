@@ -66,7 +66,7 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>{customName || 'Acryl Data'}</Title> : null}
+                {!isCollapsed ? <Title>{customName || 'DataHub'}</Title> : null}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>
