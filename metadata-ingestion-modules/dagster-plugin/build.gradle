@@ -61,6 +61,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
     "ruff check --fix src/ tests/ examples/ && " +
+    "ruff format src/ tests/ examples/ && " +
     "mypy src/ tests/ examples/"
 }
 

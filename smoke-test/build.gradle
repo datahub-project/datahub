@@ -83,7 +83,8 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
         "source ${venv_name}/bin/activate && set -x && " +
         "black tests/ && " +
         "ruff check --fix tests/ && " +
-        "mypy tests/"
+        "ruff format src/ tests/ && " +
+        "mypy src/ tests/"
 }
 
 /**
