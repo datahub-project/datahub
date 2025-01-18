@@ -31,7 +31,10 @@ extend-select = [
     "TID",   # Tidy imports
 ]
 extend-ignore = [
-    "E501",  # Ignore line length violations (handled by Black)
+    "E501",  # Handled by formatter
+    "E111",  # Handled by formatter
+    "E114",  # Handled by formatter
+    "E117",  # Handled by formatter
     "E203",  # Ignore whitespace before ':' (matches Black)
     "B019",  # Allow usages of functools.lru_cache
     "B008",  # Allow function call in argument defaults
