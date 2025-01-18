@@ -108,7 +108,6 @@ class DataHubValidationAction(ValidationAction):
         convert_urns_to_lowercase: bool = False,
         name: str = "DataHubValidationAction",
     ):
-
         if has_name_positional_arg:
             if len(args) >= 1 and isinstance(args[0], str):
                 name = args[0]
@@ -164,9 +163,7 @@ class DataHubValidationAction(ValidationAction):
             if isinstance(
                 validation_result_suite_identifier, ValidationResultIdentifier
             ):
-                expectation_suite_name = (
-                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
-                )
+                expectation_suite_name = validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
                 run_id = validation_result_suite_identifier.run_id
                 batch_identifier = validation_result_suite_identifier.batch_identifier
 

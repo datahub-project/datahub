@@ -216,6 +216,7 @@ clean {
   delete 'src/datahub/metadata'
   delete '../docs/generated'
   delete 'generated'
+  delete '.ruff_cache'
   delete '.mypy_cache'
   delete '.pytest_cache'
   delete '.preflight_sentinel'

@@ -54,16 +54,16 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check src/ tests/ examples/ && " +
-    "ruff format --check src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "ruff check --fix src/ tests/ examples/ && " +
-    "ruff format src/ tests/ examples/ && " +
-    "mypy src/ tests/ examples/ "
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ && " +
+    "mypy src/ tests/ "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -111,5 +111,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

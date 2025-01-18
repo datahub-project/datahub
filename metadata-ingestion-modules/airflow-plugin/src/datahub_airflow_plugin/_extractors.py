@@ -63,9 +63,9 @@ class ExtractorManager(OLExtractorManager):
 
         self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
 
-        self.task_to_extractor.extractors[
-            "BigQueryInsertJobOperator"
-        ] = BigQueryInsertJobOperatorExtractor
+        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
+            BigQueryInsertJobOperatorExtractor
+        )
 
         self._graph: Optional["DataHubGraph"] = None
 

@@ -81,40 +81,40 @@ repos:
         files: ^metadata-events/mxe-utils-avro/.*\.java$
         pass_filenames: false
 
-      # - id: metadata-ingestion-lint-fix
-      #   name: metadata-ingestion Lint Fix
-      #   entry: ./gradlew :metadata-ingestion:lintFix
-      #   language: system
-      #   files: ^metadata-ingestion/.*\.py$
-      #   pass_filenames: false
+      - id: metadata-ingestion-lint-fix
+        name: metadata-ingestion Lint Fix
+        entry: ./gradlew :metadata-ingestion:lintFix
+        language: system
+        files: ^metadata-ingestion/.*\.py$
+        pass_filenames: false
 
-      # - id: metadata-ingestion-modules-airflow-plugin-lint-fix
-      #   name: metadata-ingestion-modules/airflow-plugin Lint Fix
-      #   entry: ./gradlew :metadata-ingestion-modules:airflow-plugin:lintFix
-      #   language: system
-      #   files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
-      #   pass_filenames: false
+      - id: metadata-ingestion-modules-airflow-plugin-lint-fix
+        name: metadata-ingestion-modules/airflow-plugin Lint Fix
+        entry: ./gradlew :metadata-ingestion-modules:airflow-plugin:lintFix
+        language: system
+        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
+        pass_filenames: false
 
-      # - id: metadata-ingestion-modules-dagster-plugin-lint-fix
-      #   name: metadata-ingestion-modules/dagster-plugin Lint Fix
-      #   entry: ./gradlew :metadata-ingestion-modules:dagster-plugin:lintFix
-      #   language: system
-      #   files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
-      #   pass_filenames: false
+      - id: metadata-ingestion-modules-dagster-plugin-lint-fix
+        name: metadata-ingestion-modules/dagster-plugin Lint Fix
+        entry: ./gradlew :metadata-ingestion-modules:dagster-plugin:lintFix
+        language: system
+        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
+        pass_filenames: false
 
-      # - id: metadata-ingestion-modules-gx-plugin-lint-fix
-      #   name: metadata-ingestion-modules/gx-plugin Lint Fix
-      #   entry: ./gradlew :metadata-ingestion-modules:gx-plugin:lintFix
-      #   language: system
-      #   files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
-      #   pass_filenames: false
+      - id: metadata-ingestion-modules-gx-plugin-lint-fix
+        name: metadata-ingestion-modules/gx-plugin Lint Fix
+        entry: ./gradlew :metadata-ingestion-modules:gx-plugin:lintFix
+        language: system
+        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
+        pass_filenames: false
 
-      # - id: metadata-ingestion-modules-prefect-plugin-lint-fix
-      #   name: metadata-ingestion-modules/prefect-plugin Lint Fix
-      #   entry: ./gradlew :metadata-ingestion-modules:prefect-plugin:lintFix
-      #   language: system
-      #   files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
-      #   pass_filenames: false
+      - id: metadata-ingestion-modules-prefect-plugin-lint-fix
+        name: metadata-ingestion-modules/prefect-plugin Lint Fix
+        entry: ./gradlew :metadata-ingestion-modules:prefect-plugin:lintFix
+        language: system
+        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
+        pass_filenames: false
 
       - id: metadata-integration-java-acryl-spark-lineage-spotless
         name: metadata-integration/java/acryl-spark-lineage Spotless Apply
