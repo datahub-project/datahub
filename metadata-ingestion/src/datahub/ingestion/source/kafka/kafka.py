@@ -217,44 +217,79 @@ class KafkaProfiler:
         samples: List[Dict[str, Any]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
-        """Profile a collection of samples and generate statistics"""
+        # Initialize data structures
         field_values: Dict[str, List[Any]] = {}
-        field_paths: Dict[str, str] = {}  # Map from clean name to full schema path
+        field_paths: Dict[str, str] = {}  # Maps clean names to full paths
+        key_name: Optional[str] = None
 
-        # If we have schema metadata, build our field mappings
-        if schema_metadata and schema_metadata.fields:
-            # Map the key field first
-            key_field = next(
-                (
-                    schema_field
-                    for schema_field in schema_metadata.fields
-                    if "[key=True]" in schema_field.fieldPath
-                ),
-                None,
-            )
-            if key_field:
-                clean_key = "key"
-                field_paths[clean_key] = key_field.fieldPath
+        # Build field mappings from schema if available
+        if schema_metadata and isinstance(
+            schema_metadata.platformSchema, KafkaSchemaClass
+        ):
+            # Handle key schema if present
+            if schema_metadata.platformSchema.keySchema:
+                try:
+                    key_schema = avro.schema.parse(
+                        schema_metadata.platformSchema.keySchema
+                    )
+                    key_name = getattr(key_schema, "name", "key")
+                    # Map key schema fields if they exist
+                    if hasattr(key_schema, "fields"):
+                        for schema_field in key_schema.fields:
+                            field_path = f"{key_name}.{schema_field.name}"
+                            clean_name = clean_field_path(
+                                field_path, preserve_types=False
+                            )
+                            field_paths[clean_name] = field_path
+                            field_values[field_path] = []
+                except Exception as e:
+                    logger.warning(f"Failed to parse key schema: {e}")
 
-            # Map all other fields
-            for schema_field in schema_metadata.fields:
+            # Map all schema fields, maintaining full paths
+            for schema_field in schema_metadata.fields or []:
                 clean_name = clean_field_path(
                     schema_field.fieldPath, preserve_types=False
                 )
                 field_paths[clean_name] = schema_field.fieldPath
+                field_values[schema_field.fieldPath] = []
 
-        # Process samples
+        # Process each sample, mapping fields correctly
         for sample in samples:
             for field_name, value in sample.items():
                 if field_name not in ("offset", "timestamp"):
-                    # Use schema path if available, otherwise use original field name
-                    field_path = field_paths.get(field_name, field_name)
+                    # Handle key fields specially
+                    if field_name == "key" and key_name:
+                        field_path = key_name
+                    elif field_name.startswith("key.") and key_name:
+                        field_path = f"{key_name}.{field_name[4:]}"
+                    else:
+                        # Try to find matching schema field
+                        clean_sample = clean_field_path(
+                            field_name, preserve_types=False
+                        )
+                        field_path = field_name
 
+                        if schema_metadata and schema_metadata.fields:
+                            for schema_field in schema_metadata.fields:
+                                if (
+                                    clean_field_path(
+                                        schema_field.fieldPath, preserve_types=False
+                                    )
+                                    == clean_sample
+                                ):
+                                    field_path = schema_field.fieldPath
+                                    break
+
+                        if not field_path:
+                            field_path = field_paths.get(clean_sample, field_name)
+
+                    # Initialize field if needed and store value with original type
                     if field_path not in field_values:
                         field_values[field_path] = []
+                    # Keep original type, don't convert to string
                     field_values[field_path].append(value)
 
-        # Process field statistics
+            # Process statistics with original types
         field_stats = {}
         for field_path, values in field_values.items():
             if values:  # Only process fields that have values
@@ -274,6 +309,17 @@ class KafkaProfiler:
         total_count = len(values)
         non_null_values = [v for v in values if v is not None and v != ""]
 
+        # Detect type first
+        data_type = "STRING"
+        if non_null_values:
+            sample_value = non_null_values[0]
+            if isinstance(sample_value, (int, float)):
+                data_type = "NUMERIC"
+            elif isinstance(sample_value, bool):
+                data_type = "BOOLEAN"
+            elif isinstance(sample_value, (dict, list)):
+                data_type = "COMPLEX"
+
         stats = KafkaFieldStatistics(
             field_path=field_path,
             sample_values=random.sample(
@@ -282,17 +328,16 @@ class KafkaProfiler:
             )
             if self.profiler_config.include_field_sample_values
             else [],
+            data_type=data_type,
         )
 
-        # Calculate null statistics - always calculate for all types
-        if self.profiler_config.include_field_null_count:
-            stats.null_count = total_count - len(non_null_values)
-            stats.null_proportion = (
-                stats.null_count / total_count if total_count > 0 else 0
-            )
+        # Calculate null statistics
+        stats.null_count = total_count - len(non_null_values)
+        stats.null_proportion = stats.null_count / total_count if total_count > 0 else 0
 
-        # Calculate distinct value stats - always calculate for all types
+        # Calculate distinct value stats
         if self.profiler_config.include_field_distinct_count:
+            # Convert to strings only for counting distinct values
             value_counts: Dict[str, int] = {}
             for value in values:
                 str_value = str(value)
@@ -302,65 +347,53 @@ class KafkaProfiler:
             stats.unique_proportion = (
                 stats.unique_count / total_count if total_count > 0 else 0
             )
+            stats.distinct_value_frequencies = value_counts
 
-        # Only calculate other statistics for numeric fields
-        if non_null_values:
-            try:
-                numeric_values = [
-                    float(v)
-                    for v in non_null_values
-                    if str(v).replace(".", "").isdigit()
-                ]
-                if numeric_values:
-                    if self.profiler_config.include_field_min_value:
-                        stats.min_value = min(numeric_values)
-                    if self.profiler_config.include_field_max_value:
-                        stats.max_value = max(numeric_values)
-                    if self.profiler_config.include_field_mean_value:
-                        stats.mean_value = sum(numeric_values) / len(numeric_values)
-                    if self.profiler_config.include_field_median_value:
-                        stats.median_value = sorted(numeric_values)[
-                            len(numeric_values) // 2
-                        ]
+        # Calculate numeric statistics only for numeric fields
+        if data_type == "NUMERIC":
+            numeric_values = [
+                float(v) for v in non_null_values if isinstance(v, (int, float))
+            ]
+            if numeric_values:
+                if self.profiler_config.include_field_min_value:
+                    stats.min_value = min(numeric_values)
+                if self.profiler_config.include_field_max_value:
+                    stats.max_value = max(numeric_values)
+                if self.profiler_config.include_field_mean_value:
+                    stats.mean_value = sum(numeric_values) / len(numeric_values)
+                if self.profiler_config.include_field_median_value:
+                    stats.median_value = sorted(numeric_values)[
+                        len(numeric_values) // 2
+                    ]
 
-                    # Calculate standard deviation if enabled
-                    if (
-                        self.profiler_config.include_field_stddev_value
-                        and len(numeric_values) > 1
-                    ):
-                        mean = stats.mean_value or 0
-                        variance = sum((x - mean) ** 2 for x in numeric_values) / (
-                            len(numeric_values) - 1
-                        )
-                        stats.stdev = math.sqrt(variance)
+                # Calculate standard deviation
+                if (
+                    self.profiler_config.include_field_stddev_value
+                    and len(numeric_values) > 1
+                ):
+                    mean = stats.mean_value or 0
+                    variance = sum((x - mean) ** 2 for x in numeric_values) / (
+                        len(numeric_values) - 1
+                    )
+                    stats.stdev = math.sqrt(variance)
 
-                    # Calculate quantiles if enabled
-                    if self.profiler_config.include_field_quantiles:
-                        sorted_values = sorted(numeric_values)
-                        stats.quantiles = [
-                            QuantileClass(
-                                quantile=str(0.25),
-                                value=str(
-                                    sorted_values[int(len(sorted_values) * 0.25)]
-                                ),
-                            ),
-                            QuantileClass(
-                                quantile=str(0.5),
-                                value=str(sorted_values[int(len(sorted_values) * 0.5)]),
-                            ),
-                            QuantileClass(
-                                quantile=str(0.75),
-                                value=str(
-                                    sorted_values[int(len(sorted_values) * 0.75)]
-                                ),
-                            ),
-                        ]
-
-                    stats.data_type = "NUMERIC"
-                else:
-                    stats.data_type = "STRING"
-            except (ValueError, TypeError):
-                stats.data_type = "STRING"
+                # Calculate quantiles
+                if self.profiler_config.include_field_quantiles:
+                    sorted_values = sorted(numeric_values)
+                    stats.quantiles = [
+                        QuantileClass(
+                            quantile=str(0.25),
+                            value=str(sorted_values[int(len(sorted_values) * 0.25)]),
+                        ),
+                        QuantileClass(
+                            quantile=str(0.5),
+                            value=str(sorted_values[int(len(sorted_values) * 0.5)]),
+                        ),
+                        QuantileClass(
+                            quantile=str(0.75),
+                            value=str(sorted_values[int(len(sorted_values) * 0.75)]),
+                        ),
+                    ]
 
         return stats
 
@@ -970,25 +1003,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     field_sample_map[field_path].append(str(value))
 
         return {"all_keys": all_keys, "field_sample_map": field_sample_map}
-
-    def _create_profile_data(
-        self, all_keys: set, field_sample_map: Dict[str, List[str]], sample_count: int
-    ) -> DatasetProfileClass:
-        """Create profile data from processed samples."""
-        timestamp_millis = int(datetime.now().timestamp() * 1000)
-        return DatasetProfileClass(
-            timestampMillis=timestamp_millis,
-            columnCount=len(all_keys),
-            fieldProfiles=[
-                DatasetFieldProfileClass(
-                    fieldPath=field_name,
-                    sampleValues=random.sample(
-                        field_samples, min(3, len(field_samples))
-                    ),
-                )
-                for field_name, field_samples in field_sample_map.items()
-            ],
-        )
 
     def create_profiling_wu(
         self,
