@@ -151,8 +151,10 @@ class DataHubDatabaseReader:
         self, query: str, params: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
         with self.engine.connect() as conn:
-            if self.engine.dialect.name == "postgresql":
+            if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
                 with conn.begin():  # Transaction required for PostgreSQL server-side cursor
+                    # Note that stream_results=True is mainly supported by PostgreSQL and MySQL-based dialects.
+                    # https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Connection.execution_options.params.stream_results
                     conn = conn.execution_options(
                         stream_results=True,
                         yield_per=self.config.database_query_batch_size,
@@ -160,22 +162,6 @@ class DataHubDatabaseReader:
                     result = conn.execute(query, params)
                     for row in result:
                         yield dict(row)
-            elif self.engine.dialect.name == "mysql":  # MySQL
-                import MySQLdb
-
-                with contextlib.closing(
-                    conn.connection.cursor(MySQLdb.cursors.SSCursor)
-                ) as cursor:
-                    logger.debug(f"Using Cursor type: {cursor.__class__.__name__}")
-                    cursor.execute(query, params)
-
-                    columns = [desc[0] for desc in cursor.description]
-                    while True:
-                        rows = cursor.fetchmany(self.config.database_query_batch_size)
-                        if not rows:
-                            break  # Use break instead of return in generator
-                        for row in rows:
-                            yield dict(zip(columns, row))
             else:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
 

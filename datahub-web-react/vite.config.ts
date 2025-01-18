@@ -68,6 +68,11 @@ export default defineConfig(({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            target: 'esnext',
+            minify: 'esbuild',
+            reportCompressedSize: false,
+            // Limit number of worker threads to reduce CPU pressure
+            workers: 3, // default is number of CPU cores
         },
         server: {
             open: false,
@@ -92,8 +97,11 @@ export default defineConfig(({ mode }) => {
             css: true,
             // reporters: ['verbose'],
             coverage: {
+		enabled: true,
+		provider: 'v8',
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*'],
+		reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },
         },

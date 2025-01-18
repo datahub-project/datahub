@@ -645,6 +645,7 @@ export const dataset3 = {
     structuredProperties: null,
     forms: null,
     activeIncidents: null,
+    versionProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -1714,6 +1715,7 @@ export const mlModel = {
     },
     tags: [],
     properties: {
+        name: 'trust model',
         description: 'a ml trust model',
         date: null,
         version: '1',

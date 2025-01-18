@@ -1,10 +1,11 @@
 import datetime
 import os
 import subprocess
-from typing import List, Set
+from typing import List
 
 import pytest
 
+from conftest import get_batch_start_end
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
@@ -169,10 +170,29 @@ def ingest_cleanup_data(auth_session, graph_client):
     print("deleted onboarding data")
 
 
-def _get_spec_map(items: Set[str]) -> str:
-    if len(items) == 0:
-        return ""
-    return ",".join([f"**/{item}/*.js" for item in items])
+def _get_js_files(base_path: str):
+    file_paths = []
+    for root, _, files in os.walk(base_path):
+        for file in files:
+            if file.endswith(".js"):
+                file_paths.append(os.path.relpath(os.path.join(root, file), base_path))
+    return sorted(file_paths)  # sort to make the order stable across batch runs
+
+
+def _get_cypress_tests_batch():
+    """
+    Batching is configured via env vars BATCH_COUNT and BATCH_NUMBER.  All cypress tests are split into exactly
+    BATCH_COUNT batches. When BATCH_NUMBER env var is set (zero based index), that batch alone is run.
+    Github workflow via test_matrix, runs all batches in parallel to speed up the test elapsed time.
+    If either of these vars are not set, all tests are run sequentially.
+    :return:
+    """
+    all_tests = _get_js_files("tests/cypress/cypress/e2e")
+
+    batch_start, batch_end = get_batch_start_end(num_tests=len(all_tests))
+
+    return all_tests[batch_start:batch_end]
+    # return test_batches[int(batch_number)]  #if BATCH_NUMBER was set, we this test just runs that one batch.
 
 
 def test_run_cypress(auth_session):
@@ -182,24 +202,20 @@ def test_run_cypress(auth_session):
     test_strategy = os.getenv("TEST_STRATEGY", None)
     if record_key:
         record_arg = " --record "
-        tag_arg = f" --tag {test_strategy} "
+        batch_number = os.getenv("BATCH_NUMBER")
+        batch_count = os.getenv("BATCH_COUNT")
+        if batch_number and batch_count:
+            batch_suffix = f"-{batch_number}{batch_count}"
+        else:
+            batch_suffix = ""
+        tag_arg = f" --tag {test_strategy}{batch_suffix}"
     else:
         record_arg = " "
 
-    rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
-    cypress_suite1_specs = {"mutations", "search", "views"}
-    rest_specs.difference_update(set(cypress_suite1_specs))
-    strategy_spec_map = {
-        "cypress_suite1": cypress_suite1_specs,
-        "cypress_rest": rest_specs,
-    }
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    if test_strategy is not None:
-        specs = strategy_spec_map.get(test_strategy)
-        assert specs is not None
-        specs_str = _get_spec_map(specs)
-        test_spec_arg = f" --spec '{specs_str}' "
+    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"

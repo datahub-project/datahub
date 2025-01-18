@@ -13,6 +13,7 @@ from dagster import (
     TableSchemaMetadataValue,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
+
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 try:
@@ -23,6 +24,7 @@ except ImportError:
 
 from dagster._core.snap.node import OpDefSnap
 from dagster._core.storage.dagster_run import DagsterRun, DagsterRunStatsSnapshot
+
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -522,7 +524,7 @@ class DagsterGenerator:
         # Also, add datahub inputs/outputs if present in input/output metatdata.
         for input_def_snap in op_def_snap.input_def_snaps:
             job_property_bag[f"input.{input_def_snap.name}"] = str(
-                input_def_snap._asdict()
+                input_def_snap.__dict__
             )
             if Constant.DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
@@ -533,7 +535,7 @@ class DagsterGenerator:
 
         for output_def_snap in op_def_snap.output_def_snaps:
             job_property_bag[f"output_{output_def_snap.name}"] = str(
-                output_def_snap._asdict()
+                output_def_snap.__dict__
             )
             if (
                 Constant.DATAHUB_OUTPUTS in output_def_snap.metadata

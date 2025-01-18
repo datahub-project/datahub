@@ -1,7 +1,9 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -11,22 +13,28 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
+import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -71,9 +79,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -88,6 +99,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class EntityController
     extends GenericEntitiesController<
         GenericAspectV3, GenericEntityV3, GenericEntityScrollResultV3> {
+
+  @Autowired private final EntityVersioningService entityVersioningService;
+  @Autowired private final ConfigurationProvider configurationProvider;
 
   @Tag(name = "Generic Entities")
   @PostMapping(value = "/{entityName}/batchGet", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -220,6 +234,111 @@ public class EntityController
             withSystemMetadata,
             result.getScrollId(),
             entityAspectsBody.getAspects() != null));
+  }
+
+  @Tag(name = "EntityVersioning")
+  @PostMapping(
+      value = "/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Link an Entity to a Version Set as the latest version")
+  public ResponseEntity<List<GenericEntityV3>> linkLatestVersion(
+      HttpServletRequest request,
+      @PathVariable("versionSetUrn") String versionSetUrnString,
+      @PathVariable("entityUrn") String entityUrnString,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata,
+      @RequestBody @Nonnull VersionPropertiesInput versionPropertiesInput)
+      throws URISyntaxException, JsonProcessingException {
+
+    if (!configurationProvider.getFeatureFlags().isEntityVersioning()) {
+      throw new IllegalAccessError(
+          "Entity Versioning is not configured, please enable before attempting to use this feature.");
+    }
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    Urn versionSetUrn = UrnUtils.getUrn(versionSetUrnString);
+    if (!VERSION_SET_ENTITY_NAME.equals(versionSetUrn.getEntityType())) {
+      throw new IllegalArgumentException(
+          String.format("Version Set urn %s must be of type Version Set.", versionSetUrnString));
+    }
+    Urn entityUrn = UrnUtils.getUrn(entityUrnString);
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "linkLatestVersion",
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+            authorizationChain,
+            authentication,
+            true);
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
+      throw new UnauthorizedException(
+          String.format(
+              "%s is unauthorized to %s entities %s and %s",
+              authentication.getActor().toUrnStr(), UPDATE, versionSetUrnString, entityUrnString));
+    }
+
+    return ResponseEntity.ok(
+        buildEntityList(
+            opContext,
+            entityVersioningService.linkLatestVersion(
+                opContext, versionSetUrn, entityUrn, versionPropertiesInput),
+            false));
+  }
+
+  @Tag(name = "EntityVersioning")
+  @DeleteMapping(
+      value = "/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Unlink the latest linked version of an entity")
+  public ResponseEntity<List<String>> unlinkVersion(
+      HttpServletRequest request,
+      @PathVariable("versionSetUrn") String versionSetUrnString,
+      @PathVariable("entityUrn") String entityUrnString,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
+      throws URISyntaxException, JsonProcessingException {
+
+    if (!configurationProvider.getFeatureFlags().isEntityVersioning()) {
+      throw new IllegalAccessError(
+          "Entity Versioning is not configured, please enable before attempting to use this feature.");
+    }
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    Urn versionSetUrn = UrnUtils.getUrn(versionSetUrnString);
+    if (!VERSION_SET_ENTITY_NAME.equals(versionSetUrn.getEntityType())) {
+      throw new IllegalArgumentException(
+          String.format("Version Set urn %s must be of type Version Set.", versionSetUrnString));
+    }
+    Urn entityUrn = UrnUtils.getUrn(entityUrnString);
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "unlinkVersion",
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+            authorizationChain,
+            authentication,
+            true);
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
+      throw new UnauthorizedException(
+          String.format(
+              "%s is unauthorized to %s entities %s and %s",
+              authentication.getActor().toUrnStr(), UPDATE, versionSetUrnString, entityUrnString));
+    }
+    List<RollbackResult> rollbackResults =
+        entityVersioningService.unlinkVersion(opContext, versionSetUrn, entityUrn);
+
+    return ResponseEntity.ok(
+        rollbackResults.stream()
+            .map(rollbackResult -> rollbackResult.getUrn().toString())
+            .collect(Collectors.toList()));
   }
 
   @Override
@@ -361,7 +480,10 @@ public class EntityController
                               .auditStamp(
                                   withSystemMetadata ? ingest.getRequest().getAuditStamp() : null)
                               .build()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              // Map merge strategy, just take latest one
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (value1, value2) -> value2));
       responseList.add(
           GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
     }
@@ -554,14 +676,14 @@ public class EntityController
                             GenericRecordUtils.JSON,
                             aspectSpec));
 
-            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+            items.add(builder.build(opContext.getRetrieverContext().getAspectRetriever()));
           }
         }
       }
     }
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 

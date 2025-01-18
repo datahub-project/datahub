@@ -268,7 +268,7 @@ def _get_table_or_view_names(self, relkind, connection, schema=None, **kw):
     info_cache = kw.get("info_cache")
     all_relations = self._get_all_relation_info(connection, info_cache=info_cache)
     relation_names = []
-    for key, relation in all_relations.items():
+    for _, relation in all_relations.items():
         if relation.database == schema and relation.relkind == relkind:
             relation_names.append(relation.relname)
     return relation_names

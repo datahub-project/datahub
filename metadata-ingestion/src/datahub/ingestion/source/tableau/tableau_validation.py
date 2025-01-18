@@ -28,7 +28,7 @@ def check_user_role(
 
     try:
         # TODO: Add check for `Enable Derived Permissions`
-        if not logged_in_user.is_site_administrator_explorer():
+        if not logged_in_user.has_site_administrator_explorer_privileges():
             capability_dict[c.SITE_PERMISSION] = CapabilityReport(
                 capable=False,
                 failure_reason=f"{failure_reason} Their current role is {logged_in_user.site_role}.",

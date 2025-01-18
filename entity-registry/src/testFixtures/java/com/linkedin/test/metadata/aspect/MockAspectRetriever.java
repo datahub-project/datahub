@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
@@ -20,11 +20,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
 import org.mockito.Mockito;
 
-public class MockAspectRetriever implements AspectRetriever {
+public class MockAspectRetriever implements CachingAspectRetriever {
   private final Map<Urn, Map<String, Aspect>> data;
   private final Map<Urn, Map<String, SystemAspect>> systemData = new HashMap<>();
+  @Getter @Setter private EntityRegistry entityRegistry;
 
   public MockAspectRetriever(@Nonnull Map<Urn, List<RecordTemplate>> data) {
     this.data =
@@ -60,6 +63,7 @@ public class MockAspectRetriever implements AspectRetriever {
                         .build());
       }
     }
+    this.entityRegistry = Mockito.mock(EntityRegistry.class);
   }
 
   public MockAspectRetriever(
@@ -69,6 +73,15 @@ public class MockAspectRetriever implements AspectRetriever {
 
   public MockAspectRetriever(Urn propertyUrn, StructuredPropertyDefinition definition) {
     this(Map.of(propertyUrn, List.of(definition)));
+  }
+
+  @Nonnull
+  public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    } else {
+      return urns.stream().collect(Collectors.toMap(urn -> urn, data::containsKey));
+    }
   }
 
   @Nonnull
@@ -89,11 +102,5 @@ public class MockAspectRetriever implements AspectRetriever {
         .filter(systemData::containsKey)
         .map(urn -> Pair.of(urn, systemData.get(urn)))
         .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-  }
-
-  @Nonnull
-  @Override
-  public EntityRegistry getEntityRegistry() {
-    return Mockito.mock(EntityRegistry.class);
   }
 }

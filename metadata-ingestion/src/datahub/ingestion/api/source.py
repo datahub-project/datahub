@@ -23,13 +23,16 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from typing_extensions import LiteralString
+from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
+)
+from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -331,6 +334,8 @@ class SourceReport(Report):
         }
 
     def compute_stats(self) -> None:
+        super().compute_stats()
+
         duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
         if duration.total_seconds() > 0:
@@ -395,7 +400,7 @@ class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
         # Technically, this method should be abstract. However, the @config_class
         # decorator automatically generates a create method at runtime if one is
         # not defined. Python still treats the class as abstract because it thinks
@@ -450,6 +455,7 @@ class Source(Closeable, metaclass=ABCMeta):
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
     @staticmethod

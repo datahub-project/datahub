@@ -35,7 +35,9 @@ from dagster._core.definitions.sensor_definition import DefaultSensorStatus
 try:
     from dagster._core.definitions.sensor_definition import SensorReturnTypesUnion
 except ImportError:
-    from dagster._core.definitions.sensor_definition import RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion  # type: ignore
+    from dagster._core.definitions.sensor_definition import (  # type: ignore
+        RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion,
+    )
 
 from dagster._core.definitions.target import ExecutableDefinition
 from dagster._core.definitions.unresolved_asset_job_definition import (
@@ -43,6 +45,7 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 )
 from dagster._core.events import DagsterEventType, HandledOutputData, LoadedInputData
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import SubTypesClass
@@ -52,7 +55,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
-
 from datahub_dagster_plugin.client.dagster_generator import (
     DATAHUB_ASSET_GROUP_NAME_CACHE,
     Constant,

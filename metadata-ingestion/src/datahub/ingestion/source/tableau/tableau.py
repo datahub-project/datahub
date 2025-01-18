@@ -2,9 +2,9 @@ import json
 import logging
 import re
 import time
-from collections import OrderedDict
-from dataclasses import dataclass
-from datetime import datetime
+from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, field as dataclass_field
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import (
     Any,
@@ -35,7 +35,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -49,6 +52,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -67,7 +71,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
@@ -105,6 +108,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     make_filter,
     make_fine_grained_lineage_class,
     make_upstream_class,
+    optimize_query_filter,
     published_datasource_graphql_query,
     query_metadata_cursor_based_pagination,
     sheet_graphql_query,
@@ -113,6 +117,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -165,7 +170,11 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+DEFAULT_PAGE_SIZE = 10
 
 try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
@@ -181,6 +190,20 @@ try:
     )
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
+
+RETRIABLE_ERROR_CODES = [
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+]
+
+# From experience, this expiry time typically ranges from 50 minutes
+# to 2 hours but might as well be configurable. We will allow upto
+# 10 minutes of such expiry time
+REGULAR_AUTH_EXPIRY_PERIOD = timedelta(minutes=10)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -283,7 +306,7 @@ class TableauConnectionConfig(ConfigModel):
                 max_retries=Retry(
                     total=self.max_retries,
                     backoff_factor=1,
-                    status_forcelist=[429, 500, 502, 503, 504],
+                    status_forcelist=RETRIABLE_ERROR_CODES,
                 )
             )
             server._session.mount("http://", adapter)
@@ -321,11 +344,140 @@ class PermissionIngestionConfig(ConfigModel):
     )
 
 
+class TableauPageSizeConfig(ConfigModel):
+    """
+    Configuration for setting page sizes for different Tableau metadata objects.
+
+    Some considerations:
+    - All have default values, so no setting is mandatory.
+    - In general, with the `effective_` methods, if not specifically set fine-grained metrics fallback to `page_size`
+    or correlate with `page_size`.
+
+    Measuring the impact of changing these values can be done by looking at the
+    `num_(filter_|paginated_)?queries_by_connection_type` metrics in the report.
+    """
+
+    page_size: int = Field(
+        default=DEFAULT_PAGE_SIZE,
+        description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
+    )
+
+    database_server_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of database servers to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_database_server_page_size(self) -> int:
+        return self.database_server_page_size or self.page_size
+
+    # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
+    # returns warnings like this:
+    # {
+    # 	'message': 'Showing partial results. The request exceeded the 20000 node limit. Use pagination, additional filtering, or both in the query to adjust results.',
+    # 	'extensions': {
+    # 		'severity': 'WARNING',
+    # 		'code': 'NODE_LIMIT_EXCEEDED',
+    # 		'properties': {
+    # 			'nodeLimit': 20000
+    # 		}
+    # 	}
+    # }
+    # Reducing the page size for the workbook queries helps to avoid this.
+    workbook_page_size: Optional[int] = Field(
+        default=1,
+        description="[advanced] Number of workbooks to query at a time using the Tableau API; defaults to `1` and fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_workbook_page_size(self) -> int:
+        return self.workbook_page_size or self.page_size
+
+    sheet_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of sheets to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_sheet_page_size(self) -> int:
+        return self.sheet_page_size or self.page_size
+
+    dashboard_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of dashboards to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_dashboard_page_size(self) -> int:
+        return self.dashboard_page_size or self.page_size
+
+    embedded_datasource_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of embedded datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_embedded_datasource_page_size(self) -> int:
+        return self.embedded_datasource_page_size or self.page_size
+
+    # Since the field upstream query was separated from the embedded datasource queries into an independent query,
+    # the number of queries increased significantly and so the execution time.
+    # To increase the batching and so reduce the number of queries, we can increase the page size for that
+    # particular case.
+    #
+    # That's why unless specifically set, we will effectively use 10 times the page size as the default page size.
+    embedded_datasource_field_upstream_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of upstream fields to query at a time for embedded datasources using the Tableau API; fallbacks to `page_size` * 10 if not set.",
+    )
+
+    @property
+    def effective_embedded_datasource_field_upstream_page_size(self) -> int:
+        return self.embedded_datasource_field_upstream_page_size or self.page_size * 10
+
+    published_datasource_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of published datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_published_datasource_page_size(self) -> int:
+        return self.published_datasource_page_size or self.page_size
+
+    published_datasource_field_upstream_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of upstream fields to query at a time for published datasources using the Tableau API; fallbacks to `page_size` * 10 if not set.",
+    )
+
+    @property
+    def effective_published_datasource_field_upstream_page_size(self) -> int:
+        return self.published_datasource_field_upstream_page_size or self.page_size * 10
+
+    custom_sql_table_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of custom sql datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_custom_sql_table_page_size(self) -> int:
+        return self.custom_sql_table_page_size or self.page_size
+
+    database_table_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of database tables to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_database_table_page_size(self) -> int:
+        return self.database_table_page_size or self.page_size
+
+
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     TableauConnectionConfig,
+    TableauPageSizeConfig,
 ):
     projects: Optional[List[str]] = Field(
         default=["default"],
@@ -373,34 +525,6 @@ class TableauConfig(
     ingest_tables_external: bool = Field(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
-    )
-
-    page_size: int = Field(
-        default=10,
-        description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
-    )
-
-    fetch_size: int = Field(
-        default=250,
-        description="Specifies the number of records to retrieve in each batch during a query execution.",
-    )
-
-    # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
-    # returns warnings like this:
-    # {
-    # 	'message': 'Showing partial results. The request exceeded the 20000 node limit. Use pagination, additional filtering, or both in the query to adjust results.',
-    # 	'extensions': {
-    # 		'severity': 'WARNING',
-    # 		'code': 'NODE_LIMIT_EXCEEDED',
-    # 		'properties': {
-    # 			'nodeLimit': 20000
-    # 		}
-    # 	}
-    # }
-    # Reducing the page size for the workbook queries helps to avoid this.
-    workbook_page_size: int = Field(
-        default=1,
-        description="[advanced] Number of workbooks to query at a time using the Tableau API.",
     )
 
     env: str = Field(
@@ -497,6 +621,10 @@ class TableauConfig(
         default=[],
         description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
         "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
+    _fetch_size = pydantic_removed_field(
+        "fetch_size",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -618,12 +746,48 @@ class DatabaseTable:
                 self.parsed_columns = parsed_columns
 
 
-class TableauSourceReport(StaleEntityRemovalSourceReport):
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
+
+
+@dataclass
+class TableauSourceReport(
+    StaleEntityRemovalSourceReport,
+    IngestionStageReport,
+):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
+    # timers
+    extract_usage_stats_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    fetch_groups_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    populate_database_server_hostname_map_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    populate_projects_registry_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_workbooks_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_sheets_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_dashboards_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_embedded_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_published_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_custom_sql_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
     # lineage
     num_tables_with_upstream_lineage: int = 0
     num_upstream_table_lineage: int = 0
@@ -634,7 +798,32 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = []
+    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+
+    last_authenticated_at: Optional[datetime] = None
+
+    num_expected_tableau_metadata_queries: int = 0
+    num_actual_tableau_metadata_queries: int = 0
+    tableau_server_error_stats: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+
+    # Counters for tracking the number of queries made to get_connection_objects method
+    # by connection type (static and short set of keys):
+    # - num_queries_by_connection_type: total number of queries
+    # - num_filter_queries_by_connection_type: number of paginated queries due to splitting query filters
+    # - num_paginated_queries_by_connection_type: total number of queries due to Tableau pagination
+    # These counters are useful to understand the impact of changing the page size.
+
+    num_queries_by_connection_type: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+    num_filter_queries_by_connection_type: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+    num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
 
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
@@ -645,7 +834,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
         # the site-role might be different on another site
         logged_in_user: UserInfo = UserInfo.from_server(server=server)
 
-        if not logged_in_user.is_site_administrator_explorer():
+        if not logged_in_user.has_site_administrator_explorer_privileges():
             report.warning(
                 title=title,
                 message=message,
@@ -705,6 +894,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            self.report.last_authenticated_at = datetime.now(timezone.utc)
             report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
@@ -738,11 +928,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     def get_report(self) -> TableauSourceReport:
         return self.report
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = TableauConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -770,7 +955,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -789,13 +973,20 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
-                    site_id=self.server.site_id,
+                    site=(
+                        site
+                        if site
+                        else SiteIdContentUrl(
+                            site_id=self.server.site_id,
+                            site_content_url=self.config.site,
+                        )
+                    ),
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
                 )
                 yield from site_source.ingest_tableau_site()
+
         except MetadataQueryException as md_exception:
             self.report.failure(
                 title="Failed to Retrieve Tableau Metadata",
@@ -823,8 +1014,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -835,13 +1025,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -895,17 +1090,12 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+    def _re_authenticate(self) -> None:
+        logger.info(f"Re-authenticating to Tableau site '{self.site_content_url}'")
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_content_url)
+        self.report.last_authenticated_at = datetime.now(timezone.utc)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -929,7 +1119,9 @@ class TableauSiteSource:
             return server_connection
 
         for database_server in self.get_connection_objects(
-            database_servers_graphql_query, c.DATABASE_SERVERS_CONNECTION
+            query=database_servers_graphql_query,
+            connection_type=c.DATABASE_SERVERS_CONNECTION,
+            page_size=self.config.effective_database_server_page_size,
         ):
             database_server_id = database_server.get(c.ID)
             server_connection = database_server.get(c.HOST_NAME)
@@ -1148,7 +1340,7 @@ class TableauSiteSource:
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],
-        fetch_size: int = 250,
+        fetch_size: int,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
@@ -1171,6 +1363,7 @@ class TableauSiteSource:
         )
         try:
             assert self.server is not None
+            self.report.num_actual_tableau_metadata_queries += 1
             query_data = query_metadata_cursor_based_pagination(
                 server=self.server,
                 main_query=query,
@@ -1180,24 +1373,56 @@ class TableauSiteSource:
                 qry_filter=query_filter,
             )
 
-        except REAUTHENTICATE_ERRORS:
-            if not retry_on_auth_error:
+        except REAUTHENTICATE_ERRORS as e:
+            self.report.tableau_server_error_stats[e.__class__.__name__] += 1
+            if not retry_on_auth_error or retries_remaining <= 0:
                 raise
 
-            # If ingestion has been running for over 2 hours, the Tableau
-            # temporary credentials will expire. If this happens, this exception
-            # will be thrown, and we need to re-authenticate and retry.
-            self._re_authenticate()
+            # We have been getting some irregular authorization errors like below well before the expected expiry time
+            # - within few seconds of initial authentication . We'll retry without re-auth for such cases.
+            # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
+            # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
+            if self.report.last_authenticated_at and (
+                datetime.now(timezone.utc) - self.report.last_authenticated_at
+                > REGULAR_AUTH_EXPIRY_PERIOD
+            ):
+                # If ingestion has been running for over 2 hours, the Tableau
+                # temporary credentials will expire. If this happens, this exception
+                # will be thrown, and we need to re-authenticate and retry.
+                self._re_authenticate()
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
+
+        except InternalServerError as ise:
+            self.report.tableau_server_error_stats[InternalServerError.__name__] += 1
+            # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
+                if retries_remaining <= 0:
+                    raise ise
+                logger.info(f"Retrying query due to error {ise.code}")
+                return self.get_connection_object_page(
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=query_filter,
+                    fetch_size=fetch_size,
+                    current_cursor=current_cursor,
+                    retry_on_auth_error=True,
+                    retries_remaining=retries_remaining - 1,
+                )
+            else:
+                raise ise
+
         except OSError:
+            self.report.tableau_server_error_stats[OSError.__name__] += 1
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
             # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
@@ -1212,7 +1437,7 @@ class TableauSiteSource:
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
 
@@ -1300,7 +1525,7 @@ class TableauSiteSource:
                         query_filter=query_filter,
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
-                        retry_on_auth_error=False,
+                        retry_on_auth_error=True,
                         retries_remaining=retries_remaining,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
@@ -1322,20 +1547,31 @@ class TableauSiteSource:
         self,
         query: str,
         connection_type: str,
+        page_size: int,
         query_filter: dict = {},
-        page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
+        query_filter = optimize_query_filter(query_filter)
+
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
-        page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
+        self.report.num_queries_by_connection_type[connection_type] += 1
+        self.report.num_filter_queries_by_connection_type[connection_type] += len(
+            filter_pages
+        )
+
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None
             while has_next_page:
                 filter_: str = make_filter(filter_page)
 
+                self.report.num_paginated_queries_by_connection_type[
+                    connection_type
+                ] += 1
+
+                self.report.num_expected_tableau_metadata_queries += 1
                 (
                     connection_objects,
                     current_cursor,
@@ -1345,7 +1581,11 @@ class TableauSiteSource:
                     connection_type=connection_type,
                     query_filter=filter_,
                     current_cursor=current_cursor,
-                    fetch_size=self.config.fetch_size,
+                    # `filter_page` contains metadata object IDs (e.g., Project IDs, Field IDs, Sheet IDs, etc.).
+                    # The number of IDs is always less than or equal to page_size.
+                    # If the IDs are primary keys, the number of metadata objects to load matches the number of records to return.
+                    # In our case, mostly, the IDs are primary key, therefore, fetch_size is set equal to page_size.
+                    fetch_size=page_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []
@@ -1358,10 +1598,10 @@ class TableauSiteSource:
             projects = {c.PROJECT_NAME_WITH_IN: project_names}
 
             for workbook in self.get_connection_objects(
-                workbook_graphql_query,
-                c.WORKBOOKS_CONNECTION,
-                projects,
-                page_size_override=self.config.workbook_page_size,
+                query=workbook_graphql_query,
+                connection_type=c.WORKBOOKS_CONNECTION,
+                query_filter=projects,
+                page_size=self.config.effective_workbook_page_size,
             ):
                 # This check is needed as we are using projectNameWithin which return project as per project name so if
                 # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
@@ -1816,9 +2056,10 @@ class TableauSiteSource:
 
         custom_sql_connection = list(
             self.get_connection_objects(
-                custom_sql_graphql_query,
-                c.CUSTOM_SQL_TABLE_CONNECTION,
-                custom_sql_filter,
+                query=custom_sql_graphql_query,
+                connection_type=c.CUSTOM_SQL_TABLE_CONNECTION,
+                query_filter=custom_sql_filter,
+                page_size=self.config.effective_custom_sql_table_page_size,
             )
         )
 
@@ -2527,6 +2768,7 @@ class TableauSiteSource:
         self,
         datasource: dict,
         field_upstream_query: str,
+        page_size: int,
     ) -> dict:
         # Collect field ids to fetch field upstreams
         field_ids: List[str] = []
@@ -2537,9 +2779,10 @@ class TableauSiteSource:
         # Fetch field upstreams and arrange them in map
         field_vs_upstream: Dict[str, dict] = {}
         for field_upstream in self.get_connection_objects(
-            field_upstream_query,
-            c.FIELDS_CONNECTION,
-            {c.ID_WITH_IN: field_ids},
+            query=field_upstream_query,
+            connection_type=c.FIELDS_CONNECTION,
+            query_filter={c.ID_WITH_IN: field_ids},
+            page_size=page_size,
         ):
             if field_upstream.get(c.ID):
                 field_id = field_upstream[c.ID]
@@ -2562,13 +2805,15 @@ class TableauSiteSource:
         datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
-            published_datasource_graphql_query,
-            c.PUBLISHED_DATA_SOURCES_CONNECTION,
-            datasource_filter,
+            query=published_datasource_graphql_query,
+            connection_type=c.PUBLISHED_DATA_SOURCES_CONNECTION,
+            query_filter=datasource_filter,
+            page_size=self.config.effective_published_datasource_page_size,
         ):
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
+                page_size=self.config.effective_published_datasource_field_upstream_page_size,
             )
 
             yield from self.emit_datasource(datasource)
@@ -2584,11 +2829,12 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Emmitting tables that came from Tableau metadata
+        # Emitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
-            database_tables_graphql_query,
-            c.DATABASE_TABLES_CONNECTION,
-            tables_filter,
+            query=database_tables_graphql_query,
+            connection_type=c.DATABASE_TABLES_CONNECTION,
+            query_filter=tables_filter,
+            page_size=self.config.effective_database_table_page_size,
         ):
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
@@ -2777,9 +3023,10 @@ class TableauSiteSource:
         sheets_filter = {c.ID_WITH_IN: self.sheet_ids}
 
         for sheet in self.get_connection_objects(
-            sheet_graphql_query,
-            c.SHEETS_CONNECTION,
-            sheets_filter,
+            query=sheet_graphql_query,
+            connection_type=c.SHEETS_CONNECTION,
+            query_filter=sheets_filter,
+            page_size=self.config.effective_sheet_page_size,
         ):
             if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
@@ -3097,9 +3344,10 @@ class TableauSiteSource:
         dashboards_filter = {c.ID_WITH_IN: self.dashboard_ids}
 
         for dashboard in self.get_connection_objects(
-            dashboard_graphql_query,
-            c.DASHBOARDS_CONNECTION,
-            dashboards_filter,
+            query=dashboard_graphql_query,
+            connection_type=c.DASHBOARDS_CONNECTION,
+            query_filter=dashboards_filter,
+            page_size=self.config.effective_dashboard_page_size,
         ):
             if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
@@ -3244,13 +3492,15 @@ class TableauSiteSource:
         datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
-            embedded_datasource_graphql_query,
-            c.EMBEDDED_DATA_SOURCES_CONNECTION,
-            datasource_filter,
+            query=embedded_datasource_graphql_query,
+            connection_type=c.EMBEDDED_DATA_SOURCES_CONNECTION,
+            query_filter=datasource_filter,
+            page_size=self.config.effective_embedded_datasource_page_size,
         ):
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
+                page_size=self.config.effective_embedded_datasource_field_upstream_page_size,
             )
             yield from self.emit_datasource(
                 datasource,
@@ -3355,7 +3605,7 @@ class TableauSiteSource:
                 parent_container_key=parent_project_key,
             )
 
-        for id_, project in self.tableau_project_registry.items():
+        for project in self.tableau_project_registry.values():
             logger.debug(
                 f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
             )
@@ -3412,33 +3662,87 @@ class TableauSiteSource:
         return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
     def ingest_tableau_site(self):
-        # Initialise the dictionary to later look-up for chart and dashboard stat
-        if self.config.extract_usage_stats:
-            self._populate_usage_stat_registry()
+        with self.report.new_stage(
+            f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}"
+        ):
+            # Initialise the dictionary to later look-up for chart and dashboard stat
+            if self.config.extract_usage_stats:
+                with PerfTimer() as timer:
+                    self._populate_usage_stat_registry()
+                    self.report.extract_usage_stats_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        if self.config.permission_ingestion:
-            self._fetch_groups()
+            if self.config.permission_ingestion:
+                with PerfTimer() as timer:
+                    self._fetch_groups()
+                    self.report.fetch_groups_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        # Populate the map of database names and database hostnames to be used later to map
-        # databases to platform instances.
-        if self.config.database_hostname_to_platform_instance_map:
-            self._populate_database_server_hostname_map()
+            # Populate the map of database names and database hostnames to be used later to map
+            # databases to platform instances.
+            if self.config.database_hostname_to_platform_instance_map:
+                with PerfTimer() as timer:
+                    self._populate_database_server_hostname_map()
+                    self.report.populate_database_server_hostname_map_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        self._populate_projects_registry()
+            with PerfTimer() as timer:
+                self._populate_projects_registry()
+                self.report.populate_projects_registry_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
-        if self.config.add_site_container:
-            yield from self.emit_site_container()
-        yield from self.emit_project_containers()
-        yield from self.emit_workbooks()
-        if self.sheet_ids:
-            yield from self.emit_sheets()
-        if self.dashboard_ids:
-            yield from self.emit_dashboards()
-        if self.embedded_datasource_ids_being_used:
-            yield from self.emit_embedded_datasources()
-        if self.datasource_ids_being_used:
-            yield from self.emit_published_datasources()
-        if self.custom_sql_ids_being_used:
-            yield from self.emit_custom_sql_datasources()
-        if self.database_tables:
-            yield from self.emit_upstream_tables()
+            if self.config.add_site_container:
+                yield from self.emit_site_container()
+            yield from self.emit_project_containers()
+
+            with PerfTimer() as timer:
+                yield from self.emit_workbooks()
+                self.report.emit_workbooks_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
+
+            if self.sheet_ids:
+                with PerfTimer() as timer:
+                    yield from self.emit_sheets()
+                    self.report.emit_sheets_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.dashboard_ids:
+                with PerfTimer() as timer:
+                    yield from self.emit_dashboards()
+                    self.report.emit_dashboards_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.embedded_datasource_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_embedded_datasources()
+                    self.report.emit_embedded_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.datasource_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_published_datasources()
+                    self.report.emit_published_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.custom_sql_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_custom_sql_datasources()
+                    self.report.emit_custom_sql_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.database_tables:
+                with PerfTimer() as timer:
+                    yield from self.emit_upstream_tables()
+                    self.report.emit_upstream_tables_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)

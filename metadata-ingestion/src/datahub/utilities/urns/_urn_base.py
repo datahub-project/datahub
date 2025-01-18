@@ -1,9 +1,10 @@
 import functools
 import urllib.parse
 from abc import abstractmethod
-from typing import ClassVar, Dict, List, Optional, Type, TypeVar
+from typing import ClassVar, Dict, List, Optional, Type, Union
 
 from deprecated import deprecated
+from typing_extensions import Self
 
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -40,9 +41,6 @@ def _split_entity_id(entity_id: str) -> List[str]:
     parts.append(entity_id[part_start:-1])
 
     return parts
-
-
-_UrnSelf = TypeVar("_UrnSelf", bound="Urn")
 
 
 @functools.total_ordering
@@ -88,12 +86,24 @@ class Urn:
         return self._entity_ids
 
     @classmethod
-    def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
-        """
-        Creates an Urn from its string representation.
+    def from_string(cls, urn_str: Union[str, "Urn"], /) -> Self:
+        """Create an Urn from its string representation.
+
+        When called against the base Urn class, this method will return a more specific Urn type where possible.
+
+        >>> from datahub.metadata.urns import DatasetUrn, Urn
+        >>> urn_str = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)'
+        >>> urn = Urn.from_string(urn_str)
+        >>> assert isinstance(urn, DatasetUrn)
+
+        When called against a specific Urn type (e.g. DatasetUrn.from_string), this method can
+        also be used for type narrowing.
+
+        >>> urn_str = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)'
+        >>> assert DatasetUrn.from_string(urn_str)
 
         Args:
-            urn_str: The string representation of the Urn.
+            urn_str: The string representation of the urn. Also accepts an existing Urn instance.
 
         Returns:
             Urn of the given string representation.
@@ -101,6 +111,17 @@ class Urn:
         Raises:
             InvalidUrnError: If the string representation is in invalid format.
         """
+
+        if isinstance(urn_str, Urn):
+            if issubclass(cls, _SpecificUrn) and isinstance(urn_str, cls):
+                # Fast path - we're already the right type.
+
+                # I'm not really sure why we need a type ignore here, but mypy doesn't really
+                # understand the isinstance check above.
+                return urn_str  # type: ignore
+
+            # Fall through, so that we can convert a generic Urn to a specific Urn type.
+            urn_str = urn_str.urn()
 
         # TODO: Add handling for url encoded urns e.g. urn%3A ...
 
@@ -174,7 +195,7 @@ class Urn:
 
     @classmethod
     @deprecated(reason="prefer .from_string")
-    def create_from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
+    def create_from_string(cls, urn_str: str) -> Self:
         return cls.from_string(urn_str)
 
     @deprecated(reason="prefer .entity_ids")
@@ -270,5 +291,5 @@ class _SpecificUrn(Urn):
 
     @classmethod
     @abstractmethod
-    def _parse_ids(cls: Type[_UrnSelf], entity_ids: List[str]) -> _UrnSelf:
+    def _parse_ids(cls, entity_ids: List[str]) -> Self:
         raise NotImplementedError()

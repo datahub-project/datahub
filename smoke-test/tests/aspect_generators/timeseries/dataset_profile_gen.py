@@ -5,7 +5,6 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     TimeWindowSizeClass,
 )
-
 from tests.utils import get_timestampmillis_at_start_of_day
 
 

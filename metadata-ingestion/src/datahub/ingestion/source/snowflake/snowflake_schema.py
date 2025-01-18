@@ -45,14 +45,17 @@ class SnowflakeTag:
     name: str
     value: str
 
-    def display_name(self) -> str:
+    def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
 
-    def identifier(self) -> str:
+    def tag_identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
     def _id_prefix_as_str(self) -> str:
         return f"{self.database}.{self.schema}.{self.name}"
+
+    def structured_property_identifier(self) -> str:
+        return f"snowflake.{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass

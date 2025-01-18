@@ -9,23 +9,56 @@ extend-exclude = '''
 ^/tmp
 '''
 include = '\.pyi?$'
-target-version = ['py37', 'py38', 'py39', 'py310']
+target-version = ['py38', 'py39', 'py310', 'py311']
 
-[tool.isort]
-combine_as_imports = true
-indent = '    '
-known_future_library = ['__future__', 'datahub.utilities._markupsafe_compat', 'datahub.sql_parsing._sqlglot_patch']
-profile = 'black'
-sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
-skip_glob = 'src/datahub/metadata'
+[tool.ruff.lint.isort]
+section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+combine-as-imports = true
 
-[tool.pyright]
-extraPaths = ['tests']
+[tool.ruff]
+target-version = "py38"
+# Same as Black.
+line-length = 88
+# Exclude directories matching these patterns.
+exclude = [
+    ".git",
+    "src/datahub/metadata",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
 
-[tool.vulture]
-exclude = ["src/datahub/metadata/"]
-ignore_decorators = ["@click.*", "@validator", "@root_validator", "@pydantic.validator", "@pydantic.root_validator", "@pytest.fixture"]
-ignore_names = ["*Source", "*Sink", "*Report"]
-# min_confidence = 80
-paths = ["src"]
-sort_by_size = true
+[tool.ruff.lint]
+extend-select = [
+    "B",  # Bugbear
+    "C90",
+    "E",
+    "F",
+    "G010",  # logging.warn -> logging.warning
+    "I",  # Import sorting
+    "TID",  # Tidy imports
+]
+extend-ignore = [
+    # Ignore line length violations (handled by Black)
+    "E501",
+    # Ignore whitespace before ':' (matches Black)
+    "E203",
+    # Allow usages of functools.lru_cache
+    "B019",
+    # Allow function call in argument defaults
+    "B008",
+    # TODO: Enable these later
+    "B006",  # Mutable args
+    "B017",  # Do not assert blind exception
+    "B904",  # Checks for raise statements in exception handlers that lack a from clause
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

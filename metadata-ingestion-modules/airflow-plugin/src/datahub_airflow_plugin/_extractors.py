@@ -3,17 +3,11 @@ import logging
 import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
-import datahub.emitter.mce_builder as builder
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
+from openlineage.airflow.extractors import (
+    BaseExtractor,
+    ExtractorManager as OLExtractorManager,
+    TaskMetadata,
 )
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    create_lineage_sql_parsed_result,
-)
-from openlineage.airflow.extractors import BaseExtractor
-from openlineage.airflow.extractors import ExtractorManager as OLExtractorManager
-from openlineage.airflow.extractors import TaskMetadata
 from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
 from openlineage.airflow.extractors.sql_extractor import SqlExtractor
 from openlineage.airflow.utils import get_operator_class, try_import_from_string
@@ -23,11 +17,20 @@ from openlineage.client.facet import (
     SqlJobFacet,
 )
 
+import datahub.emitter.mce_builder as builder
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
+
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)

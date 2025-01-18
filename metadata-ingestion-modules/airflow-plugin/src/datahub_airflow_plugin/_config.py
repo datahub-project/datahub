@@ -1,10 +1,11 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-import datahub.emitter.mce_builder as builder
 from airflow.configuration import conf
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from pydantic.fields import Field
+
+import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook

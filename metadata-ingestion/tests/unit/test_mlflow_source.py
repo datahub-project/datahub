@@ -136,3 +136,16 @@ def test_make_external_link_remote(source, model_version):
     url = source._make_external_url(model_version)
 
     assert url == expected_url
+
+
+def test_make_external_link_remote_via_config(source, model_version):
+    custom_base_url = "https://custom-server.org"
+    source.config.base_external_url = custom_base_url
+    source.client = MlflowClient(
+        tracking_uri="https://dummy-mlflow-tracking-server.org"
+    )
+    expected_url = f"{custom_base_url}/#/models/{model_version.name}/versions/{model_version.version}"
+
+    url = source._make_external_url(model_version)
+
+    assert url == expected_url
