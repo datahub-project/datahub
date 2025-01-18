@@ -219,6 +219,74 @@ This event is emitted when an existing owner has been removed from an entity on 
 }
 ```
 
+### Add Structured Property Event
+
+This event is emitted when a Structured Property has been added to an entity on DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "ADD",
+  "modifier": "urn:li:structuredProperty:13757c3b-476e-4eff-a1df-ada0d4b44c9e",
+  "parameters": {
+    "propertyUrn": "urn:li:structuredProperty:13757c3b-476e-4eff-a1df-ada0d4b44c9e",
+    "propertyValues": "[\"Prod\"]"
+  },
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:gabe.lyons@acryl.io",
+    "time": 1737154631665   
+  }
+}
+```
+
+### Remove Structured Property Event
+
+This event is emitted when a Structured Property has been removed from an entity on DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "REMOVE",
+  "modifier": "urn:li:structuredProperty:13757c3b-476e-4eff-a1df-ada0d4b44c9e",
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:gabe.lyons@acryl.io",
+    "time": 1737157925236   
+  }
+}
+```
+
+### Modify Structured Property Event
+
+This event is emitted when a Structured Property's values have been modified on an entity in DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "MODIFY",
+  "modifier": "urn:li:structuredProperty:0655cc3f-6430-49aa-924d-c1a8e6677afa",
+  "parameters": {
+    "propertyUrn": "urn:li:structuredProperty:0655cc3f-6430-49aa-924d-c1a8e6677afa",
+    "propertyValues": "[\"urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpcds_sf10tcl.customer,PROD)\",\"urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub_community.datahub_slack.message_file,PROD)\"]"
+  },
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:gabe.lyons@acryl.io",
+    "time": 1737158022195   
+  }
+}
+```
+
 
 ### Modify Deprecation Event
 
