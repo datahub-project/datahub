@@ -269,7 +269,7 @@ class LiquidVariableTransformer(LookMLViewTransformer):
     def _apply_transformation(self, value: str, view: dict) -> str:
         return resolve_liquid_variable(
             text=value,
-            liquid_variable=self.source_config.liquid_variable,
+            liquid_variable=self.source_config.liquid_variables,
             report=self.reporter,
         )
 
@@ -385,7 +385,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 return str(self.source_config.lookml_constants.get(key))
 
             # Check if it's a misplaced lookml constant
-            if key in self.source_config.liquid_variable:
+            if key in self.source_config.liquid_variables:
                 self.reporter.report_warning(
                     title="Misplaced lookml constant",
                     message="Misplaced lookml constant, Use 'lookml_constants' instead of 'liquid_variables'.",

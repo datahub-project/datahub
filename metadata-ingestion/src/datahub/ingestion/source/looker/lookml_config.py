@@ -158,11 +158,15 @@ class LookMLSourceConfig(
         description="When enabled, looker refinement will be processed to adapt an existing view.",
     )
 
-    liquid_variable: Dict[Any, Any] = Field(
+    liquid_variables: Dict[Any, Any] = Field(
         {},
         description="A dictionary containing Liquid variables, Liquid logic, and LookML parameters with their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
+    )
+
+    _liquid_variable_deprecated = pydantic_renamed_field(
+        old_name="liquid_variable", new_name="liquid_variables", print_warning=True
     )
 
     lookml_constants: Dict[str, str] = Field(

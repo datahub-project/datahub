@@ -9,7 +9,7 @@ source:
     client_secret: ${LOOKER_CLIENT_SECRET}
 
     # Liquid variables
-    # liquid_variable:
+    # liquid_variables:
     #   _user_attributes:
     #     looker_env: "dev"
     #     dev_database_prefix: "employee"

@@ -1,9 +1,9 @@
 #### Configuration Notes
 
-1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below:
+1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variables` config as shown below:
 
    ```yml
-   liquid_variable:
+   liquid_variables:
      user_attributes:
        db: ANALYTICS_PROD
    ```
