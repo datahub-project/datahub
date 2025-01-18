@@ -83,10 +83,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "ruff check --fix src/ tests/ && " +
-    "ruff format src/ tests/ && " +
-    "mypy src/  "
-    // TODO Run mypy on tests after fixing the mypy errors
-    // "mypy src/ tests/ "
+    "ruff format src/ tests/ "
 }
 
 // HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).
