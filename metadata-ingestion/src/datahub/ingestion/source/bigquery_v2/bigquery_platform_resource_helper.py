@@ -116,10 +116,10 @@ class BigQueryPlatformResourceHelper:
             ):
                 try:
                     existing_info: Optional[BigQueryLabelInfo] = (
-                        platform_resource.resource_info.value.as_pydantic_object(
+                        platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
                             BigQueryLabelInfo
                         )
-                    )  # type: ignore
+                    )
                 except ValidationError as e:
                     logger.error(
                         f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."

@@ -507,8 +507,8 @@ def test_kafka_connect_ingest_stateful(
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config
-        )  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
         # Set the special properties for this run
         pipeline_run1_config["source"]["config"]["connector_patterns"]["allow"] = [
             "mysql_source1",

@@ -255,8 +255,8 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config
-        )  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
         }
@@ -401,8 +401,8 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config
-        )  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
         }

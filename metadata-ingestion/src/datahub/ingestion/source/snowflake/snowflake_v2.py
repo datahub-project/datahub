@@ -298,14 +298,14 @@ class SnowflakeV2Source(
         privileges: List[SnowflakePrivilege] = []
         capabilities: List[SourceCapability] = [
             c.capability
-            for c in SnowflakeV2Source.get_capabilities()
+            for c in SnowflakeV2Source.get_capabilities()  # type: ignore
             if c.capability
             not in (
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
             )
-        ]  # type: ignore
+        ]
 
         cur = conn.query("select current_role()")
         current_role = [row["CURRENT_ROLE()"] for row in cur][0]

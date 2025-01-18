@@ -141,10 +141,9 @@ class GCSSource(StatefulIngestionSourceBase):
         source.source_config.platform = PLATFORM_GCS
 
         source.is_s3_platform = lambda: True  # type: ignore
-        source.create_s3_path = lambda bucket_name, key: unquote(
+        source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
             f"s3://{bucket_name}/{key}"
-        )  # type: ignore
-
+        )
         return source
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
