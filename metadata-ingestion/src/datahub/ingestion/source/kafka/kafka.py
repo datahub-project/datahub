@@ -419,10 +419,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             custom_props = self.build_custom_properties(
                 topic, topic_detail, extra_topic_config
             )
-            schema_name: Optional[
-                str
-            ] = self.schema_registry_client._get_subject_for_topic(
-                topic, is_key_schema=False
+            schema_name: Optional[str] = (
+                self.schema_registry_client._get_subject_for_topic(
+                    topic, is_key_schema=False
+                )
             )
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
@@ -610,11 +610,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-        configs: Dict[
-            ConfigResource, concurrent.futures.Future
-        ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
-            request_timeout=self.source_config.connection.client_timeout_seconds,
+        configs: Dict[ConfigResource, concurrent.futures.Future] = (
+            self.admin_client.describe_configs(
+                resources=[
+                    ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics
+                ],
+                request_timeout=self.source_config.connection.client_timeout_seconds,
+            )
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())

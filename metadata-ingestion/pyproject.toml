@@ -22,23 +22,19 @@ exclude = [
 
 [tool.ruff.lint]
 extend-select = [
-    "B",  # Bugbear
+    "B",     # Bugbear
     "C90",
     "E",
     "F",
     "G010",  # logging.warn -> logging.warning
-    "I",  # Import sorting
-    "TID",  # Tidy imports
+    "I",     # Import sorting
+    "TID",   # Tidy imports
 ]
 extend-ignore = [
-    # Ignore line length violations (handled by Black)
-    "E501",
-    # Ignore whitespace before ':' (matches Black)
-    "E203",
-    # Allow usages of functools.lru_cache
-    "B019",
-    # Allow function call in argument defaults
-    "B008",
+    "E501",  # Ignore line length violations (handled by Black)
+    "E203",  # Ignore whitespace before ':' (matches Black)
+    "B019",  # Allow usages of functools.lru_cache
+    "B008",  # Allow function call in argument defaults
     # TODO: Enable these later
     "B006",  # Mutable args
     "B017",  # Do not assert blind exception

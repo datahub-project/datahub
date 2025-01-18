@@ -475,9 +475,9 @@ def test_get_column_type_redshift():
     # Test 'super' type which should not show any warnings/errors
     result_super = get_column_type(report, dataset_name, "super", "redshift")
     assert isinstance(result_super.type, NullTypeClass)
-    assert (
-        len(report.infos) == 0
-    ), "No warnings should be generated for known SUPER type"
+    assert len(report.infos) == 0, (
+        "No warnings should be generated for known SUPER type"
+    )
 
     # Test unknown type, which generates a warning but resolves to NullTypeClass
     unknown_type = "unknown_type"
