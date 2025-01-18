@@ -130,7 +130,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Run lint on smoke test
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
@@ -154,7 +154,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -225,7 +225,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -296,7 +296,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -367,7 +367,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -438,7 +438,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -829,7 +829,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
@@ -930,7 +930,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Build codegen
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: ./gradlew :metadata-ingestion:codegen
@@ -1083,7 +1083,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
