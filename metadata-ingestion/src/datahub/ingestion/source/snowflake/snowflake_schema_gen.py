@@ -450,6 +450,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
         if self.config.include_streams:
+            self.report.num_get_streams_for_schema_queries += 1
             streams = self.fetch_streams_for_schema(
                 snowflake_schema, db_name, schema_name
             )
