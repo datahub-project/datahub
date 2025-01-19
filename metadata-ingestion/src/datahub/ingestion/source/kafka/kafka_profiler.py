@@ -1,5 +1,6 @@
 import logging
 import math
+import random
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -180,19 +181,14 @@ class KafkaProfiler:
 
         return stats
 
-    def _get_sample_values(self, values: List[Any], max_samples: int = 3) -> List[str]:
-        """Get representative sample values"""
+    def _get_sample_values(self, values: List[Any], max_samples: int = 20) -> List[str]:
         if not values:
             return []
 
         try:
-            # Try to get values from start, middle, and end
-            indices = [0]
-            if len(values) > 1:
-                indices.append(len(values) // 2)
-            if len(values) > 2:
-                indices.append(-1)
-
+            # Take a random sample up to max_samples size
+            sample_size = min(max_samples, len(values))
+            indices = sorted(random.sample(range(len(values)), sample_size))
             samples = [str(values[i]) for i in indices]
             samples = [s[:1000] for s in samples]  # Limit string length
             return samples
@@ -441,7 +437,7 @@ class KafkaProfiler:
                     for v in non_null_values
                     if not (isinstance(v, float) and math.isnan(v))
                     and not is_special_value(v)
-                ]
+                ],
             )
             if self.profiler_config.include_field_sample_values
             else [],
@@ -625,8 +621,8 @@ class KafkaProfiler:
             ),
             # Add partition specification
             partitionSpec=PartitionSpecClass(
-                partition=f"SAMPLE ({str(self.profiler_config.sample_size)} samples / {str(self.profiler_config.max_sample_time_seconds)} seconds)",
-                type=PartitionTypeClass.PARTITION,
+                partition=f"SAMPLE ({str(sample_count)} samples)",
+                type=PartitionTypeClass.QUERY,
             ),
             fieldProfiles=field_profiles,
         )
