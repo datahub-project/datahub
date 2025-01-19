@@ -226,7 +226,14 @@ class KafkaProfiler:
     ) -> KafkaFieldStatistics:
         """Calculate statistics for a single field based on profiling config"""
         total_count = len(values)
-        non_null_values = [v for v in values if v is not None and v != ""]
+        # Add NaN check in non_null_values filter
+        non_null_values = [
+            v
+            for v in values
+            if v is not None
+            and v != ""
+            and not (isinstance(v, float) and (math.isnan(v) or math.isinf(v)))
+        ]
 
         # Detect type first
         data_type = "STRING"
@@ -242,7 +249,13 @@ class KafkaProfiler:
         stats = KafkaFieldStatistics(
             field_path=field_path,
             sample_values=random.sample(
-                [str(v) for v in non_null_values] if non_null_values else [""],
+                [
+                    str(v)
+                    for v in non_null_values
+                    if not (isinstance(v, float) and math.isnan(v))
+                ]
+                if non_null_values
+                else [""],
                 min(3, len(non_null_values)) if non_null_values else 1,
             )
             if self.profiler_config.include_field_sample_values
@@ -250,17 +263,27 @@ class KafkaProfiler:
             data_type=data_type,
         )
 
-        # Calculate null statistics
-        stats.null_count = total_count - len(non_null_values)
+        # Calculate null statistics - treat NaN as null
+        stats.null_count = sum(
+            1
+            for v in values
+            if v is None
+            or v == ""
+            or (isinstance(v, float) and (math.isnan(v) or math.isinf(v)))
+        )
         stats.null_proportion = stats.null_count / total_count if total_count > 0 else 0
 
         # Calculate distinct value stats
         if self.profiler_config.include_field_distinct_count:
-            # Convert to strings only for counting distinct values
+            # Convert to strings only for counting distinct values, skip NaN
             value_counts: Dict[str, int] = {}
             for value in values:
-                str_value = str(value)
-                value_counts[str_value] = value_counts.get(str_value, 0) + 1
+                if not (
+                    isinstance(value, float)
+                    and (math.isnan(value) or math.isinf(value))
+                ):
+                    str_value = str(value)
+                    value_counts[str_value] = value_counts.get(str_value, 0) + 1
 
             stats.unique_count = len(value_counts)
             stats.unique_proportion = (
@@ -271,7 +294,10 @@ class KafkaProfiler:
         # Calculate numeric statistics only for numeric fields
         if data_type == "NUMERIC":
             numeric_values = [
-                float(v) for v in non_null_values if isinstance(v, (int, float))
+                float(v)
+                for v in non_null_values
+                if isinstance(v, (int, float))
+                and not (isinstance(v, float) and (math.isnan(v) or math.isinf(v)))
             ]
             if numeric_values:
                 if self.profiler_config.include_field_min_value:
@@ -297,7 +323,10 @@ class KafkaProfiler:
                     stats.stdev = math.sqrt(variance)
 
                 # Calculate quantiles
-                if self.profiler_config.include_field_quantiles:
+                if (
+                    self.profiler_config.include_field_quantiles
+                    and len(numeric_values) >= 4
+                ):
                     sorted_values = sorted(numeric_values)
                     stats.quantiles = [
                         QuantileClass(
@@ -408,7 +437,7 @@ class KafkaProfiler:
             # Add partition specification
             partitionSpec=PartitionSpecClass(
                 partition=f"SAMPLE ({str(self.profiler_config.sample_size)} samples / {str(self.profiler_config.max_sample_time_seconds)} seconds)",
-                type=PartitionTypeClass.QUERY,
+                type=PartitionTypeClass.PARTITION,
             ),
             fieldProfiles=field_profiles,
         )
