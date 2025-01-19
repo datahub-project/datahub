@@ -443,6 +443,10 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
+    "jdbc": usage_common
+    | classification_lib
+    | sqlglot_lib
+    | {"beautifulsoup4", "JayDeBeApi", "JPype1", "requests"},
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -629,6 +633,7 @@ base_dev_requirements = {
             "feast",
             "iceberg",
             "mlflow",
+            "jdbc",
             "json-schema",
             "ldap",
             "looker",
@@ -735,6 +740,7 @@ entry_points = {
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "jdbc = datahub.ingestion.source.jdbc.source:JDBCSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
