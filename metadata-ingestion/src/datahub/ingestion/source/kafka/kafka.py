@@ -3,8 +3,6 @@ import concurrent.futures
 import io
 import json
 import logging
-import math
-import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
@@ -13,7 +11,6 @@ import avro.io
 import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
-import pydantic
 from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
@@ -22,13 +19,8 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-)
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -56,39 +48,34 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka_profiler import (
+    KafkaProfiler,
+    clean_field_path,
+    flatten_json,
+)
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    CalendarIntervalClass,
     DataPlatformInstanceClass,
-    DatasetFieldProfileClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
-    HistogramClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
-    QuantileClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
-    TimeWindowSizeClass,
-    ValueFrequencyClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -104,404 +91,6 @@ class KafkaTopicConfigKeys(StrEnum):
     CLEANUP_POLICY_CONFIG = "cleanup.policy"
     MAX_MESSAGE_SIZE_CONFIG = "max.message.bytes"
     UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
-
-
-@dataclass
-class KafkaFieldStatistics:
-    field_path: str
-    sample_values: List[str]
-    unique_count: int = 0
-    unique_proportion: float = 0.0
-    null_count: int = 0
-    null_proportion: float = 0.0
-    min_value: Optional[Any] = None
-    max_value: Optional[Any] = None
-    mean_value: Optional[float] = None
-    median_value: Optional[Any] = None
-    stdev: Optional[float] = None
-    quantiles: Optional[List[QuantileClass]] = None
-    distinct_value_frequencies: Optional[Dict[str, int]] = None
-    data_type: Optional[str] = None
-
-    def __post_init__(self):
-        if self.distinct_value_frequencies is None:
-            self.distinct_value_frequencies = {}
-        if self.quantiles is None:
-            self.quantiles = []
-        if self.sample_values is None:
-            self.sample_values = []
-
-
-class ProfilerConfig(GEProfilingBaseConfig):
-    sample_size: pydantic.PositiveInt = pydantic.Field(
-        default=100,
-        description="Number of messages to sample for profiling",
-    )
-    max_sample_time_seconds: pydantic.PositiveInt = pydantic.Field(
-        default=60,
-        description="Maximum time to spend sampling messages in seconds",
-    )
-
-
-class KafkaSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-):
-    connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-
-    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
-    domain: Dict[str, AllowDenyPattern] = pydantic.Field(
-        default={},
-        description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
-    )
-    topic_subject_map: Dict[str, str] = pydantic.Field(
-        default={},
-        description="Provides the mapping for the `key` and the `value` schemas of a topic to the corresponding schema registry subject name. Each entry of this map has the form `<topic_name>-key`:`<schema_registry_subject_name_for_key_schema>` and `<topic_name>-value`:`<schema_registry_subject_name_for_value_schema>` for the key and the value schemas associated with the topic, respectively. This parameter is mandatory when the [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) is used as the subject naming strategy in the kafka schema registry. NOTE: When provided, this overrides the default subject name resolution even when the `TopicNameStrategy` or the `TopicRecordNameStrategy` are used.",
-    )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-    schema_registry_class: str = pydantic.Field(
-        default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
-        description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
-    )
-    schema_tags_field: str = pydantic.Field(
-        default="tags",
-        description="The field name in the schema metadata that contains the tags to be added to the dataset.",
-    )
-    enable_meta_mapping: bool = pydantic.Field(
-        default=True,
-        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
-    )
-    meta_mapping: Dict = pydantic.Field(
-        default={},
-        description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
-    )
-    field_meta_mapping: Dict = pydantic.Field(
-        default={},
-        description="mapping rules that will be executed against field-level schema properties. Refer to the section below on meta automated mappings.",
-    )
-    strip_user_ids_from_email: bool = pydantic.Field(
-        default=False,
-        description="Whether or not to strip email id while adding owners using meta mappings.",
-    )
-    tag_prefix: str = pydantic.Field(
-        default="", description="Prefix added to tags during ingestion."
-    )
-    ignore_warnings_on_schema_type: bool = pydantic.Field(
-        default=False,
-        description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
-    )
-    disable_topic_record_naming_strategy: bool = pydantic.Field(
-        default=False,
-        description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
-    )
-    ingest_schemas_as_entities: bool = pydantic.Field(
-        default=False,
-        description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
-    )
-    profiling: ProfilerConfig = pydantic.Field(
-        default=ProfilerConfig(),
-        description="Settings for message sampling and profiling",
-    )
-
-
-class KafkaProfiler:
-    """Handles advanced profiling of Kafka message samples"""
-
-    def __init__(self, profiler_config: ProfilerConfig):
-        self.profiler_config = profiler_config
-
-    def profile_samples(
-        self,
-        samples: List[Dict[str, Any]],
-        schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> DatasetProfileClass:
-        """Analyze samples and create a dataset profile incorporating schema information."""
-        # Initialize data structures
-        field_values: Dict[str, List[Any]] = {}
-        field_paths: Dict[str, str] = {}  # Maps clean names to full paths
-
-        # Build field mappings from schema if available
-        if schema_metadata and isinstance(
-            schema_metadata.platformSchema, KafkaSchemaClass
-        ):
-            # Handle key schema if present
-            if schema_metadata.platformSchema.keySchema:
-                try:
-                    key_schema = avro.schema.parse(
-                        schema_metadata.platformSchema.keySchema
-                    )
-                    # Map key schema fields if they exist
-                    if hasattr(key_schema, "fields"):
-                        for schema_field in key_schema.fields:
-                            clean_name = clean_field_path(
-                                schema_field.name, preserve_types=False
-                            )
-                            field_paths[clean_name] = schema_field.name
-                            field_values[schema_field.name] = []
-                except Exception as e:
-                    logger.warning(f"Failed to parse key schema: {e}")
-
-            # Map all schema fields, maintaining full paths
-            for schema_field in schema_metadata.fields or []:
-                clean_name = clean_field_path(
-                    schema_field.fieldPath, preserve_types=False
-                )
-                field_paths[clean_name] = schema_field.fieldPath
-                field_values[schema_field.fieldPath] = []
-
-        # Process each sample, mapping fields correctly
-        for sample in samples:
-            for field_name, value in sample.items():
-                if field_name not in ("offset", "timestamp"):
-                    field_path = None
-
-                    # Handle key fields specially using schema's key field path
-                    key_field = (
-                        next(
-                            (
-                                schema_field
-                                for schema_field in (schema_metadata.fields or [])
-                                if schema_field.fieldPath.endswith("[key=True]")
-                            ),
-                            None,
-                        )
-                        if schema_metadata
-                        else None
-                    )
-
-                    if field_name == "key" and key_field:
-                        field_path = key_field.fieldPath
-                    else:
-                        # Try to find matching schema field
-                        clean_sample = clean_field_path(
-                            field_name, preserve_types=False
-                        )
-
-                        if schema_metadata and schema_metadata.fields:
-                            for schema_field in schema_metadata.fields:
-                                if (
-                                    clean_field_path(
-                                        schema_field.fieldPath, preserve_types=False
-                                    )
-                                    == clean_sample
-                                ):
-                                    field_path = schema_field.fieldPath
-                                    break
-
-                        if not field_path:
-                            field_path = field_paths.get(clean_sample, field_name)
-
-                    # Initialize field if needed and store value with original type
-                    if field_path not in field_values:
-                        field_values[field_path] = []
-                    # Keep original type, don't convert to string
-                    field_values[field_path].append(value)
-
-        # Process statistics with original types
-        field_stats = {}
-        for field_path, values in field_values.items():
-            if values:  # Only process fields that have values
-                field_stats[field_path] = self._process_field_statistics(
-                    field_path=field_path,
-                    values=values,
-                )
-
-        return self.create_profile_data(field_stats, len(samples))
-
-    def _process_field_statistics(
-        self,
-        field_path: str,
-        values: List[Any],
-    ) -> KafkaFieldStatistics:
-        """Calculate statistics for a single field based on profiling config"""
-        total_count = len(values)
-        non_null_values = [v for v in values if v is not None and v != ""]
-
-        # Detect type first
-        data_type = "STRING"
-        if non_null_values:
-            sample_value = non_null_values[0]
-            if isinstance(sample_value, (int, float)):
-                data_type = "NUMERIC"
-            elif isinstance(sample_value, bool):
-                data_type = "BOOLEAN"
-            elif isinstance(sample_value, (dict, list)):
-                data_type = "COMPLEX"
-
-        stats = KafkaFieldStatistics(
-            field_path=field_path,
-            sample_values=random.sample(
-                [str(v) for v in non_null_values] if non_null_values else [""],
-                min(3, len(non_null_values)) if non_null_values else 1,
-            )
-            if self.profiler_config.include_field_sample_values
-            else [],
-            data_type=data_type,
-        )
-
-        # Calculate null statistics
-        stats.null_count = total_count - len(non_null_values)
-        stats.null_proportion = stats.null_count / total_count if total_count > 0 else 0
-
-        # Calculate distinct value stats
-        if self.profiler_config.include_field_distinct_count:
-            # Convert to strings only for counting distinct values
-            value_counts: Dict[str, int] = {}
-            for value in values:
-                str_value = str(value)
-                value_counts[str_value] = value_counts.get(str_value, 0) + 1
-
-            stats.unique_count = len(value_counts)
-            stats.unique_proportion = (
-                stats.unique_count / total_count if total_count > 0 else 0
-            )
-            stats.distinct_value_frequencies = value_counts
-
-        # Calculate numeric statistics only for numeric fields
-        if data_type == "NUMERIC":
-            numeric_values = [
-                float(v) for v in non_null_values if isinstance(v, (int, float))
-            ]
-            if numeric_values:
-                if self.profiler_config.include_field_min_value:
-                    stats.min_value = min(numeric_values)
-                if self.profiler_config.include_field_max_value:
-                    stats.max_value = max(numeric_values)
-                if self.profiler_config.include_field_mean_value:
-                    stats.mean_value = sum(numeric_values) / len(numeric_values)
-                if self.profiler_config.include_field_median_value:
-                    stats.median_value = sorted(numeric_values)[
-                        len(numeric_values) // 2
-                    ]
-
-                # Calculate standard deviation
-                if (
-                    self.profiler_config.include_field_stddev_value
-                    and len(numeric_values) > 1
-                ):
-                    mean = stats.mean_value or 0
-                    variance = sum((x - mean) ** 2 for x in numeric_values) / (
-                        len(numeric_values) - 1
-                    )
-                    stats.stdev = math.sqrt(variance)
-
-                # Calculate quantiles
-                if self.profiler_config.include_field_quantiles:
-                    sorted_values = sorted(numeric_values)
-                    stats.quantiles = [
-                        QuantileClass(
-                            quantile=str(0.25),
-                            value=str(sorted_values[int(len(sorted_values) * 0.25)]),
-                        ),
-                        QuantileClass(
-                            quantile=str(0.5),
-                            value=str(sorted_values[int(len(sorted_values) * 0.5)]),
-                        ),
-                        QuantileClass(
-                            quantile=str(0.75),
-                            value=str(sorted_values[int(len(sorted_values) * 0.75)]),
-                        ),
-                    ]
-
-        return stats
-
-    def create_profile_data(
-        self, field_stats: Dict[str, KafkaFieldStatistics], sample_count: int
-    ) -> DatasetProfileClass:
-        """Create DataHub profile class from field statistics"""
-        timestamp_millis = int(datetime.now().timestamp() * 1000)
-        field_profiles = []
-
-        for field_path, stats in field_stats.items():
-            histogram = None
-            if (
-                self.profiler_config.include_field_histogram
-                and stats.distinct_value_frequencies
-            ):
-                sorted_frequencies = sorted(
-                    stats.distinct_value_frequencies.items(),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )[:10]
-
-                boundaries = [str(value) for value, _ in sorted_frequencies]
-                heights = [float(freq) for _, freq in sorted_frequencies]
-
-                histogram = HistogramClass(boundaries=boundaries, heights=heights)
-
-            field_profile = DatasetFieldProfileClass(
-                fieldPath=field_path,
-                sampleValues=stats.sample_values
-                if self.profiler_config.include_field_sample_values
-                else None,
-                uniqueCount=stats.unique_count
-                if self.profiler_config.include_field_distinct_count
-                else None,
-                uniqueProportion=stats.unique_proportion
-                if self.profiler_config.include_field_distinct_count
-                else None,
-                nullCount=stats.null_count
-                if self.profiler_config.include_field_null_count
-                else None,
-                nullProportion=stats.null_proportion
-                if self.profiler_config.include_field_null_count
-                else None,
-                min=str(stats.min_value)
-                if self.profiler_config.include_field_min_value
-                and stats.min_value is not None
-                else None,
-                max=str(stats.max_value)
-                if self.profiler_config.include_field_max_value
-                and stats.max_value is not None
-                else None,
-                mean=str(stats.mean_value)
-                if self.profiler_config.include_field_mean_value
-                and stats.mean_value is not None
-                else None,
-                median=str(stats.median_value)
-                if self.profiler_config.include_field_median_value
-                and stats.median_value is not None
-                else None,
-                stdev=str(stats.stdev)
-                if self.profiler_config.include_field_stddev_value
-                and hasattr(stats, "stdev")
-                else None,
-                quantiles=stats.quantiles
-                if self.profiler_config.include_field_quantiles
-                and hasattr(stats, "quantiles")
-                else None,
-                distinctValueFrequencies=[
-                    ValueFrequencyClass(value=str(value), frequency=freq)
-                    for value, freq in sorted(
-                        stats.distinct_value_frequencies.items(),
-                        key=lambda x: x[1],
-                        reverse=True,
-                    )[:10]
-                ]
-                if self.profiler_config.include_field_distinct_value_frequencies
-                and stats.distinct_value_frequencies
-                else None,
-                histogram=histogram
-                if self.profiler_config.include_field_histogram
-                else None,
-            )
-            field_profiles.append(field_profile)
-
-        return DatasetProfileClass(
-            timestampMillis=timestamp_millis,
-            columnCount=len(field_profiles),
-            eventGranularity=TimeWindowSizeClass(
-                unit=CalendarIntervalClass.SECOND,
-                multiple=self.profiler_config.max_sample_time_seconds,
-            ),
-            # Add partition specification
-            partitionSpec=PartitionSpecClass(
-                partition=f"SAMPLE ({str(self.profiler_config.sample_size)} samples / {str(self.profiler_config.max_sample_time_seconds)} seconds)",
-                type=PartitionTypeClass.QUERY,
-            ),
-            fieldProfiles=field_profiles,
-        )
 
 
 def get_kafka_consumer(
@@ -544,69 +133,6 @@ def get_kafka_admin_client(
         client.poll(timeout=30)
         logger.debug("Initiated polling for kafka admin client")
     return client
-
-
-def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
-    """Clean field path by optionally preserving or removing version, type and other metadata.
-
-    Args:
-        field_path: The full field path string
-        preserve_types: If True, preserves version and type information in the path
-
-    Returns:
-        The cleaned field path string
-    """
-    # Don't modify key fields - we want to keep the full path
-    if "[key=True]" in field_path:
-        return field_path
-
-    if preserve_types:
-        # When preserving types, return the full path as-is
-        return field_path
-
-    # If not preserving types, use the original stripping logic
-    parts = field_path.split(".")
-    # Return last non-empty part that isn't a type or version declaration
-    for part in reversed(parts):
-        if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            return part
-
-    return field_path
-
-
-def flatten_json(
-    nested_json: Dict[str, Any],
-    parent_key: str = "",
-    flattened_dict: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Flatten a nested JSON object into a single level dictionary.
-    """
-    if flattened_dict is None:
-        flattened_dict = {}
-
-    if isinstance(nested_json, dict):
-        for key, value in nested_json.items():
-            new_key = f"{parent_key}.{key}" if parent_key else key
-            if isinstance(value, (dict, list)):
-                flatten_json(
-                    {"value": value} if isinstance(value, list) else value,
-                    new_key,
-                    flattened_dict,
-                )
-            else:
-                flattened_dict[new_key] = value
-    elif isinstance(nested_json, list):
-        for i, item in enumerate(nested_json):
-            new_key = f"{parent_key}[{i}]"
-            if isinstance(item, (dict, list)):
-                flatten_json({"item": item}, new_key, flattened_dict)
-            else:
-                flattened_dict[new_key] = item
-    else:
-        flattened_dict[parent_key] = nested_json
-
-    return flattened_dict
 
 
 @dataclass
