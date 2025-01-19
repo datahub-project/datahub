@@ -1,6 +1,5 @@
 import logging
 import math
-import random
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -44,12 +43,31 @@ class KafkaFieldStatistics:
     data_type: Optional[str] = None
 
     def __post_init__(self):
+        # Ensure default values are properly initialized
         if self.distinct_value_frequencies is None:
             self.distinct_value_frequencies = {}
         if self.quantiles is None:
             self.quantiles = []
         if self.sample_values is None:
             self.sample_values = []
+        # Ensure numeric values are properly typed
+        if isinstance(self.mean_value, str):
+            try:
+                self.mean_value = float(self.mean_value)
+            except (ValueError, TypeError):
+                self.mean_value = None
+
+
+def is_special_value(v: Any) -> bool:
+    """Check if value is a special case that should be treated as null"""
+    if isinstance(v, (int, float)):
+        # Handle Java Long MIN/MAX values
+        if abs(v) > 9.223372036854775e18:
+            return True
+        # Handle other special cases like -1 or Integer.MAX_VALUE
+        if v in (-1, 2147483647):
+            return True
+    return False
 
 
 def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
@@ -121,102 +139,271 @@ class KafkaProfiler:
     def __init__(self, profiler_config: ProfilerConfig):
         self.profiler_config = profiler_config
 
+    def _calculate_numeric_stats(
+        self, numeric_values: List[float]
+    ) -> Dict[str, Optional[float]]:
+        """Calculate numeric statistics with validation"""
+        stats: Dict[str, Optional[float]] = {
+            "min": None,
+            "max": None,
+            "mean": None,
+            "median": None,
+            "stdev": None,
+        }
+        try:
+            if not numeric_values:
+                return stats
+
+            min_val: float = min(numeric_values)
+            max_val: float = max(numeric_values)
+            stats["min"] = min_val
+            stats["max"] = max_val
+
+            if any(abs(x) > 1e200 for x in numeric_values):
+                return stats
+
+            mean_val: float = sum(numeric_values) / len(numeric_values)
+            stats["mean"] = mean_val
+
+            if len(numeric_values) > 1:
+                sorted_values = sorted(numeric_values)
+                stats["median"] = sorted_values[len(sorted_values) // 2]
+
+                variance = sum((x - mean_val) ** 2 for x in numeric_values) / (
+                    len(numeric_values) - 1
+                )
+                if variance >= 0:
+                    stats["stdev"] = math.sqrt(variance)
+
+        except Exception as e:
+            logger.warning(f"Error calculating numeric stats: {e}")
+
+        return stats
+
+    def _get_sample_values(self, values: List[Any], max_samples: int = 3) -> List[str]:
+        """Get representative sample values"""
+        if not values:
+            return []
+
+        try:
+            # Try to get values from start, middle, and end
+            indices = [0]
+            if len(values) > 1:
+                indices.append(len(values) // 2)
+            if len(values) > 2:
+                indices.append(-1)
+
+            samples = [str(values[i]) for i in indices]
+            samples = [s[:1000] for s in samples]  # Limit string length
+            return samples
+        except Exception:
+            return [str(values[0])]
+
+    def _validate_field_type(
+        self,
+        field_path: str,
+        value: Any,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> bool:
+        """Validate value matches schema field type"""
+        if not schema_metadata or not schema_metadata.fields:
+            return True
+
+        for field in schema_metadata.fields:
+            if field.fieldPath == field_path:
+                field_type = field.type.type
+                # Add type validation based on schema type
+                if "NumberType" in str(field_type):
+                    return isinstance(value, (int, float))
+                if "StringType" in str(field_type):
+                    return isinstance(value, str)
+                if "BooleanType" in str(field_type):
+                    return isinstance(value, bool)
+        return True
+
+    def _create_histogram(
+        self, values: List[Any], max_buckets: int = 10
+    ) -> Optional[HistogramClass]:
+        """Create histogram with validation"""
+        try:
+            if not values or len(values) < 2:
+                return None
+
+            # Only create histograms for numeric values
+            numeric_values = [
+                float(v)
+                for v in values
+                if isinstance(v, (int, float))
+                and not math.isnan(v)
+                and not math.isinf(v)
+                and abs(v) < 1e200
+            ]
+
+            if len(numeric_values) < 2:
+                return None
+
+            # Create buckets
+            min_val = min(numeric_values)
+            max_val = max(numeric_values)
+            if min_val == max_val:
+                return None
+
+            bucket_size = (max_val - min_val) / max_buckets
+            buckets = [min_val + i * bucket_size for i in range(max_buckets + 1)]
+            counts = [0] * max_buckets
+
+            # Count values in buckets
+            for val in numeric_values:
+                bucket = int((val - min_val) / bucket_size)
+                if bucket >= max_buckets:
+                    bucket = max_buckets - 1
+                counts[bucket] += 1
+
+            return HistogramClass(
+                boundaries=[str(b) for b in buckets],
+                heights=[float(c) / len(numeric_values) for c in counts],
+            )
+        except Exception as e:
+            logger.warning(f"Error creating histogram: {e}")
+            return None
+
+    def _init_schema_fields(
+        self, schema_metadata: Optional[SchemaMetadataClass]
+    ) -> Dict[str, Dict[str, List[Any]]]:
+        """Initialize field mappings from schema metadata."""
+        field_mappings: Dict[str, Dict[str, Any]] = {
+            "paths": {},
+            "values": {},
+        }  # Maps clean names to full paths and values
+
+        if not schema_metadata or not isinstance(
+            schema_metadata.platformSchema, KafkaSchemaClass
+        ):
+            return field_mappings
+
+        # Handle key schema if present
+        if schema_metadata.platformSchema.keySchema:
+            try:
+                key_schema = avro.schema.parse(schema_metadata.platformSchema.keySchema)
+                if hasattr(key_schema, "fields"):
+                    for schema_field in key_schema.fields:
+                        clean_name = clean_field_path(
+                            schema_field.name, preserve_types=False
+                        )
+                        field_mappings["paths"][clean_name] = schema_field.name
+                        field_mappings["values"][schema_field.name] = []
+            except Exception as e:
+                logger.warning(f"Failed to parse key schema: {e}")
+
+        # Map all schema fields
+        for schema_field in schema_metadata.fields or []:
+            clean_name = clean_field_path(schema_field.fieldPath, preserve_types=False)
+            field_mappings["paths"][clean_name] = schema_field.fieldPath
+            field_mappings["values"][schema_field.fieldPath] = []
+
+        return field_mappings
+
+    def _get_field_path(
+        self,
+        field_name: str,
+        schema_metadata: Optional[SchemaMetadataClass],
+        field_paths: Dict[str, str],
+    ) -> Optional[str]:
+        """Determine the field path for a given field name."""
+        if field_name in ("offset", "timestamp"):
+            return None
+
+        # Handle key fields specially
+        key_field = (
+            next(
+                (
+                    schema_field
+                    for schema_field in (schema_metadata.fields or [])
+                    if schema_field.fieldPath.endswith("[key=True]")
+                ),
+                None,
+            )
+            if schema_metadata
+            else None
+        )
+
+        if field_name == "key" and key_field:
+            return key_field.fieldPath
+
+        # Try to find matching schema field
+        clean_sample = clean_field_path(field_name, preserve_types=False)
+        if schema_metadata and schema_metadata.fields:
+            for schema_field in schema_metadata.fields:
+                if (
+                    clean_field_path(schema_field.fieldPath, preserve_types=False)
+                    == clean_sample
+                ):
+                    return schema_field.fieldPath
+
+        return field_paths.get(clean_sample, field_name)
+
+    def _process_sample(
+        self,
+        sample: Dict[str, Any],
+        schema_metadata: Optional[SchemaMetadataClass],
+        field_mappings: Dict[str, Dict[str, Any]],
+    ) -> None:
+        """Process a single sample and update field values."""
+        for field_name, value in sample.items():
+            field_path = self._get_field_path(
+                field_name, schema_metadata, field_mappings["paths"]
+            )
+            if not field_path:
+                continue
+
+            # Validate value before adding
+            if self._validate_field_type(
+                field_path, value, schema_metadata
+            ) and not is_special_value(value):
+                if field_path not in field_mappings["values"]:
+                    field_mappings["values"][field_path] = []
+                field_mappings["values"][field_path].append(value)
+            else:
+                # Initialize field if needed but don't add invalid value
+                if field_path not in field_mappings["values"]:
+                    field_mappings["values"][field_path] = []
+
+    def _calculate_field_stats(
+        self, field_values: Dict[str, List[Any]]
+    ) -> Dict[str, KafkaFieldStatistics]:
+        """Calculate statistics for all fields."""
+        field_stats = {}
+        for field_path, values in field_values.items():
+            if values:  # Only process fields that have values
+                try:
+                    field_stats[field_path] = self._process_field_statistics(
+                        field_path=field_path,
+                        values=values,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to process statistics for field {field_path}: {e}"
+                    )
+                    continue
+        return field_stats
+
     def profile_samples(
         self,
         samples: List[Dict[str, Any]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
         """Analyze samples and create a dataset profile incorporating schema information."""
-        # Initialize data structures
-        field_values: Dict[str, List[Any]] = {}
-        field_paths: Dict[str, str] = {}  # Maps clean names to full paths
+        # Initialize field mappings from schema
+        field_mappings = self._init_schema_fields(schema_metadata)
 
-        # Build field mappings from schema if available
-        if schema_metadata and isinstance(
-            schema_metadata.platformSchema, KafkaSchemaClass
-        ):
-            # Handle key schema if present
-            if schema_metadata.platformSchema.keySchema:
-                try:
-                    key_schema = avro.schema.parse(
-                        schema_metadata.platformSchema.keySchema
-                    )
-                    # Map key schema fields if they exist
-                    if hasattr(key_schema, "fields"):
-                        for schema_field in key_schema.fields:
-                            clean_name = clean_field_path(
-                                schema_field.name, preserve_types=False
-                            )
-                            field_paths[clean_name] = schema_field.name
-                            field_values[schema_field.name] = []
-                except Exception as e:
-                    logger.warning(f"Failed to parse key schema: {e}")
-
-            # Map all schema fields, maintaining full paths
-            for schema_field in schema_metadata.fields or []:
-                clean_name = clean_field_path(
-                    schema_field.fieldPath, preserve_types=False
-                )
-                field_paths[clean_name] = schema_field.fieldPath
-                field_values[schema_field.fieldPath] = []
-
-        # Process each sample, mapping fields correctly
+        # Process all samples
         for sample in samples:
-            for field_name, value in sample.items():
-                if field_name not in ("offset", "timestamp"):
-                    field_path = None
+            self._process_sample(sample, schema_metadata, field_mappings)
 
-                    # Handle key fields specially using schema's key field path
-                    key_field = (
-                        next(
-                            (
-                                schema_field
-                                for schema_field in (schema_metadata.fields or [])
-                                if schema_field.fieldPath.endswith("[key=True]")
-                            ),
-                            None,
-                        )
-                        if schema_metadata
-                        else None
-                    )
+        # Calculate statistics for all fields
+        field_stats = self._calculate_field_stats(field_mappings["values"])
 
-                    if field_name == "key" and key_field:
-                        field_path = key_field.fieldPath
-                    else:
-                        # Try to find matching schema field
-                        clean_sample = clean_field_path(
-                            field_name, preserve_types=False
-                        )
-
-                        if schema_metadata and schema_metadata.fields:
-                            for schema_field in schema_metadata.fields:
-                                if (
-                                    clean_field_path(
-                                        schema_field.fieldPath, preserve_types=False
-                                    )
-                                    == clean_sample
-                                ):
-                                    field_path = schema_field.fieldPath
-                                    break
-
-                        if not field_path:
-                            field_path = field_paths.get(clean_sample, field_name)
-
-                    # Initialize field if needed and store value with original type
-                    if field_path not in field_values:
-                        field_values[field_path] = []
-                    # Keep original type, don't convert to string
-                    field_values[field_path].append(value)
-
-        # Process statistics with original types
-        field_stats = {}
-        for field_path, values in field_values.items():
-            if values:  # Only process fields that have values
-                field_stats[field_path] = self._process_field_statistics(
-                    field_path=field_path,
-                    values=values,
-                )
-
+        # Create and return profile
         return self.create_profile_data(field_stats, len(samples))
 
     def _process_field_statistics(
@@ -248,15 +435,13 @@ class KafkaProfiler:
 
         stats = KafkaFieldStatistics(
             field_path=field_path,
-            sample_values=random.sample(
+            sample_values=self._get_sample_values(
                 [
-                    str(v)
+                    v
                     for v in non_null_values
                     if not (isinstance(v, float) and math.isnan(v))
+                    and not is_special_value(v)
                 ]
-                if non_null_values
-                else [""],
-                min(3, len(non_null_values)) if non_null_values else 1,
             )
             if self.profiler_config.include_field_sample_values
             else [],
@@ -298,18 +483,15 @@ class KafkaProfiler:
                 for v in non_null_values
                 if isinstance(v, (int, float))
                 and not (isinstance(v, float) and (math.isnan(v) or math.isinf(v)))
+                and not is_special_value(v)  # Add special value check
             ]
             if numeric_values:
-                if self.profiler_config.include_field_min_value:
-                    stats.min_value = min(numeric_values)
-                if self.profiler_config.include_field_max_value:
-                    stats.max_value = max(numeric_values)
-                if self.profiler_config.include_field_mean_value:
-                    stats.mean_value = sum(numeric_values) / len(numeric_values)
-                if self.profiler_config.include_field_median_value:
-                    stats.median_value = sorted(numeric_values)[
-                        len(numeric_values) // 2
-                    ]
+                numeric_stats = self._calculate_numeric_stats(numeric_values)
+                stats.min_value = numeric_stats["min"]
+                stats.max_value = numeric_stats["max"]
+                stats.mean_value = numeric_stats["mean"]
+                stats.median_value = numeric_stats["median"]
+                stats.stdev = numeric_stats["stdev"]
 
                 # Calculate standard deviation
                 if (
@@ -356,18 +538,25 @@ class KafkaProfiler:
             histogram = None
             if (
                 self.profiler_config.include_field_histogram
-                and stats.distinct_value_frequencies
+                and stats.data_type
+                == "NUMERIC"  # Only create histograms for numeric fields
             ):
-                sorted_frequencies = sorted(
-                    stats.distinct_value_frequencies.items(),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )[:10]
+                # Get values from distinct_value_frequencies
+                values = []
+                if stats.distinct_value_frequencies:
+                    for value_str, freq in stats.distinct_value_frequencies.items():
+                        try:
+                            value = float(value_str)
+                            if (
+                                not math.isnan(value)
+                                and not math.isinf(value)
+                                and not is_special_value(value)
+                            ):
+                                values.extend([value] * freq)
+                        except ValueError:
+                            continue
 
-                boundaries = [str(value) for value, _ in sorted_frequencies]
-                heights = [float(freq) for _, freq in sorted_frequencies]
-
-                histogram = HistogramClass(boundaries=boundaries, heights=heights)
+                histogram = self._create_histogram(values)
 
             field_profile = DatasetFieldProfileClass(
                 fieldPath=field_path,

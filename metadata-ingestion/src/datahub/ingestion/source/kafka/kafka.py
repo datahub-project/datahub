@@ -576,7 +576,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_warning("No samples collected for topic", topic)
             return
 
-        self.report.info(f"Collected {len(samples)} samples for topic", topic)
+        logger.info(f"Collected {len(samples)} samples for topic {topic}.")
 
         # Respect sample size limit if configured
         if self.source_config.profiling.limit:
