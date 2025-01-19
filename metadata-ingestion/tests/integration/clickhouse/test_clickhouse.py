@@ -112,23 +112,23 @@ def test_view_properties_aspect_present(pytestconfig):
                 view_props = mce["aspect"]["json"]
 
                 # Check required fields
-                assert (
-                    "viewLogic" in view_props
-                ), "viewLogic missing from ViewProperties"
-                assert (
-                    "viewLanguage" in view_props
-                ), "viewLanguage missing from ViewProperties"
-                assert (
-                    "materialized" in view_props
-                ), "materialized flag missing from ViewProperties"
+                assert "viewLogic" in view_props, (
+                    "viewLogic missing from ViewProperties"
+                )
+                assert "viewLanguage" in view_props, (
+                    "viewLanguage missing from ViewProperties"
+                )
+                assert "materialized" in view_props, (
+                    "materialized flag missing from ViewProperties"
+                )
 
                 # Check values
                 assert view_props["viewLanguage"] == "SQL", "viewLanguage should be SQL"
-                assert isinstance(
-                    view_props["materialized"], bool
-                ), "materialized should be boolean"
+                assert isinstance(view_props["materialized"], bool), (
+                    "materialized should be boolean"
+                )
                 assert view_props["viewLogic"], "viewLogic should not be empty"
 
-        assert (
-            found_view_properties
-        ), f"ViewProperties aspect missing for view {view_urn}"
+        assert found_view_properties, (
+            f"ViewProperties aspect missing for view {view_urn}"
+        )

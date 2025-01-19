@@ -595,9 +595,9 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                         if aspects is None:
                             aspects = []
 
-                        dataset_properties_aspect: Optional[
-                            DatasetPropertiesClass
-                        ] = None
+                        dataset_properties_aspect: Optional[DatasetPropertiesClass] = (
+                            None
+                        )
 
                         for aspect in aspects:
                             if isinstance(aspect, DatasetPropertiesClass):
