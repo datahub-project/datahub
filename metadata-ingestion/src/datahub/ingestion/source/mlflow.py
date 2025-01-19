@@ -172,10 +172,10 @@ class MLflowSource(Source):
         """
         Get all Registered Models in MLflow Model Registry.
         """
-        registered_models: Iterable[
-            RegisteredModel
-        ] = self._traverse_mlflow_search_func(
-            search_func=self.client.search_registered_models,
+        registered_models: Iterable[RegisteredModel] = (
+            self._traverse_mlflow_search_func(
+                search_func=self.client.search_registered_models,
+            )
         )
         return registered_models
 
@@ -333,8 +333,3 @@ class MLflowSource(Source):
             aspect=global_tags,
         )
         return wu
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = MLflowConfig.parse_obj(config_dict)
-        return cls(ctx, config)

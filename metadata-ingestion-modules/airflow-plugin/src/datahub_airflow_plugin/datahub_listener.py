@@ -8,9 +8,13 @@ import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
-import datahub.emitter.mce_builder as builder
 from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
+from openlineage.airflow.listener import TaskHolder
+from openlineage.airflow.utils import redact_with_exclusions
+from openlineage.client.serde import Serde
+
+import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -30,10 +34,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.utils import redact_with_exclusions
-from openlineage.client.serde import Serde
-
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
@@ -286,9 +286,9 @@ class DataHubListener:
         if sql_parsing_result:
             if error := sql_parsing_result.debug_info.error:
                 logger.info(f"SQL parsing error: {error}", exc_info=error)
-                datajob.properties[
-                    "datahub_sql_parser_error"
-                ] = f"{type(error).__name__}: {error}"
+                datajob.properties["datahub_sql_parser_error"] = (
+                    f"{type(error).__name__}: {error}"
+                )
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)

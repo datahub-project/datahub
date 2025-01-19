@@ -21,8 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
-    def structured_reporter(self) -> SourceReport:
-        ...
+    def structured_reporter(self) -> SourceReport: ...
 
 
 class SnowsightUrlBuilder:

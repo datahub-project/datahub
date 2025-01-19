@@ -374,7 +374,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {"proposals": mcp_obj_chunk}
             if async_flag is not None:
-                payload_dict["async"] = True if async_flag else False
+                payload_dict["async"] = "true" if async_flag else "false"
 
             payload = json.dumps(payload_dict)
             self._emit_generic(url, payload)

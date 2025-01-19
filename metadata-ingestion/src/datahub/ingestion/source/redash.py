@@ -369,11 +369,6 @@ class RedashSource(Source):
         else:
             raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = RedashConfig.parse_obj(config_dict)
-        return cls(ctx, config)
-
     def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()

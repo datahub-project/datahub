@@ -31,9 +31,12 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import StructuredPropertyUrn
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
@@ -187,12 +190,31 @@ def add_tags_to_entity_wu(
     ).as_workunit()
 
 
+def add_structured_properties_to_entity_wu(
+    entity_urn: str, structured_properties: Dict[StructuredPropertyUrn, str]
+) -> Iterable[MetadataWorkUnit]:
+    aspect = StructuredPropertiesClass(
+        properties=[
+            StructuredPropertyValueAssignmentClass(
+                propertyUrn=urn.urn(),
+                values=[value],
+            )
+            for urn, value in structured_properties.items()
+        ]
+    )
+    yield MetadataChangeProposalWrapper(
+        entityUrn=entity_urn,
+        aspect=aspect,
+    ).as_workunit()
+
+
 def gen_containers(
     container_key: KeyType,
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[ContainerKey] = None,
     extra_properties: Optional[Dict[str, str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -280,6 +302,11 @@ def gen_containers(
             entity_type="container",
             entity_urn=container_urn,
             tags=sorted(tags),
+        )
+
+    if structured_properties:
+        yield from add_structured_properties_to_entity_wu(
+            entity_urn=container_urn, structured_properties=structured_properties
         )
 
 

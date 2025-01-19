@@ -222,9 +222,7 @@ def _get_all_table_comments_and_properties(self, connection, **kw):
              , comment
              , {properties_clause} AS properties
           FROM system.tables
-         WHERE name NOT LIKE '.inner%'""".format(
-            properties_clause=properties_clause
-        )
+         WHERE name NOT LIKE '.inner%'""".format(properties_clause=properties_clause)
     )
 
     all_table_comments: Dict[Tuple[str, str], Dict[str, Any]] = {}
@@ -272,7 +270,7 @@ def _get_table_or_view_names(self, relkind, connection, schema=None, **kw):
     info_cache = kw.get("info_cache")
     all_relations = self._get_all_relation_info(connection, info_cache=info_cache)
     relation_names = []
-    for key, relation in all_relations.items():
+    for _, relation in all_relations.items():
         if relation.database == schema and relation.relkind == relkind:
             relation_names.append(relation.relname)
     return relation_names
@@ -305,9 +303,7 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
              , comment
           FROM system.columns
          WHERE {schema_clause}
-         ORDER BY database, table, position""".format(
-                    schema_clause=schema_clause
-                )
+         ORDER BY database, table, position""".format(schema_clause=schema_clause)
             )
         )
     )
@@ -723,9 +719,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                         target.dataset.path
                     ].upstreams = self._lineage_map[
                         target.dataset.path
-                    ].upstreams.union(
-                        target.upstreams
-                    )
+                    ].upstreams.union(target.upstreams)
 
                 else:
                     self._lineage_map[target.dataset.path] = target

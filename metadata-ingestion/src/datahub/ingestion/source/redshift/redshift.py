@@ -276,6 +276,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "HLLSKETCH": NullType,
         "TIMETZ": TimeType,
         "VARBYTE": StringType,
+        "SUPER": NullType,
     }
 
     def get_platform_instance_id(self) -> str:
@@ -304,13 +305,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             test_report.capability_report = {}
             try:
                 RedshiftDataDictionary.get_schemas(connection, database=config.database)
-                test_report.capability_report[
-                    SourceCapability.SCHEMA_METADATA
-                ] = CapabilityReport(capable=True)
+                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = (
+                    CapabilityReport(capable=True)
+                )
             except Exception as e:
-                test_report.capability_report[
-                    SourceCapability.SCHEMA_METADATA
-                ] = CapabilityReport(capable=False, failure_reason=str(e))
+                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = (
+                    CapabilityReport(capable=False, failure_reason=str(e))
+                )
 
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -946,9 +947,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_all_tables(
         self,
     ) -> Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]:
-        all_tables: Dict[
-            str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]
-        ] = defaultdict(dict)
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = (
+            defaultdict(dict)
+        )
         for db in set().union(self.db_tables, self.db_views):
             tables = self.db_tables.get(db, {})
             views = self.db_views.get(db, {})
@@ -966,9 +967,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
-            redundant_usage_run_skip_handler: Optional[
-                RedundantUsageRunSkipHandler
-            ] = None
+            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
+                None
+            )
             if self.config.enable_stateful_usage_ingestion:
                 redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
                     source=self,
