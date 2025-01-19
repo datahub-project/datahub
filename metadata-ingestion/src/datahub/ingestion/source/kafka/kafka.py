@@ -6,7 +6,7 @@ import logging
 import math
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
 
 import avro.io
@@ -81,13 +81,10 @@ from datahub.metadata.schema_classes import (
     HistogramClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
     QuantileClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
-    TimeWindowClass,
     TimeWindowSizeClass,
     ValueFrequencyClass,
 )
@@ -217,10 +214,10 @@ class KafkaProfiler:
         samples: List[Dict[str, Any]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
+        """Analyze samples and create a dataset profile incorporating schema information."""
         # Initialize data structures
         field_values: Dict[str, List[Any]] = {}
         field_paths: Dict[str, str] = {}  # Maps clean names to full paths
-        key_name: Optional[str] = None
 
         # Build field mappings from schema if available
         if schema_metadata and isinstance(
@@ -232,16 +229,14 @@ class KafkaProfiler:
                     key_schema = avro.schema.parse(
                         schema_metadata.platformSchema.keySchema
                     )
-                    key_name = getattr(key_schema, "name", "key")
                     # Map key schema fields if they exist
                     if hasattr(key_schema, "fields"):
                         for schema_field in key_schema.fields:
-                            field_path = f"{key_name}.{schema_field.name}"
                             clean_name = clean_field_path(
-                                field_path, preserve_types=False
+                                schema_field.name, preserve_types=False
                             )
-                            field_paths[clean_name] = field_path
-                            field_values[field_path] = []
+                            field_paths[clean_name] = schema_field.name
+                            field_values[schema_field.name] = []
                 except Exception as e:
                     logger.warning(f"Failed to parse key schema: {e}")
 
@@ -257,17 +252,29 @@ class KafkaProfiler:
         for sample in samples:
             for field_name, value in sample.items():
                 if field_name not in ("offset", "timestamp"):
-                    # Handle key fields specially
-                    if field_name == "key" and key_name:
-                        field_path = key_name
-                    elif field_name.startswith("key.") and key_name:
-                        field_path = f"{key_name}.{field_name[4:]}"
+                    field_path = None
+
+                    # Handle key fields specially using schema's key field path
+                    key_field = (
+                        next(
+                            (
+                                schema_field
+                                for schema_field in (schema_metadata.fields or [])
+                                if schema_field.fieldPath.endswith("[key=True]")
+                            ),
+                            None,
+                        )
+                        if schema_metadata
+                        else None
+                    )
+
+                    if field_name == "key" and key_field:
+                        field_path = key_field.fieldPath
                     else:
                         # Try to find matching schema field
                         clean_sample = clean_field_path(
                             field_name, preserve_types=False
                         )
-                        field_path = field_name
 
                         if schema_metadata and schema_metadata.fields:
                             for schema_field in schema_metadata.fields:
@@ -289,7 +296,7 @@ class KafkaProfiler:
                     # Keep original type, don't convert to string
                     field_values[field_path].append(value)
 
-            # Process statistics with original types
+        # Process statistics with original types
         field_stats = {}
         for field_path, values in field_values.items():
             if values:  # Only process fields that have values
@@ -487,17 +494,10 @@ class KafkaProfiler:
                 multiple=self.profiler_config.max_sample_time_seconds,
             ),
             # Add partition specification
-            partitionSpec=PartitionSpecClass(
-                partition=f"SAMPLE ({self.profiler_config.sample_size}/{self.profiler_config.max_sample_time_seconds} seconds)",
-                type=PartitionTypeClass.QUERY,
-                timePartition=TimeWindowClass(
-                    startTimeMillis=timestamp_millis,
-                    length=TimeWindowSizeClass(
-                        unit=CalendarIntervalClass.SECOND,
-                        multiple=self.profiler_config.max_sample_time_seconds,
-                    ),
-                ),
-            ),
+            # partitionSpec=PartitionSpecClass(
+            #     partition=f"SAMPLE ({self.profiler_config.sample_size}/{self.profiler_config.max_sample_time_seconds} seconds)",
+            #     type=PartitionTypeClass.PARTITION,
+            # ),
             fieldProfiles=field_profiles,
         )
 
@@ -552,9 +552,9 @@ def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
     Returns:
         The cleaned field path string
     """
-    # Handle the key[key=True] special case first
-    if field_path.endswith("[key=True]"):
-        return "key"
+    # Don't modify key fields - we want to keep the full path
+    if "[key=True]" in field_path:
+        return field_path
 
     if preserve_types:
         # When preserving types, return the full path as-is
@@ -846,20 +846,25 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         return data
 
     def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
-        """
-        Collects sample messages from a Kafka topic, handling both key and value fields.
-        """
         samples: List[Dict[str, Any]] = []
         try:
-            self.consumer.subscribe([topic])
-            logger.debug(f"Subscribed to topic {topic}")
+            # Get metadata for all partitions
+            topic_metadata = self.consumer.list_topics(topic).topics[topic]
+            partitions = [
+                confluent_kafka.TopicPartition(topic, p)
+                for p in topic_metadata.partitions.keys()
+            ]
+            self.consumer.assign(partitions)
+            logger.debug(f"Assigned to topic {topic}")
 
-            # Poll for messages until timeout or we get desired number of samples
-            end_time = datetime.now() + timedelta(
-                seconds=float(self.source_config.profiling.max_sample_time_seconds)
-            )
+            max_polls = 10  # Limit number of poll attempts
+            polls = 0
 
-            while datetime.now() < end_time:
+            while (
+                len(samples) < self.source_config.profiling.sample_size
+                and polls < max_polls
+            ):
+                polls += 1
                 msg = self.consumer.poll(timeout=1.0)
 
                 if msg is None:
@@ -870,7 +875,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     break
 
                 try:
-                    # Process both key and value
                     key = msg.key() if callable(msg.key) else msg.key
                     value = msg.value() if callable(msg.value) else msg.value
                     processed_key = self._process_message_part(
@@ -880,49 +884,39 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         value, "value", topic, is_key=False
                     )
 
-                    msg_timestamp = msg.timestamp()[1]
-                    timestamp_dt = datetime.fromtimestamp(
-                        msg_timestamp / 1000.0
-                        if msg_timestamp > 1e10
-                        else msg_timestamp
-                    )
-
                     sample = {
                         "offset": msg.offset(),
-                        "timestamp": timestamp_dt.isoformat(),
+                        "timestamp": datetime.fromtimestamp(
+                            msg.timestamp()[1] / 1000.0
+                            if msg.timestamp()[1] > 1e10
+                            else msg.timestamp()[1]
+                        ).isoformat(),
                     }
 
-                    # Add key and value data with proper prefixing
                     if processed_key is not None:
                         if isinstance(processed_key, dict):
-                            # Don't prefix with 'key.'
                             sample.update(processed_key)
                         else:
                             sample["key"] = processed_key
 
                     if processed_value is not None:
                         if isinstance(processed_value, dict):
-                            # Add value fields without prefix
                             sample.update(processed_value)
                         else:
                             sample["value"] = processed_value
 
                     samples.append(sample)
 
-                    if len(samples) >= self.source_config.profiling.sample_size:
-                        break
-
                 except Exception as e:
-                    logger.warning(f"Failed to decode message from {topic}: {e}")
+                    logger.warning(f"Failed to process message: {e}")
 
         except Exception as e:
             logger.warning(f"Failed to collect samples from {topic}: {e}")
         finally:
-            self.consumer.unsubscribe()
-
-        logger.debug(
-            f"{len(samples)} messages retrieved for topic {topic}. Sample message: {samples[0] if len(samples)>0 else str()}"
-        )
+            try:
+                self.consumer.unassign()
+            except Exception as e:
+                logger.warning(f"Failed to unassign consumer: {e}")
 
         return samples
 

@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -11,7 +11,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "key_topic",
+                        "schemaName": "numeric_topic",
                         "platform": "urn:li:dataPlatform:kafka",
                         "version": 0,
                         "created": {
@@ -22,17 +22,16 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "44fd7a7b325d6fdd4275b1f02a79c1a8",
+                        "hash": "973979bc63e694ba38d9e5c30223c00b",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                                "keySchemaType": "AVRO"
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
+                                "documentSchemaType": "AVRO"
                             }
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=long].id",
                                 "nullable": false,
                                 "type": {
                                     "type": {
@@ -41,19 +40,31 @@
                                 },
                                 "nativeDataType": "id",
                                 "recursive": false,
-                                "isPartOfKey": true
+                                "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=double].value",
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "namespace",
+                                "nativeDataType": "value",
                                 "recursive": false,
-                                "isPartOfKey": true
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=long].count",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "count",
+                                "recursive": false,
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -75,9 +86,10 @@
                             "retention.ms": "604800000",
                             "cleanup.policy": "delete",
                             "max.message.bytes": "1048588",
-                            "unclean.leader.election.enable": "false"
+                            "unclean.leader.election.enable": "false",
+                            "Schema Name": "numeric_topic-value"
                         },
-                        "name": "key_topic",
+                        "name": "numeric_topic",
                         "tags": []
                     }
                 }
@@ -92,7 +104,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -110,7 +122,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -147,10 +159,10 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "a79a2fe3adab60b21d272a9cc3e93595",
+                        "hash": "53a353d9ee0d3f53ae2713e13df02495",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                                 "documentSchemaType": "AVRO",
                                 "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
                                 "keySchemaType": "AVRO"
@@ -183,13 +195,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "email",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -223,13 +235,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -362,37 +374,23 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "62c7c400ec5760797a59c45e59c2f2dc",
+                        "hash": "836ceb4fb0bc28881ec8b5991190dd02",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
-                                "documentSchemaType": "AVRO",
-                                "keySchema": "\"string\"",
-                                "keySchemaType": "AVRO"
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "documentSchemaType": "AVRO"
                             }
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[key=True].[type=string]",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
                                 "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": true
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "email",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -426,13 +424,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -511,148 +509,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "key_topic-key",
-                        "platform": "urn:li:dataPlatform:kafka",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "5e468f7aa532c2f2ed9686ff3ec943ec",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                                "documentSchemaType": "AVRO",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                                "keySchemaType": "AVRO"
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "id",
-                                "recursive": false,
-                                "isPartOfKey": true
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "namespace",
-                                "recursive": false,
-                                "isPartOfKey": true
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=UserKey].[type=long].id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "id",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=UserKey].[type=string].namespace",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "namespace",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/kafka"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "key_topic-key",
-                        "description": "Key schema for kafka topic",
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Schema"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -849,25 +705,25 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "c9b692583e304b9cb703ffa748a9f37d",
+                        "hash": "17f8139c67dcb1e1a104224f5a8e7da8",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                                 "documentSchemaType": "AVRO",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                                 "keySchemaType": "AVRO"
                             }
                         },
                         "fields": [
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "email",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -901,13 +757,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -921,13 +777,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "email",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -961,13 +817,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -1070,7 +926,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1079,7 +935,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "value_topic-key",
+                        "schemaName": "numeric_topic-value",
                         "platform": "urn:li:dataPlatform:kafka",
                         "version": 0,
                         "created": {
@@ -1090,37 +946,85 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "c088cd2eb2de57e32c00b32d4871ec72",
+                        "hash": "0f55b609811017672dd7bc2702a86e2b",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "\"string\"",
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
                                 "documentSchemaType": "AVRO",
-                                "keySchema": "\"string\"",
+                                "keySchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
                                 "keySchemaType": "AVRO"
                             }
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[key=True].[type=string]",
+                                "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=long].id",
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "string",
+                                "nativeDataType": "id",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=string]",
+                                "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=double].value",
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "string",
+                                "nativeDataType": "value",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=long].count",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "count",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=long].id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "id",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=double].value",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "value",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=NumericData].[type=long].count",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "count",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1137,7 +1041,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "name": "value_topic-key",
+                        "name": "numeric_topic-value",
                         "tags": []
                     }
                 }
@@ -1152,7 +1056,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1170,7 +1074,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1207,25 +1111,25 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "c9b692583e304b9cb703ffa748a9f37d",
+                        "hash": "17f8139c67dcb1e1a104224f5a8e7da8",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                                 "documentSchemaType": "AVRO",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                                "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                                 "keySchemaType": "AVRO"
                             }
                         },
                         "fields": [
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "email",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -1259,13 +1163,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -1279,13 +1183,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "email",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
@@ -1319,13 +1223,13 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "lastName",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [

@@ -1,0 +1,26 @@
+run_id: kafka-test
+
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "localhost:29092"
+      schema_registry_url: "http://localhost:28081"
+    profiling:
+      enabled: true
+      include_field_sample_values: true
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      sample_size: 5
+      max_sample_time_seconds: 30
+sink:
+  type: file
+  config:
+    filename: "./kafka_profiling_mces.json"
