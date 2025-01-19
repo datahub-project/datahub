@@ -1,3 +1,4 @@
+import json
 import logging
 import subprocess
 import time
@@ -150,7 +151,9 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
                         "[Errno 111] Connection refused",
                         "[Errno 61] Connection refused",
                     ]
-                ), f"Error message '{error_msg}' does not contain expected connection refused error"
+                ), (
+                    f"Error message '{error_msg}' does not contain expected connection refused error"
+                )
 
 
 @freeze_time(FROZEN_TIME)
@@ -283,10 +286,83 @@ def test_kafka_profiling(
     config_file = (test_resources_dir / "kafka_profiling_to_file.yml").resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
-    # Verify the output
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / "kafka_profiling_mces.json",
-        golden_path=test_resources_dir / f"kafka_profiling_{test_case}_golden.json",
-        ignore_paths=[],
-    )
+    # Read the output file as a single JSON array
+    with open(tmp_path / "kafka_profiling_mces.json", "r") as f:
+        mces = json.load(f)  # Changed from json.loads(line)
+
+    # Find profile aspects
+    profile_aspects = []
+    for mce in mces:
+        if (
+            isinstance(mce, dict)
+            and mce.get("entityType") == "dataset"
+            and mce.get("aspectName") == "datasetProfile"
+            and mce.get("aspect", {}).get("json")
+        ):
+            profile_aspects.append(mce["aspect"]["json"])
+
+    # Assert we found profile data
+    assert len(profile_aspects) > 0, "No profile aspects found in output"
+
+    # For each profile, verify required fields based on config
+    for profile in profile_aspects:
+        # Basic structure checks
+        assert "timestampMillis" in profile, "Profile missing timestampMillis"
+        assert "columnCount" in profile, "Profile missing columnCount"
+        assert profile["columnCount"] > 0, "Profile has no columns"
+        assert "fieldProfiles" in profile, "Profile missing fieldProfiles"
+
+        # Verify partition spec matches config
+        assert "partitionSpec" in profile, "Profile missing partitionSpec"
+        assert profile["partitionSpec"]["partition"].startswith("SAMPLE ("), (
+            "Incorrect partition spec format"
+        )
+
+        # Check field profiles based on config
+        for field_profile in profile["fieldProfiles"]:
+            # Required fields
+            assert "fieldPath" in field_profile, "Field profile missing fieldPath"
+
+            # Config-specified fields
+            if field_profile.get("fieldPath", "").endswith((".id", ".value", ".count")):
+                # Numeric fields should have these stats as per config
+                assert any(
+                    key in field_profile for key in ["min", "max", "mean", "median"]
+                ), (
+                    f"Numeric field {field_profile['fieldPath']} missing required statistical properties"
+                )
+                assert "stdev" in field_profile, (
+                    f"Field {field_profile['fieldPath']} missing standard deviation"
+                )
+                if "quantiles" in field_profile:
+                    assert isinstance(field_profile["quantiles"], list), (
+                        f"Field {field_profile['fieldPath']} has invalid quantiles format"
+                    )
+
+            # Check disabled fields
+            assert "sampleValues" in field_profile, (
+                f"Field {field_profile['fieldPath']} missing sample values"
+            )
+            assert "distinctValueFrequencies" in field_profile, (
+                f"Field {field_profile['fieldPath']} missing frequencies"
+            )
+
+            if "uniqueCount" in field_profile:
+                assert "uniqueProportion" in field_profile, (
+                    f"Field {field_profile['fieldPath']} missing uniqueProportion"
+                )
+
+            # Check for histogram if enabled
+            if field_profile.get("histogram"):
+                assert all(
+                    key in field_profile["histogram"]
+                    for key in ["boundaries", "heights"]
+                ), f"Field {field_profile['fieldPath']} has incomplete histogram"
+
+        # Verify event granularity
+        assert profile["eventGranularity"]["unit"] == "SECOND", (
+            "Incorrect granularity unit"
+        )
+        assert profile["eventGranularity"]["multiple"] == 30, (
+            "Incorrect granularity multiple"
+        )

@@ -6,7 +6,7 @@ import logging
 import math
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
 
 import avro.io
@@ -81,6 +81,8 @@ from datahub.metadata.schema_classes import (
     HistogramClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
     QuantileClass,
     SchemaMetadataClass,
     StatusClass,
@@ -494,10 +496,10 @@ class KafkaProfiler:
                 multiple=self.profiler_config.max_sample_time_seconds,
             ),
             # Add partition specification
-            # partitionSpec=PartitionSpecClass(
-            #     partition=f"SAMPLE ({self.profiler_config.sample_size}/{self.profiler_config.max_sample_time_seconds} seconds)",
-            #     type=PartitionTypeClass.PARTITION,
-            # ),
+            partitionSpec=PartitionSpecClass(
+                partition=f"SAMPLE ({str(self.profiler_config.sample_size)} samples / {str(self.profiler_config.max_sample_time_seconds)} seconds)",
+                type=PartitionTypeClass.QUERY,
+            ),
             fieldProfiles=field_profiles,
         )
 
@@ -509,6 +511,8 @@ def get_kafka_consumer(
         {
             "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
+            "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,
             **connection.consumer_config,
         }
     )
@@ -789,7 +793,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def _process_message_part(
         self, data: Any, prefix: str, topic: str, is_key: bool = False
     ) -> Optional[Any]:
-        """Process either key or value part of a message using schema registry for decoding."""
         if data is None:
             return None
 
@@ -811,21 +814,23 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                     if schema_str:
                         try:
-                            # Parse schema and create reader
-                            schema = avro.schema.parse(schema_str)
-                            # Decode Avro data - first 5 bytes are magic byte and schema ID
-                            decoder = avro.io.BinaryDecoder(io.BytesIO(data[5:]))
-                            reader = avro.io.DatumReader(schema)
-                            decoded_value = reader.read(decoder)
+                            # Check if this is Avro data (has magic byte)
+                            if len(data) > 5 and data[0] == 0:  # Magic byte check
+                                schema = avro.schema.parse(schema_str)
+                                decoder = avro.io.BinaryDecoder(io.BytesIO(data[5:]))
+                                reader = avro.io.DatumReader(schema)
+                                decoded_value = reader.read(decoder)
 
-                            if isinstance(decoded_value, (dict, list)):
-                                # Flatten nested structures
-                                if isinstance(decoded_value, list):
-                                    decoded_value = {"item": decoded_value}
-                                return flatten_json(decoded_value)
-                            return decoded_value
+                                if isinstance(decoded_value, (dict, list)):
+                                    # Flatten nested structures
+                                    if isinstance(decoded_value, list):
+                                        decoded_value = {"item": decoded_value}
+                                    return flatten_json(decoded_value)
+                                return decoded_value
                         except Exception as e:
-                            logger.warning(f"Failed to decode Avro message: {e}")
+                            self.report.report_warning(
+                                "Failed to decode Avro message for topic", topic, exc=e
+                            )
 
                 # Fallback to JSON decode if no schema or Avro decode fails
                 try:
@@ -846,6 +851,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         return data
 
     def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
+        """Get sample messages including historical data"""
         samples: List[Dict[str, Any]] = []
         try:
             # Get metadata for all partitions
@@ -854,25 +860,45 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 confluent_kafka.TopicPartition(topic, p)
                 for p in topic_metadata.partitions.keys()
             ]
+
+            # For each partition, seek to an earlier offset
+            for partition in partitions:
+                # Get the end offset
+                low, high = self.consumer.get_watermark_offsets(partition)
+                # Ensure we get enough messages
+                messages_per_partition = max(
+                    self.source_config.profiling.sample_size // len(partitions),
+                    10,  # Minimum 10 messages per partition
+                )
+                # Start from either beginning or calculated position
+                start_offset = max(low, high - messages_per_partition)
+                partition.offset = start_offset
+                logger.debug(
+                    f"Setting partition {partition.partition} offset to {start_offset} "
+                    f"(low={low}, high={high})"
+                )
+
             self.consumer.assign(partitions)
-            logger.debug(f"Assigned to topic {topic}")
+            logger.debug(f"Assigned to topic {topic} with specific offsets")
 
-            max_polls = 10  # Limit number of poll attempts
-            polls = 0
-
+            end_time = datetime.now() + timedelta(
+                seconds=float(self.source_config.profiling.max_sample_time_seconds)
+            )
             while (
                 len(samples) < self.source_config.profiling.sample_size
-                and polls < max_polls
+                and datetime.now() < end_time
             ):
-                polls += 1
                 msg = self.consumer.poll(timeout=1.0)
 
                 if msg is None:
                     continue
 
                 if msg.error():
-                    logger.warning(f"Error while consuming from {topic}: {msg.error()}")
-                    break
+                    self.report.report_warning(
+                        "profiling",
+                        f"Error while consuming from {topic}: {msg.error()}",
+                    )
+                    continue
 
                 try:
                     key = msg.key() if callable(msg.key) else msg.key
@@ -908,15 +934,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples.append(sample)
 
                 except Exception as e:
-                    logger.warning(f"Failed to process message: {e}")
+                    self.report.report_warning(
+                        "profiling", f"Failed to process message: {str(e)}"
+                    )
 
         except Exception as e:
-            logger.warning(f"Failed to collect samples from {topic}: {e}")
+            self.report.report_warning(
+                "profiling", f"Failed to collect samples from {topic}: {str(e)}"
+            )
         finally:
             try:
                 self.consumer.unassign()
             except Exception as e:
-                logger.warning(f"Failed to unassign consumer: {e}")
+                self.report.report_warning(
+                    "profiling", f"Failed to unassign consumer: {str(e)}"
+                )
 
         return samples
 
@@ -1007,11 +1039,18 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         """Create samples work unit incorporating both schema fields and sample values."""
         # Only proceed if profiling is enabled
         if not self.source_config.profiling.enabled:
+            self.report.report_warning(
+                "Profiling not enabled for topic",
+                topic,
+            )
             return
 
         samples = self.get_sample_messages(topic)
         if not samples:
+            self.report.report_warning("No samples collected for topic", topic)
             return
+
+        self.report.info(f"Collected {len(samples)} samples for topic", topic)
 
         # Respect sample size limit if configured
         if self.source_config.profiling.limit:
@@ -1158,10 +1197,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             custom_props = self.build_custom_properties(
                 topic, topic_detail, extra_topic_config
             )
-            schema_name: Optional[
-                str
-            ] = self.schema_registry_client._get_subject_for_topic(
-                topic, is_key_schema=False
+            schema_name: Optional[str] = (
+                self.schema_registry_client._get_subject_for_topic(
+                    topic, is_key_schema=False
+                )
             )
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
@@ -1311,11 +1350,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-        configs: Dict[
-            ConfigResource, concurrent.futures.Future
-        ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
-            request_timeout=self.source_config.connection.client_timeout_seconds,
+        configs: Dict[ConfigResource, concurrent.futures.Future] = (
+            self.admin_client.describe_configs(
+                resources=[
+                    ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics
+                ],
+                request_timeout=self.source_config.connection.client_timeout_seconds,
+            )
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())

@@ -18,7 +18,7 @@ source:
       include_field_quantiles: true
       include_field_distinct_value_frequencies: true
       include_field_histogram: true
-      sample_size: 5
+      sample_size: 10 # exceed the number of samples in dataset
       max_sample_time_seconds: 30
 sink:
   type: file
