@@ -2,15 +2,6 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=63.0.0", "wheel"]
 
-[tool.black]
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-^/tmp
-'''
-include = '\.pyi?$'
-target-version = ['py38', 'py39', 'py310', 'py311']
-
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
@@ -31,23 +22,22 @@ exclude = [
 
 [tool.ruff.lint]
 extend-select = [
-    "B",  # Bugbear
-    "C90",
-    "E",
-    "F",
-    "G010",  # logging.warn -> logging.warning
-    "I",  # Import sorting
-    "TID",  # Tidy imports
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
 ]
 extend-ignore = [
-    # Ignore line length violations (handled by Black)
-    "E501",
-    # Ignore whitespace before ':' (matches Black)
-    "E203",
-    # Allow usages of functools.lru_cache
-    "B019",
-    # Allow function call in argument defaults
-    "B008",
+    "E501",  # Handled by formatter
+    "E111",  # Handled by formatter
+    "E114",  # Handled by formatter
+    "E117",  # Handled by formatter
+    "E203",  # Ignore whitespace before ':' (matches Black)
+    "B019",  # Allow usages of functools.lru_cache
+    "B008",  # Allow function call in argument defaults
     # TODO: Enable these later
     "B006",  # Mutable args
     "B017",  # Do not assert blind exception

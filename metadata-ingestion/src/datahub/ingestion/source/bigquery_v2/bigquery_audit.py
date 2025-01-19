@@ -37,9 +37,9 @@ class BigqueryTableIdentifier:
 
     # Note: this regex may get overwritten by the sharded_table_pattern config.
     # The class-level constant, however, will not be overwritten.
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[
-        str
-    ] = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = (
+        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+    )
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 

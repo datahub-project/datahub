@@ -155,9 +155,9 @@ class SoftDeletedEntitiesCleanup:
             current_count = self.report.num_hard_deleted_by_type.get(entity_type, 0)
             self.report.num_hard_deleted_by_type[entity_type] = current_count + 1
             if entity_type not in self.report.sample_hard_deleted_aspects_by_type:
-                self.report.sample_hard_deleted_aspects_by_type[
-                    entity_type
-                ] = LossyList()
+                self.report.sample_hard_deleted_aspects_by_type[entity_type] = (
+                    LossyList()
+                )
             self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 
     def delete_entity(self, urn: str) -> None:

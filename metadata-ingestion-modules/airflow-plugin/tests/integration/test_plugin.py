@@ -273,13 +273,21 @@ def _run_airflow(
             subprocess.check_call(
                 [
                     # fmt: off
-                    "airflow", "users", "create",
-                    "--username", "airflow",
-                    "--password", "airflow",
-                    "--firstname", "admin",
-                    "--lastname", "admin",
-                    "--role", "Admin",
-                    "--email", "airflow@example.com",
+                    "airflow",
+                    "users",
+                    "create",
+                    "--username",
+                    "airflow",
+                    "--password",
+                    "airflow",
+                    "--firstname",
+                    "admin",
+                    "--lastname",
+                    "admin",
+                    "--role",
+                    "Admin",
+                    "--email",
+                    "airflow@example.com",
                     # fmt: on
                 ],
                 env=environment,

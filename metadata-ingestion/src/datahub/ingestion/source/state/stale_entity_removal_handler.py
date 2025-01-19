@@ -111,9 +111,9 @@ class StaleEntityRemovalHandler(
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.stateful_ingestion_config: Optional[
-            StatefulStaleMetadataRemovalConfig
-        ] = config.stateful_ingestion
+        self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
+            config.stateful_ingestion
+        )
         self.checkpointing_enabled: bool = (
             True
             if (

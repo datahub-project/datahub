@@ -60,10 +60,10 @@ class DatasetTagDomainMapper(DatasetDomainTransformer):
                 domain_aspect.domains.extend(mapped_domains.domains)
                 if self.config.semantics == TransformerSemantics.PATCH:
                     # Try merging with server-side domains
-                    patch_domain_aspect: Optional[
-                        DomainsClass
-                    ] = AddDatasetDomain._merge_with_server_domains(
-                        self.ctx.graph, entity_urn, domain_aspect
+                    patch_domain_aspect: Optional[DomainsClass] = (
+                        AddDatasetDomain._merge_with_server_domains(
+                            self.ctx.graph, entity_urn, domain_aspect
+                        )
                     )
                     return cast(Optional[Aspect], patch_domain_aspect)
                 return cast(Optional[Aspect], domain_aspect)

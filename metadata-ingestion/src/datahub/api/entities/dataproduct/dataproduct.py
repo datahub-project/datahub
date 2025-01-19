@@ -321,9 +321,9 @@ class DataProduct(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
-        data_product_properties: Optional[
-            DataProductPropertiesClass
-        ] = graph.get_aspect(id, DataProductPropertiesClass)
+        data_product_properties: Optional[DataProductPropertiesClass] = (
+            graph.get_aspect(id, DataProductPropertiesClass)
+        )
         domains: Optional[DomainsClass] = graph.get_aspect(id, DomainsClass)
         assert domains, "Data Product must have an associated domain. Found none."
         owners: Optional[OwnershipClass] = graph.get_aspect(id, OwnershipClass)

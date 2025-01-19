@@ -519,9 +519,9 @@ class DataHubGraph(DatahubRestEmitter):
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
-        assert len(aspects) == len(
-            aspect_types
-        ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        assert len(aspects) == len(aspect_types), (
+            f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        )
 
         # TODO: generate aspects list from type classes
         response_json = self.get_entity_raw(entity_urn, aspects)
@@ -1576,9 +1576,7 @@ class DataHubGraph(DatahubRestEmitter):
                     ... assertionResult
                 }
             }
-        """ % (
-            self._assertion_result_shared()
-        )
+        """ % (self._assertion_result_shared())
 
         variables = {
             "assertionUrn": urn,
