@@ -267,7 +267,7 @@ def undo_by_filter(
 )
 @click.option(
     "--urn-file",
-    required=True,
+    required=False,
     help="Absolute path of file with urns (one per line) to be deleted",
 )
 @click.option(
