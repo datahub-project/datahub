@@ -3,9 +3,9 @@ import os
 import tempfile
 from random import randint
 
-import datahub.metadata.schema_classes as models
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -190,15 +190,6 @@ def ingest_cleanup_data(auth_session, graph_client, request):
 def test_search_dpi(auth_session, ingest_cleanup_data):
     """Test DPI search and validation of returned fields using GraphQL."""
 
-    # TODO: Commented out section of the query that is not yet supported in the backend
-    # platform {
-    #     urn
-    #     name
-    #     properties {
-    #         type
-    #     }
-    # }
-
     json = {
         "query": """query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
             scrollAcrossEntities(input: $input) {
@@ -217,6 +208,13 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                                 platform {
                                     urn
                                     name
+                                }
+                            }
+                            platform {
+                                urn
+                                name
+                                properties {
+                                    type
                                 }
                             }
                             subTypes {
