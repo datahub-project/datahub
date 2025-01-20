@@ -4,6 +4,8 @@ import tempfile
 from random import randint
 
 import pytest
+
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -14,7 +16,6 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataPlatformInstancePropertiesClass,
-    DataProcessInstanceKeyClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRunEventClass,
     MLHyperParamClass,
@@ -23,7 +24,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
-
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,
@@ -54,109 +54,114 @@ class FileEmitter:
         self.sink.close()
 
 
+def create_status_mcp(entity_urn: str):
+    return MetadataChangeProposalWrapper(
+        entityUrn=entity_urn,
+        aspect=models.StatusClass(removed=False),
+    )
+
+
 def create_test_data(filename: str):
+    input_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,my_input_dataset,PROD)"
+    )
+    input_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:mlflow,my_input_model,PROD)"
+    output_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,my_output_dataset,PROD)"
+    )
+    output_model_urn = (
+        "urn:li:mlModel:(urn:li:dataPlatform:mlflow,my_output_model,PROD)"
+    )
+    data_platform_instance_urn = (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)"
+    )
+    container_urn = "urn:li:container:testGroup1"
     mcps = [
-        # Key aspect
+        create_status_mcp(urn)
+        for urn in [
+            input_dataset_urn,
+            input_model_urn,
+            output_dataset_urn,
+            output_model_urn,
+            data_platform_instance_urn,
+        ]
+    ]
+    mcps += [
         MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="dataProcessInstanceKey",
-            aspect=DataProcessInstanceKeyClass(id=dpi_id),
-        ),
-        # Properties aspect
-        MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="dataProcessInstanceProperties",
-            aspect=DataProcessInstancePropertiesClass(
-                name="Test Pipeline Run",
-                type="BATCH_SCHEDULED",
-                created=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:datahub"
-                ),
-            ),
-        ),
-        # Run Event aspect
-        MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="dataProcessInstanceRunEvent",
-            aspect=DataProcessInstanceRunEventClass(
-                timestampMillis=1704067200000,
-                eventGranularity=TimeWindowSizeClass(unit="WEEK", multiple=1),
-                status="COMPLETE",
-            ),
-        ),
-        # Platform Instance aspect
-        MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="dataPlatformInstance",
-            aspect=DataPlatformInstanceClass(
-                platform="urn:li:dataPlatform:airflow",
-                instance="urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)",
-            ),
-        ),
-        MetadataChangeProposalWrapper(
-            entityType="dataPlatformInstance",
-            entityUrn="urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)",
-            aspectName="dataPlatformInstanceProperties",
-            aspect=DataPlatformInstancePropertiesClass(
-                name="my process instance",
-            ),
-        ),
-        # SubTypes aspect
-        MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["TEST", "BATCH_JOB"]),
-        ),
-        # Container aspect
-        MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
-            entityUrn=dpi_urn,
-            aspectName="container",
-            aspect=ContainerClass(container="urn:li:container:testGroup1"),
-        ),
-        MetadataChangeProposalWrapper(
-            entityType="container",
-            entityUrn="urn:li:container:testGroup1",
-            aspectName="containerProperties",
+            entityUrn=container_urn,
             aspect=ContainerPropertiesClass(name="testGroup1"),
-        ),
-        # ML Training Run Properties aspect
+        )
+    ]
+    mcps += [
         MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
+            entityUrn=data_platform_instance_urn,
+            aspect=DataPlatformInstancePropertiesClass(name="my process instance"),
+        )
+    ]
+    mcps += [
+        e
+        for e in MetadataChangeProposalWrapper.construct_many(
             entityUrn=dpi_urn,
-            aspectName="mlTrainingRunProperties",
-            aspect=MLTrainingRunPropertiesClass(
-                id="test-training-run-123",
-                trainingMetrics=[
-                    MLMetricClass(
-                        name="accuracy",
-                        description="accuracy of the model",
-                        value="0.95",
+            aspects=[
+                # Properties aspect
+                DataProcessInstancePropertiesClass(
+                    name="Test Pipeline Run",
+                    type="BATCH_SCHEDULED",
+                    created=AuditStampClass(
+                        time=1640692800000, actor="urn:li:corpuser:datahub"
                     ),
-                    MLMetricClass(
-                        name="loss",
-                        description="accuracy loss of the model",
-                        value="0.05",
-                    ),
-                ],
-                hyperParams=[
-                    MLHyperParamClass(
-                        name="learningRate",
-                        description="rate of learning",
-                        value="0.001",
-                    ),
-                    MLHyperParamClass(
-                        name="batchSize", description="size of the batch", value="32"
-                    ),
-                ],
-                outputUrls=["s3://my-bucket/ml/output"],
-            ),
-        ),
+                ),
+                # # Run Event aspect
+                DataProcessInstanceRunEventClass(
+                    timestampMillis=1704067200000,
+                    eventGranularity=TimeWindowSizeClass(unit="WEEK", multiple=1),
+                    status="COMPLETE",
+                ),
+                # Platform Instance aspect
+                DataPlatformInstanceClass(
+                    platform="urn:li:dataPlatform:airflow",
+                    instance="urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)",
+                ),
+                # SubTypes aspect
+                SubTypesClass(typeNames=["TEST", "BATCH_JOB"]),
+                ContainerClass(container="urn:li:container:testGroup1"),
+                # ML Training Run Properties aspect
+                MLTrainingRunPropertiesClass(
+                    id="test-training-run-123",
+                    trainingMetrics=[
+                        MLMetricClass(
+                            name="accuracy",
+                            description="accuracy of the model",
+                            value="0.95",
+                        ),
+                        MLMetricClass(
+                            name="loss",
+                            description="accuracy loss of the model",
+                            value="0.05",
+                        ),
+                    ],
+                    hyperParams=[
+                        MLHyperParamClass(
+                            name="learningRate",
+                            description="rate of learning",
+                            value="0.001",
+                        ),
+                        MLHyperParamClass(
+                            name="batchSize",
+                            description="size of the batch",
+                            value="32",
+                        ),
+                    ],
+                    outputUrls=["s3://my-bucket/ml/output"],
+                ),
+                models.DataProcessInstanceInputClass(
+                    inputs=[input_dataset_urn, input_model_urn]
+                ),
+                models.DataProcessInstanceOutputClass(
+                    outputs=[output_dataset_urn, output_model_urn]
+                ),
+            ],
+        )
     ]
 
     file_emitter = FileEmitter(filename)
@@ -181,7 +186,7 @@ def ingest_cleanup_data(auth_session, graph_client, request):
         os.remove(filename)
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 def test_search_dpi(auth_session, ingest_cleanup_data):
     """Test DPI search and validation of returned fields using GraphQL."""
 
@@ -205,18 +210,18 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                                     name
                                 }
                             }
-                            subTypes {
-                                typeNames
-                            }
-                            container {
-                                urn
-                            }
                             platform {
                                 urn
                                 name
                                 properties {
                                     type
                                 }
+                            }
+                            subTypes {
+                                typeNames
+                            }
+                            container {
+                                urn
                             }
                             mlTrainingRunProperties {
                                 id
@@ -250,14 +255,14 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
     assert res_data, "Response should not be empty"
     assert "data" in res_data, "Response should contain 'data' field"
     print("RESPONSE DATA:" + str(res_data))
-    assert (
-        "scrollAcrossEntities" in res_data["data"]
-    ), "Response should contain 'scrollAcrossEntities' field"
+    assert "scrollAcrossEntities" in res_data["data"], (
+        "Response should contain 'scrollAcrossEntities' field"
+    )
 
     search_results = res_data["data"]["scrollAcrossEntities"]
-    assert (
-        "searchResults" in search_results
-    ), "Response should contain 'searchResults' field"
+    assert "searchResults" in search_results, (
+        "Response should contain 'searchResults' field"
+    )
 
     results = search_results["searchResults"]
     assert len(results) > 0, "Should find at least one result"

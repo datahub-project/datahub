@@ -88,13 +88,11 @@ def get_sys_time() -> int:
 
 
 @overload
-def make_ts_millis(ts: None) -> None:
-    ...
+def make_ts_millis(ts: None) -> None: ...
 
 
 @overload
-def make_ts_millis(ts: datetime) -> int:
-    ...
+def make_ts_millis(ts: datetime) -> int: ...
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
@@ -105,13 +103,11 @@ def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
 
 
 @overload
-def parse_ts_millis(ts: float) -> datetime:
-    ...
+def parse_ts_millis(ts: float) -> datetime: ...
 
 
 @overload
-def parse_ts_millis(ts: None) -> None:
-    ...
+def parse_ts_millis(ts: None) -> None: ...
 
 
 def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:

@@ -250,9 +250,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
-        assert (
-            field.count(".") == 1
-        ), f"Error: A field must be prefixed by a view name, field is: {field}"
+        assert field.count(".") == 1, (
+            f"Error: A field must be prefixed by a view name, field is: {field}"
+        )
         return field.split(".")[0]
 
     def _get_views_from_fields(self, fields: List[str]) -> List[str]:
@@ -610,12 +610,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _create_platform_instance_aspect(
         self,
     ) -> DataPlatformInstance:
-        assert (
-            self.source_config.platform_name
-        ), "Platform name is not set in the configuration."
-        assert (
-            self.source_config.platform_instance
-        ), "Platform instance is not set in the configuration."
+        assert self.source_config.platform_name, (
+            "Platform name is not set in the configuration."
+        )
+        assert self.source_config.platform_instance, (
+            "Platform instance is not set in the configuration."
+        )
 
         return DataPlatformInstance(
             platform=builder.make_data_platform_urn(self.source_config.platform_name),
@@ -1016,9 +1016,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         yield from chart_events
 
         # Step 2: Emit metadata events for the Dashboard itself.
-        chart_urns: Set[
-            str
-        ] = set()  # Collect the unique child chart urns for dashboard input lineage.
+        chart_urns: Set[str] = (
+            set()
+        )  # Collect the unique child chart urns for dashboard input lineage.
         for chart_event in chart_events:
             chart_event_urn = self._extract_event_urn(chart_event)
             if chart_event_urn:
@@ -1538,20 +1538,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     }
                 )
 
-            dashboard_element: Optional[
-                LookerDashboardElement
-            ] = self._get_looker_dashboard_element(
-                DashboardElement(
-                    id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
-                    # we add the "looks_" prefix to look.id.
-                    title=look.title,
-                    subtitle_text=look.description,
-                    look_id=look.id,
-                    dashboard_id=None,  # As this is an independent look
-                    look=LookWithQuery(
-                        query=query, folder=look.folder, user_id=look.user_id
+            dashboard_element: Optional[LookerDashboardElement] = (
+                self._get_looker_dashboard_element(
+                    DashboardElement(
+                        id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
+                        # we add the "looks_" prefix to look.id.
+                        title=look.title,
+                        subtitle_text=look.description,
+                        look_id=look.id,
+                        dashboard_id=None,  # As this is an independent look
+                        look=LookWithQuery(
+                            query=query, folder=look.folder, user_id=look.user_id
+                        ),
                     ),
-                ),
+                )
             )
 
             if dashboard_element is not None:

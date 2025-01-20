@@ -172,6 +172,11 @@ input  SearchFlags {
   Whether or not to fetch and request for structured property facets when doing a search
   """
   includeStructuredPropertyFacets: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """
