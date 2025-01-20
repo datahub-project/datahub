@@ -27,6 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -101,6 +102,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    OwnershipClass,
     SubTypesClass,
     TagAssociationClass,
     ViewPropertiesClass,
@@ -351,6 +353,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             eager_graph_load=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+        self.table_domains: Dict[str, str] = {}
+        self.table_tags: Dict[str, Dict[str, List[str]]] = {}
+        self.column_tags: Dict[str, Dict[str, List[str]]] = {}
+        self.table_owners: Dict[str, Dict[str, List[str]]] = {}
 
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
@@ -787,6 +794,34 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 domain_registry=self.domain_registry,
             )
 
+        db_name = self.get_db_name(inspector)
+        _key = f"{db_name}.{schema}.{table}"
+
+        new_tags = self.get_tags(_key, dataset_urn=dataset_urn)
+        if new_tags:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=new_tags
+            ).as_workunit()
+
+        new_owners = self.get_owners(_key, dataset_urn=dataset_urn)
+        if new_owners:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=new_owners
+            ).as_workunit()
+
+        domain = self.table_domains.get(_key)
+        if domain:
+            domain_registry = DomainRegistry(
+                cached_domains=[domain], graph=self.ctx.graph
+            )
+            assert domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config={domain: AllowDenyPattern.allow_all()},
+                domain_registry=domain_registry,
+            )
+
     def _classify(
         self,
         dataset_name: str,
@@ -1139,6 +1174,34 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 domain_registry=self.domain_registry,
             )
 
+        db_name = self.get_db_name(inspector)
+        _key = f"{db_name}.{schema}.{view}"
+
+        new_tags = self.get_tags(_key, dataset_urn=dataset_urn)
+        if new_tags:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=new_tags
+            ).as_workunit()
+
+        new_owners = self.get_owners(_key, dataset_urn=dataset_urn)
+        if new_owners:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=new_owners
+            ).as_workunit()
+
+        domain = self.table_domains.get(_key)
+        if domain:
+            domain_registry = DomainRegistry(
+                cached_domains=[domain], graph=self.ctx.graph
+            )
+            assert domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config={domain: AllowDenyPattern.allow_all()},
+                domain_registry=domain_registry,
+            )
+
     def _save_schema_to_resolver(self):
         return self.config.include_view_lineage or (
             hasattr(self.config, "include_lineage") and self.config.include_lineage
@@ -1352,3 +1415,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self):
         return self.report
+
+    def get_tags(self, key: str, dataset_urn: str) -> Optional[GlobalTagsClass]:
+        raise NotImplementedError()
+
+    def get_owners(self, key: str, dataset_urn: str) -> Optional[OwnershipClass]:
+        raise NotImplementedError()
