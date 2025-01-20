@@ -72,6 +72,9 @@ def create_test_data(filename: str):
     output_model_urn = (
         "urn:li:mlModel:(urn:li:dataPlatform:mlflow,my_output_model,PROD)"
     )
+    data_platform_instance_urn = (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)"
+    )
     container_urn = "urn:li:container:testGroup1"
     mcps = [
         create_status_mcp(urn)
@@ -80,12 +83,19 @@ def create_test_data(filename: str):
             input_model_urn,
             output_dataset_urn,
             output_model_urn,
+            data_platform_instance_urn,
         ]
     ]
     mcps += [
         MetadataChangeProposalWrapper(
             entityUrn=container_urn,
             aspect=ContainerPropertiesClass(name="testGroup1"),
+        )
+    ]
+    mcps += [
+        MetadataChangeProposalWrapper(
+            entityUrn=data_platform_instance_urn,
+            aspect=DataPlatformInstancePropertiesClass(name="my process instance"),
         )
     ]
     mcps += [
@@ -101,7 +111,7 @@ def create_test_data(filename: str):
                         time=1640692800000, actor="urn:li:corpuser:datahub"
                     ),
                 ),
-                # Run Event aspect
+                # # Run Event aspect
                 DataProcessInstanceRunEventClass(
                     timestampMillis=1704067200000,
                     eventGranularity=TimeWindowSizeClass(unit="WEEK", multiple=1),
@@ -111,9 +121,6 @@ def create_test_data(filename: str):
                 DataPlatformInstanceClass(
                     platform="urn:li:dataPlatform:airflow",
                     instance="urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,1234567890)",
-                ),
-                DataPlatformInstancePropertiesClass(
-                    name="my process instance",
                 ),
                 # SubTypes aspect
                 SubTypesClass(typeNames=["TEST", "BATCH_JOB"]),
@@ -183,6 +190,15 @@ def ingest_cleanup_data(auth_session, graph_client, request):
 def test_search_dpi(auth_session, ingest_cleanup_data):
     """Test DPI search and validation of returned fields using GraphQL."""
 
+    # TODO: Commented out section of the query that is not yet supported in the backend
+    # platform {
+    #     urn
+    #     name
+    #     properties {
+    #         type
+    #     }
+    # }
+
     json = {
         "query": """query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
             scrollAcrossEntities(input: $input) {
@@ -208,13 +224,6 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                             }
                             container {
                                 urn
-                            }
-                            platform {
-                                urn
-                                name
-                                properties {
-                                    type
-                                }
                             }
                             mlTrainingRunProperties {
                                 id
