@@ -107,10 +107,10 @@ class CassandraToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(cassandra_column_type: str) -> SchemaFieldDataType:
-        type_class: Optional[
-            Type
-        ] = CassandraToSchemaFieldConverter._field_type_to_schema_field_type.get(
-            cassandra_column_type
+        type_class: Optional[Type] = (
+            CassandraToSchemaFieldConverter._field_type_to_schema_field_type.get(
+                cassandra_column_type
+            )
         )
         if type_class is None:
             logger.warning(

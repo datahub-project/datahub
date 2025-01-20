@@ -763,9 +763,9 @@ class BigQueryUsageExtractor:
                     )
 
                 if event.query_event.default_dataset:
-                    custom_properties[
-                        "defaultDatabase"
-                    ] = event.query_event.default_dataset
+                    custom_properties["defaultDatabase"] = (
+                        event.query_event.default_dataset
+                    )
             if event.read_event:
                 if event.read_event.readReason:
                     custom_properties["readReason"] = event.read_event.readReason

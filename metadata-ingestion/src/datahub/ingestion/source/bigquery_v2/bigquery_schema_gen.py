@@ -311,8 +311,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -820,8 +822,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -860,8 +864,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -1203,9 +1209,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[
-            f"{project_id}.{dataset.name}"
-        ] = timer.elapsed_seconds(digits=2)
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (
+            timer.elapsed_seconds(digits=2)
+        )
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

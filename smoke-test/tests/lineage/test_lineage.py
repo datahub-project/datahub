@@ -92,7 +92,7 @@ def search_across_lineage(
         explain += "Entities: "
         try:
             for e in entities:
-                explain += f"\t{e.replace('urn:li:','')}\n"
+                explain += f"\t{e.replace('urn:li:', '')}\n"
             for entity in entities:
                 paths = [
                     x["paths"][0]["path"]
@@ -349,9 +349,9 @@ class ScenarioExpectation:
                             lineage_expectation.impacted_entities[impacted_entity]
                         )
                     else:
-                        entries_to_add[
-                            impacted_dataset_entity
-                        ] = lineage_expectation.impacted_entities[impacted_entity]
+                        entries_to_add[impacted_dataset_entity] = (
+                            lineage_expectation.impacted_entities[impacted_entity]
+                        )
                     entries_to_remove.append(impacted_entity)
             for impacted_entity in entries_to_remove:
                 del lineage_expectation.impacted_entities[impacted_entity]
@@ -756,9 +756,9 @@ class Scenario(BaseModel):
                     ]
                 )
                 try:
-                    assert (
-                        impacted_entities == impacted_entities_expectation
-                    ), f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    assert impacted_entities == impacted_entities_expectation, (
+                        f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    )
                 except Exception:
                     # breakpoint()
                     raise
@@ -783,10 +783,14 @@ class Scenario(BaseModel):
                     try:
                         assert len(impacted_entity_paths) == len(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        ), (
+                            f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        )
                         assert set(impacted_entity_paths) == set(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        ), (
+                            f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        )
                     except Exception:
                         # breakpoint()
                         raise

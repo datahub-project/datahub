@@ -482,14 +482,14 @@ class LookMLSource(StatefulIngestionSourceBase):
         if self.source_config.project_name is not None:
             return self.source_config.project_name
 
-        assert (
-            self.looker_client is not None
-        ), "Failed to find a configured Looker API client"
+        assert self.looker_client is not None, (
+            "Failed to find a configured Looker API client"
+        )
         try:
             model = self.looker_client.lookml_model(model_name, fields="project_name")
-            assert (
-                model.project_name is not None
-            ), f"Failed to find a project name for model {model_name}"
+            assert model.project_name is not None, (
+                f"Failed to find a project name for model {model_name}"
+            )
             return model.project_name
         except SDKError:
             raise ValueError(
@@ -541,9 +541,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
 
-            self.base_projects_folder[
-                BASE_PROJECT_NAME
-            ] = self.source_config.base_folder
+            self.base_projects_folder[BASE_PROJECT_NAME] = (
+                self.source_config.base_folder
+            )
 
             visited_projects: Set[str] = set()
 
@@ -641,9 +641,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     repo_url=remote_project.url,
                 )
 
-                self.base_projects_folder[
-                    remote_project.name
-                ] = p_checkout_dir.resolve()
+                self.base_projects_folder[remote_project.name] = (
+                    p_checkout_dir.resolve()
+                )
                 repo = p_cloner.get_last_repo_cloned()
                 assert repo
                 remote_git_info = GitInfo(
@@ -930,9 +930,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         logger.warning(
                                             f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables"
                                         )
-                                        if (
-                                            not self.source_config.emit_reachable_views_only
-                                        ):
+                                        if not self.source_config.emit_reachable_views_only:
                                             logger.warning(
                                                 "Consider enabling the `emit_reachable_views_only` flag to handle this case."
                                             )

@@ -191,9 +191,9 @@ class DremioAPIOperations:
                     )
                     return
                 else:
-                    assert (
-                        connection_args.username and connection_args.password
-                    ), "Username and password are required for authentication"
+                    assert connection_args.username and connection_args.password, (
+                        "Username and password are required for authentication"
+                    )
                     host = connection_args.hostname
                     port = connection_args.port
                     protocol = "https" if connection_args.tls else "http"

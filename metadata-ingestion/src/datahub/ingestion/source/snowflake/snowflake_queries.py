@@ -623,7 +623,7 @@ fingerprinted_queries as (
         query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
         AND execution_status = 'SUCCESS'
-        AND {users_filter or 'TRUE'}
+        AND {users_filter or "TRUE"}
 )
 , deduplicated_queries as (
     SELECT
@@ -651,7 +651,7 @@ fingerprinted_queries as (
     WHERE
         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        AND {users_filter or 'TRUE'}
+        AND {users_filter or "TRUE"}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
