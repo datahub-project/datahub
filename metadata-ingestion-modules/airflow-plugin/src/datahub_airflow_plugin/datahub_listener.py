@@ -69,7 +69,7 @@ else:
 logger = logging.getLogger(__name__)
 
 _airflow_listener_initialized = False
-_airflow_listener: Optional["DataHubListener"] = None
+_airflow_listeners: Optional[List["DataHubListener"]] = None
 _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower() in (
     "true",
     "1",
@@ -89,13 +89,11 @@ def get_airflow_plugin_listeners() -> Optional[List["DataHubListener"]]:
 
     if not _airflow_listener_initialized:
         _airflow_listener_initialized = True
-
+        _airflow_listeners = []
         plugin_configs = get_lineage_configs()
         for plugin_config in plugin_configs:
             if plugin_config.enabled:
                 telemetry_sent = False
-                conn_id = plugin_config.conn_id
-                Variable.get(conn_id)
                 _airflow_listeners.append(DataHubListener(config=plugin_config))
 
                 if not telemetry_sent:
@@ -114,6 +112,8 @@ def get_airflow_plugin_listeners() -> Optional[List["DataHubListener"]]:
                         },
                     )
                     telemetry_sent = True
+        if len(_airflow_listeners) == 0:
+            _airflow_listeners = None
 
         if plugin_config.disable_openlineage_plugin:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
@@ -121,7 +121,7 @@ def get_airflow_plugin_listeners() -> Optional[List["DataHubListener"]]:
 
             OpenLineagePlugin.listeners = []
 
-    return _airflow_listener
+    return _airflow_listeners
 
 
 def run_in_thread(f: _F) -> _F:
