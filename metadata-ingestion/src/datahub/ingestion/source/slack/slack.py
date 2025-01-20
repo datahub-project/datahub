@@ -2,6 +2,8 @@ import logging
 import textwrap
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Tuple
+from tenacity import retry, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from pydantic import Field, SecretStr
 from slack_sdk import WebClient
@@ -294,6 +296,10 @@ class SlackSource(Source):
                 return
             raise e
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True)
+    )
     def get_user_to_be_updated(self) -> Iterable[CorpUser]:
         graphql_query = textwrap.dedent(
             """
