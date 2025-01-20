@@ -3,6 +3,10 @@ on:
   pull_request_target:
     types: [opened, reopened]
 
+permissions:
+    contents: read
+    pull-requests: write
+    
 jobs:
   triage:
     permissions:
@@ -25,7 +29,6 @@ jobs:
                 "chriscollins3456",
                 "david-leifker",
                 "shirshanka",
-                "sid-acryl",
                 "swaroopjagadish",
                 "treff7es",
                 "yoonhyejin",
@@ -46,7 +49,9 @@ jobs:
                 "kevinkarchacryl",
                 "sgomezvillamor",
                 "acrylJonny",
-                "chakru-r"
+                "chakru-r",
+                "brock-acryl",
+                "mminichino"
               ]'), 
               github.actor
             ) 
