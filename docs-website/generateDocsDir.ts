@@ -439,6 +439,42 @@ function markdown_process_inline_directives(
   contents.content = new_content;
 }
 
+function markdown_process_command_output(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
+    (_, command: string) => {
+      try {
+        // Change to repo root directory before executing command
+        const repoRoot = path.resolve(__dirname, "..");
+
+        console.log(`Executing command: ${command}`);
+
+        // Execute the command and capture output
+        const output = execSync(command, {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        // Return the command output
+        return output.trim();
+      } catch (error: any) {
+        // If there's an error, include it as a comment
+        const errorMessage = error.stderr
+          ? error.stderr.toString()
+          : error.message;
+        return `${
+          error.stdout ? error.stdout.toString().trim() : ""
+        }\n<!-- Error: ${errorMessage.trim()} -->`;
+      }
+    }
+  );
+  contents.content = new_content;
+}
+
 function markdown_sanitize_and_linkify(content: string): string {
   // MDX escaping
   content = content.replace(/</g, "&lt;");
@@ -602,6 +638,7 @@ function copy_python_wheels(): void {
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
     markdown_process_inline_directives(contents, filepath);
+    markdown_process_command_output(contents, filepath);
     //copy_platform_logos();
     // console.log(contents);
 

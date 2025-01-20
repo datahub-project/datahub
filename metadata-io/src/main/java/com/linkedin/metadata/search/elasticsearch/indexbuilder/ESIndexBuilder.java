@@ -411,6 +411,8 @@ public class ESIndexBuilder {
       boolean reindexTaskCompleted = false;
       Pair<Long, Long> documentCounts = getDocumentCounts(indexState.name(), tempIndexName);
       long documentCountsLastUpdated = System.currentTimeMillis();
+      long previousDocCount = documentCounts.getSecond();
+      long estimatedMinutesRemaining = 0;
 
       while (System.currentTimeMillis() < timeoutAt) {
         log.info(
@@ -421,8 +423,22 @@ public class ESIndexBuilder {
 
         Pair<Long, Long> tempDocumentsCount = getDocumentCounts(indexState.name(), tempIndexName);
         if (!tempDocumentsCount.equals(documentCounts)) {
-          documentCountsLastUpdated = System.currentTimeMillis();
+          long currentTime = System.currentTimeMillis();
+          long timeElapsed = currentTime - documentCountsLastUpdated;
+          long docsIndexed = tempDocumentsCount.getSecond() - previousDocCount;
+
+          // Calculate indexing rate (docs per millisecond)
+          double indexingRate = timeElapsed > 0 ? (double) docsIndexed / timeElapsed : 0;
+
+          // Calculate remaining docs and estimated time
+          long remainingDocs = tempDocumentsCount.getFirst() - tempDocumentsCount.getSecond();
+          long estimatedMillisRemaining =
+              indexingRate > 0 ? (long) (remainingDocs / indexingRate) : 0;
+          estimatedMinutesRemaining = estimatedMillisRemaining / (1000 * 60);
+
+          documentCountsLastUpdated = currentTime;
           documentCounts = tempDocumentsCount;
+          previousDocCount = documentCounts.getSecond();
         }
 
         if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
@@ -435,12 +451,15 @@ public class ESIndexBuilder {
           break;
 
         } else {
+          float progressPercentage =
+              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst();
           log.warn(
-              "Task: {} - Document counts do not match {} != {}. Complete: {}%",
+              "Task: {} - Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes",
               parentTaskId,
               documentCounts.getFirst(),
               documentCounts.getSecond(),
-              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst());
+              progressPercentage,
+              estimatedMinutesRemaining);
 
           long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
           if (lastUpdateDelta > (300 * 1000)) {

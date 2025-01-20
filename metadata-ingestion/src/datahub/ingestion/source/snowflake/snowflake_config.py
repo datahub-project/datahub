@@ -221,6 +221,14 @@ class SnowflakeV2Config(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     lazy_schema_resolver: bool = Field(
         default=True,
@@ -234,6 +242,11 @@ class SnowflakeV2Config(
     extract_tags: TagOption = Field(
         default=TagOption.skip,
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
+    )
+
+    extract_tags_as_structured_properties: bool = Field(
+        default=False,
+        description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
     include_external_url: bool = Field(
@@ -253,6 +266,14 @@ class SnowflakeV2Config(
     tag_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
+    )
+
+    structured_property_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "List of regex patterns for structured properties to include in ingestion."
+            " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
+        ),
     )
 
     # This is required since access_history table does not capture whether the table was temporary table.
@@ -363,18 +384,20 @@ class SnowflakeV2Config(
                     assert all(
                         consumer.platform_instance != share_details.platform_instance
                         for consumer in share_details.consumers
-                    ), "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
+                    ), (
+                        "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
+                    )
 
                 databases_included_in_share.append(shared_db)
                 databases_created_from_share.extend(share_details.consumers)
 
             for db_from_share in databases_created_from_share:
-                assert (
-                    db_from_share not in databases_included_in_share
-                ), "Database included in a share can not be present as consumer in any share."
-                assert (
-                    databases_created_from_share.count(db_from_share) == 1
-                ), "Same database can not be present as consumer in more than one share."
+                assert db_from_share not in databases_included_in_share, (
+                    "Database included in a share can not be present as consumer in any share."
+                )
+                assert databases_created_from_share.count(db_from_share) == 1, (
+                    "Same database can not be present as consumer in more than one share."
+                )
 
         return shares
 

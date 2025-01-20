@@ -20,11 +20,9 @@ jobs:
     steps:
       - name: Check whether upload to datahub is enabled
         id: publish
-        env:
-          ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
+          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup
@@ -34,7 +32,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:

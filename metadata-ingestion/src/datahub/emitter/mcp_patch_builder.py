@@ -2,7 +2,19 @@ import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    runtime_checkable,
+)
+
+from typing_extensions import LiteralString
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -19,25 +31,35 @@ from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
 
 
+@runtime_checkable
+class SupportsToObj(Protocol):
+    def to_obj(self) -> Any: ...
+
+
 def _recursive_to_obj(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_recursive_to_obj(v) for v in obj]
-    elif hasattr(obj, "to_obj"):
+    elif isinstance(obj, SupportsToObj):
         return obj.to_obj()
     else:
         return obj
 
 
+PatchPath = Tuple[Union[LiteralString, Urn], ...]
+PatchOp = Literal["add", "remove", "replace"]
+
+
 @dataclass
-class _Patch:
-    op: str  # one of ['add', 'remove', 'replace']; we don't support move, copy or test
-    path: str
+class _Patch(SupportsToObj):
+    op: PatchOp
+    path: PatchPath
     value: Any
 
     def to_obj(self) -> Dict:
+        quoted_path = "/" + "/".join(MetadataPatchProposal.quote(p) for p in self.path)
         return {
             "op": self.op,
-            "path": self.path,
+            "path": quoted_path,
             "value": _recursive_to_obj(self.value),
         }
 
@@ -63,15 +85,16 @@ class MetadataPatchProposal:
 
     # Json Patch quoting based on https://jsonpatch.com/#json-pointer
     @classmethod
-    def quote(cls, value: str) -> str:
-        return value.replace("~", "~0").replace("/", "~1")
+    def quote(cls, value: Union[str, Urn]) -> str:
+        return str(value).replace("~", "~0").replace("/", "~1")
 
     def _add_patch(
-        self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
+        self,
+        aspect_name: str,
+        op: PatchOp,
+        path: PatchPath,
+        value: Any,
     ) -> None:
-        if not isinstance(path, str):
-            path = "/" + "/".join(self.quote(p) for p in path)
-
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 

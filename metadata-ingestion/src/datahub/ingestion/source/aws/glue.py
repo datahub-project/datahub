@@ -248,6 +248,9 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     "Enabled by default when stateful ingestion is turned on.",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE, "Support via the `emit_s3_lineage` config field"
+)
 class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
@@ -284,12 +287,22 @@ class GlueSource(StatefulIngestionSourceBase):
         "Action": [
             "glue:GetDataflowGraph",
             "glue:GetJobs",
+            "s3:GetObject",
         ],
         "Resource": "*"
     }
     ```
 
-    plus `s3:GetObject` for the job script locations.
+    For profiling datasets, the following additional permissions are required:
+    ```json
+        {
+        "Effect": "Allow",
+        "Action": [
+            "glue:GetPartitions",
+        ],
+        "Resource": "*"
+    }
+    ```
 
     """
 
@@ -508,7 +521,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # otherwise, a node represents a transformation
         else:
             node_urn = mce_builder.make_data_job_urn_with_flow(
-                flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
+                flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
             )
 
         return {
@@ -666,7 +679,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
         )
 
-        return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
+        return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
 
     def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
         logger.debug("Getting all databases")
@@ -737,13 +750,13 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_s3_lineage:
             # extract dataset properties aspect
-            dataset_properties: Optional[
-                DatasetPropertiesClass
-            ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            dataset_properties: Optional[DatasetPropertiesClass] = (
+                mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            )
             # extract dataset schema aspect
-            schema_metadata: Optional[
-                SchemaMetadataClass
-            ] = mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+            schema_metadata: Optional[SchemaMetadataClass] = (
+                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+            )
 
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
@@ -752,9 +765,9 @@ class GlueSource(StatefulIngestionSourceBase):
                         location, self.source_config.env
                     )
                     assert self.ctx.graph
-                    schema_metadata_for_s3: Optional[
-                        SchemaMetadataClass
-                    ] = self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+                    schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
+                        self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+                    )
 
                     if self.source_config.glue_s3_lineage_direction == "upstream":
                         fine_grained_lineages = None
@@ -1054,49 +1067,66 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self.gen_database_containers(database)
 
         for table in tables:
-            database_name = table["DatabaseName"]
             table_name = table["Name"]
-            full_table_name = f"{database_name}.{table_name}"
-            self.report.report_table_scanned()
-            if not self.source_config.database_pattern.allowed(
-                database_name
-            ) or not self.source_config.table_pattern.allowed(full_table_name):
-                self.report.report_table_dropped(full_table_name)
-                continue
-
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=full_table_name,
-                env=self.env,
-                platform_instance=self.source_config.platform_instance,
-            )
-
-            mce = self._extract_record(dataset_urn, table, full_table_name)
-            yield MetadataWorkUnit(full_table_name, mce=mce)
-
-            # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
-            # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
-            ).as_workunit()
-
-            yield from self._get_domain_wu(
-                dataset_name=full_table_name,
-                entity_urn=dataset_urn,
-            )
-            yield from self.add_table_to_database_container(
-                dataset_urn=dataset_urn, db_name=database_name
-            )
-
-            wu = self.get_lineage_if_enabled(mce)
-            if wu:
-                yield wu
-
-            yield from self.get_profile_if_enabled(mce, database_name, table_name)
-
+            try:
+                yield from self._gen_table_wu(table=table)
+            except KeyError as e:
+                self.report.report_failure(
+                    message="Failed to extract workunit for table",
+                    context=f"Table: {table_name}",
+                    exc=e,
+                )
         if self.extract_transforms:
             yield from self._transform_extraction()
+
+    def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
+        database_name = table["DatabaseName"]
+        table_name = table["Name"]
+        full_table_name = f"{database_name}.{table_name}"
+        self.report.report_table_scanned()
+        if not self.source_config.database_pattern.allowed(
+            database_name
+        ) or not self.source_config.table_pattern.allowed(full_table_name):
+            self.report.report_table_dropped(full_table_name)
+            return
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=full_table_name,
+            env=self.env,
+            platform_instance=self.source_config.platform_instance,
+        )
+
+        mce = self._extract_record(dataset_urn, table, full_table_name)
+        yield MetadataWorkUnit(full_table_name, mce=mce)
+
+        # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
+        # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
+        ).as_workunit()
+
+        yield from self._get_domain_wu(
+            dataset_name=full_table_name,
+            entity_urn=dataset_urn,
+        )
+        yield from self.add_table_to_database_container(
+            dataset_urn=dataset_urn, db_name=database_name
+        )
+
+        wu = self.get_lineage_if_enabled(mce)
+        if wu:
+            yield wu
+
+        try:
+            yield from self.get_profile_if_enabled(mce, database_name, table_name)
+        except KeyError as e:
+            self.report.report_failure(
+                message="Failed to extract profile for table",
+                context=f"Table: {dataset_urn}",
+                exc=e,
+            )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}

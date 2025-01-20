@@ -1,8 +1,8 @@
 import logging
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
-from random import choices
 from typing import Dict, List, Optional
 
 import click
@@ -470,11 +470,11 @@ def by_filter(
             click.echo("Found urns of multiple entity types")
             for entity_type, entity_urns in urns_by_type.items():
                 click.echo(
-                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {choices(entity_urns, k=min(5, len(entity_urns)))}"
+                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {random.sample(entity_urns, k=min(5, len(entity_urns)))}"
                 )
         else:
             click.echo(
-                f"Found {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
+                f"Found {len(urns)} {entity_type} urn(s). Sample: {random.sample(urns, k=min(5, len(urns)))}"
             )
 
         if not force and not dry_run:

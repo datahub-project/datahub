@@ -23,7 +23,6 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -212,9 +211,9 @@ class SnowflakeV2Source(
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[
-                RedundantUsageRunSkipHandler
-            ] = None
+            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
+                None
+            )
             if self.config.enable_stateful_usage_ingestion:
                 redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
                     source=self,
@@ -250,11 +249,6 @@ class SnowflakeV2Source(
             )
 
         self.add_config_to_report()
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = SnowflakeV2Config.parse_obj(config_dict)
-        return cls(ctx, config)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -302,7 +296,16 @@ class SnowflakeV2Source(
 
         _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
         privileges: List[SnowflakePrivilege] = []
-        capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
+        capabilities: List[SourceCapability] = [
+            c.capability
+            for c in SnowflakeV2Source.get_capabilities()  # type: ignore
+            if c.capability
+            not in (
+                SourceCapability.PLATFORM_INSTANCE,
+                SourceCapability.DOMAINS,
+                SourceCapability.DELETION_DETECTION,
+            )
+        ]
 
         cur = conn.query("select current_role()")
         current_role = [row["CURRENT_ROLE()"] for row in cur][0]
@@ -480,8 +483,8 @@ class SnowflakeV2Source(
             identifiers=self.identifiers,
         )
 
-        self.report.set_ingestion_stage("*", METADATA_EXTRACTION)
-        yield from schema_extractor.get_workunits_internal()
+        with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
+            yield from schema_extractor.get_workunits_internal()
 
         databases = schema_extractor.databases
 
@@ -513,45 +516,46 @@ class SnowflakeV2Source(
         discovered_datasets = discovered_tables + discovered_views
 
         if self.config.use_queries_v2:
-            self.report.set_ingestion_stage("*", VIEW_PARSING)
-            yield from auto_workunit(self.aggregator.gen_metadata())
+            with self.report.new_stage(f"*: {VIEW_PARSING}"):
+                yield from auto_workunit(self.aggregator.gen_metadata())
 
-            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
+            with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
+                schema_resolver = self.aggregator._schema_resolver
 
-            schema_resolver = self.aggregator._schema_resolver
+                queries_extractor = SnowflakeQueriesExtractor(
+                    connection=self.connection,
+                    config=SnowflakeQueriesExtractorConfig(
+                        window=self.config,
+                        temporary_tables_pattern=self.config.temporary_tables_pattern,
+                        include_lineage=self.config.include_table_lineage,
+                        include_usage_statistics=self.config.include_usage_stats,
+                        include_operations=self.config.include_operational_stats,
+                        include_queries=self.config.include_queries,
+                        include_query_usage_statistics=self.config.include_query_usage_statistics,
+                        user_email_pattern=self.config.user_email_pattern,
+                    ),
+                    structured_report=self.report,
+                    filters=self.filters,
+                    identifiers=self.identifiers,
+                    schema_resolver=schema_resolver,
+                    discovered_tables=discovered_datasets,
+                    graph=self.ctx.graph,
+                )
 
-            queries_extractor = SnowflakeQueriesExtractor(
-                connection=self.connection,
-                config=SnowflakeQueriesExtractorConfig(
-                    window=self.config,
-                    temporary_tables_pattern=self.config.temporary_tables_pattern,
-                    include_lineage=self.config.include_table_lineage,
-                    include_usage_statistics=self.config.include_usage_stats,
-                    include_operations=self.config.include_operational_stats,
-                    user_email_pattern=self.config.user_email_pattern,
-                ),
-                structured_report=self.report,
-                filters=self.filters,
-                identifiers=self.identifiers,
-                schema_resolver=schema_resolver,
-                discovered_tables=discovered_datasets,
-                graph=self.ctx.graph,
-            )
-
-            # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-            # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-            # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
-            queries_extractor.close()
+                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
+                queries_extractor.close()
 
         else:
             if self.lineage_extractor:
-                self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
-                self.lineage_extractor.add_time_based_lineage_to_aggregator(
-                    discovered_tables=discovered_tables,
-                    discovered_views=discovered_views,
-                )
+                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                    self.lineage_extractor.add_time_based_lineage_to_aggregator(
+                        discovered_tables=discovered_tables,
+                        discovered_views=discovered_views,
+                    )
 
             # This would emit view and external table ddl lineage
             # as well as query lineage via lineage_extractor
