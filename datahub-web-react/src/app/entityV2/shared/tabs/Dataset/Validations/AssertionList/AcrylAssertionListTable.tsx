@@ -119,7 +119,7 @@ export const AcrylAssertionListTable = ({
 
     return (
         <>
-            <StyledTableContainer style={{ height: '100vh', overflow: 'hidden' }}>
+            <StyledTableContainer style={{ overflow: 'hidden', marginBottom: 20 }}>
                 <Table
                     columns={assertionsTableCols}
                     data={groupBy ? getGroupData() : assertionData.assertions || []}

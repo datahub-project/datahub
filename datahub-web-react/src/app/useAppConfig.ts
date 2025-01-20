@@ -47,8 +47,3 @@ export function useIsDatasetFeaturesSearchSortEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showDatasetFeaturesSearchSortOptions;
 }
-
-export function useIsShowNavBarRedesignEnabled() {
-    const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.showNavBarRedesign;
-}

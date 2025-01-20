@@ -29,19 +29,19 @@ const TimeRow = styled.div`
 `;
 
 type TimelineContentProps = {
-    operation: Omit<Operation, 'lastUpdatedTimestamp'>;
+    operation: Operation;
     user: CorpUser;
 };
 
 export default function TimelineContent({ operation, user }: TimelineContentProps) {
-    const timestamp = dayjs(operation.timestampMillis);
+    const timestamp = dayjs(operation.lastUpdatedTimestamp);
 
     const getUserName = useGetUserName();
 
     return (
         <Content>
             <ContentRow>
-                <ChangeTypePill changeType={operation.operationType} />
+                <ChangeTypePill operation={operation} />
                 <Text>
                     <Text color="gray" type="span">
                         by

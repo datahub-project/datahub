@@ -1,4 +1,5 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Entity } from '@src/types.generated';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -17,6 +18,12 @@ interface DataInfo {
     oldestOperationTime?: number | null;
 }
 
+interface StatsPermissions {
+    canViewDatasetUsage: boolean;
+    canViewDatasetProfile: boolean;
+    canViewDatasetOperations: boolean;
+}
+
 interface StatsSectionsContextProps {
     sections: Record<SectionKeys, Section>;
     setSectionState: (key: SectionKeys, hasData: boolean) => void;
@@ -24,6 +31,7 @@ interface StatsSectionsContextProps {
     statsEntity: Entity | undefined;
     statsEntityUrn: string | undefined;
     setStatsEntityUrn: React.Dispatch<React.SetStateAction<string | undefined>>;
+    permissions: StatsPermissions;
 }
 
 // Function to get default initial sections
@@ -36,6 +44,12 @@ const getDefaultSections = (): Record<SectionKeys, Section> => {
 
 const defaultDataInfo = { capabilitiesLoading: false };
 
+const defaultPermissions = {
+    canViewDatasetUsage: false,
+    canViewDatasetProfile: false,
+    canViewDatasetOperations: false,
+};
+
 const StatsSectionsContext = createContext<StatsSectionsContextProps>({
     sections: getDefaultSections(),
     setSectionState: () => {},
@@ -43,6 +57,7 @@ const StatsSectionsContext = createContext<StatsSectionsContextProps>({
     statsEntity: undefined,
     statsEntityUrn: undefined,
     setStatsEntityUrn: () => {},
+    permissions: defaultPermissions,
 });
 
 export const useStatsSectionsContext = () => useContext(StatsSectionsContext);
@@ -88,9 +103,35 @@ export const StatsSectionsContextProvider = ({ children }: Props) => {
         }));
     }, []);
 
+    const canViewDatasetUsage = (statsEntity as GenericEntityProperties)?.privileges?.canViewDatasetUsage;
+    const canViewDatasetProfile = (statsEntity as GenericEntityProperties)?.privileges?.canViewDatasetProfile;
+    const canViewDatasetOperations = (statsEntity as GenericEntityProperties)?.privileges?.canViewDatasetOperations;
+
     const value = useMemo(
-        () => ({ sections, setSectionState, dataInfo, statsEntity, statsEntityUrn, setStatsEntityUrn }),
-        [sections, setSectionState, dataInfo, statsEntity, statsEntityUrn, setStatsEntityUrn],
+        () => ({
+            sections,
+            setSectionState,
+            dataInfo,
+            statsEntity,
+            statsEntityUrn,
+            setStatsEntityUrn,
+            permissions: {
+                canViewDatasetUsage: !!canViewDatasetUsage,
+                canViewDatasetProfile: !!canViewDatasetProfile,
+                canViewDatasetOperations: !!canViewDatasetOperations,
+            },
+        }),
+        [
+            sections,
+            setSectionState,
+            dataInfo,
+            statsEntity,
+            statsEntityUrn,
+            setStatsEntityUrn,
+            canViewDatasetUsage,
+            canViewDatasetProfile,
+            canViewDatasetOperations,
+        ],
     );
 
     return <StatsSectionsContext.Provider value={value}>{children}</StatsSectionsContext.Provider>;

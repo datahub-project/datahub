@@ -23,6 +23,7 @@ import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     getAssertionGroupName,
+    getAssertionType,
 } from '../acrylUtils';
 import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
@@ -163,7 +164,7 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         const rowData: AssertionListTableRow = {
-            type: assertion.info?.type,
+            type: getAssertionType(assertion),
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags?.tags as TagAssociation[],
             descriptionHTML: null,
@@ -203,7 +204,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
         if (filteredAssertions.length > 0) {
             const summary = {};
             filteredAssertions.forEach((assertion) => {
-                const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
+                const assertionType = getAssertionType(assertion) || 'Unknown';
                 summary[assertionType] = (summary[assertionType] || 0) + 1;
             });
             const group: AssertionStatusGroup = {
@@ -296,7 +297,7 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
         // filter out tracked types
-        const type = (assertion.info?.type || '') as AssertionType;
+        const type = (getAssertionType(assertion) || '') as AssertionType;
         const index = remainingAssertionTypes.indexOf(type);
         if (index > -1) {
             remainingAssertionTypes.splice(index, 1);
@@ -397,7 +398,6 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
-
     // separate out column assertion list for filter
     const columnTypeAssertions =
         assertionRawData.groupBy.type?.find((item) => item.type === AssertionType.Field)?.assertions || [];
@@ -423,7 +423,7 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
     return assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
         const columnId = getColumnIdFromAssertion(assertion) || '';
-        const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
+        const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
         const matchesStatus = status.length === 0 || status.includes(resultType);
         const matchesColumn = column.length === 0 || column.includes(columnId);
         const matchesOthers =

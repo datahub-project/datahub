@@ -27,6 +27,7 @@ export const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor'
         textAnchor: 'middle',
     },
     maxHeight: 350,
+    showPopover: true,
 };
 
 export function CalendarChart<ValueType = any>({
@@ -34,11 +35,13 @@ export function CalendarChart<ValueType = any>({
     startDate,
     endDate,
     colorAccessor,
+    showPopover = calendarChartDefault.showPopover,
     popoverRenderer,
     leftAxisLabelProps = calendarChartDefault.leftAxisLabelProps,
     bottomAxisLabelProps = calendarChartDefault.bottomAxisLabelProps,
     margin,
     maxHeight = calendarChartDefault.maxHeight,
+    selectedDay,
     onDayClick,
 }: CalendarChartProps<ValueType>) {
     const preparedData = useMemo(
@@ -57,7 +60,9 @@ export function CalendarChart<ValueType = any>({
                             height={maxHeight ?? height}
                             margin={margin}
                             colorAccessor={colorAccessor}
+                            showPopover={showPopover}
                             popoverRenderer={popoverRenderer}
+                            selectedDay={selectedDay}
                             onDayClick={onDayClick}
                         >
                             <CalendarContainer>

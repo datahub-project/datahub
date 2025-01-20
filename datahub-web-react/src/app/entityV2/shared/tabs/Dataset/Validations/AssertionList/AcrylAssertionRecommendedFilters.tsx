@@ -18,7 +18,7 @@ interface AcrylAssertionRecommendedFiltersProps {
 const FilterContainer = styled.div`
     display: flex;
     flex-direction: row;
-    padding: 10px;
+    padding: 8px 0px 20px 0px;
     gap: 10px;
     overflow: auto;
 `;

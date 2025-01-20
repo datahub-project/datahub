@@ -2,18 +2,23 @@ import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/ut
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 import { useEffect, useMemo } from 'react';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
 export default function useRowCountData(urn: string | undefined, lookbackWindow) {
     const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesLazyQuery();
 
+    const {
+        permissions: { canViewDatasetProfile },
+    } = useStatsSectionsContext();
+
     useEffect(() => {
-        if (urn !== undefined && lookbackWindow !== undefined) {
+        if (urn !== undefined && lookbackWindow !== undefined && canViewDatasetProfile) {
             getDataProfiles({
                 variables: { urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
             });
         }
-    }, [urn, lookbackWindow, getDataProfiles]);
+    }, [urn, lookbackWindow, getDataProfiles, canViewDatasetProfile]);
 
     const rawData = useMemo(() => {
         const profiles = profilesData?.dataset?.datasetProfiles || [];
@@ -37,6 +42,13 @@ export default function useRowCountData(urn: string | undefined, lookbackWindow)
             (d) => d.value,
         );
     }, [rawData]);
+
+    if (!canViewDatasetProfile) {
+        return {
+            data: [],
+            loading: false,
+        };
+    }
 
     return {
         data,

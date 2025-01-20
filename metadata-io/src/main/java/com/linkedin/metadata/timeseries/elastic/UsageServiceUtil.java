@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -68,7 +69,8 @@ public class UsageServiceUtil {
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull String resource,
       @Nonnull WindowDuration duration,
-      UsageTimeRange range) {
+      UsageTimeRange range,
+      @Nullable String timeZone) {
 
     final long now = Instant.now().toEpochMilli();
     return query(
@@ -78,7 +80,8 @@ public class UsageServiceUtil {
         duration,
         TimeseriesUtils.convertRangeToStartTime(range, now),
         now,
-        null);
+        null,
+        timeZone);
   }
 
   public static UsageQueryResult query(
@@ -88,7 +91,8 @@ public class UsageServiceUtil {
       @Nonnull WindowDuration duration,
       @Nullable Long startTime,
       @Nullable Long endTime,
-      @Nullable Integer maxBuckets) {
+      @Nullable Integer maxBuckets,
+      @Nullable String timeZone) {
 
     // 1. Populate the filter. This is common for all queries.
     Filter filter = new Filter();
@@ -104,7 +108,7 @@ public class UsageServiceUtil {
     // 2. Get buckets.
     timer = MetricUtils.timer(UsageServiceUtil.class, "getBuckets").time();
     UsageAggregationArray buckets =
-        getBuckets(opContext, timeseriesAspectService, filter, resource, duration);
+        getBuckets(opContext, timeseriesAspectService, filter, resource, duration, timeZone);
     took = timer.stop();
     log.info(
         "Usage stats for resource {} returned {} buckets in {} ms",
@@ -147,7 +151,8 @@ public class UsageServiceUtil {
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull Filter filter,
       @Nonnull String resource,
-      @Nonnull WindowDuration duration) {
+      @Nonnull WindowDuration duration,
+      @Nullable String timeZone) {
     // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation
     // because
     // (a) it is very expensive to compute the un-explode equivalent queries for timeseries field
@@ -180,9 +185,8 @@ public class UsageServiceUtil {
         .setKey(Constants.ES_FIELD_TIMESTAMP)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
         .setTimeWindowSize(
-            new TimeWindowSize()
-                .setMultiple(1)
-                .setUnit(TimeseriesUtils.windowToInterval(duration)));
+            new TimeWindowSize().setMultiple(1).setUnit(TimeseriesUtils.windowToInterval(duration)))
+        .setTimeZone(timeZone, SetMode.IGNORE_NULL);
     GroupingBucket[] groupingBuckets = new GroupingBucket[] {timestampBucket};
 
     // 3. Query

@@ -33,7 +33,8 @@ public class DatasetOperationsStatsResolverTest {
 
   private static final Dataset TEST_SOURCE = new Dataset();
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";
-  private static final OperationsStatsInput TEST_INPUT = new OperationsStatsInput(TimeRange.MONTH);
+  private static final OperationsStatsInput TEST_INPUT =
+      new OperationsStatsInput(TimeRange.MONTH, null);
 
   static {
     TEST_SOURCE.setUrn(TEST_DATASET_URN);
@@ -165,7 +166,7 @@ public class DatasetOperationsStatsResolverTest {
                         new StringArray(ImmutableList.of("UPDATE", "9"))))
                 .setColumnNames(
                     new StringArray(
-                        ImmutableList.of("operationType", "cardinality_timestampMillis")))
+                        ImmutableList.of("operationType", "cardinality_lastUpdatedTimestamp")))
                 .setColumnTypes(new StringArray()));
     // mock aggregating overall by customOperationType
     when(mockService.getAggregatedStats(
@@ -183,7 +184,8 @@ public class DatasetOperationsStatsResolverTest {
                         new StringArray(ImmutableList.of("customDelete", "5"))))
                 .setColumnNames(
                     new StringArray(
-                        ImmutableList.of("customOperationType", "cardinality_timestampMillis")))
+                        ImmutableList.of(
+                            "customOperationType", "cardinality_lastUpdatedTimestamp")))
                 .setColumnTypes(new StringArray()));
 
     // mock aggregating by day
@@ -239,7 +241,9 @@ public class DatasetOperationsStatsResolverTest {
                 .setColumnNames(
                     new StringArray(
                         ImmutableList.of(
-                            "timestampMillis", "operationType", "cardinality_timestampMillis")))
+                            "lastUpdatedTimestamp",
+                            "operationType",
+                            "cardinality_lastUpdatedTimestamp")))
                 .setColumnTypes(new StringArray()));
 
     // mock aggregating custom operations by day
@@ -260,9 +264,9 @@ public class DatasetOperationsStatsResolverTest {
                 .setColumnNames(
                     new StringArray(
                         ImmutableList.of(
-                            "timestampMillis",
+                            "lastUpdatedTimestamp",
                             "customOperationType",
-                            "cardinality_timestampMillis")))
+                            "cardinality_lastUpdatedTimestamp")))
                 .setColumnTypes(new StringArray()));
 
     return mockService;
@@ -272,14 +276,14 @@ public class DatasetOperationsStatsResolverTest {
     AggregationSpec timestampSpec =
         new AggregationSpec()
             .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath(com.linkedin.metadata.timeseries.elastic.Constants.ES_FIELD_TIMESTAMP);
+            .setFieldPath("lastUpdatedTimestamp");
     return new AggregationSpec[] {timestampSpec};
   }
 
   private GroupingBucket[] getGroupingBucketsByDay() {
     GroupingBucket timestampBucket =
         new GroupingBucket()
-            .setKey(com.linkedin.metadata.timeseries.elastic.Constants.ES_FIELD_TIMESTAMP)
+            .setKey("lastUpdatedTimestamp")
             .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
             .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
     GroupingBucket operationTypeBucket =
@@ -293,7 +297,7 @@ public class DatasetOperationsStatsResolverTest {
   private GroupingBucket[] getCustomOperationsGroupingBuckets() {
     GroupingBucket timestampBucket =
         new GroupingBucket()
-            .setKey(com.linkedin.metadata.timeseries.elastic.Constants.ES_FIELD_TIMESTAMP)
+            .setKey("lastUpdatedTimestamp")
             .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
             .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
     GroupingBucket operationTypeBucket =

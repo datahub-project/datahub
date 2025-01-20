@@ -19,7 +19,7 @@ const CreateButton = styled(Button)`
         height: 40px;
         color: white;
         justify-content: center;
-        align-items: center;
+        align-items: end;
         border-radius: 5px;
         &:disabled {
             background-color: #e0e0e0 !important;
@@ -162,7 +162,7 @@ export const CreateAssertionButton = ({
     });
 
     return assertionMonitorsEnabled ? (
-        <TabToolbar style={{ boxShadow: 'none' }} className={className}>
+        <TabToolbar style={{ boxShadow: 'none', justifyContent: 'end', padding: 0 }} className={className}>
             {isSiblingMode && !disableCreateAssertion ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
                     {createButton}

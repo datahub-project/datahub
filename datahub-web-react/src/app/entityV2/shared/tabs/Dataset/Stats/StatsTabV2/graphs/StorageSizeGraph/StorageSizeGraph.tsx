@@ -1,17 +1,19 @@
 import { GraphCard, LineChart } from '@components';
 import { formatBytes } from '@src/app/shared/formatNumber';
+import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { TimeRange } from '@src/types.generated';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
-import useStorageSizeData from './useStorageSizeData';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
+import NoPermission from '../NoPermission';
+import useStorageSizeData from './useStorageSizeData';
 
 export default function StorageSizeGraph() {
     const {
@@ -19,6 +21,7 @@ export default function StorageSizeGraph() {
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
         statsEntityUrn,
+        permissions: { canViewDatasetProfile },
     } = useStatsSectionsContext();
 
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
@@ -49,7 +52,8 @@ export default function StorageSizeGraph() {
     return (
         <GraphCard
             title="Storage Size"
-            isEmpty={data.length === 0}
+            isEmpty={data.length === 0 || !canViewDatasetProfile}
+            emptyContent={!canViewDatasetProfile && <NoPermission statName="storage size" />}
             loading={loading}
             graphHeight="290px"
             renderControls={() => (
@@ -79,6 +83,7 @@ export default function StorageSizeGraph() {
                     )}
                 />
             )}
+            moreInfoModalContent={<MoreInfoModalContent />}
         />
     );
 }

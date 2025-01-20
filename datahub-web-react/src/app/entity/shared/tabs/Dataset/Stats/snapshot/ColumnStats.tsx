@@ -1,3 +1,4 @@
+import { downgradeV2FieldPath } from '@src/app/entity/dataset/profile/schema/utils/utils';
 import { Typography } from 'antd';
 import { ColumnsType, ColumnType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
@@ -35,7 +36,7 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
-                name: doc.fieldPath,
+                name: downgradeV2FieldPath(doc.fieldPath),
                 min: doc.min,
                 max: doc.max,
                 mean: doc.mean,

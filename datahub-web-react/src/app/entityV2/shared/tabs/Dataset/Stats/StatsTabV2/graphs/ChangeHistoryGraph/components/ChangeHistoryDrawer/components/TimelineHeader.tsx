@@ -22,7 +22,7 @@ const PillSkeleton = styled(Skeleton.Button)`
 `;
 
 type TimelineHeaderProps = {
-    day?: string;
+    day?: string | null;
     numberOfChanges: number;
     loading?: boolean;
 };

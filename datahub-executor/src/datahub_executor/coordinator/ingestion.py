@@ -4,6 +4,7 @@ import time
 from threading import Thread
 from typing import Optional, cast
 
+from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from datahub_actions.action.action import Action
@@ -149,6 +150,12 @@ class IngestionAction(Action):
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
             logger.info(f"started task ingestion_request for exec_id = {task}")
 
+    def _execute_wrapper(self, request: ExecutionRequest) -> None:
+        try:
+            self.ingestion_executor.execute(request)
+        except Exception:
+            logger.exception("Error executing ingestion: ")
+
     def _apply_ingestion_request(self, orig_event: MetadataChangeLogClass) -> None:
         execution_request = extract_execution_request(orig_event, self.graph)
         if execution_request:
@@ -157,9 +164,7 @@ class IngestionAction(Action):
                 f"Starting ingestion task {execution_request.exec_id} on a local thread with weight = {weight}"
             )
 
-            self.tp.submit_weighted(
-                weight, self.ingestion_executor.execute, execution_request
-            )
+            self.tp.submit_weighted(weight, self._execute_wrapper, execution_request)
 
     def _signal_thread_worker(self) -> None:
         if self.embedded_worker_enabled:

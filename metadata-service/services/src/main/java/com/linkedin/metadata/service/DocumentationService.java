@@ -9,13 +9,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.DataProductPropertiesPatchBuilder;
-import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.DomainPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableChartPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableContainerPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableDashboardPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableDataFlowPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableDataJobPropertiesPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.EditableDatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableMLFeaturePropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableMLFeatureTablePropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableMLModelGroupPropertiesPatchBuilder;
@@ -68,7 +68,7 @@ public class DocumentationService extends BaseService {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
     switch (entityUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        mcps.add(buildPatchDatasetDocumentation(opContext, entityUrn, documentation, actorUrn));
+        mcps.add(buildPatchDatasetDocumentation(entityUrn, documentation));
         break;
       case Constants.DASHBOARD_ENTITY_NAME:
         mcps.add(buildPatchDashboardDocumentation(opContext, entityUrn, documentation, actorUrn));
@@ -126,17 +126,10 @@ public class DocumentationService extends BaseService {
   }
 
   private MetadataChangeProposal buildPatchDatasetDocumentation(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn entityUrn,
-      @Nonnull final String documentation,
-      @Nullable Urn actorUrn) {
-    TimeStamp timeStamp = new TimeStamp();
-    timeStamp.setTime(System.currentTimeMillis());
-    timeStamp.setActor(actorUrn != null ? actorUrn : opContext.getAuditStamp().getActor());
-    return new DatasetPropertiesPatchBuilder()
+      @Nonnull final Urn entityUrn, @Nonnull final String documentation) {
+    return new EditableDatasetPropertiesPatchBuilder()
         .urn(entityUrn)
         .setDescription(documentation)
-        .setLastModified(timeStamp)
         .build();
   }
 

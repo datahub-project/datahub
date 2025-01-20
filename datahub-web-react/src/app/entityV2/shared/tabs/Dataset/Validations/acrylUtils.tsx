@@ -229,6 +229,10 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
     };
 };
 
+export const getAssertionType = (assertion: Assertion): string | undefined => {
+    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+};
+
 /**
  * Returns a list of assertion groups, where assertions are grouped
  * by their "type" or "category". Each group includes the assertions inside, along with
@@ -244,7 +248,7 @@ export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDeta
     assertions
         .filter((assertion) => assertion.info?.type)
         .forEach((assertion) => {
-            const assertionType: string | undefined = assertion?.info?.customAssertion?.type || assertion?.info?.type;
+            const assertionType: string | undefined = getAssertionType(assertion);
             const assertionGroup: string = assertionType || 'Unknown';
             const groupedAssertions = typeToAssertions.get(assertionGroup) || [];
             groupedAssertions.push(assertion);

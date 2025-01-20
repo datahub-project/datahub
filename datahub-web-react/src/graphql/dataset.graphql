@@ -268,9 +268,9 @@ query getLastMonthUsageAggregations($urn: String!) {
     }
 }
 
-query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!) {
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $timeZone: String) {
     dataset(urn: $urn) {
-        usageStats(range: $timeRange) {
+        usageStats(range: $timeRange, timeZone: $timeZone) {
             aggregations {
                 uniqueUserCount
                 totalSqlQueries
@@ -465,9 +465,11 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
     dataset(urn: $urn) {
         operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
             timestampMillis
+            lastUpdatedTimestamp
             operationType
             actor
             lastUpdatedTimestamp
+            customOperationType
         }
     }
 }
@@ -475,6 +477,20 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
 query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
     dataset(urn: $urn) {
         operationsStats(input: $input) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
             buckets {
                 bucket
                 aggregations {
@@ -482,6 +498,14 @@ query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
                     totalInserts
                     totalUpdates
                     totalDeletes
+                    totalCreates
+                    totalAlters
+                    totalDrops
+                    totalCustoms
+                    customOperationsMap {
+                        key
+                        value
+                    }
                 }
             }
         }
@@ -508,6 +532,14 @@ query getOperationsStats($urn: String!, $range: TimeRange!) {
                 totalInserts
                 totalUpdates
                 totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
             }
         }
     }

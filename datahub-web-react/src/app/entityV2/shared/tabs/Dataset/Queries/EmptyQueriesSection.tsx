@@ -24,6 +24,7 @@ const SectionWrapper = styled.div`
     background-color: white;
     padding: 24px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    height: 100%;
 `;
 
 const ContentContainer = styled.div`

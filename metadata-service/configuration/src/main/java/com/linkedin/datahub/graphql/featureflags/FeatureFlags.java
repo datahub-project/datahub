@@ -54,4 +54,5 @@ public class FeatureFlags {
   private boolean showStatsTabRedesign = false;
   private boolean requestMinimalSlackPermissions = false;
   private boolean entityVersioning = false;
+  private boolean dataProcessInstanceEntityEnabled = true;
 }

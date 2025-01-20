@@ -10,7 +10,7 @@ interface Props {
 }
 
 const SelectSiblingDropdown = ({ baseEntity, selectedSiblingUrn, setSelectedSiblingUrn }: Props) => {
-    const options = useGetSiblingsOptions({ primaryEntityData: baseEntity });
+    const options = useGetSiblingsOptions({ baseEntityData: baseEntity });
     const siblingOptions = useMemo(() => options, [options]);
 
     const handleOptionClick = (value: string) => {

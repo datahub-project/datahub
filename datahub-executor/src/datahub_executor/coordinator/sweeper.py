@@ -30,6 +30,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER,
     DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD,
+    DATAHUB_EXECUTOR_SWEEPER_CANCEL_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_DISABLED,
     DATAHUB_EXECUTOR_SWEEPER_PENDING_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_RESTART_MAX_ATTEMPTS,
@@ -90,6 +91,15 @@ class SweeperJob:
     def _is_stale_ingestion(self, ingestion: ExecutionRequestStatus) -> bool:
         elapsed = self._get_elapsed_seconds(ingestion.last_observed)
         return elapsed > DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD
+
+    def _is_cancelled_ingestion(self, ingestion: ExecutionRequestStatus) -> bool:
+        signal = ingestion.raw_signal_aspect.get("signal", "UNSET")
+        elapsed = self._get_elapsed_seconds(
+            ingestion.raw_signal_aspect.get("createdAt", {}).get("time", 0)
+        )
+        return (signal == "KILL") and (
+            elapsed > DATAHUB_EXECUTOR_SWEEPER_CANCEL_THRESHOLD
+        )
 
     def _repopulate_cancel_action_reports(
         self,
@@ -165,15 +175,14 @@ class SweeperJob:
         )
 
     def _build_cancelled_action(
-        self, ingestion: ExecutionRequestStatus
+        self, ingestion: ExecutionRequestStatus, reason: str
     ) -> SweeperAction:
-        self._get_elapsed_seconds(ingestion.request_time)
         return SweeperAction.parse_obj(
             {
                 "action": "CANCELLED",
-                "description": "Ingestion {ingestion.execution_request_id} has exceeded a timeout",
+                "description": f"Ingestion {ingestion.execution_request_id} cancelled due to {reason}",
                 "args": {
-                    "report": f"{self.current_time} Pending ingestion was cancelled due to a timeout.\n\n---\n{ingestion.report}",
+                    "report": f"{self.current_time} Ingestion was cancelled due to {reason}.\n\n---\n{ingestion.report}",
                     "ingestion": ingestion,
                 },
             }
@@ -312,10 +321,18 @@ class SweeperJob:
                 ingestion.execution_request_id in actions
                 and actions[ingestion.execution_request_id].action != "ABORTED"
             ):
-                logger.info(
-                    f"Sweeper({self.run_id}): will skip RUNNING ingestion {ingestion.execution_request_id} in source {source}."
-                )
-                actions.pop(ingestion.execution_request_id, None)
+                if self._is_cancelled_ingestion(ingestion):
+                    actions[ingestion.execution_request_id] = (
+                        self._build_cancelled_action(ingestion, "user request")
+                    )
+                    logger.info(
+                        f"Sweeper({self.run_id}): will FORCE CANCEL ingestion {ingestion.execution_request_id} in source {source}."
+                    )
+                else:
+                    actions.pop(ingestion.execution_request_id, None)
+                    logger.info(
+                        f"Sweeper({self.run_id}): will skip RUNNING ingestion {ingestion.execution_request_id} in source {source}."
+                    )
 
         for source, ingestion in latest_pending.items():
             # Cancel pending ingestion if it has been pending for too long
@@ -324,7 +341,7 @@ class SweeperJob:
                     f"Sweeper({self.run_id}): will CANCEL ingestion {ingestion.execution_request_id} in source {source} since it exceeded pending timeout."
                 )
                 actions[ingestion.execution_request_id] = self._build_cancelled_action(
-                    ingestion
+                    ingestion, "pending timeout"
                 )
             elif source not in oldest_running:
                 # Delete "latest pending" if a non-stale running ingestions is also present.
@@ -486,11 +503,16 @@ class SweeperJob:
                 self._execute_restart_action(action)
             elif action.action in ["EXECUTOR_EXPIRE", "EXECUTOR_DELETE"]:
                 self._execute_executor_action(action)
-            else:
+            elif action.action == "CANCELLED":
                 self._execute_cancel_action(action)
+            else:
+                raise ValueError(f"Unrecognized action: {action.action}")
             return True
         except Exception as e:
-            logger.error(f"Sweeper({self.run_id}): error executing an action: {e}")
+            logger.error(
+                f"Sweeper({self.run_id}): error executing an action {action}",
+                exc_info=True,
+            )
 
             # If action's errors are fatal, do not proceed
             if action.errors_fatal:

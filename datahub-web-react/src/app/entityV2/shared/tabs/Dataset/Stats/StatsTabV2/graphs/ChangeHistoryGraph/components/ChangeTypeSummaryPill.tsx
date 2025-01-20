@@ -1,27 +1,39 @@
 import { Pill } from '@src/alchemy-components';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { pluralize } from '@src/app/shared/textUtil';
-import { OperationType } from '@src/types.generated';
 import React, { useMemo } from 'react';
-import { getOperationName, getPillColorByOperationType } from './utils';
+import styled from 'styled-components';
+import { ColorOptions } from '@src/alchemy-components/theme/config';
+import { AggregationGroup, Operation } from '../types';
+
+const GROUP_TO_PILL_COLOR_MAPPING = new Map<string, ColorOptions>([
+    [AggregationGroup.Purple, 'violet'],
+    [AggregationGroup.Red, 'red'],
+]);
+
+const Container = styled.div`
+    max-height: 24px;
+`;
 
 type ChangeTypeSummaryPillProps = {
-    numberOfOperations: number;
-    operationType: OperationType;
+    operation: Operation;
     onClick?: () => void;
+    selected?: boolean;
 };
 
-export default function ChangeTypeSummaryPill({
-    numberOfOperations,
-    operationType,
-    onClick,
-}: ChangeTypeSummaryPillProps) {
+export default function ChangeTypeSummaryPill({ operation, onClick, selected }: ChangeTypeSummaryPillProps) {
     const label = useMemo(() => {
-        const operationTypeName = getOperationName(operationType);
-        return `${abbreviateNumber(numberOfOperations)} ${pluralize(numberOfOperations, operationTypeName)}`;
-    }, [operationType, numberOfOperations]);
+        return `${abbreviateNumber(operation.value)} ${pluralize(operation.value, operation.name)}`;
+    }, [operation]);
 
-    const colorSheme = useMemo(() => getPillColorByOperationType(operationType), [operationType]);
+    const colorScheme = useMemo(
+        () => (selected ? GROUP_TO_PILL_COLOR_MAPPING.get(operation.group) : 'gray'),
+        [operation, selected],
+    );
 
-    return <Pill size="sm" label={label} colorScheme={colorSheme} clickable={!!onClick} onPillClick={onClick} />;
+    return (
+        <Container>
+            <Pill size="sm" label={label} colorScheme={colorScheme} clickable={!!onClick} onPillClick={onClick} />
+        </Container>
+    );
 }

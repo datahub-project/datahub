@@ -37,11 +37,13 @@ export type CalendarChartProps<ValueType> = {
     startDate: string | Date;
     endDate: string | Date;
     colorAccessor: (value: any) => string;
+    showPopover?: boolean;
     popoverRenderer?: (day: DayData<ValueType>) => React.ReactNode;
     leftAxisLabelProps?: LabelProps;
     bottomAxisLabelProps?: LabelProps;
     margin?: Margin;
     maxHeight?: number;
+    selectedDay?: string | null;
     onDayClick?: (day: DayData<ValueType>) => void;
 };
 

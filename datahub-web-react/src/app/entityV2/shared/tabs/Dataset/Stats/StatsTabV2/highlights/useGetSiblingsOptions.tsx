@@ -11,21 +11,21 @@ type SiblingOption = {
 };
 
 interface Props {
-    primaryEntityData: Dataset;
+    baseEntityData: Dataset;
 }
 
-export const useGetSiblingsOptions = ({ primaryEntityData }: Props) => {
+export const useGetSiblingsOptions = ({ baseEntityData }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
     const options: SiblingOption[] = [];
     options.push({
-        urn: primaryEntityData.urn,
-        title: entityRegistry.getDisplayName(EntityType.DataPlatform, primaryEntityData.platform),
-        platform: primaryEntityData?.platform ?? primaryEntityData?.dataPlatformInstance?.platform,
+        urn: baseEntityData.urn,
+        title: entityRegistry.getDisplayName(EntityType.DataPlatform, baseEntityData.platform),
+        platform: baseEntityData?.platform ?? baseEntityData?.dataPlatformInstance?.platform,
     });
 
     const siblings: GenericEntityProperties[] =
-        primaryEntityData?.siblingsSearch?.searchResults?.map((res) => res.entity) || [];
+        baseEntityData?.siblingsSearch?.searchResults?.map((res) => res.entity) || [];
 
     siblings.forEach((sibling) => {
         if (!sibling.urn) {

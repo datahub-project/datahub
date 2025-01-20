@@ -44,6 +44,7 @@ public class DatasetOperationsStatsResolver
         input.getRange() != null
             ? UsageTimeRange.valueOf(input.getRange().toString())
             : DEFAULT_RANGE;
+    final String timeZone = input.getTimeZone();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -62,7 +63,8 @@ public class DatasetOperationsStatsResolver
                     timeseriesAspectService,
                     resourceUrn.toString(),
                     WindowDuration.DAY,
-                    range);
+                    range,
+                    timeZone);
             return OperationsQueryResultMapper.map(context, result);
           } catch (Exception e) {
             log.error(

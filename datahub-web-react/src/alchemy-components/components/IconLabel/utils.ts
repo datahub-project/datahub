@@ -1,4 +1,10 @@
 // Helper function to validate image URLs
-export const isValidImageUrl = (url: string): boolean => {
-    return /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
+export const isValidImageUrl = async (url: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = url;
+
+        img.onload = () => resolve(true); // Image is valid
+        img.onerror = () => resolve(false); // Image is invalid
+    });
 };
