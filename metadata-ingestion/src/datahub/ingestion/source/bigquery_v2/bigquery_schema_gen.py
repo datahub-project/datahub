@@ -2,7 +2,6 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
-from itertools import groupby
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
@@ -101,6 +100,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -730,7 +730,7 @@ class BigQuerySchemaGenerator:
         foreign_keys: List[BigqueryTableConstraint] = list(
             filter(lambda x: x.type == "FOREIGN KEY", table.constraints)
         )
-        for key, group in groupby(
+        for key, group in groupby_unsorted(
             foreign_keys,
             lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
         ):
