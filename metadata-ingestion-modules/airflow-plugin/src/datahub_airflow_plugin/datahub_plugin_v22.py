@@ -44,11 +44,9 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
 
     if task_inlets and isinstance(task_inlets, list):
         inlets = []
-        task_ids = (
-            {o for o in task_inlets if isinstance(o, str)}
-            .union(op.task_id for op in task_inlets if isinstance(op, BaseOperator))
-            .intersection(task.get_flat_relative_ids(upstream=True))
-        )
+        task_ids = {o for o in task_inlets if isinstance(o, str)}.union(
+            op.task_id for op in task_inlets if isinstance(op, BaseOperator)
+        ).intersection(task.get_flat_relative_ids(upstream=True))
 
         from airflow.lineage import AUTO
         from cattr import structure
