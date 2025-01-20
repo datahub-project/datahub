@@ -166,9 +166,9 @@ def _get_generic_definition(
         # e.g. spark1 or hive2 or druid_18
         platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
 
-    assert (
-        platform is not None
-    ), f"Failed to extract a valid platform from connection {looker_connection}"
+    assert platform is not None, (
+        f"Failed to extract a valid platform from connection {looker_connection}"
+    )
     db = looker_connection.database
     schema = looker_connection.schema  # ok for this to be None
     return platform, db, schema

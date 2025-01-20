@@ -38,9 +38,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         table_name: Optional[str],
     ) -> List[SnowflakeTag]:
         if db_name not in self.tag_cache:
-            self.tag_cache[
-                db_name
-            ] = self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+            self.tag_cache[db_name] = (
+                self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+            )
 
         if domain == SnowflakeObjectDomain.DATABASE:
             return self.tag_cache[db_name].get_database_tags(db_name)
@@ -130,10 +130,10 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
             if db_name not in self.tag_cache:
-                self.tag_cache[
-                    db_name
-                ] = self.data_dictionary.get_tags_for_database_without_propagation(
-                    db_name
+                self.tag_cache[db_name] = (
+                    self.data_dictionary.get_tags_for_database_without_propagation(
+                        db_name
+                    )
                 )
             temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
                 table_name, schema_name, db_name

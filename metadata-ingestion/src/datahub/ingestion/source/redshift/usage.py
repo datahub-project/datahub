@@ -199,10 +199,10 @@ class RedshiftUsageExtractor:
                 end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
                 database=self.config.database,
             )
-            access_events_iterable: Iterable[
-                RedshiftAccessEvent
-            ] = self._gen_access_events_from_history_query(
-                query, connection=self.connection, all_tables=all_tables
+            access_events_iterable: Iterable[RedshiftAccessEvent] = (
+                self._gen_access_events_from_history_query(
+                    query, connection=self.connection, all_tables=all_tables
+                )
             )
 
             aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
@@ -225,10 +225,10 @@ class RedshiftUsageExtractor:
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
-        access_events_iterable: Iterable[
-            RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(
-            query, connection, all_tables=all_tables
+        access_events_iterable: Iterable[RedshiftAccessEvent] = (
+            self._gen_access_events_from_history_query(
+                query, connection, all_tables=all_tables
+            )
         )
 
         # Generate operation aspect work units from the access events

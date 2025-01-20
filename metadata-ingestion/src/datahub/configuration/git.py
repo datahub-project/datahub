@@ -121,9 +121,9 @@ class GitInfo(GitReference):
 
         repo: str = values["repo"]
         if repo.startswith(_GITHUB_PREFIX):
-            return f"git@github.com:{repo[len(_GITHUB_PREFIX):]}.git"
+            return f"git@github.com:{repo[len(_GITHUB_PREFIX) :]}.git"
         elif repo.startswith(_GITLAB_PREFIX):
-            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX):]}.git"
+            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
         else:
             raise ValueError(
                 "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."

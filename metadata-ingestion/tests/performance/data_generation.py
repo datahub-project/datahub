@@ -198,7 +198,7 @@ def generate_queries(
 
     all_tables = seed_metadata.tables + seed_metadata.views
     users = [f"user_{i}@xyz.com" for i in range(num_users)]
-    for i in range(num_selects):  # Pure SELECT statements
+    for _ in range(num_selects):  # Pure SELECT statements
         tables = _sample_list(all_tables, tables_per_select)
         all_columns = [
             FieldAccess(column, table) for table in tables for column in table.columns
@@ -213,7 +213,7 @@ def generate_queries(
             fields_accessed=_sample_list(all_columns, columns_per_select),
         )
 
-    for i in range(num_operations):
+    for _ in range(num_operations):
         modified_table = random.choice(seed_metadata.tables)
         n_col = len(modified_table.columns)
         num_columns_modified = NormalDistribution(n_col / 2, n_col / 2)
