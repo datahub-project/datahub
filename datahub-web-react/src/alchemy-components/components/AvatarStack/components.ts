@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-export const AvatarListContainer = styled.div`
+export const AvatarStackContainer = styled.div`
     position: relative;
     display: flex;
     align-items: flex-start;

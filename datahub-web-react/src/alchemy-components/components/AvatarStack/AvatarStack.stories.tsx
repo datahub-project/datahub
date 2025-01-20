@@ -1,11 +1,11 @@
 import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { AvatarList, avatarListDefaults } from './AvatarList';
+import { AvatarStack, avatarListDefaults } from './AvatarStack';
 
 // Meta Configuration
 const meta = {
-    title: 'Components / AvatarList',
-    component: AvatarList,
+    title: 'Components / AvatarStack',
+    component: AvatarStack,
 
     // Component-level parameters
     parameters: {
@@ -34,7 +34,7 @@ const meta = {
         avatars: avatarListDefaults.avatars,
         size: avatarListDefaults.size,
     },
-} satisfies Meta<typeof AvatarList>;
+} satisfies Meta<typeof AvatarStack>;
 
 export default meta;
 
@@ -42,12 +42,12 @@ type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
 export const sandbox: Story = {
-    render: (props) => <AvatarList {...props} />,
+    render: (props) => <AvatarStack {...props} />,
 };
 
 // Example Stories
 export const withMultipleAvatar = () => (
-    <AvatarList
+    <AvatarStack
         avatars={[
             { name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
             { name: 'Test User', imageUrl: 'https://robohash.org/sample-profile.png' },
@@ -59,7 +59,7 @@ export const withMultipleAvatar = () => (
 
 // Example Stories
 export const witouthImagesMultipleAvatar = () => (
-    <AvatarList
+    <AvatarStack
         avatars={[
             { name: 'John Doe', imageUrl: null },
             { name: 'Test User', imageUrl: null },
@@ -70,7 +70,7 @@ export const witouthImagesMultipleAvatar = () => (
 );
 
 export const withSingleAvatar = () => (
-    <AvatarList avatars={[{ name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' }]} />
+    <AvatarStack avatars={[{ name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' }]} />
 );
 
-export const withNoAvatar = () => <AvatarList avatars={[]} />;
+export const withNoAvatar = () => <AvatarStack avatars={[]} />;

@@ -5,7 +5,7 @@ export interface AvatarItemProps {
     imageUrl?: string | null;
 }
 
-export type AvatarListProps = {
+export type AvatarStackProps = {
     avatars: AvatarItemProps[];
     size?: AvatarSizeOptions;
 };
