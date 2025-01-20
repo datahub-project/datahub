@@ -17,9 +17,9 @@ import pytest
 import requests
 import tenacity
 from airflow.models.connection import Connection
+
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
-
 from datahub_airflow_plugin._airflow_shims import (
     AIRFLOW_VERSION,
     HAS_AIRFLOW_DAG_LISTENER_API,
@@ -273,13 +273,21 @@ def _run_airflow(
             subprocess.check_call(
                 [
                     # fmt: off
-                    "airflow", "users", "create",
-                    "--username", "airflow",
-                    "--password", "airflow",
-                    "--firstname", "admin",
-                    "--lastname", "admin",
-                    "--role", "Admin",
-                    "--email", "airflow@example.com",
+                    "airflow",
+                    "users",
+                    "create",
+                    "--username",
+                    "airflow",
+                    "--password",
+                    "airflow",
+                    "--firstname",
+                    "admin",
+                    "--lastname",
+                    "admin",
+                    "--role",
+                    "Admin",
+                    "--email",
+                    "airflow@example.com",
                     # fmt: on
                 ],
                 env=environment,

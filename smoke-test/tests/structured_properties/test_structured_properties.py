@@ -24,7 +24,6 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
 from datahub.utilities.urns.urn import Urn
-
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.file_emitter import FileEmitter
 from tests.utils import (

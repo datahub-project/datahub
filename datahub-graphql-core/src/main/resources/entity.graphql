@@ -1221,6 +1221,11 @@ enum EntityType {
     A Business Attribute
     """
     BUSINESS_ATTRIBUTE
+
+    """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
 }
 
 """

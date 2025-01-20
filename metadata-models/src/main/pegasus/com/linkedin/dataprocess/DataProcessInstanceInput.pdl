@@ -10,12 +10,13 @@ import com.linkedin.common.Urn
 }
 record DataProcessInstanceInput {
   /**
-   * Input datasets to be consumed
+   * Input assets consumed
    */
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset", "mlModel"],
+      "isLineage": true
     }
   }
   @Searchable = {

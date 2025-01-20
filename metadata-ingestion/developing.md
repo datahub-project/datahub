@@ -89,6 +89,7 @@ cd metadata-ingestion-modules/gx-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
 ### (Optional) Set up your Python environment for developing on Dagster Plugin
 
 From the repository root:
@@ -99,6 +100,7 @@ cd metadata-ingestion-modules/dagster-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
 ### Common setup issues
 
 Common issues (click to expand):
@@ -175,19 +177,20 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ## Code style
 
-We use black, isort, flake8, and mypy to ensure consistent code style and quality.
+We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: pip install -e '.[dev]' and venv is activated
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
+ruff check src/ tests/
 mypy src/ tests/
 ```
 
 or you can run from root of the repository
 
 ```shell
+./gradlew :metadata-ingestion:lint
+
+# This will auto-fix some linting issues.
 ./gradlew :metadata-ingestion:lintFix
 ```
 

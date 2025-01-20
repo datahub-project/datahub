@@ -104,9 +104,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             return "\n".join([r for r in res])
 
     @typing.no_type_check
-    def _get_column_type(
-        self, type_: Union[str, Dict[str, Any]]
-    ) -> TypeEngine:  # noqa: C901
+    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:  # noqa: C901
         """Derives the data type of the Athena column.
 
         This method is overwritten to extend the behavior of PyAthena.
