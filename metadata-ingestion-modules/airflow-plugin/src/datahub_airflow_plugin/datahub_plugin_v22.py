@@ -219,7 +219,8 @@ def datahub_pre_execution(context):
 
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
-        config = get_lineage_configs()
+        # in the old plugin we only support one emitter
+        config = get_lineage_configs()[0]
         if config.enabled:
             context["_datahub_config"] = config
             datahub_pre_execution(context)
@@ -233,7 +234,7 @@ def _wrap_pre_execution(pre_execution):
 
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
-        config = get_lineage_configs()
+        config = get_lineage_configs()[0]
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -253,7 +254,7 @@ def _wrap_on_failure_callback(on_failure_callback):
 
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
-        config = get_lineage_configs()
+        config = get_lineage_configs()[0]
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -273,7 +274,7 @@ def _wrap_on_success_callback(on_success_callback):
 
 def _wrap_on_retry_callback(on_retry_callback):
     def custom_on_retry_callback(context):
-        config = get_lineage_configs()
+        config = get_lineage_configs()[0]
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -365,7 +366,7 @@ def _patch_datahub_policy():
 
     _patch_policy(settings)
 
-    plugin_config = get_lineage_configs()
+    plugin_config = get_lineage_configs()[0]
     telemetry.telemetry_instance.ping(
         "airflow-plugin-init",
         {
