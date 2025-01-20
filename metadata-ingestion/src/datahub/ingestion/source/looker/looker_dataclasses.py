@@ -75,6 +75,7 @@ class LookerModel:
             try:
                 parsed = load_and_preprocess_file(
                     path=included_file,
+                    reporter=reporter,
                     source_config=source_config,
                 )
                 included_explores = parsed.get("explores", [])
@@ -217,6 +218,7 @@ class LookerModel:
                 try:
                     parsed = load_and_preprocess_file(
                         path=included_file,
+                        reporter=reporter,
                         source_config=source_config,
                     )
                     seen_so_far.add(included_file)

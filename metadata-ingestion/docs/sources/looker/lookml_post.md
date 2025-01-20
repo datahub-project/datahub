@@ -1,11 +1,27 @@
 #### Configuration Notes
 
-1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below:
-    ```yml
-      liquid_variable:
-        user_attributes:
-          db: ANALYTICS_PROD
-    ```
+1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variables` config as shown below:
+
+   ```yml
+   liquid_variables:
+     user_attributes:
+       db: ANALYTICS_PROD
+   ```
+
+2. If your LookML code references a constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value is resolved in the following order:
+
+- **First, checks the `manifest.lkml` file** for the constant definition.
+  ```manifest.lkml
+    constant: db {
+        value: "ANALYTICS_PROD"
+    }
+  ```
+- **If not found, falls back to `config`**
+
+  ```yml
+  lookml_constants:
+    db: ANALYTICS_PROD
+  ```
 
 ### Multi-Project LookML (Advanced)
 
