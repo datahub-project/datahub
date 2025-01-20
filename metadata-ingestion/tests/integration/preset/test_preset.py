@@ -28,7 +28,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "payload": {
                     "access_token": "test_token",
-                }
+                },
             },
         },
         "mock://mock-domain.preset.io/version": {
@@ -220,7 +220,7 @@ def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
                     "filename": f"{tmp_path}/preset_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -237,7 +237,11 @@ def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_preset_stateful_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/preset"
 
@@ -266,7 +270,7 @@ def test_preset_stateful_ingest(
         },
         "sink": {
             # we are not really interested in the resulting events for this test
-            "type": "console"
+            "type": "console",
         },
         "pipeline_name": "test_pipeline",
     }
@@ -321,7 +325,8 @@ def test_preset_stateful_ingest(
 
         # Remove one dashboard from the preset config.
         register_mock_api(
-            request_mock=requests_mock, override_data=dashboard_endpoint_override
+            request_mock=requests_mock,
+            override_data=dashboard_endpoint_override,
         )
 
         # Capture MCEs of second run to validate Status(removed=true)
@@ -341,7 +346,7 @@ def test_preset_stateful_ingest(
         state1 = checkpoint1.state
         state2 = checkpoint2.state
         difference_urns = list(
-            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
         )
 
         assert len(difference_urns) == 1
@@ -352,10 +357,12 @@ def test_preset_stateful_ingest(
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
         # Verify the output.

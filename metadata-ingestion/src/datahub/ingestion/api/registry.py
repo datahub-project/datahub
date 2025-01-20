@@ -66,7 +66,8 @@ class PluginRegistry(Generic[T]):
     _aliases: Dict[str, Tuple[str, Callable[[], None]]]
 
     def __init__(
-        self, extra_cls_check: Optional[Callable[[Type[T]], None]] = None
+        self,
+        extra_cls_check: Optional[Callable[[Type[T]], None]] = None,
     ) -> None:
         self._entrypoints = []
         self._mapping = {}
@@ -82,7 +83,7 @@ class PluginRegistry(Generic[T]):
     def _check_cls(self, cls: Type[T]) -> None:
         if inspect.isabstract(cls):
             raise ValueError(
-                f"cannot register an abstract type in the registry; got {cls}"
+                f"cannot register an abstract type in the registry; got {cls}",
             )
         super_cls = self._get_registered_type()
         if not issubclass(cls, super_cls):
@@ -91,7 +92,10 @@ class PluginRegistry(Generic[T]):
             self._extra_cls_check(cls)
 
     def _register(
-        self, key: str, tp: Union[str, Type[T], Exception], override: bool = False
+        self,
+        key: str,
+        tp: Union[str, Type[T], Exception],
+        override: bool = False,
     ) -> None:
         if not override and key in self._mapping:
             raise KeyError(f"key already in use - {key}")
@@ -107,12 +111,18 @@ class PluginRegistry(Generic[T]):
         self._register(key, import_path)
 
     def register_disabled(
-        self, key: str, reason: Exception, override: bool = False
+        self,
+        key: str,
+        reason: Exception,
+        override: bool = False,
     ) -> None:
         self._register(key, reason, override=override)
 
     def register_alias(
-        self, alias: str, real_key: str, fn: Callable[[], None] = lambda: None
+        self,
+        alias: str,
+        real_key: str,
+        fn: Callable[[], None] = lambda: None,
     ) -> None:
         self._aliases[alias] = (real_key, fn)
 
@@ -174,11 +184,11 @@ class PluginRegistry(Generic[T]):
         tp = self._ensure_not_lazy(key)
         if isinstance(tp, ModuleNotFoundError):
             raise ConfigurationError(
-                f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
+                f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'",
             ) from tp
         elif isinstance(tp, Exception):
             raise ConfigurationError(
-                f"{key} is disabled due to an error in initialization"
+                f"{key} is disabled due to an error in initialization",
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
@@ -191,7 +201,10 @@ class PluginRegistry(Generic[T]):
             return None
 
     def summary(
-        self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20
+        self,
+        verbose: bool = True,
+        col_width: int = 15,
+        verbose_col_width: int = 20,
     ) -> str:
         self._materialize_entrypoints()
 

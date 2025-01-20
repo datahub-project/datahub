@@ -33,7 +33,9 @@ class SynchronizedFileEmitter(Closeable, Emitter):
     def emit(
         self,
         item: Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:

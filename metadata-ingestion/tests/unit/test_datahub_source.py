@@ -31,7 +31,8 @@ def test_version_orderer(rows):
     orderer = VersionOrderer[Dict[str, Any]](enabled=True)
     ordered_rows = list(orderer(rows))
     assert ordered_rows == sorted(
-        ordered_rows, key=lambda x: (x["createdon"], x["version"] == 0)
+        ordered_rows,
+        key=lambda x: (x["createdon"], x["version"] == 0),
     )
 
 

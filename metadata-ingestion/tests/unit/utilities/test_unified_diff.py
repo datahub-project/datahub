@@ -78,10 +78,15 @@ def test_apply_hunk_success():
 def test_apply_hunk_mismatch():
     result_lines = ["Line 1", "Line 2", "Line X"]
     hunk = Hunk(
-        2, 2, 2, 2, [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")]
+        2,
+        2,
+        2,
+        2,
+        [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")],
     )
     with pytest.raises(
-        DiffApplyError, match="Removing line that doesn't exactly match"
+        DiffApplyError,
+        match="Removing line that doesn't exactly match",
     ):
         apply_hunk(result_lines, hunk, 0)
 
@@ -96,7 +101,11 @@ def test_apply_hunk_context_mismatch():
 def test_apply_hunk_invalid_prefix():
     result_lines = ["Line 1", "Line 2", "Line 3"]
     hunk = Hunk(
-        2, 2, 2, 2, [(" ", "Line 2"), ("*", "Line 3"), ("+", "Line 3 modified")]
+        2,
+        2,
+        2,
+        2,
+        [(" ", "Line 2"), ("*", "Line 3"), ("+", "Line 3 modified")],
     )
     with pytest.raises(DiffApplyError, match="Invalid line prefix"):
         apply_hunk(result_lines, hunk, 0)
@@ -105,10 +114,15 @@ def test_apply_hunk_invalid_prefix():
 def test_apply_hunk_end_of_file():
     result_lines = ["Line 1", "Line 2"]
     hunk = Hunk(
-        2, 2, 2, 3, [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")]
+        2,
+        2,
+        2,
+        3,
+        [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")],
     )
     with pytest.raises(
-        DiffApplyError, match="Found context or deletions after end of file"
+        DiffApplyError,
+        match="Found context or deletions after end of file",
     ):
         apply_hunk(result_lines, hunk, 0)
 
@@ -116,10 +130,15 @@ def test_apply_hunk_end_of_file():
 def test_apply_hunk_context_beyond_end_of_file():
     result_lines = ["Line 1", "Line 3"]
     hunk = Hunk(
-        2, 2, 2, 3, [(" ", "Line 1"), ("+", "Line 2"), (" ", "Line 3"), (" ", "Line 4")]
+        2,
+        2,
+        2,
+        3,
+        [(" ", "Line 1"), ("+", "Line 2"), (" ", "Line 3"), (" ", "Line 4")],
     )
     with pytest.raises(
-        DiffApplyError, match="Found context or deletions after end of file"
+        DiffApplyError,
+        match="Found context or deletions after end of file",
     ):
         apply_hunk(result_lines, hunk, 0)
 
@@ -127,10 +146,15 @@ def test_apply_hunk_context_beyond_end_of_file():
 def test_apply_hunk_remove_non_existent_line():
     result_lines = ["Line 1", "Line 2", "Line 4"]
     hunk = Hunk(
-        2, 2, 2, 3, [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")]
+        2,
+        2,
+        2,
+        3,
+        [(" ", "Line 2"), ("-", "Line 3"), ("+", "Line 3 modified")],
     )
     with pytest.raises(
-        DiffApplyError, match="Removing line that doesn't exactly match"
+        DiffApplyError,
+        match="Removing line that doesn't exactly match",
     ):
         apply_hunk(result_lines, hunk, 0)
 
@@ -138,7 +162,11 @@ def test_apply_hunk_remove_non_existent_line():
 def test_apply_hunk_addition_beyond_end_of_file():
     result_lines = ["Line 1", "Line 2"]
     hunk = Hunk(
-        2, 2, 2, 3, [(" ", "Line 2"), ("+", "Line 3 modified"), ("+", "Line 4")]
+        2,
+        2,
+        2,
+        3,
+        [(" ", "Line 2"), ("+", "Line 3 modified"), ("+", "Line 4")],
     )
     apply_hunk(result_lines, hunk, 0)
     assert result_lines == ["Line 1", "Line 2", "Line 3 modified", "Line 4"]

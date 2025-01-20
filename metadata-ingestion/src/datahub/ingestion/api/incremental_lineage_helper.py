@@ -37,14 +37,17 @@ def convert_upstream_lineage_to_patch(
 
 
 def convert_chart_info_to_patch(
-    urn: str, aspect: ChartInfoClass, system_metadata: Optional[SystemMetadataClass]
+    urn: str,
+    aspect: ChartInfoClass,
+    system_metadata: Optional[SystemMetadataClass],
 ) -> Optional[MetadataWorkUnit]:
     patch_builder = ChartPatchBuilder(urn, system_metadata)
 
     if aspect.customProperties:
         for key in aspect.customProperties:
             patch_builder.add_custom_property(
-                key, str(aspect.customProperties.get(key))
+                key,
+                str(aspect.customProperties.get(key)),
             )
 
     if aspect.inputEdges:
@@ -52,31 +55,35 @@ def convert_chart_info_to_patch(
             patch_builder.add_input_edge(inputEdge)
 
     patch_builder.set_chart_url(aspect.chartUrl).set_external_url(
-        aspect.externalUrl
+        aspect.externalUrl,
     ).set_type(aspect.type).set_title(aspect.title).set_access(
-        aspect.access
+        aspect.access,
     ).set_last_modified(aspect.lastModified).set_last_refreshed(
-        aspect.lastRefreshed
+        aspect.lastRefreshed,
     ).set_description(aspect.description).add_inputs(aspect.inputs)
 
     values = patch_builder.build()
     if values:
         mcp = next(iter(values))
         return MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            id=MetadataWorkUnit.generate_workunit_id(mcp),
+            mcp_raw=mcp,
         )
     return None
 
 
 def convert_dashboard_info_to_patch(
-    urn: str, aspect: DashboardInfoClass, system_metadata: Optional[SystemMetadataClass]
+    urn: str,
+    aspect: DashboardInfoClass,
+    system_metadata: Optional[SystemMetadataClass],
 ) -> Optional[MetadataWorkUnit]:
     patch_builder = DashboardPatchBuilder(urn, system_metadata)
 
     if aspect.customProperties:
         for key in aspect.customProperties:
             patch_builder.add_custom_property(
-                key, str(aspect.customProperties.get(key))
+                key,
+                str(aspect.customProperties.get(key)),
             )
 
     if aspect.datasetEdges:
@@ -115,11 +122,12 @@ def convert_dashboard_info_to_patch(
 
     if values:
         logger.debug(
-            f"Generating patch DashboardInfo MetadataWorkUnit for dashboard {aspect.title}"
+            f"Generating patch DashboardInfo MetadataWorkUnit for dashboard {aspect.title}",
         )
         mcp = next(iter(values))
         return MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            id=MetadataWorkUnit.generate_workunit_id(mcp),
+            mcp_raw=mcp,
         )
     return None
 
@@ -130,7 +138,7 @@ def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:
             "upstreams": sorted(fine_upstream.upstreams or []),
             "downstreams": sorted(fine_upstream.downstreams or []),
             "transformOperation": fine_upstream.transformOperation,
-        }
+        },
     )
 
 
@@ -153,15 +161,20 @@ def auto_incremental_lineage(
 
             if lineage_aspect and lineage_aspect.upstreams:
                 yield convert_upstream_lineage_to_patch(
-                    urn, lineage_aspect, wu.metadata.systemMetadata
+                    urn,
+                    lineage_aspect,
+                    wu.metadata.systemMetadata,
                 )
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
-            wu.metadata.aspect, UpstreamLineageClass
+            wu.metadata.aspect,
+            UpstreamLineageClass,
         ):
             lineage_aspect = wu.metadata.aspect
             if lineage_aspect.upstreams:
                 yield convert_upstream_lineage_to_patch(
-                    urn, lineage_aspect, wu.metadata.systemMetadata
+                    urn,
+                    lineage_aspect,
+                    wu.metadata.systemMetadata,
                 )
         else:
             yield wu

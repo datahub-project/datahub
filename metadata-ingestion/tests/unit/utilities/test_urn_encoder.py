@@ -25,5 +25,6 @@ def test_encode_string_without_reserved_chars_no_change(name):
 )
 def test_encode_string_with_reserved_chars(name):
     assert UrnEncoder.encode_string(name) == name.replace(",", "%2C").replace(
-        "(", "%28"
+        "(",
+        "%28",
     ).replace(")", "%29")

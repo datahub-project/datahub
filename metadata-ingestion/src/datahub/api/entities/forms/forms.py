@@ -142,7 +142,7 @@ class Forms(ConfigModel):
                     try:
                         if not FormType.has_value(form.type):
                             logger.error(
-                                f"Form type {form.type} does not exist. Please try again with a valid type."
+                                f"Form type {form.type} does not exist. Please try again with a valid type.",
                             )
 
                         mcp = MetadataChangeProposalWrapper(
@@ -182,7 +182,7 @@ class Forms(ConfigModel):
                 if not prompt.id:
                     prompt.id = str(uuid.uuid4())
                     logger.warning(
-                        f"Prompt id not provided. Setting prompt id to {prompt.id}"
+                        f"Prompt id not provided. Setting prompt id to {prompt.id}",
                     )
                 if prompt.structured_property_urn:
                     structured_property_urn = prompt.structured_property_urn
@@ -190,7 +190,7 @@ class Forms(ConfigModel):
                         prompt.structured_property_urn = structured_property_urn
                     else:
                         raise Exception(
-                            f"Structured property {structured_property_urn} does not exist. Unable to create form."
+                            f"Structured property {structured_property_urn} does not exist. Unable to create form.",
                         )
                 elif (
                     prompt.type
@@ -201,14 +201,14 @@ class Forms(ConfigModel):
                     and not prompt.structured_property_urn
                 ):
                     raise Exception(
-                        f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
+                        f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form.",
                     )
                 if (
                     prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value
                     and prompt.required
                 ):
                     raise Exception(
-                        "Schema field prompts cannot be marked as required. Ensure these prompts are not required."
+                        "Schema field prompts cannot be marked as required. Ensure these prompts are not required.",
                     )
 
                 prompts.append(
@@ -219,13 +219,13 @@ class Forms(ConfigModel):
                         type=prompt.type,
                         structuredPropertyParams=(
                             StructuredPropertyParamsClass(
-                                urn=prompt.structured_property_urn
+                                urn=prompt.structured_property_urn,
                             )
                             if prompt.structured_property_urn
                             else None
                         ),
                         required=prompt.required,
-                    )
+                    ),
                 )
         else:
             logger.warning(f"No prompts exist on form {self.urn}. Is that intended?")
@@ -233,7 +233,8 @@ class Forms(ConfigModel):
         return prompts
 
     def create_form_actors(
-        self, actors: Optional[Actors] = None
+        self,
+        actors: Optional[Actors] = None,
     ) -> Union[None, FormActorAssignmentClass]:
         if actors is None:
             return None
@@ -247,16 +248,19 @@ class Forms(ConfigModel):
             groups = Forms.format_groups(actors.groups)
 
         return FormActorAssignmentClass(
-            owners=actors.owners, users=users, groups=groups
+            owners=actors.owners,
+            users=users,
+            groups=groups,
         )
 
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:
         if self.entities and self.entities.urns:
             formatted_entity_urns = ", ".join(
-                [f'"{value}"' for value in self.entities.urns]
+                [f'"{value}"' for value in self.entities.urns],
             )
             query = UPLOAD_ENTITIES_FOR_FORMS.format(
-                form_urn=self.urn, entity_urns=formatted_entity_urns
+                form_urn=self.urn,
+                entity_urns=formatted_entity_urns,
             )
             result = emitter.execute_graphql(query=query)
             if not result:
@@ -272,14 +276,15 @@ class Forms(ConfigModel):
 
             if filters.types:
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_TYPES, filters.types)
+                    Forms.format_form_filter(FILTER_CRITERION_TYPES, filters.types),
                 )
 
             if filters.sub_types:
                 filters_raw.append(
                     Forms.format_form_filter(
-                        FILTER_CRITERION_SUB_TYPES, filters.sub_types
-                    )
+                        FILTER_CRITERION_SUB_TYPES,
+                        filters.sub_types,
+                    ),
                 )
 
             if filters.platforms:
@@ -287,25 +292,25 @@ class Forms(ConfigModel):
                     make_data_platform_urn(platform) for platform in filters.platforms
                 ]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_PLATFORMS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORMS, urns),
                 )
 
             if filters.platform_instances:
                 urns = []
                 for platform_instance in filters.platform_instances:
                     platform_instance_urn = Forms.validate_platform_instance_urn(
-                        platform_instance
+                        platform_instance,
                     )
                     if platform_instance_urn:
                         urns.append(platform_instance_urn)
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_PLATFORM_INSTANCES, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORM_INSTANCES, urns),
                 )
 
             if filters.domains:
                 urns = [make_domain_urn(domain) for domain in filters.domains]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_DOMAINS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_DOMAINS, urns),
                 )
 
             if filters.containers:
@@ -313,37 +318,38 @@ class Forms(ConfigModel):
                     make_container_urn(container) for container in filters.containers
                 ]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_CONTAINERS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_CONTAINERS, urns),
                 )
 
             if filters.owners:
                 urns = [make_user_urn(owner) for owner in filters.owners]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_OWNERS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_OWNERS, urns),
                 )
 
             if filters.tags:
                 urns = [make_tag_urn(tag) for tag in filters.tags]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_TAGS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_TAGS, urns),
                 )
 
             if filters.terms:
                 urns = [make_term_urn(term) for term in filters.terms]
                 filters_raw.append(
-                    Forms.format_form_filter(FILTER_CRITERION_GLOSSARY_TERMS, urns)
+                    Forms.format_form_filter(FILTER_CRITERION_GLOSSARY_TERMS, urns),
                 )
 
         filters_str = ", ".join(item for item in filters_raw)
         result = emitter.execute_graphql(
             query=CREATE_DYNAMIC_FORM_ASSIGNMENT.format(
-                form_urn=self.urn, filters=filters_str
-            )
+                form_urn=self.urn,
+                filters=filters_str,
+            ),
         )
 
         if not result:
             return Exception(
-                f"Could not bulk upload urns or filters for form {self.urn}."
+                f"Could not bulk upload urns or filters for form {self.urn}.",
             )
 
         return None
@@ -381,7 +387,7 @@ class Forms(ConfigModel):
             return instance
 
         logger.warning(
-            f"{instance} is not an urn. Unable to create platform instance filter."
+            f"{instance} is not an urn. Unable to create platform instance filter.",
         )
         return None
 
@@ -403,7 +409,7 @@ class Forms(ConfigModel):
                         if prompt_raw.structuredPropertyParams
                         else None
                     ),
-                )
+                ),
             )
         return Forms(
             urn=urn,

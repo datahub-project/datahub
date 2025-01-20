@@ -19,7 +19,10 @@ class RedshiftDataReader(DataReader):
         self.conn = conn
 
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int, **kwargs: Any
+        self,
+        table_id: List[str],
+        sample_size: int,
+        **kwargs: Any,
     ) -> Dict[str, list]:
         """
         For redshift, table_id should be in form (db_name, schema_name, table_name)
@@ -30,7 +33,7 @@ class RedshiftDataReader(DataReader):
         table_name = table_id[2]
 
         logger.debug(
-            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
+            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}",
         )
         with PerfTimer() as timer, self.conn.cursor() as cursor:
             sql = f"select * from {db_name}.{schema_name}.{table_name} limit {sample_size};"
@@ -40,7 +43,7 @@ class RedshiftDataReader(DataReader):
             time_taken = timer.elapsed_seconds()
             logger.debug(
                 f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name};"
-                f"{df.shape[0]} rows; took {time_taken:.3f} seconds"
+                f"{df.shape[0]} rows; took {time_taken:.3f} seconds",
             )
             return df.to_dict(orient="list")
 

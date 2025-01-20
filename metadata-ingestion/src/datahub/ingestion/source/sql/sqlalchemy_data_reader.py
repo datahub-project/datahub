@@ -31,7 +31,10 @@ class SqlAlchemyTableDataReader(DataReader):
         )
 
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int, **kwargs: Any
+        self,
+        table_id: List[str],
+        sample_size: int,
+        **kwargs: Any,
     ) -> Dict[str, list]:
         """
         For sqlalchemy, table_id should be in form (schema_name, table_name)
@@ -51,8 +54,9 @@ class SqlAlchemyTableDataReader(DataReader):
 
                 query = str(
                     raw_query.compile(
-                        self.connection, compile_kwargs={"literal_binds": True}
-                    )
+                        self.connection,
+                        compile_kwargs={"literal_binds": True},
+                    ),
                 )
                 query += "\nAND ROWNUM <= %d" % sample_size
             else:
@@ -66,7 +70,7 @@ class SqlAlchemyTableDataReader(DataReader):
             time_taken = timer.elapsed_seconds()
             logger.debug(
                 f"Finished collecting sample values for table {'.'.join(table_id)};"
-                f"took {time_taken:.3f} seconds"
+                f"took {time_taken:.3f} seconds",
             )
         return column_values
 

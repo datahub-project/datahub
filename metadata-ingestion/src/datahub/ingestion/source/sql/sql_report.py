@@ -14,24 +14,24 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 @dataclass
 class DetailedProfilerReportMixin:
     profiling_skipped_not_updated: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     profiling_skipped_size_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     profiling_skipped_row_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
     num_tables_not_eligible_profiling: Dict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
 
@@ -73,6 +73,7 @@ class SQLSourceReport(
         self.filtered.append(ent_name)
 
     def report_from_query_combiner(
-        self, query_combiner_report: SQLAlchemyQueryCombinerReport
+        self,
+        query_combiner_report: SQLAlchemyQueryCombinerReport,
     ) -> None:
         self.query_combiner = query_combiner_report

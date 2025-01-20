@@ -30,7 +30,8 @@ from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
-    owner_urns: List[str], source_type: str
+    owner_urns: List[str],
+    source_type: str,
 ) -> List[OwnerClass]:
     ownership_source_type: Union[None, OwnershipSourceClass] = None
     if source_type:
@@ -50,30 +51,29 @@ def create_mocked_dbt_source() -> DBTCoreSource:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
-        ["urn:li:corpuser:test_user"], "AUDIT"
+        ["urn:li:corpuser:test_user"],
+        "AUDIT",
     )
     graph.get_glossary_terms.return_value = (
         mce_builder.make_glossary_terms_aspect_from_urn_list(
-            ["urn:li:glossaryTerm:old", "urn:li:glossaryTerm:old2"]
+            ["urn:li:glossaryTerm:old", "urn:li:glossaryTerm:old2"],
         )
     )
     graph.get_tags.return_value = mce_builder.make_global_tag_aspect_with_tag_list(
-        ["non_dbt_existing", "dbt:existing"]
+        ["non_dbt_existing", "dbt:existing"],
     )
     ctx.graph = graph
     return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx, "dbt")
 
 
 def create_base_dbt_config() -> Dict:
-    return dict(
-        {
-            "manifest_path": "temp/",
-            "catalog_path": "temp/",
-            "sources_path": "temp/",
-            "target_platform": "postgres",
-            "enable_meta_mapping": False,
-        },
-    )
+    return {
+        "manifest_path": "temp/",
+        "catalog_path": "temp/",
+        "sources_path": "temp/",
+        "target_platform": "postgres",
+        "enable_meta_mapping": False,
+    }
 
 
 def test_dbt_source_patching_no_new():
@@ -82,7 +82,9 @@ def test_dbt_source_patching_no_new():
     # verifying when there are no new owners to be added
     assert source.ctx.graph
     transformed_owner_list = source.get_transformed_owners_by_source_type(
-        [], "urn:li:dataset:dummy", "SERVICE"
+        [],
+        "urn:li:dataset:dummy",
+        "SERVICE",
     )
     assert len(transformed_owner_list) == 1
 
@@ -93,7 +95,9 @@ def test_dbt_source_patching_no_conflict():
     new_owner_urns = ["urn:li:corpuser:new_test"]
     new_owners_list = create_owners_list_from_urn_list(new_owner_urns, "SERVICE")
     transformed_owner_list = source.get_transformed_owners_by_source_type(
-        new_owners_list, "urn:li:dataset:dummy", "DATABASE"
+        new_owners_list,
+        "urn:li:dataset:dummy",
+        "DATABASE",
     )
     assert len(transformed_owner_list) == 2
     owner_set = {"urn:li:corpuser:test_user", "urn:li:corpuser:new_test"}
@@ -111,7 +115,9 @@ def test_dbt_source_patching_with_conflict():
     new_owner_urns = ["urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"]
     new_owners_list = create_owners_list_from_urn_list(new_owner_urns, "AUDIT")
     transformed_owner_list = source.get_transformed_owners_by_source_type(
-        new_owners_list, "urn:li:dataset:dummy", "AUDIT"
+        new_owners_list,
+        "urn:li:dataset:dummy",
+        "AUDIT",
     )
     assert len(transformed_owner_list) == 2
     expected_owner_set = {"urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"}
@@ -129,13 +135,16 @@ def test_dbt_source_patching_with_conflict_null_source_type_in_existing_owner():
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
-        ["urn:li:corpuser:existing_test_user"], None
+        ["urn:li:corpuser:existing_test_user"],
+        None,
     )
     source.ctx.graph = graph
     new_owner_urns = ["urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"]
     new_owners_list = create_owners_list_from_urn_list(new_owner_urns, "AUDIT")
     transformed_owner_list = source.get_transformed_owners_by_source_type(
-        new_owners_list, "urn:li:dataset:dummy", "AUDIT"
+        new_owners_list,
+        "urn:li:dataset:dummy",
+        "AUDIT",
     )
     assert len(transformed_owner_list) == 2
     expected_owner_set = {"urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"}
@@ -153,10 +162,12 @@ def test_dbt_source_patching_tags():
     # override the existing one with the same prefix.
     source = create_mocked_dbt_source()
     new_tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
-        ["new_non_dbt", "dbt:new_dbt"]
+        ["new_non_dbt", "dbt:new_dbt"],
     )
     transformed_tags = source.get_transformed_tags_by_prefix(
-        new_tag_aspect.tags, "urn:li:dataset:dummy", "dbt:"
+        new_tag_aspect.tags,
+        "urn:li:dataset:dummy",
+        "dbt:",
     )
     expected_tags = {
         "urn:li:tag:new_non_dbt",
@@ -172,10 +183,11 @@ def test_dbt_source_patching_terms():
     # existing terms and new terms have two terms each and one common. After deduping we should only get 3 unique terms
     source = create_mocked_dbt_source()
     new_terms = mce_builder.make_glossary_terms_aspect_from_urn_list(
-        ["urn:li:glossaryTerm:old", "urn:li:glossaryTerm:new"]
+        ["urn:li:glossaryTerm:old", "urn:li:glossaryTerm:new"],
     )
     transformed_terms = source.get_transformed_terms(
-        new_terms.terms, "urn:li:dataset:dummy"
+        new_terms.terms,
+        "urn:li:dataset:dummy",
     )
     expected_terms = {
         "urn:li:glossaryTerm:old",
@@ -266,7 +278,7 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
             **create_base_dbt_config(),
             "skip_sources_in_lineage": True,
             "prefer_sql_parser_lineage": True,
-        }
+        },
     )
     source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
     all_nodes_map = {
@@ -294,7 +306,8 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
     }
     source._infer_schemas_and_update_cll(all_nodes_map)
     upstream_lineage = source._create_lineage_aspect_for_dbt_node(
-        all_nodes_map["model1"], all_nodes_map
+        all_nodes_map["model1"],
+        all_nodes_map,
     )
     assert upstream_lineage is not None
     assert len(upstream_lineage.upstreams) == 1
@@ -340,7 +353,7 @@ def test_default_convert_column_urns_to_lowercase():
             **config_dict,
             "convert_column_urns_to_lowercase": False,
             "target_platform": "snowflake",
-        }
+        },
     )
     assert config.convert_column_urns_to_lowercase is False
 
@@ -464,7 +477,7 @@ def test_dbt_time_parsing() -> None:
 
         # Ensure that we get an object with tzinfo set to UTC.
         assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(
-            timestamp
+            timestamp,
         ) == timedelta(0)
 
 

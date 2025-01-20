@@ -34,11 +34,13 @@ fineGrainedLineages = [
 
 # this is just to check if any conflicts with existing Upstream, particularly the DownstreamOf relationship
 upstream = Upstream(
-    dataset=datasetUrn("fct_users_deleted"), type=DatasetLineageType.TRANSFORMED
+    dataset=datasetUrn("fct_users_deleted"),
+    type=DatasetLineageType.TRANSFORMED,
 )
 
 fieldLineages = UpstreamLineage(
-    upstreams=[upstream], fineGrainedLineages=fineGrainedLineages
+    upstreams=[upstream],
+    fineGrainedLineages=fineGrainedLineages,
 )
 
 lineageMcp = MetadataChangeProposalWrapper(

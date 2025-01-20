@@ -31,18 +31,23 @@ def parse_command_line_args():
         help="Record key. If not provided, will be a random UUID",
     )
     arg_parser.add_argument(
-        "--key-schema-file", required=False, help="File name of key Avro schema to use"
+        "--key-schema-file",
+        required=False,
+        help="File name of key Avro schema to use",
     )
     arg_parser.add_argument("--record-value", required=False, help="Record value")
     arg_parser.add_argument(
-        "--value-schema-file", required=False, help="File name of Avro schema to use"
+        "--value-schema-file",
+        required=False,
+        help="File name of Avro schema to use",
     )
 
     return arg_parser.parse_args()
 
 
 def load_avro_schema_from_file(
-    key_schema_file: str, value_schema_file: str
+    key_schema_file: str,
+    value_schema_file: str,
 ) -> Tuple[Schema, Schema]:
     key_schema = (
         avro.load(key_schema_file)
@@ -58,7 +63,8 @@ def load_avro_schema_from_file(
 
 def send_record(args):
     key_schema, value_schema = load_avro_schema_from_file(
-        args.key_schema_file, args.value_schema_file
+        args.key_schema_file,
+        args.value_schema_file,
     )
 
     producer_config = {
@@ -80,7 +86,7 @@ def send_record(args):
         producer.flush()
     except Exception as e:
         print(
-            f"Exception while producing record value - {value} to topic - {args.topic}: {e}"
+            f"Exception while producing record value - {value} to topic - {args.topic}: {e}",
         )
         raise e
     else:

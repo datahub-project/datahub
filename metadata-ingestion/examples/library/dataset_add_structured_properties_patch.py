@@ -11,10 +11,11 @@ dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="P
 # Create Dataset Patch to Add and Remove Structured Properties
 patch_builder = DatasetPatchBuilder(dataset_urn)
 patch_builder.add_structured_property(
-    "urn:li:structuredProperty:retentionTimeInDays", 12
+    "urn:li:structuredProperty:retentionTimeInDays",
+    12,
 )
 patch_builder.remove_structured_property(
-    "urn:li:structuredProperty:customClassification"
+    "urn:li:structuredProperty:customClassification",
 )
 patch_mcps = patch_builder.build()
 

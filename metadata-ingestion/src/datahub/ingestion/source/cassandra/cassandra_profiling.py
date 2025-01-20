@@ -66,13 +66,14 @@ class CassandraProfiler:
         self.report = report
 
     def get_workunits(
-        self, cassandra_data: CassandraEntities
+        self,
+        cassandra_data: CassandraEntities,
     ) -> Iterable[MetadataWorkUnit]:
         for keyspace_name in cassandra_data.keyspaces:
             tables = cassandra_data.tables.get(keyspace_name, [])
             with self.report.new_stage(f"{keyspace_name}: {PROFILING}"):
                 with ThreadPoolExecutor(
-                    max_workers=self.config.profiling.max_workers
+                    max_workers=self.config.profiling.max_workers,
                 ) as executor:
                     future_to_dataset = {
                         executor.submit(
@@ -120,7 +121,7 @@ class CassandraProfiler:
         if not self.config.profile_pattern.allowed(f"{keyspace_name}.{table_name}"):
             self.report.profiling_skipped_table_profile_pattern[keyspace_name] += 1
             logger.info(
-                f"Table {table_name} in {keyspace_name}, not allowed for profiling"
+                f"Table {table_name} in {keyspace_name}, not allowed for profiling",
             )
             return
 
@@ -139,7 +140,8 @@ class CassandraProfiler:
         if profile_aspect:
             self.report.report_entity_profiled(table_name)
             mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=profile_aspect
+                entityUrn=dataset_urn,
+                aspect=profile_aspect,
             )
             yield mcp.as_workunit()
 
@@ -156,7 +158,9 @@ class CassandraProfiler:
         )
 
     def _create_field_profile(
-        self, field_name: str, field_stats: ColumnMetric
+        self,
+        field_name: str,
+        field_stats: ColumnMetric,
     ) -> DatasetFieldProfileClass:
         quantiles = field_stats.quantiles
         return DatasetFieldProfileClass(
@@ -180,12 +184,15 @@ class CassandraProfiler:
         )
 
     def profile_table(
-        self, keyspace_name: str, table_name: str, columns: List[CassandraColumn]
+        self,
+        keyspace_name: str,
+        table_name: str,
+        columns: List[CassandraColumn],
     ) -> ProfileData:
         profile_data = ProfileData()
 
         resp = self.api.execute(
-            CassandraQueries.ROW_COUNT.format(keyspace_name, table_name)
+            CassandraQueries.ROW_COUNT.format(keyspace_name, table_name),
         )
         if resp:
             profile_data.row_count = resp[0].row_count
@@ -194,7 +201,7 @@ class CassandraProfiler:
 
         if not self.config.profiling.profile_table_level_only:
             resp = self.api.execute(
-                f'SELECT {", ".join([col.column_name for col in columns])} FROM {keyspace_name}."{table_name}"'
+                f'SELECT {", ".join([col.column_name for col in columns])} FROM {keyspace_name}."{table_name}"',
             )
             profile_data.column_metrics = self._collect_column_data(resp, columns)
 
@@ -215,7 +222,9 @@ class CassandraProfiler:
         return profile_data
 
     def _collect_column_data(
-        self, rows: List[Any], columns: List[CassandraColumn]
+        self,
+        rows: List[Any],
+        columns: List[CassandraColumn],
     ) -> Dict[str, ColumnMetric]:
         metrics = {column.column_name: ColumnMetric() for column in columns}
 

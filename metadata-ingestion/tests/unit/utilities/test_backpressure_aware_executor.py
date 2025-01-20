@@ -11,7 +11,9 @@ def test_backpressure_aware_executor_simple():
     assert {
         res.result()
         for res in BackpressureAwareExecutor.map(
-            task, ((i,) for i in range(10)), max_workers=2
+            task,
+            ((i,) for i in range(10)),
+            max_workers=2,
         )
     } == set(range(10))
 
@@ -32,7 +34,10 @@ def test_backpressure_aware_executor_advanced():
 
     with PerfTimer() as timer:
         results = BackpressureAwareExecutor.map(
-            task, args_list, max_workers=2, max_pending=4
+            task,
+            args_list,
+            max_workers=2,
+            max_pending=4,
         )
         assert timer.elapsed_seconds() < task_duration
 

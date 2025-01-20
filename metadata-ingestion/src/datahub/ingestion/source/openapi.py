@@ -50,16 +50,19 @@ class OpenApiConfig(ConfigModel):
     name: str = Field(description="Name of ingestion.")
     url: str = Field(description="Endpoint URL. e.g. https://example.com")
     swagger_file: str = Field(
-        description="Route for access to the swagger file. e.g. openapi.json"
+        description="Route for access to the swagger file. e.g. openapi.json",
     )
     ignore_endpoints: list = Field(
-        default=[], description="List of endpoints to ignore during ingestion."
+        default=[],
+        description="List of endpoints to ignore during ingestion.",
     )
     username: str = Field(
-        default="", description="Username used for basic HTTP authentication."
+        default="",
+        description="Username used for basic HTTP authentication.",
     )
     password: str = Field(
-        default="", description="Password used for basic HTTP authentication."
+        default="",
+        description="Password used for basic HTTP authentication.",
     )
     proxies: Optional[dict] = Field(
         default=None,
@@ -73,18 +76,23 @@ class OpenApiConfig(ConfigModel):
         description="If no example is provided for a route, it is possible to create one using forced_example.",
     )
     token: Optional[str] = Field(
-        default=None, description="Token for endpoint authentication."
+        default=None,
+        description="Token for endpoint authentication.",
     )
     bearer_token: Optional[str] = Field(
-        default=None, description="Bearer token for endpoint authentication."
+        default=None,
+        description="Bearer token for endpoint authentication.",
     )
     get_token: dict = Field(
-        default={}, description="Retrieving a token from the endpoint."
+        default={},
+        description="Retrieving a token from the endpoint.",
     )
 
     @validator("bearer_token", always=True)
     def ensure_only_one_token(
-        cls, bearer_token: Optional[str], values: Dict
+        cls,
+        bearer_token: Optional[str],
+        values: Dict,
     ) -> Optional[str]:
         if bearer_token is not None and values.get("token") is not None:
             raise ValueError("Unable to use 'token' and 'bearer_token' together.")
@@ -112,14 +120,15 @@ class OpenApiConfig(ConfigModel):
                         "we expect the keyword {password} to be present in the url"
                     )
                     url4req = self.get_token["url_complement"].replace(
-                        "{username}", self.username
+                        "{username}",
+                        self.username,
                     )
                     url4req = url4req.replace("{password}", self.password)
                 elif self.get_token["request_type"] == "post":
                     url4req = self.get_token["url_complement"]
                 else:
                     raise KeyError(
-                        "This tool accepts only 'get' and 'post' as method for getting tokens"
+                        "This tool accepts only 'get' and 'post' as method for getting tokens",
                     )
                 self.token = get_tok(
                     url=self.url,
@@ -217,11 +226,13 @@ class APISource(Source, ABC):
             )
         else:
             raise Exception(
-                f"Unable to retrieve endpoint, response code {status_code}, key {type}"
+                f"Unable to retrieve endpoint, response code {status_code}, key {type}",
             )
 
     def init_dataset(
-        self, endpoint_k: str, endpoint_dets: dict
+        self,
+        endpoint_k: str,
+        endpoint_dets: dict,
     ) -> Tuple[DatasetSnapshot, str]:
         config = self.config
 
@@ -240,7 +251,8 @@ class APISource(Source, ABC):
 
         # adding description
         dataset_properties = DatasetPropertiesClass(
-            description=endpoint_dets["description"], customProperties={}
+            description=endpoint_dets["description"],
+            customProperties={},
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -254,10 +266,14 @@ class APISource(Source, ABC):
         link_url = clean_url(config.url + self.url_basepath + endpoint_k)
         link_description = "Link to call for the dataset."
         creation = AuditStampClass(
-            time=int(time.time()), actor="urn:li:corpuser:etl", impersonator=None
+            time=int(time.time()),
+            actor="urn:li:corpuser:etl",
+            impersonator=None,
         )
         link_metadata = InstitutionalMemoryMetadataClass(
-            url=link_url, description=link_description, createStamp=creation
+            url=link_url,
+            description=link_description,
+            createStamp=creation,
         )
         inst_memory = InstitutionalMemoryClass([link_metadata])
         dataset_snapshot.aspects.append(inst_memory)
@@ -265,7 +281,9 @@ class APISource(Source, ABC):
         return dataset_snapshot, dataset_name
 
     def build_wu(
-        self, dataset_snapshot: DatasetSnapshot, dataset_name: str
+        self,
+        dataset_snapshot: DatasetSnapshot,
+        dataset_name: str,
     ) -> ApiWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return ApiWorkUnit(id=dataset_name, mce=mce)
@@ -295,7 +313,8 @@ class APISource(Source, ABC):
                 continue
 
             dataset_snapshot, dataset_name = self.init_dataset(
-                endpoint_k, endpoint_dets
+                endpoint_k,
+                endpoint_dets,
             )
 
             # adding dataset fields
@@ -330,7 +349,8 @@ class APISource(Source, ABC):
                     )
                 if response.status_code == 200:
                     fields2add, root_dataset_samples[dataset_name] = extract_fields(
-                        response, dataset_name
+                        response,
+                        dataset_name,
                     )
                     if not fields2add:
                         self.report.info(
@@ -376,7 +396,8 @@ class APISource(Source, ABC):
                         self.report_bad_responses(response.status_code, type=endpoint_k)
                 else:
                     composed_url = compose_url_attr(
-                        raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
+                        raw_url=endpoint_k,
+                        attr_list=config.forced_examples[endpoint_k],
                     )
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
                     if config.token:

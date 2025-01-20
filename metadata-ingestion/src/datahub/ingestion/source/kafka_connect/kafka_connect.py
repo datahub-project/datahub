@@ -78,13 +78,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-            }
+            },
         )
 
         # Test the connection
         if self.config.username is not None and self.config.password is not None:
             logger.info(
-                f"Connecting to {self.config.connect_uri} with Authentication..."
+                f"Connecting to {self.config.connect_uri} with Authentication...",
             )
             self.session.auth = (self.config.username, self.config.password)
 
@@ -108,17 +108,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         for connector_name in payload:
             connector_url = f"{self.config.connect_uri}/connectors/{connector_name}"
             connector_manifest = self._get_connector_manifest(
-                connector_name, connector_url
+                connector_name,
+                connector_url,
             )
             if connector_manifest is None or not self.config.connector_patterns.allowed(
-                connector_manifest.name
+                connector_manifest.name,
             ):
                 self.report.report_dropped(connector_name)
                 continue
 
             if self.config.provided_configs:
                 transform_connector_config(
-                    connector_manifest.config, self.config.provided_configs
+                    connector_manifest.config,
+                    self.config.provided_configs,
                 )
             connector_manifest.url = connector_url
             connector_manifest.topic_names = self._get_connector_topics(connector_name)
@@ -141,7 +143,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     [
                         connector.connector_name == connector_manifest.name
                         for connector in self.config.generic_connectors
-                    ]
+                    ],
                 ):
                     class_type = ConfigDrivenSourceConnector
                 else:
@@ -175,14 +177,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             yield connector_manifest
 
     def _get_connector_manifest(
-        self, connector_name: str, connector_url: str
+        self,
+        connector_name: str,
+        connector_url: str,
     ) -> Optional[ConnectorManifest]:
         try:
             connector_response = self.session.get(connector_url)
             connector_response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Failed to get connector details", connector_name, exc=e
+                "Failed to get connector details",
+                connector_name,
+                exc=e,
             )
             return None
         manifest = connector_response.json()
@@ -197,7 +203,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Error getting connector tasks", context=connector_name, exc=e
+                "Error getting connector tasks",
+                context=connector_name,
+                exc=e,
             )
             return {}
 
@@ -211,7 +219,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Error getting connector topics", context=connector_name, exc=e
+                "Error getting connector topics",
+                context=connector_name,
+                exc=e,
             )
             return []
 
@@ -241,7 +251,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def construct_job_workunits(
-        self, connector: ConnectorManifest
+        self,
+        connector: ConnectorManifest,
     ) -> Iterable[MetadataWorkUnit]:
         connector_name = connector.name
         flow_urn = builder.make_data_flow_urn(
@@ -261,10 +272,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 job_property_bag = lineage.job_property_bag
 
                 source_platform_instance = get_platform_instance(
-                    self.config, connector_name, source_platform
+                    self.config,
+                    connector_name,
+                    source_platform,
                 )
                 target_platform_instance = get_platform_instance(
-                    self.config, connector_name, target_platform
+                    self.config,
+                    connector_name,
+                    target_platform,
                 )
 
                 job_id = self.get_job_id(lineage, connector, self.config)
@@ -273,16 +288,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 inlets = (
                     [
                         self.make_lineage_dataset_urn(
-                            source_platform, source_dataset, source_platform_instance
-                        )
+                            source_platform,
+                            source_dataset,
+                            source_platform_instance,
+                        ),
                     ]
                     if source_dataset
                     else []
                 )
                 outlets = [
                     self.make_lineage_dataset_urn(
-                        target_platform, target_dataset, target_platform_instance
-                    )
+                        target_platform,
+                        target_dataset,
+                        target_platform_instance,
+                    ),
                 ]
 
                 yield MetadataChangeProposalWrapper(
@@ -322,7 +341,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             and config.connect_to_platform_map
             and config.connect_to_platform_map.get(connector.name)
             and config.connect_to_platform_map[connector.name].get(
-                lineage.source_platform
+                lineage.source_platform,
             )
         ):
             return f"{config.connect_to_platform_map[connector.name][lineage.source_platform]}.{lineage.source_dataset}"
@@ -337,7 +356,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -351,11 +372,17 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return self.report
 
     def make_lineage_dataset_urn(
-        self, platform: str, name: str, platform_instance: Optional[str]
+        self,
+        platform: str,
+        name: str,
+        platform_instance: Optional[str],
     ) -> str:
         if self.config.convert_lineage_urns_to_lowercase:
             name = name.lower()
 
         return builder.make_dataset_urn_with_platform_instance(
-            platform, name, platform_instance, self.config.env
+            platform,
+            name,
+            platform_instance,
+            self.config.env,
         )

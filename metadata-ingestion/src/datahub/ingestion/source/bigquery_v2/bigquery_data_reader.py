@@ -49,7 +49,7 @@ class BigQueryDataReader(DataReader):
         # additional filter clause (e.g. where condition on partition) is available.
 
         logger.debug(
-            f"Collecting sample values for table {project}.{dataset}.{table_name}"
+            f"Collecting sample values for table {project}.{dataset}.{table_name}",
         )
         with PerfTimer() as timer:
             sample_pc = sample_size_percent * 100
@@ -63,7 +63,7 @@ class BigQueryDataReader(DataReader):
             time_taken = timer.elapsed_seconds()
             logger.debug(
                 f"Finished collecting sample values for table {project}.{dataset}.{table_name};"
-                f"{df.shape[0]} rows; took {time_taken:.3f} seconds"
+                f"{df.shape[0]} rows; took {time_taken:.3f} seconds",
             )
 
         return df.to_dict(orient="list")

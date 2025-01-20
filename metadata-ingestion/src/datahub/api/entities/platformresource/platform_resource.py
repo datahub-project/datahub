@@ -50,12 +50,13 @@ class PlatformResourceInfo(BaseModel):
 
     @classmethod
     def from_resource_info(
-        cls, resource_info: models.PlatformResourceInfoClass
+        cls,
+        resource_info: models.PlatformResourceInfoClass,
     ) -> "PlatformResourceInfo":
         serialized_value: Optional[SerializedResourceValue] = None
         if resource_info.value:
             serialized_value = SerializedResourceValue.from_resource_value(
-                resource_info.value
+                resource_info.value,
             )
         return cls(
             primary_key=resource_info.primaryKey,
@@ -101,7 +102,8 @@ class PlatformResourceSearchField(SearchField):
 
     @classmethod
     def from_search_field(
-        cls, search_field: SearchField
+        cls,
+        search_field: SearchField,
     ) -> "PlatformResourceSearchField":
         # pretends to be a class method, but just returns the input
         return search_field  # type: ignore
@@ -115,13 +117,13 @@ class PlatformResourceSearchFields:
         UrnSearchField(
             field_name="platform.keyword",
             urn_value_extractor=DataPlatformUrn.create_from_id,
-        )
+        ),
     )
     PLATFORM_INSTANCE = PlatformResourceSearchField.from_search_field(
         UrnSearchField(
             field_name="platformInstance.keyword",
             urn_value_extractor=DataPlatformInstanceUrn.from_string,
-        )
+        ),
     )
 
 
@@ -179,7 +181,8 @@ class PlatformResource(BaseModel):
                 platform=make_data_platform_urn(key.platform),
                 platform_instance=(
                     make_dataplatform_instance_urn(
-                        platform=key.platform, instance=key.platform_instance
+                        platform=key.platform,
+                        instance=key.platform_instance,
                     )
                     if key.platform_instance
                     else None
@@ -208,7 +211,9 @@ class PlatformResource(BaseModel):
 
     @classmethod
     def from_datahub(
-        cls, graph_client: DataHubGraph, key: Union[PlatformResourceKey, str]
+        cls,
+        graph_client: DataHubGraph,
+        key: Union[PlatformResourceKey, str],
     ) -> Optional["PlatformResource"]:
         """
         Fetches a PlatformResource from the graph given a key.
@@ -226,14 +231,14 @@ class PlatformResource(BaseModel):
             id=urn.id,
             resource_info=(
                 PlatformResourceInfo.from_resource_info(
-                    platform_resource["platformResourceInfo"]
+                    platform_resource["platformResourceInfo"],
                 )
                 if "platformResourceInfo" in platform_resource
                 else None
             ),
             data_platform_instance=(
                 DataPlatformInstance.from_data_platform_instance(
-                    platform_resource["dataPlatformInstance"]
+                    platform_resource["dataPlatformInstance"],
                 )
                 if "dataPlatformInstance" in platform_resource
                 else None
@@ -267,12 +272,16 @@ class PlatformResource(BaseModel):
             ElasticPlatformResourceQuery.create_from()
             .group(LogicalOperator.OR)
             .add_field_match(
-                PlatformResourceSearchFields.PRIMARY_KEY, key, is_exact=is_exact
+                PlatformResourceSearchFields.PRIMARY_KEY,
+                key,
+                is_exact=is_exact,
             )
         )
         if not primary:  # we expand the search to secondary keys
             elastic_platform_resource_group.add_field_match(
-                PlatformResourceSearchFields.SECONDARY_KEYS, key, is_exact=is_exact
+                PlatformResourceSearchFields.SECONDARY_KEYS,
+                key,
+                is_exact=is_exact,
             )
         query = elastic_platform_resource_group.end()
         openapi_client = OpenAPIGraphClient(graph_client)

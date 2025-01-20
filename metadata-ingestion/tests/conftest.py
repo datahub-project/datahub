@@ -64,7 +64,8 @@ def pytest_addoption(parser):
 
 
 def pytest_collection_modifyitems(
-    config: pytest.Config, items: List[pytest.Item]
+    config: pytest.Config,
+    items: List[pytest.Item],
 ) -> None:
     # https://docs.pytest.org/en/latest/reference/reference.html#pytest.hookspec.pytest_collection_modifyitems
     # Adapted from https://stackoverflow.com/a/57046943/5004662.

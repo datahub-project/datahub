@@ -10,7 +10,7 @@ def test_kafka_common_state() -> None:
     state2 = GenericCheckpointState()
 
     topic_urns_diff = list(
-        state1.get_urns_not_in(type="topic", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="topic", other_checkpoint_state=state2),
     )
     assert len(topic_urns_diff) == 1 and topic_urns_diff[0] == test_topic_urn
 
@@ -21,8 +21,8 @@ def test_kafka_state_migration() -> None:
             "encoded_topic_urns": [
                 "kafka||test_topic1||test",
                 "kafka||topic_2||DEV",
-            ]
-        }
+            ],
+        },
     )
     assert state.urns == [
         "urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic1,TEST)",

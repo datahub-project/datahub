@@ -57,7 +57,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 
     if not isinstance(response_json, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}",
         )
         click.echo()
         click.echo(response_json)
@@ -66,7 +66,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     summary = response_json.get("value")
     if not isinstance(summary, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}",
         )
         click.echo()
         click.echo(response_json)
@@ -82,7 +82,7 @@ def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
             row.get("urn"),
             row.get("aspectName"),
             datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
+                "%Y-%m-%d %H:%M:%S",
             )
             + f" ({local_timezone})",
         ]
@@ -109,7 +109,7 @@ def post_rollback_endpoint(
     unsafe_entity_count = summary.get("unsafeEntitiesCount", 0)
     unsafe_entities = summary.get("unsafeEntities", [])
     rolled_back_aspects = list(
-        filter(lambda row: row["runId"] == payload_obj["runId"], rows)
+        filter(lambda row: row["runId"] == payload_obj["runId"], rows),
     )
 
     if len(rows) == 0:
@@ -140,7 +140,7 @@ def get_entity(
         encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
-            f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
+            f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)",
         )
 
     # TODO: Replace with DataHubGraph.get_entity_raw.
@@ -183,7 +183,7 @@ def post_entity(
 
     if system_metadata is not None:
         proposal["proposal"]["systemMetadata"] = json.dumps(
-            pre_json_transform(system_metadata.to_obj())
+            pre_json_transform(system_metadata.to_obj()),
         )
 
     payload = json.dumps(proposal)
@@ -242,7 +242,11 @@ def get_aspects_for_entity(
     # Process non-timeseries aspects
     non_timeseries_aspects = [a for a in aspects if a not in TIMESERIES_ASPECT_MAP]
     entity_response = get_entity(
-        session, gms_host, entity_urn, non_timeseries_aspects, cached_session_host
+        session,
+        gms_host,
+        entity_urn,
+        non_timeseries_aspects,
+        cached_session_host,
     )
     aspect_list: Dict[str, dict] = entity_response["aspects"]
 
@@ -250,12 +254,16 @@ def get_aspects_for_entity(
     timeseries_aspects: List[str] = [a for a in aspects if a in TIMESERIES_ASPECT_MAP]
     for timeseries_aspect in timeseries_aspects:
         timeseries_response: Dict = get_latest_timeseries_aspect_values(
-            session, gms_host, entity_urn, timeseries_aspect, cached_session_host
+            session,
+            gms_host,
+            entity_urn,
+            timeseries_aspect,
+            cached_session_host,
         )
         values: List[Dict] = timeseries_response.get("value", {}).get("values", [])
         if values:
             aspect_cls: Optional[Type] = _get_pydantic_class_from_aspect_name(
-                timeseries_aspect
+                timeseries_aspect,
             )
             if aspect_cls is not None:
                 ts_aspect = values[0]["aspect"]
@@ -266,7 +274,7 @@ def get_aspects_for_entity(
     aspect_map: Dict[str, Union[dict, _Aspect]] = {}
     for aspect_name, a in aspect_list.items():
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
-            aspect_name
+            aspect_name,
         )
 
         if details:
@@ -315,7 +323,9 @@ def make_shim_command(name: str, suggestion: str) -> click.Command:
 
 
 def get_frontend_session_login_as(
-    username: str, password: str, frontend_url: str
+    username: str,
+    password: str,
+    frontend_url: str,
 ) -> requests.Session:
     session = requests.Session()
     headers = {
@@ -399,19 +409,22 @@ def generate_access_token(
                 "actorUrn": f"urn:li:corpuser:{username}",
                 "duration": validity,
                 "name": token_name,
-            }
+            },
         },
     }
     response = session.post(f"{frontend_url}/api/v2/graphql", json=json)
     response.raise_for_status()
     return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
-        "accessToken", None
+        "accessToken",
+        None,
     )
 
 
 def ensure_has_system_metadata(
     event: Union[
-        MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        MetadataChangeEvent,
     ],
 ) -> None:
     if event.systemMetadata is None:

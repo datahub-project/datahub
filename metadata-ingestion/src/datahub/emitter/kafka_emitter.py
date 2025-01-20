@@ -33,7 +33,7 @@ MCP_KEY = "MetadataChangeProposal"
 
 class KafkaEmitterConfig(ConfigModel):
     connection: KafkaProducerConnectionConfig = pydantic.Field(
-        default_factory=KafkaProducerConnectionConfig
+        default_factory=KafkaProducerConnectionConfig,
     )
     topic_routes: Dict[str, str] = {
         MCE_KEY: DEFAULT_MCE_KAFKA_TOPIC,
@@ -66,7 +66,8 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
         def convert_mce_to_dict(
-            mce: MetadataChangeEvent, ctx: SerializationContext
+            mce: MetadataChangeEvent,
+            ctx: SerializationContext,
         ) -> dict:
             return mce.to_obj(tuples=True)
 

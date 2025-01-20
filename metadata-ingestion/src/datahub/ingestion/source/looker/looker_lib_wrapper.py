@@ -43,7 +43,7 @@ class LookerAPIConfig(ConfigModel):
     client_id: str = Field(description="Looker API client id.")
     client_secret: str = Field(description="Looker API client secret.")
     base_url: str = Field(
-        description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls."
+        description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls.",
     )
     transport_options: Optional[TransportOptionsConfig] = Field(
         None,
@@ -86,7 +86,8 @@ class LookerAPI:
         # Somewhat hacky mechanism for enabling retries on the Looker SDK.
         # Unfortunately, it doesn't expose a cleaner way to do this.
         if isinstance(
-            self.client.transport, looker_requests_transport.RequestsTransport
+            self.client.transport,
+            looker_requests_transport.RequestsTransport,
         ):
             adapter = HTTPAdapter(
                 max_retries=self.config.max_retries,
@@ -109,11 +110,11 @@ class LookerAPI:
                     self.transport_options
                     if config.transport_options is not None
                     else None
-                )
+                ),
             )
         except SDKError as e:
             raise ConfigurationError(
-                f"Failed to connect/authenticate with looker - check your configuration: {e}"
+                f"Failed to connect/authenticate with looker - check your configuration: {e}",
             ) from e
 
         self.client_stats = LookerAPIStats()
@@ -198,7 +199,9 @@ class LookerAPI:
     def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
-            model, explore_name, transport_options=self.transport_options
+            model,
+            explore_name,
+            transport_options=self.transport_options,
         )
 
     @lru_cache(maxsize=1000)
@@ -218,11 +221,11 @@ class LookerAPI:
             if "Looker Not Found (404)" in str(e):
                 # Folder ancestors not found
                 logger.info(
-                    f"Could not find ancestors for folder with id {folder_id}: 404 error"
+                    f"Could not find ancestors for folder with id {folder_id}: 404 error",
                 )
             else:
                 logger.warning(
-                    f"Could not find ancestors for folder with id {folder_id}"
+                    f"Could not find ancestors for folder with id {folder_id}",
                 )
                 logger.warning(f"Failure was {e}")
         # Folder ancestors not found
@@ -235,11 +238,14 @@ class LookerAPI:
     def connection(self, connection_name: str) -> DBConnection:
         self.client_stats.connection_calls += 1
         return self.client.connection(
-            connection_name, transport_options=self.transport_options
+            connection_name,
+            transport_options=self.transport_options,
         )
 
     def lookml_model(
-        self, model_name: str, fields: Union[str, List[str]]
+        self,
+        model_name: str,
+        fields: Union[str, List[str]],
     ) -> LookmlModel:
         self.client_stats.lookml_model_calls += 1
         return self.client.lookml_model(
@@ -263,14 +269,16 @@ class LookerAPI:
         )
 
     def all_looks(
-        self, fields: Union[str, List[str]], soft_deleted: bool
+        self,
+        fields: Union[str, List[str]],
+        soft_deleted: bool,
     ) -> List[Look]:
         self.client_stats.all_looks_calls += 1
         looks: List[Look] = list(
             self.client.all_looks(
                 fields=self.__fields_mapper(fields),
                 transport_options=self.transport_options,
-            )
+            ),
         )
 
         if soft_deleted:
@@ -296,7 +304,9 @@ class LookerAPI:
         )
 
     def search_dashboards(
-        self, fields: Union[str, List[str]], deleted: str
+        self,
+        fields: Union[str, List[str]],
+        deleted: str,
     ) -> Sequence[Dashboard]:
         self.client_stats.search_dashboards_calls += 1
         return self.client.search_dashboards(
@@ -306,7 +316,9 @@ class LookerAPI:
         )
 
     def search_looks(
-        self, fields: Union[str, List[str]], deleted: Optional[bool]
+        self,
+        fields: Union[str, List[str]],
+        deleted: Optional[bool],
     ) -> List[Look]:
         self.client_stats.search_looks_calls += 1
         return list(
@@ -314,5 +326,5 @@ class LookerAPI:
                 fields=self.__fields_mapper(fields),
                 deleted=deleted,
                 transport_options=self.transport_options,
-            )
+            ),
         )

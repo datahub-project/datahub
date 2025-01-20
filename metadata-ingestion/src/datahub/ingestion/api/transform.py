@@ -7,7 +7,8 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 class Transformer:
     @abstractmethod
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         """
         Transforms a sequence of records.

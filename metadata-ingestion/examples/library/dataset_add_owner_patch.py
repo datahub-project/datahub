@@ -8,13 +8,15 @@ datahub_client = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080")
 
 # Create Dataset URN
 dataset_urn = make_dataset_urn(
-    platform="snowflake", name="fct_users_created", env="PROD"
+    platform="snowflake",
+    name="fct_users_created",
+    env="PROD",
 )
 
 # Create Dataset Patch to Add + Remove Owners
 patch_builder = DatasetPatchBuilder(dataset_urn)
 patch_builder.add_owner(
-    OwnerClass(make_user_urn("user-to-add-id"), OwnershipTypeClass.TECHNICAL_OWNER)
+    OwnerClass(make_user_urn("user-to-add-id"), OwnershipTypeClass.TECHNICAL_OWNER),
 )
 patch_builder.remove_owner(make_group_urn("group-to-remove-id"))
 patch_mcps = patch_builder.build()

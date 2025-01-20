@@ -95,12 +95,14 @@ class MetadataChangeProposalWrapper:
             and self.aspectName != self.aspect.get_aspect_name()
         ):
             raise ValueError(
-                f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}"
+                f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}",
             )
 
     @classmethod
     def construct_many(
-        cls, entityUrn: str, aspects: Sequence[Optional[_Aspect]]
+        cls,
+        entityUrn: str,
+        aspects: Sequence[Optional[_Aspect]],
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
@@ -161,7 +163,9 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def from_obj(
-        cls, obj: dict, tuples: bool = False
+        cls,
+        obj: dict,
+        tuples: bool = False,
     ) -> Union["MetadataChangeProposalWrapper", MetadataChangeProposalClass]:
         """
         Attempt to deserialize into an MCPW, but fall back
@@ -188,7 +192,8 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def try_from_mcpc(
-        cls, mcpc: MetadataChangeProposalClass
+        cls,
+        mcpc: MetadataChangeProposalClass,
     ) -> Optional["MetadataChangeProposalWrapper"]:
         """Attempts to create a MetadataChangeProposalWrapper from a MetadataChangeProposalClass.
         Neatly handles unsupported, expected cases, such as unknown aspect types or non-json content type.
@@ -217,7 +222,8 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def try_from_mcl(
-        cls, mcl: MetadataChangeLogClass
+        cls,
+        mcl: MetadataChangeLogClass,
     ) -> Union["MetadataChangeProposalWrapper", MetadataChangeProposalClass]:
         mcpc = MetadataChangeProposalClass(
             entityUrn=mcl.entityUrn,
@@ -233,14 +239,19 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def from_obj_require_wrapper(
-        cls, obj: dict, tuples: bool = False
+        cls,
+        obj: dict,
+        tuples: bool = False,
     ) -> "MetadataChangeProposalWrapper":
         mcp = cls.from_obj(obj, tuples=tuples)
         assert isinstance(mcp, cls)
         return mcp
 
     def as_workunit(
-        self, *, treat_errors_as_warnings: bool = False, is_primary_source: bool = True
+        self,
+        *,
+        treat_errors_as_warnings: bool = False,
+        is_primary_source: bool = True,
     ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 

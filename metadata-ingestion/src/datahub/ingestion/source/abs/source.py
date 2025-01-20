@@ -193,17 +193,18 @@ class ABSSource(StatefulIngestionSourceBase):
                 fields = parquet.ParquetInferrer().infer_schema(file)
             elif extension == ".csv":
                 fields = csv_tsv.CsvInferrer(
-                    max_rows=self.source_config.max_rows
+                    max_rows=self.source_config.max_rows,
                 ).infer_schema(file)
             elif extension == ".tsv":
                 fields = csv_tsv.TsvInferrer(
-                    max_rows=self.source_config.max_rows
+                    max_rows=self.source_config.max_rows,
                 ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
-                    max_rows=self.source_config.max_rows, format="jsonl"
+                    max_rows=self.source_config.max_rows,
+                    format="jsonl",
                 ).infer_schema(file)
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
@@ -224,13 +225,18 @@ class ABSSource(StatefulIngestionSourceBase):
 
         if self.source_config.add_partition_columns_to_schema:
             self.add_partition_columns_to_schema(
-                fields=fields, path_spec=path_spec, full_path=table_data.full_path
+                fields=fields,
+                path_spec=path_spec,
+                full_path=table_data.full_path,
             )
 
         return fields
 
     def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
+        self,
+        path_spec: PathSpec,
+        full_path: str,
+        fields: List[SchemaField],
     ) -> None:
         vars = path_spec.get_named_vars(full_path)
         if vars is not None and "partition" in vars:
@@ -238,7 +244,7 @@ class ABSSource(StatefulIngestionSourceBase):
                 partition_arr = partition.split("=")
                 if len(partition_arr) != 2:
                     logger.debug(
-                        f"Could not derive partition key from partition field {partition}"
+                        f"Could not derive partition key from partition field {partition}",
                     )
                     continue
                 partition_key = partition_arr[0]
@@ -250,7 +256,7 @@ class ABSSource(StatefulIngestionSourceBase):
                         isPartitioningKey=True,
                         nullable=True,
                         recursive=False,
-                    )
+                    ),
                 )
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
@@ -265,7 +271,9 @@ class ABSSource(StatefulIngestionSourceBase):
         return operation
 
     def ingest_table(
-        self, table_data: TableData, path_spec: PathSpec
+        self,
+        table_data: TableData,
+        path_spec: PathSpec,
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
@@ -289,7 +297,8 @@ class ABSSource(StatefulIngestionSourceBase):
             data_platform_instance = DataPlatformInstanceClass(
                 platform=data_platform_urn,
                 instance=make_dataplatform_instance_urn(
-                    self.source_config.platform, self.source_config.platform_instance
+                    self.source_config.platform,
+                    self.source_config.platform_instance,
                 ),
             )
             aspects.append(data_platform_instance)
@@ -333,11 +342,11 @@ class ABSSource(StatefulIngestionSourceBase):
                 aspects.append(schema_metadata)
             except Exception as e:
                 logger.error(
-                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}",
                 )
         else:
             logger.info(
-                f"Skipping schema extraction for empty file {table_data.full_path}"
+                f"Skipping schema extraction for empty file {table_data.full_path}",
             )
 
         if (
@@ -364,7 +373,8 @@ class ABSSource(StatefulIngestionSourceBase):
             yield mcp.as_workunit()
 
         yield from self.container_WU_creator.create_container_hierarchy(
-            table_data.table_path, dataset_urn
+            table_data.table_path,
+            dataset_urn,
         )
 
     def get_prefix(self, relative_path: str) -> str:
@@ -403,7 +413,9 @@ class ABSSource(StatefulIngestionSourceBase):
         return table_data
 
     def resolve_templated_folders(
-        self, container_name: str, prefix: str
+        self,
+        container_name: str,
+        prefix: str,
     ) -> Iterable[str]:
         folder_split: List[str] = prefix.split("*", 1)
         # If the len of split is 1 it means we don't have * in the prefix
@@ -412,11 +424,14 @@ class ABSSource(StatefulIngestionSourceBase):
             return
 
         folders: Iterable[str] = list_folders(
-            container_name, folder_split[0], self.source_config.azure_config
+            container_name,
+            folder_split[0],
+            self.source_config.azure_config,
         )
         for folder in folders:
             yield from self.resolve_templated_folders(
-                container_name, f"{folder}{folder_split[1]}"
+                container_name,
+                f"{folder}{folder_split[1]}",
             )
 
     def get_dir_to_process(
@@ -451,7 +466,9 @@ class ABSSource(StatefulIngestionSourceBase):
             return folder
 
     def abs_browser(
-        self, path_spec: PathSpec, sample_size: int
+        self,
+        path_spec: PathSpec,
+        sample_size: int,
     ) -> Iterable[Tuple[str, str, datetime, int]]:
         if self.source_config.azure_config is None:
             raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
@@ -459,7 +476,7 @@ class ABSSource(StatefulIngestionSourceBase):
             self.source_config.azure_config.get_blob_service_client()
         )
         container_client = abs_blob_service_client.get_container_client(
-            self.source_config.azure_config.container_name
+            self.source_config.azure_config.container_name,
         )
 
         container_name = self.source_config.azure_config.container_name
@@ -490,7 +507,9 @@ class ABSSource(StatefulIngestionSourceBase):
             ):
                 try:
                     for f in list_folders(
-                        container_name, f"{folder}", self.source_config.azure_config
+                        container_name,
+                        f"{folder}",
+                        self.source_config.azure_config,
                     ):
                         logger.info(f"Processing folder: {f}")
                         protocol = ContainerWUCreator.get_protocol(path_spec.include)
@@ -520,20 +539,23 @@ class ABSSource(StatefulIngestionSourceBase):
                     # https://github.com/boto/boto3/issues/1195
                     if "NoSuchBucket" in repr(e):
                         logger.debug(
-                            f"Got NoSuchBucket exception for {container_name}", e
+                            f"Got NoSuchBucket exception for {container_name}",
+                            e,
                         )
                         self.get_report().report_warning(
-                            "Missing bucket", f"No bucket found {container_name}"
+                            "Missing bucket",
+                            f"No bucket found {container_name}",
                         )
                     else:
                         raise e
         else:
             logger.debug(
-                "No template in the pathspec can't do sampling, fallbacking to do full scan"
+                "No template in the pathspec can't do sampling, fallbacking to do full scan",
             )
             path_spec.sample_files = False
             for obj in container_client.list_blobs(
-                prefix=f"{prefix}", results_per_page=PAGE_SIZE
+                prefix=f"{prefix}",
+                results_per_page=PAGE_SIZE,
             ):
                 abs_path = self.create_abs_path(obj.name)
                 logger.debug(f"Path: {abs_path}")
@@ -551,7 +573,8 @@ class ABSSource(StatefulIngestionSourceBase):
         return ""
 
     def local_browser(
-        self, path_spec: PathSpec
+        self,
+        path_spec: PathSpec,
     ) -> Iterable[Tuple[str, str, datetime, int]]:
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
@@ -571,7 +594,7 @@ class ABSSource(StatefulIngestionSourceBase):
                 for file in sorted(files):
                     # We need to make sure the path is in posix style which is not true on windows
                     full_path = PurePath(
-                        os.path.normpath(os.path.join(root, file))
+                        os.path.normpath(os.path.join(root, file)),
                     ).as_posix()
                     yield (
                         full_path,
@@ -591,7 +614,8 @@ class ABSSource(StatefulIngestionSourceBase):
             for path_spec in self.source_config.path_specs:
                 file_browser = (
                     self.abs_browser(
-                        path_spec, self.source_config.number_of_files_to_sample
+                        path_spec,
+                        self.source_config.number_of_files_to_sample,
                     )
                     if self.is_abs_platform()
                     else self.local_browser(path_spec)
@@ -601,7 +625,11 @@ class ABSSource(StatefulIngestionSourceBase):
                     if not path_spec.allowed(file):
                         continue
                     table_data = self.extract_table_data(
-                        path_spec, file, name, timestamp, size
+                        path_spec,
+                        file,
+                        name,
+                        timestamp,
+                        size,
                     )
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
@@ -631,7 +659,9 @@ class ABSSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 

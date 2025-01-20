@@ -122,7 +122,8 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_query_result(
-        conn: redshift_connector.Connection, query: str
+        conn: redshift_connector.Connection,
+        query: str,
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
 
@@ -143,7 +144,8 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+        conn: redshift_connector.Connection,
+        database: str,
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
@@ -172,7 +174,8 @@ class RedshiftDataDictionary:
         # Warning: This table enrichment will not return anything for
         # external tables (spectrum) and for tables that have never been queried / written to.
         cur = RedshiftDataDictionary.get_query_result(
-            conn, self.queries.additional_table_metadata_query()
+            conn,
+            self.queries.additional_table_metadata_query(),
         )
         field_names = [i[0] for i in cur.description]
         db_table_metadata = cur.fetchall()
@@ -236,7 +239,10 @@ class RedshiftDataDictionary:
                     rows_count,
                     size_in_bytes,
                 ) = RedshiftDataDictionary.get_table_stats(
-                    enriched_tables, field_names, schema, table
+                    enriched_tables,
+                    field_names,
+                    schema,
+                    table,
                 )
 
                 tables[schema].append(
@@ -255,7 +261,7 @@ class RedshiftDataDictionary:
                         output_parameters=table[field_names.index("output_format")],
                         serde_parameters=table[field_names.index("serde_parameters")],
                         comment=table[field_names.index("table_description")],
-                    )
+                    ),
                 )
             else:
                 if schema not in views:
@@ -288,12 +294,12 @@ class RedshiftDataDictionary:
                         size_in_bytes=size_in_bytes,
                         rows_count=rows_count,
                         materialized=materialized,
-                    )
+                    ),
                 )
 
         for schema_key, schema_tables in tables.items():
             logger.info(
-                f"In schema: {schema_key} discovered {len(schema_tables)} tables"
+                f"In schema: {schema_key} discovered {len(schema_tables)} tables",
             )
         for schema_key, schema_views in views.items():
             logger.info(f"In schema: {schema_key} discovered {len(schema_views)} views")
@@ -307,7 +313,7 @@ class RedshiftDataDictionary:
         creation_time: Optional[datetime] = None
         if table[field_names.index("creation_time")]:
             creation_time = table[field_names.index("creation_time")].replace(
-                tzinfo=timezone.utc
+                tzinfo=timezone.utc,
             )
         last_altered: Optional[datetime] = None
         size_in_bytes: Optional[int] = None
@@ -358,7 +364,8 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_columns_for_schema(
-        conn: redshift_connector.Connection, schema: RedshiftSchema
+        conn: redshift_connector.Connection,
+        schema: RedshiftSchema,
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
@@ -473,7 +480,8 @@ class RedshiftDataDictionary:
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
                     query_text=row[field_names.index("query_text")].replace(
-                        r"\n", "\n"
+                        r"\n",
+                        "\n",
                     ),
                     create_command=row[field_names.index("create_command")],
                     start_time=row[field_names.index("start_time")],
@@ -503,7 +511,8 @@ class RedshiftDataDictionary:
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
                     query_text=row[field_names.index("query_text")].replace(
-                        r"\n", "\n"
+                        r"\n",
+                        "\n",
                     ),
                     start_time=row[field_names.index("start_time")],
                 )

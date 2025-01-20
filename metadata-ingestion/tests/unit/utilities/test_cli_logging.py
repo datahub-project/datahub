@@ -46,7 +46,8 @@ def test_cli_logging(tmp_path):
 
     runner = CliRunner()
     result = runner.invoke(
-        datahub, ["--debug", "--log-file", str(log_file), "my-logging-fn"]
+        datahub,
+        ["--debug", "--log-file", str(log_file), "my-logging-fn"],
     )
     assert result.exit_code == 0
 

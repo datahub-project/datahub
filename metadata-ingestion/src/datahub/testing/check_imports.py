@@ -30,5 +30,5 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
                         if denied_import in line:
                             raise ValueError(
                                 f"Disallowed import found in {file}: `{line.rstrip()}`. "
-                                f"Import from {replacement} instead."
+                                f"Import from {replacement} instead.",
                             )

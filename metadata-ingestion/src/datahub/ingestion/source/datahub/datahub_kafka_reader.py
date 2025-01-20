@@ -49,16 +49,18 @@ class DataHubKafkaReader(Closeable):
                 "enable.auto.commit": False,
                 "value.deserializer": AvroDeserializer(
                     schema_registry_client=SchemaRegistryClient(
-                        {"url": self.connection_config.schema_registry_url}
+                        {"url": self.connection_config.schema_registry_url},
                     ),
                     return_record_name=True,
                 ),
-            }
+            },
         )
         return self
 
     def get_mcls(
-        self, from_offsets: Dict[int, int], stop_time: datetime
+        self,
+        from_offsets: Dict[int, int],
+        stop_time: datetime,
     ) -> Iterable[Tuple[MetadataChangeLogClass, PartitionOffset]]:
         # Based on https://github.com/confluentinc/confluent-kafka-python/issues/145#issuecomment-284843254
         def on_assign(consumer: Consumer, partitions: List[TopicPartition]) -> None:
@@ -74,7 +76,8 @@ class DataHubKafkaReader(Closeable):
             self.consumer.unsubscribe()
 
     def _poll_partition(
-        self, stop_time: datetime
+        self,
+        stop_time: datetime,
     ) -> Iterable[Tuple[MetadataChangeLogClass, PartitionOffset]]:
         while True:
             msg = self.consumer.poll(10)
@@ -93,7 +96,7 @@ class DataHubKafkaReader(Closeable):
             if mcl.created and mcl.created.time > stop_time.timestamp() * 1000:
                 logger.info(
                     f"Stopped reading from kafka, reached MCL "
-                    f"with audit stamp {parse_ts_millis(mcl.created.time)}"
+                    f"with audit stamp {parse_ts_millis(mcl.created.time)}",
                 )
                 break
 

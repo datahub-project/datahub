@@ -10,11 +10,13 @@ gms_endpoint = "http://localhost:8080"
 emitter = DatahubRestEmitter(gms_server=gms_endpoint, extra_headers={})
 
 feature_table_urn = builder.make_ml_feature_table_urn(
-    feature_table_name="my-feature-table", platform="feast"
+    feature_table_name="my-feature-table",
+    platform="feast",
 )
 feature_urns = [
     builder.make_ml_feature_urn(
-        feature_name="my-feature2", feature_table_name="my-feature-table"
+        feature_name="my-feature2",
+        feature_table_name="my-feature-table",
     ),
 ]
 
@@ -22,7 +24,8 @@ feature_urns = [
 # If you want to replace all existing features with only the new ones, you can comment out this line.
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 feature_table_properties = graph.get_aspect(
-    entity_urn=feature_table_urn, aspect_type=MLFeatureTablePropertiesClass
+    entity_urn=feature_table_urn,
+    aspect_type=MLFeatureTablePropertiesClass,
 )
 if feature_table_properties:
     current_features = feature_table_properties.mlFeatures

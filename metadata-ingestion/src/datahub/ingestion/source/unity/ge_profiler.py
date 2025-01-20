@@ -56,7 +56,8 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         self.config.options.setdefault(
-            "max_overflow", self.profiling_config.max_workers
+            "max_overflow",
+            self.profiling_config.max_workers,
         )
 
         url = self.config.get_sql_alchemy_url()
@@ -65,7 +66,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
         profile_requests = []
         with ThreadPoolExecutor(
-            max_workers=self.profiling_config.max_workers
+            max_workers=self.profiling_config.max_workers,
         ) as executor:
             futures = [
                 executor.submit(
@@ -78,7 +79,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
             try:
                 for i, completed in enumerate(
-                    as_completed(futures, timeout=self.profiling_config.max_wait_secs)
+                    as_completed(futures, timeout=self.profiling_config.max_wait_secs),
                 ):
                     profile_request = completed.result()
                     if profile_request is not None:
@@ -103,7 +104,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
         return f"{db_name}.{schema_name}.{table_name}"
 
     def get_unity_profile_request(
-        self, table: UnityCatalogSQLGenericTable, conn: Connection
+        self,
+        table: UnityCatalogSQLGenericTable,
+        conn: Connection,
     ) -> Optional[TableProfilerRequest]:
         # TODO: Reduce code duplication with get_profile_request
         skip_profiling = False
@@ -154,7 +157,8 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
 
 def _get_dataset_size_in_bytes(
-    table: UnityCatalogSQLGenericTable, conn: Connection
+    table: UnityCatalogSQLGenericTable,
+    conn: Connection,
 ) -> Optional[int]:
     name = ".".join(
         conn.dialect.identifier_preparer.quote(c)

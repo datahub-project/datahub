@@ -33,7 +33,8 @@ class ExtractOwnersFromTagsConfig(ConfigModel):
     owner_type_urn: Optional[str] = None
 
     _rename_tag_prefix_to_tag_pattern = pydantic_renamed_field(
-        "tag_prefix", "tag_pattern"
+        "tag_prefix",
+        "tag_pattern",
     )
 
 
@@ -60,7 +61,9 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "ExtractOwnersFromTagsTransformer":
         config = ExtractOwnersFromTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -108,7 +111,10 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         return self.owner_mcps
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_tags_aspect: Optional[GlobalTagsClass] = cast(GlobalTagsClass, aspect)
         if in_tags_aspect is None:
@@ -136,7 +142,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                                 owner=owner_urn,
                                 type=OwnershipTypeClass.CUSTOM,
                                 typeUrn=make_ownership_type_urn(re_match.group(1)),
-                            )
+                            ),
                         )
                 else:
                     owner_type = get_owner_type(self.config.owner_type)
@@ -150,7 +156,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                             owner=owner_urn,
                             type=owner_type,
                             typeUrn=self.config.owner_type_urn,
-                        )
+                        ),
                     )
 
         self.owner_mcps.append(
@@ -159,6 +165,6 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                 aspect=OwnershipClass(
                     owners=owners,
                 ),
-            )
+            ),
         )
         return aspect

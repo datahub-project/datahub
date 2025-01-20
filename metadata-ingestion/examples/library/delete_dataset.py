@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 graph = DataHubGraph(
     config=DatahubClientConfig(
         server="http://localhost:8080",
-    )
+    ),
 )
 
 dataset_urn = make_dataset_urn(name="fct_users_created", platform="hive")

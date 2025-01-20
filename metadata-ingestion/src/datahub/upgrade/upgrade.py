@@ -48,7 +48,8 @@ async def get_client_version_stats():
     current_version_string = __version__
     current_version = Version(current_version_string)
     client_version_stats: ClientVersionStats = ClientVersionStats(
-        current=VersionStats(version=current_version, release_date=None), latest=None
+        current=VersionStats(version=current_version, release_date=None),
+        latest=None,
     )
     async with aiohttp.ClientSession() as session:
         pypi_url = "https://pypi.org/pypi/acryl_datahub/json"
@@ -65,20 +66,24 @@ async def get_client_version_stats():
                 current_version_date = None
                 if current_version_info:
                     current_version_date = datetime.strptime(
-                        current_version_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S"
+                        current_version_info[0].get("upload_time"),
+                        "%Y-%m-%dT%H:%M:%S",
                     )
                 latest_release_info = releases.get(latest_cli_release_string)
                 latest_version_date = None
                 if latest_release_info:
                     latest_version_date = datetime.strptime(
-                        latest_release_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S"
+                        latest_release_info[0].get("upload_time"),
+                        "%Y-%m-%dT%H:%M:%S",
                     )
                 client_version_stats = ClientVersionStats(
                     current=VersionStats(
-                        version=current_version, release_date=current_version_date
+                        version=current_version,
+                        release_date=current_version_date,
                     ),
                     latest=VersionStats(
-                        version=latest_cli_release, release_date=latest_version_date
+                        version=latest_cli_release,
+                        release_date=latest_version_date,
                     ),
                 )
             except Exception as e:
@@ -91,7 +96,7 @@ async def get_github_stats():
     import aiohttp
 
     async with aiohttp.ClientSession(
-        headers={"Accept": "application/vnd.github.v3+json"}
+        headers={"Accept": "application/vnd.github.v3+json"},
     ) as session:
         gh_url = "https://api.github.com/repos/datahub-project/datahub/releases"
         async with session.get(gh_url) as gh_response:
@@ -153,7 +158,7 @@ async def get_server_version_stats(
         server_type = server_config.get("datahub", {}).get("serverType", "unknown")
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
-                headers={"Accept": "application/vnd.github.v3+json"}
+                headers={"Accept": "application/vnd.github.v3+json"},
             ) as session:
                 gh_url = f"https://api.github.com/repos/datahub-project/datahub/commits/{commit_hash}"
                 async with session.get(gh_url) as gh_response:
@@ -169,7 +174,8 @@ async def get_server_version_stats(
 
 
 def retrieve_version_stats(
-    timeout: float, graph: Optional[DataHubGraph] = None
+    timeout: float,
+    graph: Optional[DataHubGraph] = None,
 ) -> Optional[DataHubVersionStats]:
     version_stats: Optional[DataHubVersionStats] = None
 
@@ -215,7 +221,8 @@ async def _retrieve_version_stats(
     if current_server_version:
         server_version_stats = ServerVersionStats(
             current=VersionStats(
-                version=current_server_version, release_date=current_server_release_date
+                version=current_server_version,
+                release_date=current_server_release_date,
             ),
             latest=(
                 VersionStats(version=last_server_version, release_date=last_server_date)
@@ -227,7 +234,8 @@ async def _retrieve_version_stats(
 
     if client_version_stats and server_version_stats:
         return DataHubVersionStats(
-            server=server_version_stats, client=client_version_stats
+            server=server_version_stats,
+            client=client_version_stats,
         )
     else:
         return None
@@ -237,7 +245,8 @@ def get_days(time_point: Optional[Any]) -> str:
     if time_point:
         return "(released " + (
             humanfriendly.format_timespan(
-                datetime.now(timezone.utc) - time_point, max_units=1
+                datetime.now(timezone.utc) - time_point,
+                max_units=1,
             )
             + " ago)"
         )
@@ -273,7 +282,7 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
     +ve implies server is ahead of client
     """
     if not valid_client_version(client.version) or not valid_server_version(
-        server.version
+        server.version,
     ):
         # we cannot evaluate compatibility, choose True as default
         return 0
@@ -307,7 +316,8 @@ def _maybe_print_upgrade_message(  # noqa: C901
             else None
         )
         client_server_compat = is_client_server_compatible(
-            version_stats.client.current, version_stats.server.current
+            version_stats.client.current,
+            version_stats.server.current,
         )
 
         if latest_release_date and current_release_date:
@@ -330,7 +340,7 @@ def _maybe_print_upgrade_message(  # noqa: C901
                 )
                 if time_delta > timedelta(days=days_before_quickstart_stale):
                     log.debug(
-                        f"will encourage upgrade due to server being old {version_stats.server.current.release_date},{time_delta}"
+                        f"will encourage upgrade due to server being old {version_stats.server.current.release_date},{time_delta}",
                     )
                     encourage_quickstart_upgrade = True
             if version_stats.server.latest and (
@@ -338,7 +348,7 @@ def _maybe_print_upgrade_message(  # noqa: C901
                 > version_stats.server.current.version
             ):
                 log.debug(
-                    f"Will encourage upgrade due to newer version of server {version_stats.server.latest.version} being available compared to {version_stats.server.current.version}"
+                    f"Will encourage upgrade due to newer version of server {version_stats.server.latest.version} being available compared to {version_stats.server.current.version}",
                 )
                 encourage_quickstart_upgrade = True
 
@@ -356,7 +366,7 @@ def _maybe_print_upgrade_message(  # noqa: C901
                 + click.style(
                     f"➡️ Downgrade via `\"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
             )
     elif client_server_compat > 0:
         with contextlib.suppress(Exception):
@@ -371,7 +381,7 @@ def _maybe_print_upgrade_message(  # noqa: C901
                 + click.style(
                     f"➡️  Upgrade via \"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
             )
     elif client_server_compat == 0 and encourage_cli_upgrade:
         with contextlib.suppress(Exception):
@@ -381,7 +391,7 @@ def _maybe_print_upgrade_message(  # noqa: C901
                 + click.style(
                     f"You seem to be running an old version of datahub cli: {current_version} {get_days(current_release_date)}. Latest version is {latest_version} {get_days(latest_release_date)}.\nUpgrade via \"pip install -U 'acryl-datahub'\"",
                     fg="cyan",
-                )
+                ),
             )
     elif encourage_quickstart_upgrade:
         try:
@@ -413,7 +423,8 @@ def check_upgrade_post(
     version_stats_timeout = clip(main_method_runtime / 10, 0.7, 3.0)
     try:
         version_stats = retrieve_version_stats(
-            timeout=version_stats_timeout, graph=graph
+            timeout=version_stats_timeout,
+            graph=graph,
         )
         _maybe_print_upgrade_message(version_stats=version_stats)
     except Exception as e:

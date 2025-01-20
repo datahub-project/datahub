@@ -15,7 +15,7 @@ from datahub.emitter.kafka_emitter import (
 class KafkaEmitterTest(unittest.TestCase):
     def test_kafka_emitter_config(self):
         emitter_config = KafkaEmitterConfig.parse_obj(
-            {"connection": {"bootstrap": "foobar:9092"}}
+            {"connection": {"bootstrap": "foobar:9092"}},
         )
         assert emitter_config.topic_routes[MCE_KEY] == DEFAULT_MCE_KAFKA_TOPIC
         assert emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
@@ -31,7 +31,7 @@ class KafkaEmitterTest(unittest.TestCase):
                     "connection": {"bootstrap": "foobar:9092"},
                     "topic": "NewTopic",
                     "topic_routes": {MCE_KEY: "NewTopic"},
-                }
+                },
             )
 
     """
@@ -40,7 +40,7 @@ class KafkaEmitterTest(unittest.TestCase):
 
     def test_kafka_emitter_config_topic_upgrade(self):
         emitter_config = KafkaEmitterConfig.parse_obj(
-            {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"}
+            {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"},
         )
         assert emitter_config.topic_routes[MCE_KEY] == "NewTopic"  # MCE topic upgraded
         assert (

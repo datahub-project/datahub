@@ -35,7 +35,8 @@ pytestmark = pytest.mark.random_order(disabled=True)
 class TestPipeline:
     @patch("confluent_kafka.Consumer", autospec=True)
     @patch(
-        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
+        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits",
+        autospec=True,
     )
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)
@@ -47,7 +48,7 @@ class TestPipeline:
                     "config": {"connection": {"bootstrap": "fake-dns-name:9092"}},
                 },
                 "sink": {"type": "console"},
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -69,7 +70,10 @@ class TestPipeline:
         return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
     )
     def test_configure_without_sink(
-        self, mock_emitter, mock_graph, mock_load_client_config
+        self,
+        mock_emitter,
+        mock_graph,
+        mock_load_client_config,
     ):
         pipeline = Pipeline.create(
             {
@@ -77,7 +81,7 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -102,7 +106,11 @@ class TestPipeline:
         return_value="Basic user:pass",
     )
     def test_configure_without_sink_use_system_auth(
-        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+        self,
+        mock_emitter,
+        mock_graph,
+        mock_load_client_config,
+        mock_get_system_auth,
     ):
         pipeline = Pipeline.create(
             {
@@ -110,7 +118,7 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -130,7 +138,9 @@ class TestPipeline:
         return_value={"noCode": True},
     )
     def test_configure_with_rest_sink_initializes_graph(
-        self, mock_source, mock_test_connection
+        self,
+        mock_source,
+        mock_test_connection,
     ):
         pipeline = Pipeline.create(
             {
@@ -170,7 +180,9 @@ class TestPipeline:
         return_value={"noCode": True},
     )
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
-        self, mock_source, mock_test_connection
+        self,
+        mock_source,
+        mock_test_connection,
     ):
         pipeline = Pipeline.create(
             {
@@ -186,7 +198,7 @@ class TestPipeline:
                         "mode": "sync",
                     },
                 },
-            }
+            },
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
@@ -202,7 +214,8 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
+        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits",
+        autospec=True,
     )
     def test_configure_with_file_sink_does_not_init_graph(self, mock_source, tmp_path):
         pipeline = Pipeline.create(
@@ -217,7 +230,7 @@ class TestPipeline:
                         "filename": str(tmp_path / "test.json"),
                     },
                 },
-            }
+            },
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
@@ -231,11 +244,13 @@ class TestPipeline:
             {
                 "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
                 "transformers": [
-                    {"type": "tests.unit.api.test_pipeline.AddStatusRemovedTransformer"}
+                    {
+                        "type": "tests.unit.api.test_pipeline.AddStatusRemovedTransformer",
+                    },
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
                 "run_id": "pipeline_test",
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -246,7 +261,8 @@ class TestPipeline:
         dataset_snapshot.aspects.append(get_status_removed_aspect())
 
         sink_report: RecordingSinkReport = cast(
-            RecordingSinkReport, pipeline.sink.get_report()
+            RecordingSinkReport,
+            pipeline.sink.get_report(),
         )
 
         assert len(sink_report.received_records) == 1
@@ -266,10 +282,10 @@ class TestPipeline:
                             "owner_urns": ["urn:li:corpuser:foo"],
                             "ownership_type": "urn:li:ownershipType:__system__technical_owner",
                         },
-                    }
+                    },
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
-            }
+            },
         )
         assert pipeline
 
@@ -306,7 +322,7 @@ source:
     config: {{}}
 sink:
     type: console
-"""
+""",
         )
 
         res = run_datahub_cmd(
@@ -387,7 +403,7 @@ sink:
                 "source": {"type": f"tests.unit.api.test_pipeline.{source}"},
                 "sink": {"type": "console"},
                 "run_id": "pipeline_test",
-            }
+            },
         )
 
         class FakeCommittable(Committable):
@@ -401,7 +417,9 @@ sink:
         fake_committable: Committable = FakeCommittable(commit_policy)
 
         with patch.object(
-            FakeCommittable, "commit", wraps=fake_committable.commit
+            FakeCommittable,
+            "commit",
+            wraps=fake_committable.commit,
         ) as mock_commit:
             pipeline.ctx.register_checkpointer(fake_committable)
 
@@ -419,15 +437,17 @@ class AddStatusRemovedTransformer(Transformer):
         return cls()
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         for record_envelope in record_envelopes:
             if isinstance(record_envelope.record, MetadataChangeEventClass):
                 assert isinstance(
-                    record_envelope.record.proposedSnapshot, DatasetSnapshotClass
+                    record_envelope.record.proposedSnapshot,
+                    DatasetSnapshotClass,
                 )
                 record_envelope.record.proposedSnapshot.aspects.append(
-                    get_status_removed_aspect()
+                    get_status_removed_aspect(),
                 )
             yield record_envelope
 
@@ -437,7 +457,7 @@ class FakeSource(Source):
         super().__init__(ctx)
         self.source_report = SourceReport()
         self.work_units: List[MetadataWorkUnit] = [
-            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce())
+            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce()),
         ]
 
     @classmethod
@@ -480,11 +500,12 @@ def get_initial_mce() -> MetadataChangeEventClass:
             aspects=[
                 DatasetPropertiesClass(
                     description="test.description",
-                )
+                ),
             ],
         ),
         systemMetadata=SystemMetadata(
-            lastObserved=1586847600000, runId="pipeline_test"
+            lastObserved=1586847600000,
+            runId="pipeline_test",
         ),
     )
 

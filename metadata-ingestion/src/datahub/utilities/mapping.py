@@ -121,7 +121,7 @@ class _DatahubProps(ConfigModel):
                     "urn": owner_id,
                     "category": owner_category,
                     "categoryUrn": owner_category_urn,
-                }
+                },
             )
         return res
 
@@ -190,7 +190,7 @@ class OperationProcessor:
                 if datahub_prop.tags:
                     # Note that tags get converted to urns later because we need to support the tag prefix.
                     operations_map.setdefault(Constants.ADD_TAG_OPERATION, []).extend(
-                        datahub_prop.tags
+                        datahub_prop.tags,
                     )
 
                 if datahub_prop.terms:
@@ -200,12 +200,13 @@ class OperationProcessor:
 
                 if datahub_prop.owners:
                     operations_map.setdefault(Constants.ADD_OWNER_OPERATION, []).extend(
-                        datahub_prop.make_owner_category_list()
+                        datahub_prop.make_owner_category_list(),
                     )
 
                 if datahub_prop.domain:
                     operations_map.setdefault(
-                        Constants.ADD_DOMAIN_OPERATION, []
+                        Constants.ADD_DOMAIN_OPERATION,
+                        [],
                     ).append(mce_builder.make_domain_urn(datahub_prop.domain))
         except Exception as e:
             logger.error(f"Error while processing datahub property: {e}")
@@ -214,10 +215,10 @@ class OperationProcessor:
         try:
             for operation_key in self.operation_defs:
                 operation_type = self.operation_defs.get(operation_key, {}).get(
-                    Constants.OPERATION
+                    Constants.OPERATION,
                 )
                 operation_config = self.operation_defs.get(operation_key, {}).get(
-                    Constants.OPERATION_CONFIG
+                    Constants.OPERATION_CONFIG,
                 )
                 if not operation_type or not operation_config:
                     continue
@@ -225,7 +226,9 @@ class OperationProcessor:
                 if not raw_props_value and self.match_nested_props:
                     try:
                         raw_props_value = reduce(
-                            operator.getitem, operation_key.split("."), raw_props
+                            operator.getitem,
+                            operation_key.split("."),
+                            raw_props,
                         )
                     except KeyError:
                         pass
@@ -236,7 +239,10 @@ class OperationProcessor:
                 )
                 if maybe_match is not None:
                     operation = self.get_operation_value(
-                        operation_key, operation_type, operation_config, maybe_match
+                        operation_key,
+                        operation_type,
+                        operation_config,
+                        maybe_match,
                     )
 
                     if operation_type == Constants.ADD_TERMS_OPERATION:
@@ -250,18 +256,18 @@ class OperationProcessor:
                             and operation_type == Constants.ADD_OWNER_OPERATION
                         ):
                             operations_map.setdefault(operation_type, []).extend(
-                                operation
+                                operation,
                             )
 
                         elif isinstance(operation, (str, list)):
                             operations_map.setdefault(operation_type, []).extend(
                                 operation
                                 if isinstance(operation, list)
-                                else [operation]
+                                else [operation],
                             )
                         else:
                             operations_map.setdefault(operation_type, []).append(
-                                operation
+                                operation,
                             )
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
@@ -278,7 +284,7 @@ class OperationProcessor:
 
         if Constants.ADD_TAG_OPERATION in operation_map:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
-                sorted(set(operation_map[Constants.ADD_TAG_OPERATION]))
+                sorted(set(operation_map[Constants.ADD_TAG_OPERATION])),
             )
 
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
@@ -300,14 +306,14 @@ class OperationProcessor:
                         operation_map[Constants.ADD_OWNER_OPERATION],
                         key=lambda x: x["urn"],
                     )
-                ]
+                ],
             )
 
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
 
         if Constants.ADD_TERM_OPERATION in operation_map:
             term_aspect = mce_builder.make_glossary_terms_aspect_from_urn_list(
-                sorted(set(operation_map[Constants.ADD_TERM_OPERATION]))
+                sorted(set(operation_map[Constants.ADD_TERM_OPERATION])),
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
 
@@ -316,23 +322,25 @@ class OperationProcessor:
                 domains=[
                     mce_builder.make_domain_urn(domain)
                     for domain in operation_map[Constants.ADD_DOMAIN_OPERATION]
-                ]
+                ],
             )
             aspect_map[Constants.ADD_DOMAIN_OPERATION] = domain_aspect
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:
                 if len(
-                    operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION],
                 ) == 1 and isinstance(
-                    operation_map[Constants.ADD_DOC_LINK_OPERATION], list
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION],
+                    list,
                 ):
                     docs_dict = cast(
-                        List[Dict], operation_map[Constants.ADD_DOC_LINK_OPERATION]
+                        List[Dict],
+                        operation_map[Constants.ADD_DOC_LINK_OPERATION],
                     )[0]
                     if "description" not in docs_dict or "link" not in docs_dict:
                         raise Exception(
-                            "Documentation_link meta_mapping config needs a description key and a link key"
+                            "Documentation_link meta_mapping config needs a description key and a link key",
                         )
 
                     now = int(time.time() * 1000)  # milliseconds since epoch
@@ -340,13 +348,14 @@ class OperationProcessor:
                         url=docs_dict["link"],
                         description=docs_dict["description"],
                         createStamp=AuditStampClass(
-                            time=now, actor="urn:li:corpuser:ingestion"
+                            time=now,
+                            actor="urn:li:corpuser:ingestion",
                         ),
                     )
 
                     # create a new institutional memory aspect
                     institutional_memory_aspect = InstitutionalMemoryClass(
-                        elements=[institutional_memory_element]
+                        elements=[institutional_memory_element],
                     )
 
                     aspect_map[Constants.ADD_DOC_LINK_OPERATION] = (
@@ -356,12 +365,12 @@ class OperationProcessor:
                     raise Exception(
                         f"Expected 1 item of type list for the documentation_link meta_mapping config,"
                         f" received type of {type(operation_map[Constants.ADD_DOC_LINK_OPERATION])}"
-                        f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}."
+                        f", and size of {len(operation_map[Constants.ADD_DOC_LINK_OPERATION])}.",
                     )
 
             except Exception as e:
                 logger.error(
-                    f"Error while constructing aspect for documentation link and description : {e}"
+                    f"Error while constructing aspect for documentation link and description : {e}",
                 )
 
         return aspect_map
@@ -388,7 +397,8 @@ class OperationProcessor:
             owner_ids: List[str] = [_id.strip() for _id in owner_id.split(",")]
 
             owner_type_raw = operation_config.get(
-                Constants.OWNER_TYPE, Constants.USER_OWNER
+                Constants.OWNER_TYPE,
+                Constants.USER_OWNER,
             )
             owner_type_mapping: Dict[str, OwnerType] = {
                 Constants.USER_OWNER: OwnerType.USER,
@@ -396,7 +406,7 @@ class OperationProcessor:
             }
             if owner_type_raw not in owner_type_mapping:
                 logger.warning(
-                    f"Invalid owner type: {owner_type_raw}. Valid owner types are {', '.join(owner_type_mapping.keys())}"
+                    f"Invalid owner type: {owner_type_raw}. Valid owner types are {', '.join(owner_type_mapping.keys())}",
                 )
                 return None
             owner_type = owner_type_mapping[owner_type_raw]

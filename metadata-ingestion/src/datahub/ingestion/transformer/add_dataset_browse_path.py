@@ -30,14 +30,18 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "AddDatasetBrowsePathTransformer":
         config = AddDatasetBrowsePathConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     @staticmethod
     def _merge_with_server_browse_paths(
-        graph: DataHubGraph, urn: str, mce_browse_paths: Optional[BrowsePathsClass]
+        graph: DataHubGraph,
+        urn: str,
+        mce_browse_paths: Optional[BrowsePathsClass],
     ) -> Optional[BrowsePathsClass]:
         if not mce_browse_paths or not mce_browse_paths.paths:
             # nothing to add, no need to consult server
@@ -59,7 +63,10 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
         return mce_browse_paths
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         platform_part, dataset_fqdn, env = (
             entity_urn.replace("urn:li:dataset:(", "").replace(")", "").split(",")
@@ -85,7 +92,9 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
             return cast(
                 Optional[Aspect],
                 AddDatasetBrowsePathTransformer._merge_with_server_browse_paths(
-                    self.ctx.graph, entity_urn, browse_paths
+                    self.ctx.graph,
+                    entity_urn,
+                    browse_paths,
                 ),
             )
         else:

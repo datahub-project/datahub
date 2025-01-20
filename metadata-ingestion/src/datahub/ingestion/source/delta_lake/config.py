@@ -21,12 +21,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class S3(ConfigModel):
     aws_config: Optional[AwsConnectionConfig] = Field(
-        default=None, description="AWS configuration"
+        default=None,
+        description="AWS configuration",
     )
 
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
-        False, description="Whether or not to create tags in datahub from the s3 bucket"
+        False,
+        description="Whether or not to create tags in datahub from the s3 bucket",
     )
     # Whether or not to create in datahub from the s3 object
     use_s3_object_tags: Optional[bool] = Field(
@@ -38,7 +40,7 @@ class S3(ConfigModel):
 class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
-        "then all subfolders will be scanned to detect and ingest delta tables."
+        "then all subfolders will be scanned to detect and ingest delta tables.",
     )
     relative_path: Optional[str] = Field(
         default=None,

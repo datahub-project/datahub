@@ -19,9 +19,9 @@ emitter = DatahubKafkaEmitter(
                 "bootstrap": "broker:9092",
                 "producer_config": {},
                 "schema_registry_url": "http://schema-registry:8081",
-            }
-        }
-    )
+            },
+        },
+    ),
 )
 
 

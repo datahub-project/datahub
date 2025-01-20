@@ -36,15 +36,17 @@ class BigQueryQueriesSourceReport(SourceReport):
     window: Optional[BaseTimeWindowConfig] = None
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
-        default_factory=BigQuerySchemaApiPerfReport
+        default_factory=BigQuerySchemaApiPerfReport,
     )
 
 
 class BigQueryQueriesSourceConfig(
-    BigQueryQueriesExtractorConfig, BigQueryFilterConfig, BigQueryIdentifierConfig
+    BigQueryQueriesExtractorConfig,
+    BigQueryFilterConfig,
+    BigQueryIdentifierConfig,
 ):
     connection: BigQueryConnectionConfig = Field(
-        default_factory=BigQueryConnectionConfig
+        default_factory=BigQueryConnectionConfig,
     )
 
 

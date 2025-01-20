@@ -75,7 +75,8 @@ class BigQueryPlatformResourceHelper:
     platform_resource_cache: cachetools.LRUCache = cachetools.LRUCache(maxsize=500)
 
     def get_platform_resource(
-        self, platform_resource_key: PlatformResourceKey
+        self,
+        platform_resource_key: PlatformResourceKey,
     ) -> Optional[PlatformResource]:
         # if graph is not available we always create a new PlatformResource
         if not self.graph:
@@ -84,7 +85,8 @@ class BigQueryPlatformResourceHelper:
             return self.platform_resource_cache.get(platform_resource_key.primary_key)
 
         platform_resource = PlatformResource.from_datahub(
-            key=platform_resource_key, graph_client=self.graph
+            key=platform_resource_key,
+            graph_client=self.graph,
         )
         if platform_resource:
             self.platform_resource_cache[platform_resource_key.primary_key] = (
@@ -107,7 +109,7 @@ class BigQueryPlatformResourceHelper:
         )
 
         platform_resource = self.get_platform_resource(
-            new_platform_resource.platform_resource_key()
+            new_platform_resource.platform_resource_key(),
         )
         if platform_resource:
             if (
@@ -117,12 +119,12 @@ class BigQueryPlatformResourceHelper:
                 try:
                     existing_info: Optional[BigQueryLabelInfo] = (
                         platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                            BigQueryLabelInfo,
                         )
                     )
                 except ValidationError as e:
                     logger.error(
-                        f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."
+                        f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change.",
                     )
                     existing_info = None
 
@@ -134,15 +136,15 @@ class BigQueryPlatformResourceHelper:
                         return platform_resource
                     else:
                         raise ValueError(
-                            f"Datahub URN mismatch for platform resources. Old (existing) platform resource: {platform_resource} and new platform resource: {new_platform_resource}"
+                            f"Datahub URN mismatch for platform resources. Old (existing) platform resource: {platform_resource} and new platform resource: {new_platform_resource}",
                         )
 
         logger.info(f"Created platform resource {new_platform_resource}")
 
         self.platform_resource_cache.update(
             {
-                new_platform_resource.platform_resource_key().primary_key: new_platform_resource.platform_resource()
-            }
+                new_platform_resource.platform_resource_key().primary_key: new_platform_resource.platform_resource(),
+            },
         )
 
         return new_platform_resource.platform_resource()

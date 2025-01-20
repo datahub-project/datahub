@@ -79,12 +79,12 @@ class ModelProcessor:
 
     # map from model image file path to jobs referencing the model
     model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
-        default_factory=lambda: defaultdict(dict)
+        default_factory=lambda: defaultdict(dict),
     )
 
     # map from model name to jobs referencing the model
     model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
-        default_factory=lambda: defaultdict(dict)
+        default_factory=lambda: defaultdict(dict),
     )
 
     # map from model uri to model name
@@ -130,7 +130,8 @@ class ModelProcessor:
         return groups
 
     def get_group_details(
-        self, group_name: str
+        self,
+        group_name: str,
     ) -> "DescribeModelPackageGroupOutputTypeDef":
         """
         Get details of a model group.
@@ -138,7 +139,7 @@ class ModelProcessor:
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model_package_group
         return self.sagemaker_client.describe_model_package_group(
-            ModelPackageGroupName=group_name
+            ModelPackageGroupName=group_name,
         )
 
     def get_all_endpoints(self) -> List["EndpointSummaryTypeDef"]:
@@ -153,13 +154,17 @@ class ModelProcessor:
         return endpoints
 
     def get_endpoint_details(
-        self, endpoint_name: str
+        self,
+        endpoint_name: str,
     ) -> "DescribeEndpointOutputTypeDef":
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
         return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
 
     def get_endpoint_status(
-        self, endpoint_name: str, endpoint_arn: str, sagemaker_status: str
+        self,
+        endpoint_name: str,
+        endpoint_arn: str,
+        sagemaker_status: str,
     ) -> str:
         endpoint_status = ENDPOINT_STATUS_MAP.get(sagemaker_status)
 
@@ -174,7 +179,8 @@ class ModelProcessor:
         return endpoint_status
 
     def get_endpoint_wu(
-        self, endpoint_details: "DescribeEndpointOutputTypeDef"
+        self,
+        endpoint_details: "DescribeEndpointOutputTypeDef",
     ) -> MetadataWorkUnit:
         """a
         Get a workunit for an endpoint.
@@ -185,13 +191,15 @@ class ModelProcessor:
 
         endpoint_snapshot = MLModelDeploymentSnapshot(
             urn=builder.make_ml_model_deployment_urn(
-                "sagemaker", endpoint_details["EndpointName"], self.env
+                "sagemaker",
+                endpoint_details["EndpointName"],
+                self.env,
             ),
             aspects=[
                 MLModelDeploymentPropertiesClass(
                     createdAt=int(
                         endpoint_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
+                        * 1000,
                     ),
                     status=self.get_endpoint_status(
                         endpoint_details["EndpointArn"],
@@ -204,7 +212,7 @@ class ModelProcessor:
                         for key, value in endpoint_details.items()
                         if key not in redundant_fields
                     },
-                )
+                ),
             ],
         )
 
@@ -241,13 +249,14 @@ class ModelProcessor:
 
         # sort endpoints and groups for consistency
         model_endpoints_sorted = sorted(
-            [x for x in model_endpoints if x in endpoint_arn_to_name]
+            [x for x in model_endpoints if x in endpoint_arn_to_name],
         )
 
         return model_endpoints_sorted
 
     def get_group_wu(
-        self, group_details: "DescribeModelPackageGroupOutputTypeDef"
+        self,
+        group_details: "DescribeModelPackageGroupOutputTypeDef",
     ) -> MetadataWorkUnit:
         """
         Get a workunit for a model group.
@@ -268,7 +277,7 @@ class ModelProcessor:
                 OwnerClass(
                     owner=f"urn:li:corpuser:{group_details['CreatedBy']['UserProfileName']}",
                     type=OwnershipTypeClass.DATAOWNER,
-                )
+                ),
             )
 
         group_snapshot = MLModelGroupSnapshot(
@@ -277,7 +286,7 @@ class ModelProcessor:
                 MLModelGroupPropertiesClass(
                     createdAt=int(
                         group_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
+                        * 1000,
                     ),
                     description=group_details.get("ModelPackageGroupDescription"),
                     customProperties={
@@ -297,7 +306,8 @@ class ModelProcessor:
         return MetadataWorkUnit(id=group_name, mce=mce)
 
     def match_model_jobs(
-        self, model_details: "DescribeModelOutputTypeDef"
+        self,
+        model_details: "DescribeModelOutputTypeDef",
     ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
         model_training_jobs: Set[str] = set()
         model_downstream_jobs: Set[str] = set()
@@ -325,7 +335,7 @@ class ModelProcessor:
                     job_urn
                     for job_urn, job_direction in data_url_matched_jobs.keys()
                     if job_direction == JobDirection.TRAINING
-                }
+                },
             )
             # extend set of downstream jobs
             model_downstream_jobs = model_downstream_jobs.union(
@@ -333,7 +343,7 @@ class ModelProcessor:
                     job_urn
                     for job_urn, job_direction in data_url_matched_jobs.keys()
                     if job_direction == JobDirection.DOWNSTREAM
-                }
+                },
             )
 
             for job_key, job_info in data_url_matched_jobs.items():
@@ -370,7 +380,7 @@ class ModelProcessor:
                 job_urn
                 for job_urn, job_direction in name_matched_jobs.keys()
                 if job_direction == JobDirection.TRAINING
-            }
+            },
         )
         # extend set of downstream jobs
         model_downstream_jobs = model_downstream_jobs.union(
@@ -378,7 +388,7 @@ class ModelProcessor:
                 job_urn
                 for job_urn, job_direction in name_matched_jobs.keys()
                 if job_direction == JobDirection.DOWNSTREAM
-            }
+            },
         )
 
         return (
@@ -404,7 +414,7 @@ class ModelProcessor:
             'my-model-group'
         """
         logger.debug(
-            f"Extracting group name from ARN: {arn} because group was not seen before"
+            f"Extracting group name from ARN: {arn} because group was not seen before",
         )
         return arn.split("/")[-1]
 
@@ -424,7 +434,10 @@ class ModelProcessor:
         model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
 
         model_endpoints_sorted = self.get_model_endpoints(
-            model_details, endpoint_arn_to_name, model_image, model_uri
+            model_details,
+            endpoint_arn_to_name,
+            model_image,
+            model_uri,
         )
 
         (
@@ -442,7 +455,8 @@ class ModelProcessor:
         model_image_groups: Set[str] = set()
         if model_image is not None:
             model_image_groups = self.lineage.model_image_to_groups.get(
-                model_image, set()
+                model_image,
+                set(),
             )
 
         model_group_arns = model_uri_groups | model_image_groups
@@ -453,7 +467,7 @@ class ModelProcessor:
                 if x in self.group_arn_to_name
                 else self.get_group_name_from_arn(x)
                 for x in model_group_arns
-            ]
+            ],
         )
 
         model_group_urns = [
@@ -469,17 +483,21 @@ class ModelProcessor:
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
-                "sagemaker", model_details["ModelName"], self.env
+                "sagemaker",
+                model_details["ModelName"],
+                self.env,
             ),
             aspects=[
                 MLModelPropertiesClass(
                     date=int(
                         model_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
+                        * 1000,
                     ),
                     deployments=[
                         builder.make_ml_model_deployment_urn(
-                            "sagemaker", endpoint_name, self.env
+                            "sagemaker",
+                            endpoint_name,
+                            self.env,
                         )
                         for endpoint_name in model_endpoints_sorted
                     ],

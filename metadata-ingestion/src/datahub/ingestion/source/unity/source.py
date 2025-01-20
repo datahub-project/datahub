@@ -141,7 +141,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
-    SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"
+    SourceCapability.DATA_PROFILING,
+    "Supported via the `profiling.enabled` config",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -195,7 +196,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
+                cached_domains=[k for k in self.config.domain],
+                graph=self.ctx.graph,
             )
 
         # Global map of service principal application id -> ServicePrincipal
@@ -258,7 +260,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -308,7 +312,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     user_urn_builder=self.gen_user_urn,
                 )
                 yield from usage_extractor.get_usage_workunits(
-                    self.table_refs | self.view_refs
+                    self.table_refs | self.view_refs,
                 )
 
         if self.config.is_profiling_enabled():
@@ -350,7 +354,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.service_principals[sp.application_id] = sp
         except Exception as e:
             self.report.report_warning(
-                "service-principals", f"Unable to fetch service principals: {e}"
+                "service-principals",
+                f"Unable to fetch service principals: {e}",
             )
 
     def build_groups_map(self) -> None:
@@ -380,7 +385,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     name=notebook.path.rsplit("/", 1)[-1],
                     customProperties=properties,
                     externalUrl=urljoin(
-                        self.config.workspace_url, f"#notebook/{notebook.id}"
+                        self.config.workspace_url,
+                        f"#notebook/{notebook.id}",
                     ),
                     created=(
                         TimeStampClass(int(notebook.created_at.timestamp() * 1000))
@@ -416,7 +422,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         type=DatasetLineageTypeClass.COPY,
                     )
                     for upstream_ref in notebook.upstreams
-                ]
+                ],
             ),
         ).as_workunit()
 
@@ -433,7 +439,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.metastores.processed(metastore.id)
 
     def process_catalogs(
-        self, metastore: Optional[Metastore]
+        self,
+        metastore: Optional[Metastore],
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self._get_catalogs(metastore):
             if not self.config.catalog_pattern.allowed(catalog.id):
@@ -449,7 +456,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.catalogs:
             for catalog_name in self.config.catalogs:
                 catalog = self.unity_catalog_api_proxy.catalog(
-                    catalog_name, metastore=metastore
+                    catalog_name,
+                    metastore=metastore,
                 )
                 if catalog:
                     yield catalog
@@ -478,7 +486,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.is_profiling_enabled()
                 and self.config.is_ge_profiling()
                 and self.config.profiling.pattern.allowed(
-                    table.ref.qualified_table_name
+                    table.ref.qualified_table_name,
                 )
                 and not table.is_view
             ):
@@ -513,7 +521,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             for notebook_id in table.downstream_notebooks:
                 if str(notebook_id) in self.notebooks:
                     self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                        table.ref, self.notebooks[str(notebook_id)]
+                        table.ref,
+                        self.notebooks[str(notebook_id)],
                     )
 
         # Sql parsing is required only for hive metastore view lineage
@@ -522,7 +531,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
         ):
             self.sql_parser_schema_resolver.add_schema_metadata(
-                dataset_urn, schema_metadata
+                dataset_urn,
+                schema_metadata,
             )
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
@@ -552,7 +562,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}",
+                    mcp_raw=patch_mcp,
                 )
 
         if table_props:
@@ -561,7 +572,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}",
+                    mcp_raw=patch_mcp,
                 )
 
         yield from [
@@ -582,7 +594,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
         if self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
+                table,
+                include_entity_lineage=self.config.include_notebooks,
             )
 
         if self.config.include_column_lineage and table.upstreams:
@@ -590,7 +603,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.num_column_lineage_skipped_column_count += 1
 
             with ThreadPoolExecutor(
-                max_workers=self.config.lineage_max_workers
+                max_workers=self.config.lineage_max_workers,
             ) as executor:
                 for column in table.columns[: self.config.column_lineage_column_limit]:
                     executor.submit(
@@ -602,12 +615,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
     def _generate_lineage_aspect(
-        self, dataset_urn: str, table: Table
+        self,
+        dataset_urn: str,
+        table: Table,
     ) -> Optional[UpstreamLineageClass]:
         upstreams: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
         for upstream_ref, downstream_to_upstream_cols in sorted(
-            table.upstreams.items()
+            table.upstreams.items(),
         ):
             upstream_urn = self.gen_dataset_urn(upstream_ref)
 
@@ -629,7 +644,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 UpstreamClass(
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.TRANSFORMED,
-                )
+                ),
             )
 
         for notebook in table.upstream_notebooks:
@@ -637,7 +652,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 UpstreamClass(
                     dataset=self.gen_notebook_urn(notebook),
                     type=DatasetLineageTypeClass.TRANSFORMED,
-                )
+                ),
             )
 
         if self.config.include_external_lineage:
@@ -645,21 +660,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 if not external_ref.has_permission or not external_ref.path:
                     self.report.num_external_upstreams_lacking_permissions += 1
                     logger.warning(
-                        f"Lacking permissions for external file upstream on {table.ref}"
+                        f"Lacking permissions for external file upstream on {table.ref}",
                     )
                 elif external_ref.path.startswith("s3://"):
                     upstreams.append(
                         UpstreamClass(
                             dataset=make_s3_urn_for_lineage(
-                                external_ref.path, self.config.env
+                                external_ref.path,
+                                self.config.env,
                             ),
                             type=DatasetLineageTypeClass.COPY,
-                        )
+                        ),
                     )
                 else:
                     self.report.num_external_upstreams_unsupported += 1
                     logger.warning(
-                        f"Unsupported external file upstream on {table.ref}: {external_ref.path}"
+                        f"Unsupported external file upstream on {table.ref}: {external_ref.path}",
                     )
 
         if upstreams:
@@ -722,7 +738,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def gen_metastore_containers(
-        self, metastore: Metastore
+        self,
+        metastore: Metastore,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(metastore.name)
 
@@ -808,13 +825,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
+                    self.domain_registry.get_domain_urn(domain),
                 )
 
         return domain_urn
 
     def add_table_to_dataset_container(
-        self, dataset_urn: str, schema: Schema
+        self,
+        dataset_urn: str,
+        schema: Schema,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(schema)
         yield from add_dataset_to_container(
@@ -879,8 +898,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     OwnerClass(
                         owner=owner_urn,
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
+                    ),
+                ],
             )
         return None
 
@@ -892,7 +911,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 platform=make_data_platform_urn(self.platform),
                 instance=(
                     make_dataplatform_instance_urn(
-                        self.platform, self.platform_instance_name
+                        self.platform,
+                        self.platform_instance_name,
                     )
                     if self.platform_instance_name
                     else None
@@ -902,13 +922,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
         return SubTypesClass(
-            typeNames=[DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE]
+            typeNames=[
+                DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE,
+            ],
         )
 
     def _create_view_property_aspect(self, table: Table) -> ViewProperties:
         assert table.view_definition
         return ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
+            materialized=False,
+            viewLanguage="SQL",
+            viewLogic=table.view_definition,
         )
 
     def _create_schema_metadata_aspect(self, table: Table) -> SchemaMetadataClass:
@@ -932,23 +956,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if _COMPLEX_TYPE.match(column.type_text.lower()):
             return get_schema_fields_for_hive_column(
-                column.name, column.type_text.lower(), description=column.comment
+                column.name,
+                column.type_text.lower(),
+                description=column.comment,
             )
         else:
             return [
                 SchemaFieldClass(
                     fieldPath=column.name,
                     type=SchemaFieldDataTypeClass(
-                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
+                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)(),
                     ),
                     nativeDataType=column.type_text,
                     nullable=column.nullable,
                     description=column.comment,
-                )
+                ),
             ]
 
     def _run_sql_parser(
-        self, view_ref: TableReference, query: str, schema_resolver: SchemaResolver
+        self,
+        view_ref: TableReference,
+        query: str,
+        schema_resolver: SchemaResolver,
     ) -> Optional[SqlParsingResult]:
         raw_lineage = sqlglot_lineage(
             query,
@@ -961,18 +990,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if raw_lineage.debug_info.table_error:
             logger.debug(
                 f"Failed to parse lineage for view {view_ref}: "
-                f"{raw_lineage.debug_info.table_error}"
+                f"{raw_lineage.debug_info.table_error}",
             )
             self.report.num_view_definitions_failed_parsing += 1
             self.report.view_definitions_parsing_failures.append(
-                f"Table-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.table_error}"
+                f"Table-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.table_error}",
             )
             return None
 
         elif raw_lineage.debug_info.column_error:
             self.report.num_view_definitions_failed_column_parsing += 1
             self.report.view_definitions_parsing_failures.append(
-                f"Column-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.column_error}"
+                f"Column-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.column_error}",
             )
         else:
             self.report.num_view_definitions_parsed += 1
@@ -1051,7 +1080,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
                 upstreams=[
-                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW),
+                ],
             ),
         ).as_workunit()

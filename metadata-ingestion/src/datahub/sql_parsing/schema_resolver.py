@@ -83,17 +83,20 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def schema_count(self) -> int:
         return int(
             self._schema_cache.sql_query(
-                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE NOT is_missing"
-            )[0][0]
+                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE NOT is_missing",
+            )[0][0],
         )
 
     def get_urn_for_table(
-        self, table: _TableName, lower: bool = False, mixed: bool = False
+        self,
+        table: _TableName,
+        lower: bool = False,
+        mixed: bool = False,
     ) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(
-            filter(None, [table.database, table.db_schema, table.table])
+            filter(None, [table.database, table.db_schema, table.table]),
         )
 
         platform_instance = self.platform_instance
@@ -109,7 +112,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             # Normalize shard numbers and other BigQuery weirdness.
             with contextlib.suppress(IndexError):
                 table_name = BigqueryTableIdentifier.from_string_name(
-                    table_name
+                    table_name,
                 ).get_table_name()
 
         urn = make_dataset_urn_with_platform_instance(
@@ -182,7 +185,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return None
 
     def add_schema_metadata(
-        self, urn: str, schema_metadata: SchemaMetadataClass
+        self,
+        urn: str,
+        schema_metadata: SchemaMetadataClass,
     ) -> None:
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
@@ -191,13 +196,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._save_to_cache(urn, schema_info)
 
     def add_graphql_schema_metadata(
-        self, urn: str, schema_metadata: GraphQLSchemaMetadata
+        self,
+        urn: str,
+        schema_metadata: GraphQLSchemaMetadata,
     ) -> None:
         schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def with_temp_tables(
-        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
+        self,
+        temp_tables: Dict[str, Optional[List[SchemaFieldClass]]],
     ) -> SchemaResolverInterface:
         extra_schemas = {
             urn: (
@@ -209,7 +217,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         }
 
         return _SchemaResolverWithExtras(
-            base_resolver=self, extra_schemas=extra_schemas
+            base_resolver=self,
+            extra_schemas=extra_schemas,
         )
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
@@ -224,7 +233,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
-        cls, schema: GraphQLSchemaMetadata
+        cls,
+        schema: GraphQLSchemaMetadata,
     ) -> SchemaInfo:
         return {
             get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
@@ -258,14 +268,16 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self._base_resolver.get_urn_for_table(
-            table, lower=self._base_resolver._prefers_urn_lower()
+            table,
+            lower=self._base_resolver._prefers_urn_lower(),
         )
         if urn in self._extra_schemas:
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
 
     def add_temp_tables(
-        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
+        self,
+        temp_tables: Dict[str, Optional[List[SchemaFieldClass]]],
     ) -> None:
         self._extra_schemas.update(
             {
@@ -275,7 +287,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
                     else None
                 )
                 for urn, fields in temp_tables.items()
-            }
+            },
         )
 
 
@@ -298,7 +310,8 @@ def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> Sche
 
 
 def match_columns_to_schema(
-    schema_info: SchemaInfo, input_columns: List[str]
+    schema_info: SchemaInfo,
+    input_columns: List[str],
 ) -> List[str]:
     column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
 

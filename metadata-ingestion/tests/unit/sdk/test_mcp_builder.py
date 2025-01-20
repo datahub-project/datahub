@@ -4,7 +4,10 @@ from datahub.metadata.schema_classes import StatusClass, TelemetryClientIdClass
 
 def test_guid_generator():
     key = builder.SchemaKey(
-        database="test", schema="Test", platform="mysql", instance="TestInstance"
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
     )
 
     guid = key.guid()
@@ -78,7 +81,10 @@ def test_guid_generator_with_env():
 
 def test_guid_generators():
     key = builder.SchemaKey(
-        database="test", schema="Test", platform="mysql", instance="TestInstance"
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
     )
     guid_datahub = key.guid()
 

@@ -34,7 +34,7 @@ def _get_custom_entrypoint_for_name(name: str) -> Optional[EntryPoint]:
             entrypoint.dist.name for entrypoint in entrypoints if entrypoint.dist
         ]
         raise CustomPackageException(
-            f"Multiple custom packages registered for {name}: cannot pick between {all_package_options}"
+            f"Multiple custom packages registered for {name}: cannot pick between {all_package_options}",
         )
 
     return entrypoints[0]

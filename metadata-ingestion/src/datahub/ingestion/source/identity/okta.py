@@ -67,10 +67,12 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
 
     # Optional: Whether to ingest users, groups, or both.
     ingest_users: bool = Field(
-        default=True, description="Whether users should be ingested into DataHub."
+        default=True,
+        description="Whether users should be ingested into DataHub.",
     )
     ingest_groups: bool = Field(
-        default=True, description="Whether groups should be ingested into DataHub."
+        default=True,
+        description="Whether groups should be ingested into DataHub.",
     )
     ingest_group_membership: bool = Field(
         default=True,
@@ -147,7 +149,8 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="Okta Stateful Ingestion Config."
+        default=None,
+        description="Okta Stateful Ingestion Config.",
     )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
@@ -158,7 +161,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     def okta_users_one_of_filter_or_search(cls, v, values):
         if v and values["okta_users_filter"]:
             raise ValueError(
-                "Only one of okta_users_filter or okta_users_search can be set"
+                "Only one of okta_users_filter or okta_users_search can be set",
             )
         return v
 
@@ -166,7 +169,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     def okta_groups_one_of_filter_or_search(cls, v, values):
         if v and values["okta_groups_filter"]:
             raise ValueError(
-                "Only one of okta_groups_filter or okta_groups_search can be set"
+                "Only one of okta_groups_filter or okta_groups_search can be set",
             )
         return v
 
@@ -198,7 +201,8 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via stateful_ingestion",
 )
 class OktaSource(StatefulIngestionSourceBase):
     """
@@ -298,7 +302,9 @@ class OktaSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -321,7 +327,7 @@ class OktaSource(StatefulIngestionSourceBase):
             okta_groups = list(self._get_okta_groups(event_loop))
             datahub_corp_group_snapshots = self._map_okta_groups(okta_groups)
             for group_count, datahub_corp_group_snapshot in enumerate(
-                datahub_corp_group_snapshots
+                datahub_corp_group_snapshots,
             ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
                 wu_id = f"group-snapshot-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
@@ -351,7 +357,7 @@ class OktaSource(StatefulIngestionSourceBase):
             # Fetch membership for each group.
             for okta_group in okta_groups:
                 datahub_corp_group_urn = self._map_okta_group_profile_to_urn(
-                    okta_group.profile
+                    okta_group.profile,
                 )
                 if datahub_corp_group_urn is None:
                     error_str = f"Failed to extract DataHub Group Name from Okta Group: Invalid regex pattern provided or missing profile attribute for group named {okta_group.profile.name}. Skipping..."
@@ -363,7 +369,7 @@ class OktaSource(StatefulIngestionSourceBase):
                 okta_group_users = self._get_okta_group_users(okta_group, event_loop)
                 for okta_user in okta_group_users:
                     datahub_corp_user_urn = self._map_okta_user_profile_to_urn(
-                        okta_user.profile
+                        okta_user.profile,
                     )
                     if datahub_corp_user_urn is None:
                         error_str = f"Failed to extract DataHub Username from Okta User: Invalid regex pattern provided or missing profile attribute for User with login {okta_user.profile.login}. Skipping..."
@@ -382,7 +388,7 @@ class OktaSource(StatefulIngestionSourceBase):
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
             datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
             for user_count, datahub_corp_user_snapshot in enumerate(
-                datahub_corp_user_snapshots
+                datahub_corp_user_snapshots,
             ):
                 # TODO: Refactor common code between this and Okta to a common base class or utils
                 # Add GroupMembership aspect populated in Step 2.
@@ -396,7 +402,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     and len(datahub_group_membership.groups) == 0
                 ):
                     logger.debug(
-                        f"Filtering {datahub_corp_user_snapshot.urn} due to group filter"
+                        f"Filtering {datahub_corp_user_snapshot.urn} due to group filter",
                     )
                     self.report.report_filtered(datahub_corp_user_snapshot.urn)
                     continue
@@ -440,7 +446,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Retrieves all Okta Group Objects in batches.
     def _get_okta_groups(
-        self, event_loop: asyncio.AbstractEventLoop
+        self,
+        event_loop: asyncio.AbstractEventLoop,
     ) -> Iterable[Group]:
         logger.debug("Extracting all Okta groups")
 
@@ -453,16 +460,18 @@ class OktaSource(StatefulIngestionSourceBase):
         groups = resp = err = None
         try:
             groups, resp, err = event_loop.run_until_complete(
-                self.okta_client.list_groups(query_parameters)
+                self.okta_client.list_groups(query_parameters),
             )
         except OktaAPIException as api_err:
             self.report.report_failure(
-                "okta_groups", f"Failed to fetch Groups from Okta API: {api_err}"
+                "okta_groups",
+                f"Failed to fetch Groups from Okta API: {api_err}",
             )
         while True:
             if err:
                 self.report.report_failure(
-                    "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
+                    "okta_groups",
+                    f"Failed to fetch Groups from Okta API: {err}",
                 )
             if groups:
                 yield from groups
@@ -480,7 +489,9 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Retrieves Okta User Objects in a particular Okta Group in batches.
     def _get_okta_group_users(
-        self, group: Group, event_loop: asyncio.AbstractEventLoop
+        self,
+        group: Group,
+        event_loop: asyncio.AbstractEventLoop,
     ) -> Iterable[User]:
         logger.debug(f"Extracting users from Okta group named {group.profile.name}")
 
@@ -489,7 +500,7 @@ class OktaSource(StatefulIngestionSourceBase):
         users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
-                self.okta_client.list_group_users(group.id, query_parameters)
+                self.okta_client.list_group_users(group.id, query_parameters),
             )
         except OktaAPIException as api_err:
             self.report.report_failure(
@@ -528,16 +539,18 @@ class OktaSource(StatefulIngestionSourceBase):
         users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
-                self.okta_client.list_users(query_parameters)
+                self.okta_client.list_users(query_parameters),
             )
         except OktaAPIException as api_err:
             self.report.report_failure(
-                "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
+                "okta_users",
+                f"Failed to fetch Users from Okta API: {api_err}",
             )
         while True:
             if err:
                 self.report.report_failure(
-                    "okta_users", f"Failed to fetch Users from Okta API: {err}"
+                    "okta_users",
+                    f"Failed to fetch Users from Okta API: {err}",
                 )
             if users:
                 yield from users
@@ -547,7 +560,8 @@ class OktaSource(StatefulIngestionSourceBase):
                     users, err = event_loop.run_until_complete(resp.next())
                 except OktaAPIException as api_err:
                     self.report.report_failure(
-                        "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
+                        "okta_users",
+                        f"Failed to fetch Users from Okta API: {api_err}",
                     )
             else:
                 break
@@ -568,7 +582,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Converts Okta Group Objects into DataHub CorpGroupSnapshots.
     def _map_okta_groups(
-        self, okta_groups: Iterable[Group]
+        self,
+        okta_groups: Iterable[Group],
     ) -> Iterable[CorpGroupSnapshot]:
         for okta_group in okta_groups:
             corp_group_urn = self._map_okta_group_profile_to_urn(okta_group.profile)
@@ -587,7 +602,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Creates DataHub CorpGroup Urn from Okta Group Object.
     def _map_okta_group_profile_to_urn(
-        self, okta_group_profile: GroupProfile
+        self,
+        okta_group_profile: GroupProfile,
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/groups/#group-attributes
         group_name = self._map_okta_group_profile_to_group_name(okta_group_profile)
@@ -610,7 +626,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Converts Okta Group Profile Object into a DataHub Group Name.
     def _map_okta_group_profile_to_group_name(
-        self, okta_group_profile: GroupProfile
+        self,
+        okta_group_profile: GroupProfile,
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/groups/#group-attributes
         return self._extract_regex_match_from_dict_value(
@@ -638,7 +655,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Creates DataHub CorpUser Urn from Okta User Profile
     def _map_okta_user_profile_to_urn(
-        self, okta_user_profile: UserProfile
+        self,
+        okta_user_profile: UserProfile,
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/users/#user-attributes
         username = self._map_okta_user_profile_to_username(okta_user_profile)
@@ -648,7 +666,8 @@ class OktaSource(StatefulIngestionSourceBase):
 
     # Converts Okta User Profile Object into a DataHub User name.
     def _map_okta_user_profile_to_username(
-        self, okta_user_profile: UserProfile
+        self,
+        okta_user_profile: UserProfile,
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/users/#user-attributes
         return self._extract_regex_match_from_dict_value(
@@ -683,7 +702,10 @@ class OktaSource(StatefulIngestionSourceBase):
         return f"urn:li:corpuser:{username}"
 
     def _extract_regex_match_from_dict_value(
-        self, str_dict: Dict[str, str], key: str, pattern: str
+        self,
+        str_dict: Dict[str, str],
+        key: str,
+        pattern: str,
     ) -> Union[str, None]:
         raw_value = str_dict.get(key)
         if raw_value is None:

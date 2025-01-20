@@ -44,7 +44,8 @@ class UnityCatalogConnectionTest:
             return None
         try:
             query_history = self.proxy.query_history(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
             _ = next(iter(query_history))
             return CapabilityReport(capable=True)

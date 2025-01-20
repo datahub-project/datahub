@@ -13,10 +13,14 @@ datahub_client = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080")
 
 # Create Dataset URN
 dataset_urn = make_dataset_urn(
-    platform="snowflake", name="fct_users_created", env="PROD"
+    platform="snowflake",
+    name="fct_users_created",
+    env="PROD",
 )
 upstream_to_remove_urn = make_dataset_urn(
-    platform="s3", name="fct_users_old", env="PROD"
+    platform="s3",
+    name="fct_users_old",
+    env="PROD",
 )
 upstream_to_add_urn = make_dataset_urn(platform="s3", name="fct_users_new", env="PROD")
 
@@ -24,7 +28,7 @@ upstream_to_add_urn = make_dataset_urn(platform="s3", name="fct_users_new", env=
 patch_builder = DatasetPatchBuilder(dataset_urn)
 patch_builder.remove_upstream_lineage(upstream_to_remove_urn)
 patch_builder.add_upstream_lineage(
-    UpstreamClass(upstream_to_add_urn, DatasetLineageTypeClass.TRANSFORMED)
+    UpstreamClass(upstream_to_add_urn, DatasetLineageTypeClass.TRANSFORMED),
 )
 
 # ...And also include schema field lineage
@@ -37,11 +41,12 @@ patch_builder.add_fine_grained_upstream_lineage(
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         [upstream_field_to_add_urn],
         [downstream_field_to_add_urn],
-    )
+    ),
 )
 
 upstream_field_to_remove_urn = make_schema_field_urn(
-    upstream_to_remove_urn, "profile_id"
+    upstream_to_remove_urn,
+    "profile_id",
 )
 downstream_field_to_remove_urn = make_schema_field_urn(dataset_urn, "profile_id")
 
@@ -51,7 +56,7 @@ patch_builder.remove_fine_grained_upstream_lineage(
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         [upstream_field_to_remove_urn],
         [downstream_field_to_remove_urn],
-    )
+    ),
 )
 
 patch_mcps = patch_builder.build()

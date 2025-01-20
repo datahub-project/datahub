@@ -38,10 +38,12 @@ class LookerRefinementResolver:
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
     view_refinement_cache: Dict[
-        str, dict
+        str,
+        dict,
     ]  # Map of view-name as key, and it is raw view dictionary after applying refinement process
     explore_refinement_cache: Dict[
-        str, dict
+        str,
+        dict,
     ]  # Map of explore-name as key, and it is raw view dictionary after applying refinement process
 
     def __init__(
@@ -66,7 +68,9 @@ class LookerRefinementResolver:
 
     @staticmethod
     def merge_column(
-        original_dict: dict, refinement_dict: dict, key: str
+        original_dict: dict,
+        refinement_dict: dict,
+        key: str,
     ) -> List[dict]:
         """
         Merge a dimension/measure/other column with one from a refinement.
@@ -95,10 +99,14 @@ class LookerRefinementResolver:
 
     @staticmethod
     def merge_and_set_column(
-        new_raw_view: dict, refinement_view: dict, key: str
+        new_raw_view: dict,
+        refinement_view: dict,
+        key: str,
     ) -> None:
         merged_column = LookerRefinementResolver.merge_column(
-            new_raw_view, refinement_view, key
+            new_raw_view,
+            refinement_view,
+            key,
         )
         if merged_column:
             new_raw_view[key] = merged_column
@@ -118,15 +126,21 @@ class LookerRefinementResolver:
 
             # Merge Dimension
             LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.DIMENSIONS
+                new_raw_view,
+                refinement_view,
+                LookerRefinementResolver.DIMENSIONS,
             )
             # Merge Measure
             LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.MEASURES
+                new_raw_view,
+                refinement_view,
+                LookerRefinementResolver.MEASURES,
             )
             # Merge Dimension Group
             LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.DIMENSION_GROUPS
+                new_raw_view,
+                refinement_view,
+                LookerRefinementResolver.DIMENSION_GROUPS,
             )
 
         return new_raw_view
@@ -160,7 +174,7 @@ class LookerRefinementResolver:
                 continue
 
             refined_views.extend(
-                self.get_refinements(included_looker_viewfile.views, view_name)
+                self.get_refinements(included_looker_viewfile.views, view_name),
             )
 
         return refined_views
@@ -192,18 +206,20 @@ class LookerRefinementResolver:
         logger.debug(f"Processing refinement for view {raw_view_name}")
 
         refinement_views: List[dict] = self.get_refinement_from_model_includes(
-            raw_view_name
+            raw_view_name,
         )
 
         self.view_refinement_cache[raw_view_name] = self.merge_refinements(
-            raw_view, refinement_views
+            raw_view,
+            refinement_views,
         )
 
         return self.view_refinement_cache[raw_view_name]
 
     @staticmethod
     def add_extended_explore(
-        raw_explore: dict, refinement_explores: List[Dict]
+        raw_explore: dict,
+        refinement_explores: List[Dict],
     ) -> None:
         extended_explores: Set[str] = set()
         for view in refinement_explores:
@@ -212,8 +228,8 @@ class LookerRefinementResolver:
                     view.get(
                         LookerRefinementResolver.EXTENDS,
                         view.get(LookerRefinementResolver.EXTENDS_ALL, []),
-                    )
-                )
+                    ),
+                ),
             )
             extended_explores.update(extends)
 
@@ -234,14 +250,15 @@ class LookerRefinementResolver:
 
         if raw_view_name in self.explore_refinement_cache:
             logger.debug(
-                f"Returning applied refined explore {raw_view_name} from cache"
+                f"Returning applied refined explore {raw_view_name} from cache",
             )
             return self.explore_refinement_cache[raw_view_name]
 
         logger.debug(f"Processing refinement for explore {raw_view_name}")
 
         refinement_explore: List[dict] = self.get_refinements(
-            self.looker_model.explores, raw_view_name
+            self.looker_model.explores,
+            raw_view_name,
         )
 
         self.add_extended_explore(raw_view, refinement_explore)

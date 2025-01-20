@@ -15,7 +15,8 @@ def pydantic_multiline_string(field: str) -> classmethod:
     """
 
     def _validate_field(
-        cls: Type, v: Union[None, str, pydantic.SecretStr]
+        cls: Type,
+        v: Union[None, str, pydantic.SecretStr],
     ) -> Optional[str]:
         if v is not None:
             if isinstance(v, pydantic.SecretStr):

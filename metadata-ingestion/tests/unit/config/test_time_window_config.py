@@ -34,13 +34,13 @@ def test_relative_start_time():
     assert config.end_time == datetime(2023, 8, 3, 9, tzinfo=timezone.utc)
 
     config = BaseTimeWindowConfig.parse_obj(
-        {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"}
+        {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"},
     )
     assert config.start_time == datetime(2023, 7, 5, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 7, 7, 9, tzinfo=timezone.utc)
 
     config = BaseTimeWindowConfig.parse_obj(
-        {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"}
+        {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"},
     )
     assert config.start_time == datetime(2023, 7, 5, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 7, 7, 9, tzinfo=timezone.utc)
@@ -69,7 +69,8 @@ def test_invalid_relative_start_time():
         BaseTimeWindowConfig.parse_obj({"start_time": "-2"})
 
     with pytest.raises(
-        ValueError, match="Relative start time should start with minus sign"
+        ValueError,
+        match="Relative start time should start with minus sign",
     ):
         BaseTimeWindowConfig.parse_obj({"start_time": "2d"})
 

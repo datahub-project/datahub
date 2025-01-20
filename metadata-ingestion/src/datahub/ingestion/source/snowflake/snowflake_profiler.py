@@ -40,13 +40,16 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.database_default_schema: Dict[str, str] = dict()
 
     def get_workunits(
-        self, database: SnowflakeDatabase, db_tables: Dict[str, List[SnowflakeTable]]
+        self,
+        database: SnowflakeDatabase,
+        db_tables: Dict[str, List[SnowflakeTable]],
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.is_profiling_enabled():
             self.config.options.setdefault(
-                "max_overflow", self.config.profiling.max_workers
+                "max_overflow",
+                self.config.profiling.max_workers,
             )
 
         if PUBLIC_SCHEMA not in db_tables:
@@ -61,13 +64,15 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                     and table.type == "EXTERNAL TABLE"
                 ):
                     logger.info(
-                        f"Skipping profiling of external table {database.name}.{schema.name}.{table.name}"
+                        f"Skipping profiling of external table {database.name}.{schema.name}.{table.name}",
                     )
                     self.report.profiling_skipped_other[schema.name] += 1
                     continue
 
                 profile_request = self.get_profile_request(
-                    table, schema.name, database.name
+                    table,
+                    schema.name,
+                    database.name,
                 )
                 if profile_request is not None:
                     self.report.report_entity_profiled(profile_request.pretty_name)
@@ -88,7 +93,10 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         return self.identifiers.get_dataset_identifier(table_name, schema_name, db_name)
 
     def get_batch_kwargs(
-        self, table: BaseTable, schema_name: str, db_name: str
+        self,
+        table: BaseTable,
+        schema_name: str,
+        db_name: str,
     ) -> dict:
         custom_sql = None
         if (
@@ -131,7 +139,8 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         }
 
     def get_profiler_instance(
-        self, db_name: Optional[str] = None
+        self,
+        db_name: Optional[str] = None,
     ) -> "DatahubGEProfiler":
         assert db_name
 

@@ -157,7 +157,8 @@ class Telemetry:
                 self.mp = Mixpanel(
                     MIXPANEL_TOKEN,
                     consumer=Consumer(
-                        request_timeout=int(TIMEOUT), api_host=MIXPANEL_ENDPOINT
+                        request_timeout=int(TIMEOUT),
+                        api_host=MIXPANEL_ENDPOINT,
                     ),
                 )
             except Exception as e:
@@ -186,15 +187,15 @@ class Telemetry:
             except OSError as x:
                 if x.errno == errno.ENOENT:
                     logger.debug(
-                        f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                        f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder.",
                     )
                 elif x.errno == errno.EACCES:
                     logger.debug(
-                        f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                        f"{CONFIG_FILE} cannot be read. Please check the permissions on this file.",
                     )
                 else:
                     logger.debug(
-                        f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                        f"{CONFIG_FILE} had an IOError, please inspect this file for issues.",
                     )
         except Exception as e:
             logger.debug(f"Failed to update config file at {CONFIG_FILE} due to {e}")
@@ -232,15 +233,15 @@ class Telemetry:
         except OSError as x:
             if x.errno == errno.ENOENT:
                 logger.debug(
-                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder.",
                 )
             elif x.errno == errno.EACCES:
                 logger.debug(
-                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file.",
                 )
             else:
                 logger.debug(
-                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues.",
                 )
         except Exception as e:
             logger.debug(f"Failed to load {CONFIG_FILE} due to {e}")
@@ -328,7 +329,7 @@ class Telemetry:
         try:
             if event_name == "function-call":
                 logger.debug(
-                    f"Sending telemetry for {event_name} {properties.get('function')}, status {properties.get('status')}"
+                    f"Sending telemetry for {event_name} {properties.get('function')}, status {properties.get('status')}",
                 )
             else:
                 logger.debug(f"Sending telemetry for {event_name}")
@@ -353,7 +354,8 @@ class Telemetry:
         else:
             return {
                 "server_type": server.server_config.get("datahub", {}).get(
-                    "serverType", "missing"
+                    "serverType",
+                    "missing",
                 ),
                 "server_version": server.server_config.get("versions", {})
                 .get("acryldata/datahub", {})
@@ -398,7 +400,8 @@ _P = ParamSpec("_P")
 
 
 def with_telemetry(
-    *, capture_kwargs: Optional[List[str]] = None
+    *,
+    capture_kwargs: Optional[List[str]] = None,
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     kwargs_to_track = capture_kwargs or []
 

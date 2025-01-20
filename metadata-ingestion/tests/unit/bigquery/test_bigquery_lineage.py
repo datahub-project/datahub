@@ -39,14 +39,14 @@ def lineage_entries() -> List[QueryEvent]:
             end_time=None,
             referencedTables=[
                 BigQueryTableRef.from_string_name(
-                    "projects/my_project/datasets/my_dataset/tables/my_source_table1"
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table1",
                 ),
                 BigQueryTableRef.from_string_name(
-                    "projects/my_project/datasets/my_dataset/tables/my_source_table2"
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table2",
                 ),
             ],
             destinationTable=BigQueryTableRef.from_string_name(
-                "projects/my_project/datasets/my_dataset/tables/my_table"
+                "projects/my_project/datasets/my_dataset/tables/my_table",
             ),
         ),
         QueryEvent(
@@ -56,15 +56,16 @@ def lineage_entries() -> List[QueryEvent]:
             statementType="SELECT",
             project_id="proj_12344",
             end_time=datetime.datetime.fromtimestamp(
-                1617295943.17321, tz=datetime.timezone.utc
+                1617295943.17321,
+                tz=datetime.timezone.utc,
             ),
             referencedTables=[
                 BigQueryTableRef.from_string_name(
-                    "projects/my_project/datasets/my_dataset/tables/my_source_table3"
+                    "projects/my_project/datasets/my_dataset/tables/my_source_table3",
                 ),
             ],
             destinationTable=BigQueryTableRef.from_string_name(
-                "projects/my_project/datasets/my_dataset/tables/my_table"
+                "projects/my_project/datasets/my_dataset/tables/my_table",
             ),
         ),
         QueryEvent(
@@ -75,11 +76,11 @@ def lineage_entries() -> List[QueryEvent]:
             project_id="proj_12344",
             referencedViews=[
                 BigQueryTableRef.from_string_name(
-                    "projects/my_project/datasets/my_dataset/tables/my_source_view1"
+                    "projects/my_project/datasets/my_dataset/tables/my_source_view1",
                 ),
             ],
             destinationTable=BigQueryTableRef.from_string_name(
-                "projects/my_project/datasets/my_dataset/tables/my_table"
+                "projects/my_project/datasets/my_dataset/tables/my_table",
             ),
         ),
     ]
@@ -96,11 +97,11 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
     )
 
     bq_table = BigQueryTableRef.from_string_name(
-        "projects/my_project/datasets/my_dataset/tables/my_table"
+        "projects/my_project/datasets/my_dataset/tables/my_table",
     )
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
-        iter(lineage_entries)
+        iter(lineage_entries),
     )
 
     upstream_lineage = extractor.get_lineage_for_table(
@@ -123,7 +124,7 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
     )
 
     bq_table = BigQueryTableRef.from_string_name(
-        "projects/my_project/datasets/my_dataset/tables/my_table"
+        "projects/my_project/datasets/my_dataset/tables/my_table",
     )
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
@@ -154,7 +155,7 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
             version=0,
             hash="",
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -181,7 +182,7 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
         PathSpec(include="gs://bigquery_data/customer3/{table}/*.parquet"),
     ]
     gcs_lineage_config: GcsLineageProviderConfig = GcsLineageProviderConfig(
-        path_specs=path_specs
+        path_specs=path_specs,
     )
 
     config = BigQueryV2Config(
@@ -250,7 +251,7 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_inst
         PathSpec(include="gs://bigquery_data/customer3/{table}/*.parquet"),
     ]
     gcs_lineage_config: GcsLineageProviderConfig = GcsLineageProviderConfig(
-        path_specs=path_specs
+        path_specs=path_specs,
     )
 
     config = BigQueryV2Config(
@@ -330,7 +331,8 @@ def test_lineage_for_external_table_path_not_matching_specs(
         PathSpec(include="gs://different_data/db2/db3/{table}/*.parquet"),
     ]
     gcs_lineage_config: GcsLineageProviderConfig = GcsLineageProviderConfig(
-        path_specs=path_specs, ignore_non_path_spec_path=True
+        path_specs=path_specs,
+        ignore_non_path_spec_path=True,
     )
     config = BigQueryV2Config(
         include_table_lineage=True,

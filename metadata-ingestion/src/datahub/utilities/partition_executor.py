@@ -65,7 +65,8 @@ class PartitionExecutor(Closeable):
         # Any entries in the key's value e.g. the deque are requests that are waiting
         # to be submitted once the current request for that key completes.
         self._pending_by_key: Dict[
-            str, Deque[Tuple[Callable, tuple, dict, Optional[Callable[[Future], None]]]]
+            str,
+            Deque[Tuple[Callable, tuple, dict, Optional[Callable[[Future], None]]]],
         ] = {}
 
     def submit(
@@ -283,7 +284,7 @@ class BatchPartitionExecutor(Closeable):
         self._pending_count = BoundedSemaphore(max_pending)
 
         self._pending: "queue.Queue[Optional[_BatchPartitionWorkItem]]" = queue.Queue(
-            maxsize=max_pending
+            maxsize=max_pending,
         )
 
         # If this is true, that means shutdown() has been called.
@@ -308,7 +309,8 @@ class BatchPartitionExecutor(Closeable):
         last_submit_time = _now()
 
         def _handle_batch_completion(
-            batch: List[_BatchPartitionWorkItem], future: Future
+            batch: List[_BatchPartitionWorkItem],
+            future: Future,
         ) -> None:
             with clearinghouse_state_lock:
                 nonlocal workers_available
@@ -382,7 +384,7 @@ class BatchPartitionExecutor(Closeable):
                 except queue.Empty:
                     if blocking:
                         next_batch.extend(
-                            _find_ready_items(self.max_per_batch - len(next_batch))
+                            _find_ready_items(self.max_per_batch - len(next_batch)),
                         )
                     else:
                         break
@@ -401,10 +403,11 @@ class BatchPartitionExecutor(Closeable):
                 last_submit_time = _now()
 
             future = self._executor.submit(
-                self.process_batch, [item.args for item in next_batch]
+                self.process_batch,
+                [item.args for item in next_batch],
             )
             future.add_done_callback(
-                functools.partial(_handle_batch_completion, next_batch)
+                functools.partial(_handle_batch_completion, next_batch),
             )
 
         try:
@@ -439,13 +442,14 @@ class BatchPartitionExecutor(Closeable):
                 logger.error(
                     f"{self.__class__.__name__}: submit() was called but the executor was not cleaned up properly. "
                     "The data from the submit() calls will be lost. Use a context manager or call shutdown() explicitly "
-                    "to ensure all submitted work is processed."
+                    "to ensure all submitted work is processed.",
                 )
                 return
 
             # This represents a fatal error that makes the entire executor defunct.
             logger.exception(
-                "Threaded executor's clearinghouse worker failed.", exc_info=e
+                "Threaded executor's clearinghouse worker failed.",
+                exc_info=e,
             )
         finally:
             self._clearinghouse_started = False
@@ -453,7 +457,7 @@ class BatchPartitionExecutor(Closeable):
     def _ensure_clearinghouse_started(self) -> None:
         if self._shutting_down:
             raise RuntimeError(
-                f"{self.__class__.__name__} is shutting down; cannot submit new work items."
+                f"{self.__class__.__name__} is shutting down; cannot submit new work items.",
             )
 
         with self._state_lock:

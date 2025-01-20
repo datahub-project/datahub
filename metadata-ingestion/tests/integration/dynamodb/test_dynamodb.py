@@ -46,16 +46,16 @@ def test_dynamodb(pytestconfig, tmp_path):
                 "L": [
                     {"S": "+14150000000"},
                     {"S": "+14151111111"},
-                ]
+                ],
             },
             "services": {  # Map type
                 "M": {
                     "parking": {"BOOL": True},
                     "wifi": {"S": "Free"},
                     "hours": {  # Map type inside Map for nested structure
-                        "M": {"open": {"S": "08:00"}, "close": {"S": "22:00"}}
+                        "M": {"open": {"S": "08:00"}, "close": {"S": "22:00"}},
                     },
-                }
+                },
             },
         },
     )
@@ -78,7 +78,7 @@ def test_dynamodb(pytestconfig, tmp_path):
                     "filename": f"{tmp_path}/dynamodb_default_platform_instance_mces.json",
                 },
             },
-        }
+        },
     )
     pipeline_default_platform_instance.run()
     pipeline_default_platform_instance.raise_from_status()
@@ -115,11 +115,11 @@ def test_dynamodb(pytestconfig, tmp_path):
                                                 description=0,
                                                 datatype=0,
                                                 values=0.3,
-                                            )
-                                        )
+                                            ),
+                                        ),
                                     },
                                 ),
-                            )
+                            ),
                         ],
                     ),
                 },
@@ -130,7 +130,7 @@ def test_dynamodb(pytestconfig, tmp_path):
                     "filename": f"{tmp_path}/dynamodb_platform_instance_mces.json",
                 },
             },
-        }
+        },
     )
     pipeline_with_platform_instance.run()
     pipeline_with_platform_instance.raise_from_status()

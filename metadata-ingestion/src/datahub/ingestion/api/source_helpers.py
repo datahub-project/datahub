@@ -190,7 +190,7 @@ def auto_materialize_referenced_tags_terms(
             ).as_workunit()
         except InvalidUrnError:
             logger.info(
-                f"Source produced an invalid urn, so no key aspect will be generated: {urn}"
+                f"Source produced an invalid urn, so no key aspect will be generated: {urn}",
             )
 
 
@@ -279,7 +279,8 @@ def auto_browse_path_v2(
                     urn,
                     [
                         *paths.setdefault(
-                            parent_urn, []
+                            parent_urn,
+                            [],
                         ),  # Guess parent has no parents
                         BrowsePathEntryClass(id=parent_urn, urn=parent_urn),
                     ],
@@ -312,8 +313,10 @@ def auto_browse_path_v2(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
                         path=_prepend_platform_instance(
-                            browse_path_v2, platform, platform_instance
-                        )
+                            browse_path_v2,
+                            platform,
+                            platform_instance,
+                        ),
                     ),
                 ).as_workunit()
             else:
@@ -328,8 +331,10 @@ def auto_browse_path_v2(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
                         path=_prepend_platform_instance(
-                            path, platform, platform_instance
-                        )
+                            path,
+                            platform,
+                            platform_instance,
+                        ),
                     ),
                 ).as_workunit()
         elif urn not in emitted_urns and guess_entity_type(urn) == "container":
@@ -339,7 +344,11 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance([], platform, platform_instance)
+                        path=_prepend_platform_instance(
+                            [],
+                            platform,
+                            platform_instance,
+                        ),
                     ),
                 ).as_workunit()
 
@@ -381,7 +390,7 @@ def auto_fix_duplicate_schema_field_paths(
 
             if dropped_fields:
                 logger.info(
-                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
+                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}",
                 )
                 schema_metadata.fields = updated_fields
                 schemas_with_duplicates += 1
@@ -397,7 +406,8 @@ def auto_fix_duplicate_schema_field_paths(
             "duplicated_field_paths": duplicated_field_paths,
         }
         telemetry.telemetry_instance.ping(
-            "ingestion_duplicate_schema_field_paths", properties
+            "ingestion_duplicate_schema_field_paths",
+            properties,
         )
 
 
@@ -426,7 +436,7 @@ def auto_fix_empty_field_paths(
 
             if empty_field_paths > 0:
                 logger.info(
-                    f"Fixing empty field paths in schema aspect for {wu.get_urn()} by dropping empty fields"
+                    f"Fixing empty field paths in schema aspect for {wu.get_urn()} by dropping empty fields",
                 )
                 schema_metadata.fields = updated_fields
                 schemas_with_empty_fields += 1
@@ -441,7 +451,8 @@ def auto_fix_empty_field_paths(
             "empty_field_paths": empty_field_paths,
         }
         telemetry.telemetry_instance.ping(
-            "ingestion_empty_schema_field_paths", properties
+            "ingestion_empty_schema_field_paths",
+            properties,
         )
 
 
@@ -478,7 +489,7 @@ def auto_empty_dataset_usage_statistics(
     if invalid_timestamps:
         logger.warning(
             f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
-            ", ".join(str(parse_ts_millis(ts)) for ts in invalid_timestamps)
+            ", ".join(str(parse_ts_millis(ts)) for ts in invalid_timestamps),
         )
 
     for bucket in bucket_timestamps:

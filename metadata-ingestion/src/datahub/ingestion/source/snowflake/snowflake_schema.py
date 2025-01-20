@@ -138,7 +138,7 @@ class _SnowflakeTagCache:
 
         # self._schema_tags[<database_name>][<schema_name>] = list of tags applied to schema
         self._schema_tags: Dict[str, Dict[str, List[SnowflakeTag]]] = defaultdict(
-            lambda: defaultdict(list)
+            lambda: defaultdict(list),
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
@@ -148,9 +148,10 @@ class _SnowflakeTagCache:
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[
-            str, Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]]
+            str,
+            Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]],
         ] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))),
         )
 
     def add_database_tag(self, db_name: str, tag: SnowflakeTag) -> None:
@@ -166,12 +167,19 @@ class _SnowflakeTagCache:
         return self._schema_tags.get(db_name, {}).get(schema_name, [])
 
     def add_table_tag(
-        self, table_name: str, schema_name: str, db_name: str, tag: SnowflakeTag
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        tag: SnowflakeTag,
     ) -> None:
         self._table_tags[db_name][schema_name][table_name].append(tag)
 
     def get_table_tags(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> List[SnowflakeTag]:
         return self._table_tags[db_name][schema_name][table_name]
 
@@ -186,7 +194,10 @@ class _SnowflakeTagCache:
         self._column_tags[db_name][schema_name][table_name][column_name].append(tag)
 
     def get_column_tags_for_table(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> Dict[str, List[SnowflakeTag]]:
         return (
             self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
@@ -272,7 +283,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @serialized_lru_cache(maxsize=1)
     def get_secure_view_definitions(self) -> Dict[str, Dict[str, Dict[str, str]]]:
         secure_view_definitions: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict())
+            lambda: defaultdict(lambda: defaultdict()),
         )
         cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
         for view in cur:
@@ -287,7 +298,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str
+        self,
+        db_name: str,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
@@ -296,7 +308,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
         except Exception as e:
             logger.debug(
-                f"Failed to get all tables for database - {db_name}", exc_info=e
+                f"Failed to get all tables for database - {db_name}",
+                exc_info=e,
             )
             # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
@@ -317,12 +330,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     clustering_key=table["CLUSTERING_KEY"],
                     is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
-                )
+                ),
             )
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
@@ -343,7 +358,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     clustering_key=table["CLUSTERING_KEY"],
                     is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
-                )
+                ),
             )
         return tables
 
@@ -361,7 +376,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     db_name,
                     limit=page_limit,
                     view_pagination_marker=view_pagination_marker,
-                )
+                ),
             )
 
             first_iteration = False
@@ -387,13 +402,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             view.get("is_materialized", "false").lower() == "true"
                         ),
                         is_secure=(view.get("is_secure", "false").lower() == "true"),
-                    )
+                    ),
                 )
 
             if result_set_size >= page_limit:
                 # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
-                    f"Fetching next page of views for {db_name} - after {view_name}"
+                    f"Fetching next page of views for {db_name} - after {view_name}",
                 )
                 view_pagination_marker = view_name
 
@@ -415,15 +430,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
             columns = FileBackedDict()
 
         object_batches = build_prefix_batches(
-            all_objects, max_batch_size=10000, max_groups_in_batch=5
+            all_objects,
+            max_batch_size=10000,
+            max_groups_in_batch=5,
         )
         for batch_index, object_batch in enumerate(object_batches):
             if batch_index > 0:
                 logger.info(
-                    f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}"
+                    f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}",
                 )
             query = SnowflakeQuery.columns_for_schema(
-                schema_name, db_name, object_batch
+                schema_name,
+                db_name,
+                object_batch,
             )
 
             cur = self.connection.query(query)
@@ -441,13 +460,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
                         numeric_precision=column["NUMERIC_PRECISION"],
                         numeric_scale=column["NUMERIC_SCALE"],
-                    )
+                    ),
                 )
         return columns
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_pk_constraints_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> Dict[str, SnowflakePK]:
         constraints: Dict[str, SnowflakePK] = {}
         cur = self.connection.query(
@@ -457,14 +478,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
         for row in cur:
             if row["table_name"] not in constraints:
                 constraints[row["table_name"]] = SnowflakePK(
-                    name=row["constraint_name"], column_names=[]
+                    name=row["constraint_name"],
+                    column_names=[],
                 )
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_fk_constraints_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> Dict[str, List[SnowflakeFK]]:
         constraints: Dict[str, List[SnowflakeFK]] = {}
         fk_constraints_map: Dict[str, SnowflakeFK] = {}
@@ -488,10 +512,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 constraints[row["fk_table_name"]] = []
 
             fk_constraints_map[row["fk_name"]].column_names.append(
-                row["fk_column_name"]
+                row["fk_column_name"],
             )
             fk_constraints_map[row["fk_name"]].referred_column_names.append(
-                row["pk_column_name"]
+                row["pk_column_name"],
             )
             constraints[row["fk_table_name"]].append(fk_constraints_map[row["fk_name"]])
 
@@ -502,7 +526,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         db_name: str,
     ) -> _SnowflakeTagCache:
         cur = self.connection.query(
-            SnowflakeQuery.get_all_tags_in_database_without_propagation(db_name)
+            SnowflakeQuery.get_all_tags_in_database_without_propagation(db_name),
         )
 
         tags = _SnowflakeTagCache()
@@ -530,7 +554,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 tags.add_schema_tag(object_name, object_database, snowflake_tag)
             elif domain == SnowflakeObjectDomain.TABLE:  # including views
                 tags.add_table_tag(
-                    object_name, object_schema, object_database, snowflake_tag
+                    object_name,
+                    object_schema,
+                    object_database,
+                    snowflake_tag,
                 )
             elif domain == SnowflakeObjectDomain.COLUMN:
                 column_name = tag["COLUMN_NAME"]
@@ -558,7 +585,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         cur = self.connection.query(
             SnowflakeQuery.get_all_tags_on_object_with_propagation(
-                db_name, quoted_identifier, domain
+                db_name,
+                quoted_identifier,
+                domain,
             ),
         )
 
@@ -569,17 +598,20 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     schema=tag["TAG_SCHEMA"],
                     name=tag["TAG_NAME"],
                     value=tag["TAG_VALUE"],
-                )
+                ),
             )
         return tags
 
     def get_tags_on_columns_for_table(
-        self, quoted_table_name: str, db_name: str
+        self,
+        quoted_table_name: str,
+        db_name: str,
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
         cur = self.connection.query(
             SnowflakeQuery.get_tags_on_columns_with_propagation(
-                db_name, quoted_table_name
+                db_name,
+                quoted_table_name,
             ),
         )
 

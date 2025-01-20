@@ -36,7 +36,7 @@ def test_stateful_ingestion(tmp_path, pytestconfig):
         },
     }
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj",
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline = Pipeline.create(pipeline_config)

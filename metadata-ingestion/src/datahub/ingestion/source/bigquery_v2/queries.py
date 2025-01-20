@@ -391,7 +391,9 @@ AND
 
 
 def bigquery_audit_metadata_query_template_lineage(
-    dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
+    dataset: str,
+    use_date_sharded_tables: bool,
+    limit: Optional[int] = None,
 ) -> str:
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported

@@ -82,7 +82,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         sink: Sink,
     ) -> PipelineRunListener:
         reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
-            config_dict or {}
+            config_dict or {},
         )
         if reporter_config.sink:
             sink_class = sink_registry.get(reporter_config.sink.type)
@@ -99,11 +99,11 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                             sink_registry.get_optional("datahub-kafka"),
                         ]
                         if kls
-                    ]
+                    ],
                 ),
             ):
                 raise IgnorableError(
-                    f"Datahub ingestion reporter will be disabled because sink type {type(sink)} is not supported"
+                    f"Datahub ingestion reporter will be disabled because sink type {type(sink)} is not supported",
                 )
 
         return cls(sink, reporter_config.report_recipe, ctx)
@@ -122,7 +122,8 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         )
         logger.debug(f"Ingestion source urn = {self.ingestion_source_urn}")
         self.execution_request_input_urn: Urn = Urn(
-            entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
+            entity_type="dataHubExecutionRequest",
+            entity_id=[ctx.run_id],
         )
         self.start_time_ms: int = self.get_cur_time_in_ms()
 
@@ -131,7 +132,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             name=self.entity_name,
             type=ctx.pipeline_config.source.type,
             platform=make_data_platform_urn(
-                getattr(ctx.pipeline_config.source, "platform", "unknown")
+                getattr(ctx.pipeline_config.source, "platform", "unknown"),
             ),
             config=DataHubIngestionSourceConfigClass(
                 recipe=self._get_recipe_to_report(ctx),
@@ -191,7 +192,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             # with a TypeError: Object of type set is not JSON serializable
             converted_recipe = (
                 DatahubIngestionRunSummaryProvider._convert_sets_to_lists(
-                    redacted_recipe
+                    redacted_recipe,
                 )
             )
             return json.dumps(converted_recipe)

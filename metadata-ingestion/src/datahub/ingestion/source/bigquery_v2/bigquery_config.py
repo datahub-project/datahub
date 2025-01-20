@@ -33,7 +33,7 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = int(
-    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
+    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20),
 )
 
 # Regexp for sharded tables.
@@ -47,7 +47,8 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 
 class BigQueryBaseConfig(ConfigModel):
     rate_limit: bool = Field(
-        default=False, description="Should we rate limit requests made to API."
+        default=False,
+        description="Should we rate limit requests made to API.",
     )
     requests_per_min: int = Field(
         default=60,
@@ -71,7 +72,7 @@ class BigQueryBaseConfig(ConfigModel):
             re.compile(v)
         except Exception as e:
             raise ValueError(
-                "sharded_table_pattern configuration pattern is invalid."
+                "sharded_table_pattern configuration pattern is invalid.",
             ) from e
         return v
 
@@ -84,7 +85,7 @@ class BigQueryBaseConfig(ConfigModel):
             values["project_ids"] = [project_id]
         elif project_ids and project_id:
             logging.warning(
-                "Please use `project_ids` config. Config `project_id` will be ignored."
+                "Please use `project_ids` config. Config `project_id` will be ignored.",
             )
         return values
 
@@ -111,7 +112,7 @@ class BigQueryCredential(ConfigModel):
     project_id: str = Field(description="Project id to set the credentials")
     private_key_id: str = Field(description="Private key id")
     private_key: str = Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'",
     )
     client_email: str = Field(description="Client email")
     client_id: str = Field(description="Client Id")
@@ -120,7 +121,8 @@ class BigQueryCredential(ConfigModel):
         description="Authentication uri",
     )
     token_uri: str = Field(
-        default="https://oauth2.googleapis.com/token", description="Token uri"
+        default="https://oauth2.googleapis.com/token",
+        description="Token uri",
     )
     auth_provider_x509_cert_url: str = Field(
         default="https://www.googleapis.com/oauth2/v1/certs",
@@ -151,7 +153,8 @@ class BigQueryCredential(ConfigModel):
 
 class BigQueryConnectionConfig(ConfigModel):
     credential: Optional[BigQueryCredential] = Field(
-        default=None, description="BigQuery credential informations"
+        default=None,
+        description="BigQuery credential informations",
     )
 
     _credentials_path: Optional[str] = PrivateAttr(None)
@@ -172,7 +175,7 @@ class BigQueryConnectionConfig(ConfigModel):
         if self.credential:
             self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
+                f"Creating temporary credential file at {self._credentials_path}",
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
@@ -187,7 +190,8 @@ class BigQueryConnectionConfig(ConfigModel):
         return datacatalog_v1.PolicyTagManagerClient()
 
     def make_gcp_logging_client(
-        self, project_id: Optional[str] = None
+        self,
+        project_id: Optional[str] = None,
     ) -> GCPLoggingClient:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
@@ -299,7 +303,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ):
             logging.warning(
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
-                "schema_pattern will be deprecated, please use dataset_pattern instead."
+                "schema_pattern will be deprecated, please use dataset_pattern instead.",
             )
             values["dataset_pattern"] = schema_pattern
             dataset_pattern = schema_pattern
@@ -309,7 +313,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated,"
-                " please use dataset_pattern only."
+                " please use dataset_pattern only.",
             )
 
         match_fully_qualified_names = values.get("match_fully_qualified_names")
@@ -324,7 +328,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "Please update `dataset_pattern` to match against fully qualified schema name "
                 "`<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
                 "The config option `match_fully_qualified_names` is deprecated and will be "
-                "removed in a future release."
+                "removed in a future release.",
             )
         elif match_fully_qualified_names and dataset_pattern is not None:
             adjusted = False
@@ -339,14 +343,16 @@ class BigQueryFilterConfig(SQLFilterConfig):
             if adjusted:
                 logger.warning(
                     "`dataset_pattern` was adjusted to match against fully qualified schema names,"
-                    " of the form `<project_id>.<dataset_name>`."
+                    " of the form `<project_id>.<dataset_name>`.",
                 )
 
         return values
 
 
 class BigQueryIdentifierConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     include_data_platform_instance: bool = Field(
         default=False,
@@ -380,7 +386,8 @@ class BigQueryV2Config(
     )
 
     usage: BigQueryUsageConfig = Field(
-        default=BigQueryUsageConfig(), description="Usage related configs"
+        default=BigQueryUsageConfig(),
+        description="Usage related configs",
     )
 
     include_usage_statistics: bool = Field(
@@ -414,7 +421,8 @@ class BigQueryV2Config(
     )
 
     include_table_snapshots: Optional[bool] = Field(
-        default=True, description="Whether table snapshots should be ingested."
+        default=True,
+        description="Whether table snapshots should be ingested.",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -593,7 +601,7 @@ class BigQueryV2Config(
             values["include_table_snapshots"] = False
             logger.info(
                 "include_tables and include_views are both set to False."
-                " Disabling schema metadata ingestion for tables, views, and snapshots."
+                " Disabling schema metadata ingestion for tables, views, and snapshots.",
             )
 
         return values
@@ -608,7 +616,9 @@ class BigQueryV2Config(
 
     @validator("bigquery_audit_metadata_datasets")
     def validate_bigquery_audit_metadata_datasets(
-        cls, v: Optional[List[str]], values: Dict
+        cls,
+        v: Optional[List[str]],
+        values: Dict,
     ) -> Optional[List[str]]:
         if values.get("use_exported_bigquery_audit_metadata"):
             assert v and len(v) > 0, (
@@ -621,5 +631,5 @@ class BigQueryV2Config(
         return "|".join(pattern) if pattern else ""
 
     platform_instance_not_supported_for_bigquery = pydantic_removed_field(
-        "platform_instance"
+        "platform_instance",
     )

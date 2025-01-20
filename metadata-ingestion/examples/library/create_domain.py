@@ -10,7 +10,8 @@ logging.basicConfig(level=logging.INFO)
 
 domain_urn = make_domain_urn("marketing")
 domain_properties_aspect = DomainPropertiesClass(
-    name="Marketing", description="Entities related to the marketing department"
+    name="Marketing",
+    description="Entities related to the marketing department",
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(

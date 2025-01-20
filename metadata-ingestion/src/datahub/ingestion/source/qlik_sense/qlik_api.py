@@ -32,7 +32,7 @@ class QlikAPI:
             {
                 "Authorization": f"Bearer {self.config.api_key}",
                 "Content-Type": "application/json",
-            }
+            },
         )
         self.rest_api_url = f"https://{self.config.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
@@ -81,7 +81,7 @@ class QlikAPI:
             return QlikDataset.parse_obj(response_dict)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch dataset with id {dataset_id}. Exception: {e}"
+                message=f"Unable to fetch dataset with id {dataset_id}. Exception: {e}",
             )
         return None
 
@@ -98,7 +98,7 @@ class QlikAPI:
                 return user_name
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch user with id {user_id}. Exception: {e}"
+                message=f"Unable to fetch user with id {user_id}. Exception: {e}",
             )
         return None
 
@@ -110,19 +110,20 @@ class QlikAPI:
     ) -> Optional[Chart]:
         try:
             websocket_connection.websocket_send_request(
-                method="GetChild", params={"qId": chart_id}
+                method="GetChild",
+                params={"qId": chart_id},
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             q_layout = response[Constant.QLAYOUT]
             if Constant.HYPERCUBE not in q_layout:
                 logger.warning(
-                    f"Chart with id {chart_id} of sheet {sheet_id} does not have hypercube. q_layout: {q_layout}"
+                    f"Chart with id {chart_id} of sheet {sheet_id} does not have hypercube. q_layout: {q_layout}",
                 )
                 return None
             return Chart.parse_obj(q_layout)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch chart {chart_id} of sheet {sheet_id}. Exception: {e}"
+                message=f"Unable to fetch chart {chart_id} of sheet {sheet_id}. Exception: {e}",
             )
         return None
 
@@ -133,7 +134,8 @@ class QlikAPI:
     ) -> Optional[Sheet]:
         try:
             websocket_connection.websocket_send_request(
-                method="GetObject", params={"qId": sheet_id}
+                method="GetObject",
+                params={"qId": sheet_id},
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
@@ -143,11 +145,11 @@ class QlikAPI:
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
             if Constant.QCHILDLIST not in sheet_dict:
                 logger.warning(
-                    f"Sheet {sheet.title} with id {sheet_id} does not have any charts. sheet_dict: {sheet_dict}"
+                    f"Sheet {sheet.title} with id {sheet_id} does not have any charts. sheet_dict: {sheet_dict}",
                 )
                 return sheet
             for i, chart_dict in enumerate(
-                sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
+                sheet_dict[Constant.QCHILDLIST][Constant.QITEMS],
             ):
                 chart = self._get_chart(
                     websocket_connection,
@@ -162,7 +164,7 @@ class QlikAPI:
             return sheet
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sheet with id {sheet_id}. Exception: {e}"
+                message=f"Unable to fetch sheet with id {sheet_id}. Exception: {e}",
             )
         return None
 
@@ -171,17 +173,17 @@ class QlikAPI:
         app_qri = quote(f"qri:app:sense://{app_id}", safe="")
         try:
             response = self.session.get(
-                f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={app_qri}&level=TABLE"
+                f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={app_qri}&level=TABLE",
             )
             response.raise_for_status()
             for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
                 table_node_qri = quote(table_node_qri, safe="")
                 response = self.session.get(
-                    f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD"
+                    f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD",
                 )
                 response.raise_for_status()
                 field_nodes_qris = list(
-                    response.json()[Constant.GRAPH][Constant.NODES].keys()
+                    response.json()[Constant.GRAPH][Constant.NODES].keys(),
                 )
                 for field_node_qri in field_nodes_qris:
                     response = self.session.post(
@@ -206,11 +208,13 @@ class QlikAPI:
                     table.tableQri = table_qri_dict[table.tableName]
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
+                message=f"Unable to add QRI for tables of app {app_id}. Exception: {e}",
             )
 
     def _get_app_used_tables(
-        self, websocket_connection: WebsocketConnection, app_id: str
+        self,
+        websocket_connection: WebsocketConnection,
+        app_id: str,
     ) -> List[QlikTable]:
         tables: List[QlikTable] = []
         try:
@@ -227,12 +231,14 @@ class QlikAPI:
             self._add_qri_of_tables(tables, app_id)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
+                message=f"Unable to fetch tables used by app {app_id}. Exception: {e}",
             )
         return tables
 
     def _get_app_sheets(
-        self, websocket_connection: WebsocketConnection, app_id: str
+        self,
+        websocket_connection: WebsocketConnection,
+        app_id: str,
     ) -> List[Sheet]:
         sheets: List[Sheet] = []
         try:
@@ -241,7 +247,7 @@ class QlikAPI:
                 params={
                     "qOptions": {
                         "qTypes": ["sheet"],
-                    }
+                    },
                 },
             )
             for sheet_dict in response[Constant.QLIST]:
@@ -254,21 +260,23 @@ class QlikAPI:
                 websocket_connection.handle.pop()
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"
+                message=f"Unable to fetch sheets for app {app_id}. Exception: {e}",
             )
         return sheets
 
     def _get_app(self, app_id: str) -> Optional[App]:
         try:
             websocket_connection = WebsocketConnection(
-                self.config.tenant_hostname, self.config.api_key, app_id
+                self.config.tenant_hostname,
+                self.config.api_key,
+                app_id,
             )
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
                 params={"qDocName": app_id},
             )
             response = websocket_connection.websocket_send_request(
-                method="GetAppLayout"
+                method="GetAppLayout",
             )
             app = App.parse_obj(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id)
@@ -277,7 +285,7 @@ class QlikAPI:
             return app
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch app with id {app_id}. Exception: {e}"
+                message=f"Unable to fetch app with id {app_id}. Exception: {e}",
             )
         return None
 
@@ -294,7 +302,7 @@ class QlikAPI:
                     if not item.get(Constant.SPACEID):
                         item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
                     if self.config.space_pattern.allowed(
-                        self.spaces[item[Constant.SPACEID]]
+                        self.spaces[item[Constant.SPACEID]],
                     ):
                         resource_type = item[Constant.RESOURCETYPE]
                         if resource_type == Constant.APP:

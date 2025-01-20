@@ -21,7 +21,8 @@ def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "hana"
+        test_resources_dir / "docker-compose.yml",
+        "hana",
     ) as docker_services:
         # added longer timeout and pause due to slow start of hana
         wait_for_port(
@@ -36,7 +37,8 @@ def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "hana_to_file.yml").resolve()
         run_datahub_cmd(
-            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
         )
 
         # Verify the output.

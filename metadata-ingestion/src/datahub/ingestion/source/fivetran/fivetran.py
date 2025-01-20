@@ -83,7 +83,8 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Get platform details for connector source
         source_details = self.config.sources_to_platform_instance.get(
-            connector.connector_id, PlatformDetail()
+            connector.connector_id,
+            PlatformDetail(),
         )
         if source_details.platform is None:
             if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
@@ -101,7 +102,8 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Get platform details for destination
         destination_details = self.config.destination_to_platform_instance.get(
-            connector.destination_id, PlatformDetail()
+            connector.destination_id,
+            PlatformDetail(),
         )
         if destination_details.platform is None:
             destination_details.platform = (
@@ -149,7 +151,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                                     builder.make_schema_field_urn(
                                         str(input_dataset_urn),
                                         column_lineage.source_column,
-                                    )
+                                    ),
                                 ]
                                 if input_dataset_urn
                                 else []
@@ -160,12 +162,12 @@ class FivetranSource(StatefulIngestionSourceBase):
                                     builder.make_schema_field_urn(
                                         str(output_dataset_urn),
                                         column_lineage.destination_column,
-                                    )
+                                    ),
                                 ]
                                 if output_dataset_urn
                                 else []
                             ),
-                        )
+                        ),
                     )
 
         datajob.inlets.extend(input_dataset_urn_list)
@@ -237,7 +239,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
     def _get_dpi_workunits(
-        self, job: Job, dpi: DataProcessInstance
+        self,
+        job: Job,
+        dpi: DataProcessInstance,
     ) -> Iterable[MetadataWorkUnit]:
         status_result_map: Dict[str, InstanceRunResult] = {
             Constant.SUCCESSFUL: InstanceRunResult.SUCCESS,
@@ -247,13 +251,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         if job.status not in status_result_map:
             logger.debug(
                 f"Status should be either SUCCESSFUL, FAILURE_WITH_TASK or CANCELED and it was "
-                f"{job.status}"
+                f"{job.status}",
             )
             return
         result = status_result_map[job.status]
         start_timestamp_millis = job.start_time * 1000
         for mcp in dpi.generate_mcp(
-            created_ts_millis=start_timestamp_millis, materialize_iolets=False
+            created_ts_millis=start_timestamp_millis,
+            materialize_iolets=False,
         ):
             yield mcp.as_workunit()
         for mcp in dpi.start_event_mcp(start_timestamp_millis):
@@ -266,7 +271,8 @@ class FivetranSource(StatefulIngestionSourceBase):
             yield mcp.as_workunit()
 
     def _get_connector_workunits(
-        self, connector: Connector
+        self,
+        connector: Connector,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_connectors_scanned()
         # Create dataflow entity with same name as connector name
@@ -295,7 +301,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 

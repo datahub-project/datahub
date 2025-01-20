@@ -49,7 +49,8 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
     )
 
     limit_entities_delete: Optional[int] = Field(
-        10000, description="Max number of execution requests to hard delete."
+        10000,
+        description="Max number of execution requests to hard delete.",
     )
 
     max_read_errors: int = Field(
@@ -130,7 +131,8 @@ class DatahubExecutionRequestCleanup:
         )
 
     def _scroll_execution_requests(
-        self, overrides: Dict[str, Any] = {}
+        self,
+        overrides: Dict[str, Any] = {},
     ) -> Iterator[CleanupRecord]:
         headers: Dict[str, Any] = {
             "Accept": "application/json",
@@ -196,7 +198,7 @@ class DatahubExecutionRequestCleanup:
             # Always delete corrupted records
             if not key:
                 logger.warning(
-                    f"ergc({self.instance_id}): will delete corrupted entry with missing source key: {entry}"
+                    f"ergc({self.instance_id}): will delete corrupted entry with missing source key: {entry}",
                 )
                 yield entry
                 continue
@@ -238,7 +240,7 @@ class DatahubExecutionRequestCleanup:
                     f"source count: {state[key]['count']}; "
                     f"source cutoff: {state[key]['cutoffTimestamp']}; "
                     f"record timestamp: {entry.requested_at}."
-                )
+                ),
             )
             yield entry
 
@@ -275,7 +277,7 @@ class DatahubExecutionRequestCleanup:
             and self.report.ergc_records_deleted >= self.config.limit_entities_delete
         ):
             logger.info(
-                f"ergc({self.instance_id}): max delete limit reached: {self.config.limit_entities_delete}."
+                f"ergc({self.instance_id}): max delete limit reached: {self.config.limit_entities_delete}.",
             )
             self.report.ergc_delete_limit_reached = True
             return True
@@ -284,7 +286,7 @@ class DatahubExecutionRequestCleanup:
     def run(self) -> None:
         if not self.config.enabled:
             logger.info(
-                f"ergc({self.instance_id}): ExecutionRequest cleaner is disabled."
+                f"ergc({self.instance_id}): ExecutionRequest cleaner is disabled.",
             )
             return
         self.report.ergc_start_time = datetime.datetime.now()
@@ -295,7 +297,7 @@ class DatahubExecutionRequestCleanup:
                 f"max days: {self.config.keep_history_max_days}, "
                 f"min records: {self.config.keep_history_min_count}, "
                 f"max records: {self.config.keep_history_max_count}."
-            )
+            ),
         )
 
         for entry in self._scroll_garbage_records():
@@ -305,5 +307,5 @@ class DatahubExecutionRequestCleanup:
 
         self.report.ergc_end_time = datetime.datetime.now()
         logger.info(
-            f"ergc({self.instance_id}): Finished cleanup of ExecutionRequest records."
+            f"ergc({self.instance_id}): Finished cleanup of ExecutionRequest records.",
         )

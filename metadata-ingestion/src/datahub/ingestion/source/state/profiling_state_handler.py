@@ -111,7 +111,8 @@ class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointSt
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return None
         last_checkpoint = self.state_provider.get_last_checkpoint(
-            self.job_id, ProfilingCheckpointState
+            self.job_id,
+            ProfilingCheckpointState,
         )
         if last_checkpoint and last_checkpoint.state:
             return cast(ProfilingCheckpointState, last_checkpoint.state)

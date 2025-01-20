@@ -35,7 +35,7 @@ class GrafanaSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMix
         description="Grafana URL in the format http://your-grafana-instance with no trailing slash",
     )
     service_account_token: SecretStr = Field(
-        description="Service account token for Grafana"
+        description="Service account token for Grafana",
     )
 
 
@@ -67,7 +67,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -81,7 +83,8 @@ class GrafanaSource(StatefulIngestionSourceBase):
         }
         try:
             response = requests.get(
-                f"{self.source_config.url}/api/search", headers=headers
+                f"{self.source_config.url}/api/search",
+                headers=headers,
             )
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
@@ -127,5 +130,5 @@ class GrafanaSource(StatefulIngestionSourceBase):
                         ),
                         StatusClass(removed=False),
                     ],
-                )
+                ),
             )

@@ -99,7 +99,9 @@ class SchemaFieldTypeMapper:
 
     @classmethod
     def get_field_type(
-        cls, data_type: str, data_size: Optional[int] = None
+        cls,
+        data_type: str,
+        data_size: Optional[int] = None,
     ) -> Tuple["SchemaFieldDataTypeClass", str]:
         """
         Maps a Dremio data type and size to a DataHub SchemaFieldDataTypeClass and native data type string.
@@ -125,11 +127,11 @@ class SchemaFieldTypeMapper:
             schema_field_type = SchemaFieldDataTypeClass(type=type_class())
             logger.debug(
                 f"Mapped data_type '{data_type}' with size '{data_size}' to type class "
-                f"'{type_class.__name__}' and native data type '{native_data_type}'."
+                f"'{type_class.__name__}' and native data type '{native_data_type}'.",
             )
         except Exception as e:
             logger.error(
-                f"Error initializing SchemaFieldDataTypeClass with type '{type_class.__name__}': {e}"
+                f"Error initializing SchemaFieldDataTypeClass with type '{type_class.__name__}': {e}",
             )
             schema_field_type = SchemaFieldDataTypeClass(type=NullTypeClass())
 
@@ -154,7 +156,9 @@ class DremioAspects:
         self.ingest_owner = ingest_owner
 
     def get_container_key(
-        self, name: Optional[str], path: Optional[List[str]]
+        self,
+        name: Optional[str],
+        path: Optional[List[str]],
     ) -> DremioContainerKey:
         key = name
         if path:
@@ -168,7 +172,9 @@ class DremioAspects:
         )
 
     def get_container_urn(
-        self, name: Optional[str] = None, path: Optional[List[str]] = []
+        self,
+        name: Optional[str] = None,
+        path: Optional[List[str]] = [],
     ) -> str:
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
@@ -181,13 +187,15 @@ class DremioAspects:
                 domains=[
                     make_domain_urn(
                         str(uuid.uuid5(namespace, self.domain)),
-                    )
-                ]
+                    ),
+                ],
             )
         return None
 
     def populate_container_mcp(
-        self, container_urn: str, container: DremioContainer
+        self,
+        container_urn: str,
+        container: DremioContainer,
     ) -> Iterable[MetadataWorkUnit]:
         # Container Properties
         container_properties = self._create_container_properties(container)
@@ -242,7 +250,9 @@ class DremioAspects:
         yield mcp.as_workunit()
 
     def populate_dataset_mcp(
-        self, dataset_urn: str, dataset: DremioDataset
+        self,
+        dataset_urn: str,
+        dataset: DremioDataset,
     ) -> Iterable[MetadataWorkUnit]:
         # Dataset Properties
         dataset_properties = self._create_dataset_properties(dataset)
@@ -315,10 +325,10 @@ class DremioAspects:
 
         else:
             logger.warning(
-                f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio"
+                f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio",
             )
             logger.warning(
-                f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
+                f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema",
             )
 
         # Status
@@ -330,7 +340,8 @@ class DremioAspects:
         yield mcp.as_workunit()
 
     def populate_glossary_term_mcp(
-        self, glossary_term: DremioGlossaryTerm
+        self,
+        glossary_term: DremioGlossaryTerm,
     ) -> Iterable[MetadataWorkUnit]:
         glossary_term_info = self._create_glossary_term_info(glossary_term)
         mcp = MetadataChangeProposalWrapper(
@@ -352,7 +363,8 @@ class DremioAspects:
         )
 
     def _create_container_properties(
-        self, container: DremioContainer
+        self,
+        container: DremioContainer,
     ) -> ContainerPropertiesClass:
         return ContainerPropertiesClass(
             name=container.container_name,
@@ -362,7 +374,8 @@ class DremioAspects:
         )
 
     def _create_browse_paths_containers(
-        self, entity: DremioContainer
+        self,
+        entity: DremioContainer,
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
@@ -375,7 +388,8 @@ class DremioAspects:
         return None
 
     def _create_container_class(
-        self, entity: Union[DremioContainer, DremioDataset]
+        self,
+        entity: Union[DremioContainer, DremioDataset],
     ) -> Optional[ContainerClass]:
         if entity.path:
             return ContainerClass(container=self.get_container_urn(path=entity.path))
@@ -392,7 +406,8 @@ class DremioAspects:
         )
 
     def _create_dataset_properties(
-        self, dataset: DremioDataset
+        self,
+        dataset: DremioDataset,
     ) -> DatasetPropertiesClass:
         return DatasetPropertiesClass(
             name=dataset.resource_name,
@@ -402,9 +417,10 @@ class DremioAspects:
             created=TimeStampClass(
                 time=round(
                     datetime.strptime(
-                        dataset.created, "%Y-%m-%d %H:%M:%S.%f"
+                        dataset.created,
+                        "%Y-%m-%d %H:%M:%S.%f",
                     ).timestamp()
-                    * 1000
+                    * 1000,
                 )
                 if hasattr(dataset, "created")
                 else 0,
@@ -439,8 +455,8 @@ class DremioAspects:
                     OwnerClass(
                         owner=owner_urn,
                         type=OwnershipTypeClass.TECHNICAL_OWNER,
-                    )
-                ]
+                    ),
+                ],
             )
             return ownership
 
@@ -481,7 +497,8 @@ class DremioAspects:
         )
 
     def _create_view_properties(
-        self, dataset: DremioDataset
+        self,
+        dataset: DremioDataset,
     ) -> Optional[ViewPropertiesClass]:
         if not dataset.sql_definition:
             return None
@@ -492,7 +509,8 @@ class DremioAspects:
         )
 
     def _create_glossary_term_info(
-        self, glossary_term: DremioGlossaryTerm
+        self,
+        glossary_term: DremioGlossaryTerm,
     ) -> GlossaryTermInfoClass:
         return GlossaryTermInfoClass(
             definition="",
@@ -501,7 +519,9 @@ class DremioAspects:
         )
 
     def _create_field_profile(
-        self, field_name: str, field_stats: Dict
+        self,
+        field_name: str,
+        field_stats: Dict,
     ) -> DatasetFieldProfileClass:
         quantiles = field_stats.get("quantiles")
         return DatasetFieldProfileClass(

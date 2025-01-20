@@ -130,7 +130,7 @@ class IcebergProfiler:
                     field.field_id
                     for field in table.schema().fields
                     if field.field_type.is_primitive
-                ]
+                ],
             )
             dataset_profile = DatasetProfileClass(
                 timestampMillis=get_sys_time(),
@@ -149,7 +149,8 @@ class IcebergProfiler:
                         data_file = manifest_entry.data_file
                         if self.config.include_field_null_count:
                             null_counts = self._aggregate_counts(
-                                null_counts, data_file.null_value_counts
+                                null_counts,
+                                data_file.null_value_counts,
                             )
                         if self.config.include_field_min_value:
                             self._aggregate_bounds(
@@ -180,16 +181,19 @@ class IcebergProfiler:
                     column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                     if self.config.include_field_null_count:
                         column_profile.nullCount = cast(
-                            int, null_counts.get(field_id, 0)
+                            int,
+                            null_counts.get(field_id, 0),
                         )
                         column_profile.nullProportion = float(
-                            column_profile.nullCount / row_count
+                            column_profile.nullCount / row_count,
                         )
 
                     if self.config.include_field_min_value:
                         column_profile.min = (
                             self._render_value(
-                                dataset_name, field.field_type, min_bounds.get(field_id)
+                                dataset_name,
+                                field.field_type,
+                                min_bounds.get(field_id),
                             )
                             if field_id in min_bounds
                             else None
@@ -197,7 +201,9 @@ class IcebergProfiler:
                     if self.config.include_field_max_value:
                         column_profile.max = (
                             self._render_value(
-                                dataset_name, field.field_type, max_bounds.get(field_id)
+                                dataset_name,
+                                field.field_type,
+                                max_bounds.get(field_id),
                             )
                             if field_id in max_bounds
                             else None
@@ -205,10 +211,12 @@ class IcebergProfiler:
                     dataset_profile.fieldProfiles.append(column_profile)
             time_taken = timer.elapsed_seconds()
             self.report.report_table_profiling_time(
-                time_taken, dataset_name, table.metadata_location
+                time_taken,
+                dataset_name,
+                table.metadata_location,
             )
             LOGGER.debug(
-                f"Finished profiling of dataset: {dataset_name} in {time_taken}"
+                f"Finished profiling of dataset: {dataset_name} in {time_taken}",
             )
 
         yield MetadataChangeProposalWrapper(
@@ -217,7 +225,10 @@ class IcebergProfiler:
         ).as_workunit()
 
     def _render_value(
-        self, dataset_name: str, value_type: IcebergType, value: Any
+        self,
+        dataset_name: str,
+        value_type: IcebergType,
+        value: Any,
     ) -> Union[str, None]:
         try:
             if isinstance(value_type, TimestampType):

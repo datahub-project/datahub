@@ -130,7 +130,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(e)
             exit(
-                1
+                1,
             )  # Exit pipeline as we are not able to connect to Qlik Client Service.
 
     @staticmethod
@@ -141,7 +141,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
@@ -207,19 +208,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _gen_entity_status_aspect(self, entity_urn: str) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityUrn=entity_urn, aspect=Status(removed=False)
+            entityUrn=entity_urn,
+            aspect=Status(removed=False),
         ).as_workunit()
 
     def _gen_entity_owner_aspect(
-        self, entity_urn: str, user_name: str
+        self,
+        entity_urn: str,
+        user_name: str,
     ) -> MetadataWorkUnit:
         aspect = OwnershipClass(
             owners=[
                 OwnerClass(
                     owner=builder.make_user_urn(user_name),
                     type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
+                ),
+            ],
         )
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -234,7 +238,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_dashboard_info_workunit(
-        self, sheet: Sheet, app_id: str
+        self,
+        sheet: Sheet,
+        app_id: str,
     ) -> MetadataWorkUnit:
         dashboard_urn = self._gen_dashboard_urn(sheet.id)
         custom_properties: Dict[str, str] = {"chartCount": str(len(sheet.charts))}
@@ -257,11 +263,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             dashboardUrl=f"https://{self.config.tenant_hostname}/sense/app/{app_id}/sheet/{sheet.id}/state/analysis",
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+            entityUrn=dashboard_urn,
+            aspect=dashboard_info_cls,
         ).as_workunit()
 
     def _gen_charts_workunit(
-        self, charts: List[Chart], input_tables: List[QlikTable], app_id: str
+        self,
+        charts: List[Chart],
+        input_tables: List[QlikTable],
+        app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Chart to Datahub Chart
@@ -331,7 +341,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_charts_workunit(sheet.charts, app.tables, app.id)
 
     def _gen_app_table_upstream_lineage(
-        self, dataset_urn: str, table: QlikTable
+        self,
+        dataset_urn: str,
+        table: QlikTable,
     ) -> Optional[MetadataWorkUnit]:
         upstream_dataset_urn: Optional[str] = None
         if table.type == BoxType.BLACKBOX:
@@ -350,14 +362,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 query=table.selectStatement.strip(),
                 default_db=None,
                 platform=KNOWN_DATA_PLATFORM_MAPPING.get(
-                    table.dataconnectorPlatform, table.dataconnectorPlatform
+                    table.dataconnectorPlatform,
+                    table.dataconnectorPlatform,
                 ),
                 env=upstream_dataset_platform_detail.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
             ).in_tables[0]
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
-                f"{table.spaceId}.{table.databaseName}".lower()
+                f"{table.spaceId}.{table.databaseName}".lower(),
             )
 
         if upstream_dataset_urn:
@@ -366,11 +379,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
-                        builder.make_schema_field_urn(upstream_dataset_urn, field.name)
+                        builder.make_schema_field_urn(upstream_dataset_urn, field.name),
                     ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
-                        builder.make_schema_field_urn(dataset_urn, field.name)
+                        builder.make_schema_field_urn(dataset_urn, field.name),
                     ],
                 )
                 for field in table.datasetSchema
@@ -380,8 +393,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=UpstreamLineage(
                     upstreams=[
                         Upstream(
-                            dataset=upstream_dataset_urn, type=DatasetLineageType.COPY
-                        )
+                            dataset=upstream_dataset_urn,
+                            type=DatasetLineageType.COPY,
+                        ),
                     ],
                     fineGrainedLineages=fine_grained_lineages,
                 ),
@@ -390,7 +404,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
     def _gen_app_table_properties(
-        self, dataset_urn: str, table: QlikTable
+        self,
+        dataset_urn: str,
+        table: QlikTable,
     ) -> MetadataWorkUnit:
         dataset_properties = DatasetProperties(
             name=table.tableName,
@@ -401,10 +417,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 Constant.TYPE: "Qlik Table",
                 Constant.DATACONNECTORID: table.dataconnectorid,
                 Constant.DATACONNECTORNAME: table.dataconnectorName,
-            }
+            },
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
         ).as_workunit()
 
     def _get_app_table_identifier(self, table: QlikTable) -> Optional[str]:
@@ -413,7 +430,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _gen_app_tables_workunit(
-        self, tables: List[QlikTable], app_id: str
+        self,
+        tables: List[QlikTable],
+        app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         for table in tables:
             table_identifier = self._get_app_table_identifier(table)
@@ -443,7 +462,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             upstream_lineage_workunit = self._gen_app_table_upstream_lineage(
-                dataset_urn, table
+                dataset_urn,
+                table,
             )
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
@@ -481,23 +501,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_dataplatform_instance_aspect(
-        self, entity_urn: str
+        self,
+        entity_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         if self.config.platform_instance:
             aspect = DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(self.platform),
                 instance=builder.make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
+                    self.platform,
+                    self.config.platform_instance,
                 ),
             )
             return MetadataChangeProposalWrapper(
-                entityUrn=entity_urn, aspect=aspect
+                entityUrn=entity_urn,
+                aspect=aspect,
             ).as_workunit()
         else:
             return None
 
     def _gen_schema_fields(
-        self, schema: List[QlikDatasetSchemaField]
+        self,
+        schema: List[QlikDatasetSchemaField],
     ) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
         for field in schema:
@@ -508,7 +532,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
                         if field.dataType
                         else NullType()
-                    )
+                    ),
                 ),
                 nativeDataType=field.dataType if field.dataType else "",
                 nullable=field.nullable,
@@ -518,7 +542,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return schema_fields
 
     def _gen_schema_metadata(
-        self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
+        self,
+        dataset_identifier: str,
+        dataset_schema: List[QlikDatasetSchemaField],
     ) -> MetadataWorkUnit:
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
 
@@ -532,11 +558,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=schema_metadata
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
         ).as_workunit()
 
     def _gen_dataset_properties(
-        self, dataset_urn: str, dataset: QlikDataset
+        self,
+        dataset_urn: str,
+        dataset: QlikDataset,
     ) -> MetadataWorkUnit:
         dataset_properties = DatasetProperties(
             name=dataset.name,
@@ -554,11 +583,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
-            }
+            },
         )
 
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
         ).as_workunit()
 
     def _get_qlik_dataset_identifier(self, dataset: QlikDataset) -> str:
@@ -597,7 +627,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 

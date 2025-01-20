@@ -16,7 +16,7 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 DATAHUB_COMPOSE_PROJECT_FILTER = {
-    "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}"
+    "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}",
 }
 
 DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
@@ -69,7 +69,7 @@ def get_docker_client() -> Iterator[docker.DockerClient]:
                 raise error
         except docker.errors.DockerException as error:
             raise DockerNotRunningError(
-                "Docker doesn't seem to be running. Did you start it?"
+                "Docker doesn't seem to be running. Did you start it?",
             ) from error
     assert client
 
@@ -78,7 +78,7 @@ def get_docker_client() -> Iterator[docker.DockerClient]:
         client.ping()
     except docker.errors.DockerException as error:
         raise DockerNotRunningError(
-            "Unable to talk to Docker. Did you start it?"
+            "Unable to talk to Docker. Did you start it?",
         ) from error
 
     # Yield the client and make sure to close it.
@@ -99,7 +99,7 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
     if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
         raise DockerLowMemoryError(
             f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB. "
-            "You can increase the memory allocated to Docker in the Docker settings."
+            "You can increase the memory allocated to Docker in the Docker settings.",
         )
 
 
@@ -152,7 +152,9 @@ class QuickstartStatus:
         )
 
     def to_exception(
-        self, header: str, footer: Optional[str] = None
+        self,
+        header: str,
+        footer: Optional[str] = None,
     ) -> QuickstartError:
         message = f"{header}\n"
         for error in self.errors():
@@ -205,7 +207,7 @@ def check_docker_quickstart() -> QuickstartStatus:
         for config_file in config_files:
             with open(config_file) as config_file:
                 all_containers.update(
-                    yaml.safe_load(config_file).get("services", {}).keys()
+                    yaml.safe_load(config_file).get("services", {}).keys(),
                 )
 
         existing_containers = set()
@@ -238,7 +240,7 @@ def check_docker_quickstart() -> QuickstartStatus:
         missing_containers = set(all_containers) - existing_containers
         for missing in missing_containers:
             container_statuses.append(
-                DockerContainerStatus(missing, ContainerStatus.MISSING)
+                DockerContainerStatus(missing, ContainerStatus.MISSING),
             )
 
     return QuickstartStatus(container_statuses)

@@ -133,5 +133,5 @@ class EntityFilterReport(ReportAttribute):
         """A helper to create a dataclass field."""
 
         return dataclasses.field(
-            default_factory=lambda: EntityFilterReport(type=type, severity=severity)
+            default_factory=lambda: EntityFilterReport(type=type, severity=severity),
         )

@@ -28,7 +28,8 @@ data_platform = "trino"
 def trino_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "trino"
+        test_resources_dir / "docker-compose.yml",
+        "trino",
     ) as docker_services:
         wait_for_port(docker_services, "testtrino", 8080)
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
@@ -58,7 +59,11 @@ def loaded_trino(trino_runner):
 
 @freeze_time(FROZEN_TIME)
 def test_trino_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
@@ -76,7 +81,7 @@ def test_trino_ingest(
                     username="foo",
                     schema_pattern=AllowDenyPattern(allow=["^librarydb"]),
                     profile_pattern=AllowDenyPattern(
-                        allow=["postgresqldb.librarydb.*"]
+                        allow=["postgresqldb.librarydb.*"],
                     ),
                     profiling=GEProfilingConfig(
                         enabled=True,
@@ -100,7 +105,7 @@ def test_trino_ingest(
                                 config=DataHubClassifierConfig(
                                     minimum_values_threshold=1,
                                 ),
-                            )
+                            ),
                         ],
                         max_workers=1,
                     ),
@@ -108,7 +113,7 @@ def test_trino_ingest(
                         "postgresqldb": ConnectorDetail(
                             connector_database="postgres",
                             platform_instance="local_server",
-                        )
+                        ),
                     },
                 ).dict(),
             },
@@ -133,7 +138,11 @@ def test_trino_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_trino_hive_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
     mce_out_file = "trino_hive_mces.json"
@@ -156,7 +165,7 @@ def test_trino_hive_ingest(
                             config=DataHubClassifierConfig(
                                 minimum_values_threshold=1,
                             ),
-                        )
+                        ),
                     ],
                     max_workers=1,
                 ),
@@ -200,7 +209,11 @@ def test_trino_hive_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_trino_instance_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file
@@ -218,7 +231,7 @@ def test_trino_instance_ingest(
                     "hivedb": ConnectorDetail(
                         connector_platform="glue",
                         platform_instance="local_server",
-                    )
+                    ),
                 },
             ).dict(),
         },

@@ -127,13 +127,14 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         ):
             raise ValueError(
                 "Your current config will not ingest any data."
-                " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
+                " Please specify at least one of `database_connection` or `kafka_connection`, ideally both.",
             )
         return values
 
     @pydantic.validator("database_connection")
     def validate_mysql_scheme(
-        cls, v: SQLAlchemyConnectionConfig
+        cls,
+        v: SQLAlchemyConnectionConfig,
     ) -> SQLAlchemyConnectionConfig:
         if "mysql" in v.scheme:
             if v.scheme != "mysql+pymysql":

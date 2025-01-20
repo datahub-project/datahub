@@ -115,7 +115,8 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Use the `platform_instance` field")
 @capability(
-    SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
+    SourceCapability.OWNERSHIP,
+    "Enabled by default, configured using `extract_owners`",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -147,10 +148,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter: LookerDashboardSourceReport = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
         self.user_registry: LookerUserRegistry = LookerUserRegistry(
-            self.looker_api, self.reporter
+            self.looker_api,
+            self.reporter,
         )
         self.explore_registry: LookerExploreRegistry = LookerExploreRegistry(
-            self.looker_api, self.reporter, self.source_config
+            self.looker_api,
+            self.reporter,
+            self.source_config,
         )
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
@@ -225,7 +229,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             if test_report.basic_connectivity is None:
                 test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=f"{e}"
+                    capable=False,
+                    failure_reason=f"{e}",
                 )
 
         return test_report
@@ -273,7 +278,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return list(views)
 
     def _get_input_fields_from_query(
-        self, query: Optional[Query]
+        self,
+        query: Optional[Query],
     ) -> List[InputFieldElement]:
         if query is None:
             return []
@@ -285,11 +291,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # - looker custom dimensions: https://docs.looker.com/exploring-data/adding-fields/custom-measure#creating_a_custom_dimension_using_a_looker_expression
         try:
             dynamic_fields = json.loads(
-                query.dynamic_fields if query.dynamic_fields is not None else "[]"
+                query.dynamic_fields if query.dynamic_fields is not None else "[]",
             )
         except JSONDecodeError as e:
             logger.warning(
-                f"Json load failed on loading dynamic field with error: {e}. The field value was: {query.dynamic_fields}"
+                f"Json load failed on loading dynamic field with error: {e}. The field value was: {query.dynamic_fields}",
             )
             dynamic_fields = []
 
@@ -305,7 +311,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                             type="string",
                             description="",
                         ),
-                    )
+                    ),
                 )
             if "measure" in field:
                 # for measure, we can also make sure to index the underlying field that the measure uses
@@ -317,7 +323,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                             view_field=None,
                             model=query.model,
                             explore=query.view,
-                        )
+                        ),
                     )
                 result.append(
                     InputFieldElement(
@@ -329,7 +335,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                             type="string",
                             description="",
                         ),
-                    )
+                    ),
                 )
             if "dimension" in field:
                 result.append(
@@ -342,7 +348,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                             type="string",
                             description="",
                         ),
-                    )
+                    ),
                 )
 
         # A query uses fields defined in explores, find the metadata about that field
@@ -355,8 +361,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # later to fetch this
             result.append(
                 InputFieldElement(
-                    name=field, view_field=None, model=query.model, explore=query.view
-                )
+                    name=field,
+                    view_field=None,
+                    model=query.model,
+                    explore=query.view,
+                ),
             )
 
         # A query uses fields for filtering, and those fields are defined in views, find the views those fields use
@@ -371,8 +380,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # later to fetch this
             result.append(
                 InputFieldElement(
-                    name=field, view_field=None, model=query.model, explore=query.view
-                )
+                    name=field,
+                    view_field=None,
+                    model=query.model,
+                    explore=query.view,
+                ),
             )
 
         return result
@@ -384,7 +396,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reachable_explores[(model, explore)].append(via)
 
     def _get_looker_dashboard_element(  # noqa: C901
-        self, element: DashboardElement
+        self,
+        element: DashboardElement,
     ) -> Optional[LookerDashboardElement]:
         # Dashboard elements can use raw usage_queries against explores
         explores: List[str]
@@ -399,7 +412,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
-                f"Element {element.title}: Explores added via query: {explores}"
+                f"Element {element.title}: Explores added via query: {explores}",
             )
             for exp in explores:
                 self.add_reachable_explore(
@@ -486,11 +499,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 if element.result_maker.query.view is not None:
                     explores.append(element.result_maker.query.view)
                 input_fields = self._get_input_fields_from_query(
-                    element.result_maker.query
+                    element.result_maker.query,
                 )
 
                 logger.debug(
-                    f"Element {element.title}: Explores added via result_maker: {explores}"
+                    f"Element {element.title}: Explores added via result_maker: {explores}",
                 )
 
                 for exp in explores:
@@ -522,7 +535,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                                     view_field=None,
                                     model=query.model if query is not None else "",
                                     explore=query.view if query is not None else "",
-                                )
+                                ),
                             )
 
             explores = sorted(list(set(explores)))  # dedup the list of views
@@ -550,7 +563,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return None
 
     def _get_chart_type(
-        self, dashboard_element: LookerDashboardElement
+        self,
+        dashboard_element: LookerDashboardElement,
     ) -> Optional[str]:
         type_mapping = {
             "looker_column": ChartTypeClass.BAR,
@@ -596,7 +610,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return chart_type
 
     def _get_folder_browse_path_v2_entries(
-        self, folder: LookerFolder, include_current_folder: bool = True
+        self,
+        folder: LookerFolder,
+        include_current_folder: bool = True,
     ) -> Iterable[BrowsePathEntryClass]:
         for ancestor in self.looker_api.folder_ancestors(folder_id=folder.id):
             assert ancestor.id
@@ -644,7 +660,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ],  # dashboard will be None if this is a standalone look
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         chart_urn = self._make_chart_urn(
-            element_id=dashboard_element.get_urn_element_id()
+            element_id=dashboard_element.get_urn_element_id(),
         )
         self.chart_urns.add(chart_urn)
         chart_snapshot = ChartSnapshot(
@@ -664,11 +680,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             customProperties={
                 "upstream_fields": (
                     ",".join(
-                        sorted({field.name for field in dashboard_element.input_fields})
+                        sorted(
+                            {field.name for field in dashboard_element.input_fields},
+                        ),
                     )
                     if dashboard_element.input_fields
                     else ""
-                )
+                ),
             },
         )
         chart_snapshot.aspects.append(chart_info)
@@ -679,7 +697,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and dashboard.folder is not None
         ):
             browse_path = BrowsePathsClass(
-                paths=[f"/Folders/{dashboard.folder_path}/{dashboard.title}"]
+                paths=[f"/Folders/{dashboard.folder_path}/{dashboard.title}"],
             )
             chart_snapshot.aspects.append(browse_path)
 
@@ -697,7 +715,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and dashboard_element.folder is not None
         ):  # independent look
             browse_path = BrowsePathsClass(
-                paths=[f"/Folders/{dashboard_element.folder_path}"]
+                paths=[f"/Folders/{dashboard_element.folder_path}"],
             )
             chart_snapshot.aspects.append(browse_path)
             browse_path_v2 = BrowsePathsV2Class(
@@ -740,14 +758,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and self.source_config.external_base_url
         ):
             maybe_embed_url = dashboard_element.embed_url(
-                self.source_config.external_base_url
+                self.source_config.external_base_url,
             )
             if maybe_embed_url:
                 proposals.append(
                     create_embed_mcp(
                         chart_snapshot.urn,
                         maybe_embed_url,
-                    )
+                    ),
                 )
 
         if dashboard is None and dashboard_element.folder:
@@ -755,20 +773,23 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 container=self._gen_folder_key(dashboard_element.folder.id).as_urn(),
             )
             proposals.append(
-                MetadataChangeProposalWrapper(entityUrn=chart_urn, aspect=container)
+                MetadataChangeProposalWrapper(entityUrn=chart_urn, aspect=container),
             )
 
         if browse_path_v2:
             proposals.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=chart_urn, aspect=browse_path_v2
-                )
+                    entityUrn=chart_urn,
+                    aspect=browse_path_v2,
+                ),
             )
 
         return proposals
 
     def _make_dashboard_metadata_events(
-        self, looker_dashboard: LookerDashboard, chart_urns: List[str]
+        self,
+        looker_dashboard: LookerDashboard,
+        chart_urns: List[str],
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         dashboard_urn = self.make_dashboard_urn(looker_dashboard)
         dashboard_snapshot = DashboardSnapshot(
@@ -790,7 +811,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and looker_dashboard.folder is not None
         ):
             browse_path = BrowsePathsClass(
-                paths=[f"/Folders/{looker_dashboard.folder_path}"]
+                paths=[f"/Folders/{looker_dashboard.folder_path}"],
             )
             browse_path_v2 = BrowsePathsV2Class(
                 path=[
@@ -809,7 +830,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
 
         proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
-            dashboard_mce
+            dashboard_mce,
         ]
 
         if looker_dashboard.folder is not None:
@@ -817,14 +838,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 container=self._gen_folder_key(looker_dashboard.folder.id).as_urn(),
             )
             proposals.append(
-                MetadataChangeProposalWrapper(entityUrn=dashboard_urn, aspect=container)
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=container,
+                ),
             )
 
         if browse_path_v2:
             proposals.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_urn, aspect=browse_path_v2
-                )
+                    entityUrn=dashboard_urn,
+                    aspect=browse_path_v2,
+                ),
             )
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
@@ -836,7 +861,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 create_embed_mcp(
                     dashboard_snapshot.urn,
                     looker_dashboard.embed_url(self.source_config.external_base_url),
-                )
+                ),
             )
 
         if self.source_config.include_platform_instance_in_urns:
@@ -844,7 +869,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 MetadataChangeProposalWrapper(
                     entityUrn=dashboard_urn,
                     aspect=self._create_platform_instance_aspect(),
-                )
+                ),
             )
 
         return proposals
@@ -915,7 +940,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             yield from events
             self.reporter.report_upstream_latency(start_time, end_time)
             logger.debug(
-                f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
+                f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}",
             )
 
     def list_all_explores(self) -> Iterable[Tuple[Optional[str], str, str]]:
@@ -930,7 +955,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 yield (model.project_name, model.name, explore.name)
 
     def fetch_one_explore(
-        self, model: str, explore: str
+        self,
+        model: str,
+        explore: str,
     ) -> Tuple[
         List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         str,
@@ -954,7 +981,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return events, f"{model}:{explore}", start_time, datetime.datetime.now()
 
     def _extract_event_urn(
-        self, event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
+        self,
+        event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper],
     ) -> Optional[str]:
         if isinstance(event, MetadataChangeEvent):
             return event.proposedSnapshot.urn
@@ -962,7 +990,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             return event.entityUrn
 
     def _emit_folder_as_container(
-        self, folder: LookerFolder
+        self,
+        folder: LookerFolder,
     ) -> Iterable[MetadataWorkUnit]:
         if folder.id not in self.processed_folders:
             yield from gen_containers(
@@ -987,7 +1016,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         path=[
                             BrowsePathEntryClass("Folders"),
                             *self._get_folder_browse_path_v2_entries(
-                                folder, include_current_folder=False
+                                folder,
+                                include_current_folder=False,
                             ),
                         ],
                     ),
@@ -1003,14 +1033,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _make_dashboard_and_chart_mces(
-        self, looker_dashboard: LookerDashboard
+        self,
+        looker_dashboard: LookerDashboard,
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:
             if element.type == "vis":
                 chart_events.extend(
-                    self._make_chart_metadata_events(element, looker_dashboard)
+                    self._make_chart_metadata_events(element, looker_dashboard),
                 )
 
         yield from chart_events
@@ -1025,16 +1056,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 chart_urns.add(chart_event_urn)
 
         dashboard_events = self._make_dashboard_metadata_events(
-            looker_dashboard, list(chart_urns)
+            looker_dashboard,
+            list(chart_urns),
         )
         yield from dashboard_events
 
     def get_ownership(
-        self, looker_dashboard_look: Union[LookerDashboard, LookerDashboardElement]
+        self,
+        looker_dashboard_look: Union[LookerDashboard, LookerDashboardElement],
     ) -> Optional[OwnershipClass]:
         if looker_dashboard_look.owner is not None:
             owner_urn = looker_dashboard_look.owner.get_urn(
-                self.source_config.strip_user_ids_from_email
+                self.source_config.strip_user_ids_from_email,
             )
             if owner_urn is not None:
                 ownership: OwnershipClass = OwnershipClass(
@@ -1042,33 +1075,34 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         OwnerClass(
                             owner=owner_urn,
                             type=OwnershipTypeClass.DATAOWNER,
-                        )
-                    ]
+                        ),
+                    ],
                 )
                 return ownership
         return None
 
     def _get_change_audit_stamps(
-        self, looker_dashboard: LookerDashboard
+        self,
+        looker_dashboard: LookerDashboard,
     ) -> ChangeAuditStamps:
         change_audit_stamp: ChangeAuditStamps = ChangeAuditStamps()
         if looker_dashboard.created_at is not None:
             change_audit_stamp.created.time = round(
-                looker_dashboard.created_at.timestamp() * 1000
+                looker_dashboard.created_at.timestamp() * 1000,
             )
         if looker_dashboard.owner is not None:
             owner_urn = looker_dashboard.owner.get_urn(
-                self.source_config.strip_user_ids_from_email
+                self.source_config.strip_user_ids_from_email,
             )
             if owner_urn:
                 change_audit_stamp.created.actor = owner_urn
         if looker_dashboard.last_updated_at is not None:
             change_audit_stamp.lastModified.time = round(
-                looker_dashboard.last_updated_at.timestamp() * 1000
+                looker_dashboard.last_updated_at.timestamp() * 1000,
             )
         if looker_dashboard.last_updated_by is not None:
             updated_by_urn = looker_dashboard.last_updated_by.get_urn(
-                self.source_config.strip_user_ids_from_email
+                self.source_config.strip_user_ids_from_email,
             )
             if updated_by_urn:
                 change_audit_stamp.lastModified.actor = updated_by_urn
@@ -1078,7 +1112,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and looker_dashboard.deleted_at is not None
         ):
             deleter_urn = looker_dashboard.deleted_by.get_urn(
-                self.source_config.strip_user_ids_from_email
+                self.source_config.strip_user_ids_from_email,
             )
             if deleter_urn:
                 change_audit_stamp.deleted = AuditStamp(
@@ -1115,7 +1149,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         for element in elements:
             self.reporter.report_charts_scanned()
             if element.id is not None and not self.source_config.chart_pattern.allowed(
-                element.id
+                element.id,
             ):
                 self.reporter.report_charts_dropped(element.id)
                 continue
@@ -1174,7 +1208,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return user
 
     def process_metrics_dimensions_and_fields_for_dashboard(
-        self, dashboard: LookerDashboard
+        self,
+        dashboard: LookerDashboard,
     ) -> List[MetadataWorkUnit]:
         chart_mcps = [
             self._make_metrics_dimensions_chart_mcp(element)
@@ -1190,7 +1225,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return workunits
 
     def _input_fields_from_dashboard_element(
-        self, dashboard_element: LookerDashboardElement
+        self,
+        dashboard_element: LookerDashboardElement,
     ) -> List[InputFieldClass]:
         input_fields = (
             dashboard_element.input_fields
@@ -1203,18 +1239,21 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # enrich the input_fields with the fully hydrated ViewField from the now fetched explores
         for input_field in input_fields:
             entity_urn = self._make_chart_urn(
-                element_id=dashboard_element.get_urn_element_id()
+                element_id=dashboard_element.get_urn_element_id(),
             )
             view_field_for_reference = input_field.view_field
 
             if input_field.view_field is None:
                 explore = self.explore_registry.get_explore(
-                    input_field.model, input_field.explore
+                    input_field.model,
+                    input_field.explore,
                 )
                 if explore is not None:
                     # add this to the list of explores to finally generate metadata for
                     self.add_reachable_explore(
-                        input_field.model, input_field.explore, entity_urn
+                        input_field.model,
+                        input_field.explore,
+                        entity_urn,
                     )
                     entity_urn = explore.get_explore_urn(self.source_config)
                     explore_fields = (
@@ -1236,26 +1275,28 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 fields_for_mcp.append(
                     InputFieldClass(
                         schemaFieldUrn=builder.make_schema_field_urn(
-                            entity_urn, view_field_for_reference.name
+                            entity_urn,
+                            view_field_for_reference.name,
                         ),
                         schemaField=LookerUtil.view_field_to_schema_field(
                             view_field_for_reference,
                             self.reporter,
                             self.source_config.tag_measures_and_dimensions,
                         ),
-                    )
+                    ),
                 )
 
         return fields_for_mcp
 
     def _make_metrics_dimensions_dashboard_mcp(
-        self, dashboard: LookerDashboard
+        self,
+        dashboard: LookerDashboard,
     ) -> MetadataChangeProposalWrapper:
         dashboard_urn = self.make_dashboard_urn(dashboard)
         all_fields = []
         for dashboard_element in dashboard.dashboard_elements:
             all_fields.extend(
-                self._input_fields_from_dashboard_element(dashboard_element)
+                self._input_fields_from_dashboard_element(dashboard_element),
             )
 
         input_fields_aspect = InputFieldsClass(fields=all_fields)
@@ -1266,13 +1307,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _make_metrics_dimensions_chart_mcp(
-        self, dashboard_element: LookerDashboardElement
+        self,
+        dashboard_element: LookerDashboardElement,
     ) -> MetadataChangeProposalWrapper:
         chart_urn = self._make_chart_urn(
-            element_id=dashboard_element.get_urn_element_id()
+            element_id=dashboard_element.get_urn_element_id(),
         )
         input_fields_aspect = InputFieldsClass(
-            fields=self._input_fields_from_dashboard_element(dashboard_element)
+            fields=self._input_fields_from_dashboard_element(dashboard_element),
         )
 
         return MetadataChangeProposalWrapper(
@@ -1281,7 +1323,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def process_dashboard(
-        self, dashboard_id: str, fields: List[str]
+        self,
+        dashboard_id: str,
+        fields: List[str],
     ) -> Tuple[
         List[MetadataWorkUnit],
         Optional[looker_usage.LookerDashboardForUsage],
@@ -1328,17 +1372,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if (
             looker_dashboard.folder_path is not None
             and not self.source_config.folder_path_pattern.allowed(
-                looker_dashboard.folder_path
+                looker_dashboard.folder_path,
             )
         ):
             logger.debug(
-                f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
+                f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern",
             )
             return [], None, dashboard_id, start_time, datetime.datetime.now()
 
         if looker_dashboard.folder:
             workunits += list(
-                self._get_folder_and_ancestors_workunits(looker_dashboard.folder)
+                self._get_folder_and_ancestors_workunits(looker_dashboard.folder),
             )
 
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
@@ -1347,7 +1391,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
                 if isinstance(mce, MetadataChangeEvent)
                 else MetadataWorkUnit(
-                    id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+                    id=f"looker-{mce.aspectName}-{mce.entityUrn}",
+                    mcp=mce,
                 )
             )
             for mce in mces
@@ -1355,7 +1400,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # add on metrics, dimensions, fields events
         metric_dim_workunits = self.process_metrics_dimensions_and_fields_for_dashboard(
-            looker_dashboard
+            looker_dashboard,
         )
 
         workunits.extend(metric_dim_workunits)
@@ -1364,7 +1409,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # generate usage tracking object
         dashboard_usage = looker_usage.LookerDashboardForUsage.from_dashboard(
-            dashboard_object
+            dashboard_object,
         )
 
         return (
@@ -1376,11 +1421,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _get_folder_and_ancestors_workunits(
-        self, folder: LookerFolder
+        self,
+        folder: LookerFolder,
     ) -> Iterable[MetadataWorkUnit]:
         for ancestor_folder in self.looker_api.folder_ancestors(folder.id):
             yield from self._emit_folder_as_container(
-                self._get_looker_folder(ancestor_folder)
+                self._get_looker_folder(ancestor_folder),
             )
         yield from self._emit_folder_as_container(folder)
 
@@ -1444,31 +1490,34 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
     def emit_independent_looks_mcp(
-        self, dashboard_element: LookerDashboardElement
+        self,
+        dashboard_element: LookerDashboardElement,
     ) -> Iterable[MetadataWorkUnit]:
         if dashboard_element.folder:  # independent look
             yield from self._get_folder_and_ancestors_workunits(
-                dashboard_element.folder
+                dashboard_element.folder,
             )
 
         yield from auto_workunit(
             stream=self._make_chart_metadata_events(
                 dashboard_element=dashboard_element,
                 dashboard=None,
-            )
+            ),
         )
 
         yield from auto_workunit(
             [
                 self._make_metrics_dimensions_chart_mcp(
                     dashboard_element,
-                )
-            ]
+                ),
+            ],
         )
 
     def extract_independent_looks(self) -> Iterable[MetadataWorkUnit]:
@@ -1500,7 +1549,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ]
 
         all_looks: List[Look] = self.looker_api.all_looks(
-            fields=look_fields, soft_deleted=self.source_config.include_deleted
+            fields=look_fields,
+            soft_deleted=self.source_config.include_deleted,
         )
         for look in all_looks:
             if look.id in self.reachable_look_registry:
@@ -1527,7 +1577,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
             if look.id is not None:
                 query: Optional[Query] = self.looker_api.get_look(
-                    look.id, fields=["query"]
+                    look.id,
+                    fields=["query"],
                 ).query
                 # Only include fields that are in the query_fields list
                 query = Query(
@@ -1535,7 +1586,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         key: getattr(query, key)
                         for key in query_fields
                         if hasattr(query, key)
-                    }
+                    },
                 )
 
             dashboard_element: Optional[LookerDashboardElement] = (
@@ -1548,7 +1599,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         look_id=look.id,
                         dashboard_id=None,  # As this is an independent look
                         look=LookWithQuery(
-                            query=query, folder=look.folder, user_id=look.user_id
+                            query=query,
+                            folder=look.folder,
+                            user_id=look.user_id,
                         ),
                     ),
                 )
@@ -1557,7 +1610,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if dashboard_element is not None:
                 logger.debug(f"Emitting MCPS for look {look.title}({look.id})")
                 yield from self.emit_independent_looks_mcp(
-                    dashboard_element=dashboard_element
+                    dashboard_element=dashboard_element,
                 )
 
         self.reporter.report_stage_end("extract_independent_looks")
@@ -1575,7 +1628,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         dashboard_ids = [dashboard_base.id for dashboard_base in dashboards]
         dashboard_ids.extend(
-            [deleted_dashboard.id for deleted_dashboard in deleted_dashboards]
+            [deleted_dashboard.id for deleted_dashboard in deleted_dashboards],
         )
         selected_dashboard_ids: List[Optional[str]] = []
         for id in dashboard_ids:
@@ -1633,7 +1686,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     end_time,
                 ) = job.result()
                 logger.debug(
-                    f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
+                    f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}",
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
 
@@ -1660,7 +1713,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         for event in self._make_explore_metadata_events():
             if isinstance(event, MetadataChangeEvent):
                 yield MetadataWorkUnit(
-                    id=f"looker-{event.proposedSnapshot.urn}", mce=event
+                    id=f"looker-{event.proposedSnapshot.urn}",
+                    mce=event,
                 )
             elif isinstance(event, MetadataChangeProposalWrapper):
                 yield event.as_workunit()
@@ -1685,7 +1739,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if self.source_config.extract_usage_history:
             self.reporter.report_stage_start("usage_extraction")
             usage_mcps: List[MetadataChangeProposalWrapper] = self.extract_usage_stat(
-                looker_dashboards_for_usage, self.chart_urns
+                looker_dashboards_for_usage,
+                self.chart_urns,
             )
             for usage_mcp in usage_mcps:
                 yield usage_mcp.as_workunit()
@@ -1696,8 +1751,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("user_resource_extraction")
         yield from auto_workunit(
             self.user_registry.to_platform_resource(
-                self.source_config.platform_instance
-            )
+                self.source_config.platform_instance,
+            ),
         )
 
     def get_report(self) -> SourceReport:

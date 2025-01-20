@@ -10,7 +10,8 @@ from datahub.ingestion.source_config.operation_config import OperationConfig
 
 class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
+        default=False,
+        description="Whether profiling should be done.",
     )
     operation_config: OperationConfig = Field(
         default_factory=OperationConfig,
@@ -61,7 +62,8 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to profile for the quantiles of numeric columns.",
     )
     include_field_distinct_value_frequencies: bool = Field(
-        default=True, description="Whether to profile for distinct value frequencies."
+        default=True,
+        description="Whether to profile for distinct value frequencies.",
     )
     include_field_histogram: bool = Field(
         default=True,
@@ -74,7 +76,8 @@ class DataLakeProfilerConfig(ConfigModel):
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
-        cls: "DataLakeProfilerConfig", values: Dict[str, Any]
+        cls: "DataLakeProfilerConfig",
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)

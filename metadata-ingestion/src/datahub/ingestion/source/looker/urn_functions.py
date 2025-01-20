@@ -3,7 +3,7 @@ def get_qualified_table_name(urn: str) -> str:
 
     if len(part.split(".")) >= 4:
         return ".".join(
-            part.split(".")[-3:]
+            part.split(".")[-3:],
         )  # return only db.schema.table skip platform instance as higher code is
         # failing if encounter platform-instance in qualified table name
     else:

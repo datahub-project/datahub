@@ -65,10 +65,10 @@ class CassandraView(CassandraTable):
 class CassandraEntities:
     keyspaces: List[str] = field(default_factory=list)
     tables: Dict[str, List[str]] = field(
-        default_factory=dict
+        default_factory=dict,
     )  # Maps keyspace -> tables
     columns: Dict[str, List[CassandraColumn]] = field(
-        default_factory=dict
+        default_factory=dict,
     )  # Maps tables -> columns
 
 
@@ -123,7 +123,8 @@ class CassandraAPI:
                 return True
             if self.config.username and self.config.password:
                 auth_provider = PlainTextAuthProvider(
-                    username=self.config.username, password=self.config.password
+                    username=self.config.username,
+                    password=self.config.password,
                 )
                 cluster = Cluster(
                     [self.config.contact_point],
@@ -142,7 +143,9 @@ class CassandraAPI:
             return True
         except OperationTimedOut as e:
             self.report.failure(
-                message="Failed to Authenticate", context=f"{str(e.errors)}", exc=e
+                message="Failed to Authenticate",
+                context=f"{str(e.errors)}",
+                exc=e,
             )
             return False
         except DriverException as e:
@@ -174,7 +177,9 @@ class CassandraAPI:
             return keyspace_list
         except DriverException as e:
             self.report.warning(
-                message="Failed to fetch keyspaces", context=f"{str(e)}", exc=e
+                message="Failed to fetch keyspaces",
+                context=f"{str(e)}",
+                exc=e,
             )
             return []
         except Exception as e:
@@ -227,7 +232,8 @@ class CassandraAPI:
         """Fetch all columns for a given table."""
         try:
             column_infos = self.get(
-                CassandraQueries.GET_COLUMNS_QUERY, [keyspace_name, table_name]
+                CassandraQueries.GET_COLUMNS_QUERY,
+                [keyspace_name, table_name],
             )
             column_list = [
                 CassandraColumn(
@@ -244,7 +250,9 @@ class CassandraAPI:
             return column_list
         except DriverException as e:
             self.report.warning(
-                message="Failed to fetch columns for table", context=f"{str(e)}", exc=e
+                message="Failed to fetch columns for table",
+                context=f"{str(e)}",
+                exc=e,
             )
             return []
         except Exception as e:
@@ -287,7 +295,9 @@ class CassandraAPI:
             return view_list
         except DriverException as e:
             self.report.warning(
-                message="Failed to fetch views for keyspace", context=f"{str(e)}", exc=e
+                message="Failed to fetch views for keyspace",
+                context=f"{str(e)}",
+                exc=e,
             )
             return []
         except Exception as e:
@@ -309,7 +319,9 @@ class CassandraAPI:
             return result_set
         except DriverException as e:
             self.report.warning(
-                message="Failed to fetch stats for keyspace", context=str(e), exc=e
+                message="Failed to fetch stats for keyspace",
+                context=str(e),
+                exc=e,
             )
             return []
         except Exception:

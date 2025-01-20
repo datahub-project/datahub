@@ -39,7 +39,7 @@ class DataHubApiReader:
         urns = self.get_urns()
         tasks: List[futures.Future[Iterable[MetadataChangeProposalWrapper]]] = []
         with futures.ThreadPoolExecutor(
-            max_workers=self.config.max_workers
+            max_workers=self.config.max_workers,
         ) as executor:
             for urn in urns:
                 tasks.append(executor.submit(self._get_aspects_for_urn, urn))

@@ -25,12 +25,12 @@ def get_abs_properties(
 ) -> Dict[str, str]:
     if azure_config is None:
         raise ValueError(
-            "Azure configuration is not provided. Cannot retrieve container client."
+            "Azure configuration is not provided. Cannot retrieve container client.",
         )
 
     blob_service_client = azure_config.get_blob_service_client()
     container_client = blob_service_client.get_container_client(
-        container=container_name
+        container=container_name,
     )
 
     custom_properties = {"schema_inferred_from": full_path}
@@ -39,7 +39,7 @@ def get_abs_properties(
             {
                 "number_of_files": str(number_of_files),
                 "size_in_bytes": str(size_in_bytes),
-            }
+            },
         )
 
     if use_abs_blob_properties and blob_name is not None:
@@ -61,7 +61,7 @@ def get_abs_properties(
             )
         else:
             logger.warning(
-                f"No blob properties found for container={container_name}, blob={blob_name}."
+                f"No blob properties found for container={container_name}, blob={blob_name}.",
             )
 
     if use_abs_container_properties:
@@ -76,14 +76,17 @@ def get_abs_properties(
             )
         else:
             logger.warning(
-                f"No container properties found for container={container_name}."
+                f"No container properties found for container={container_name}.",
             )
 
     return custom_properties
 
 
 def add_property(
-    key: str, value: str, custom_properties: Dict[str, str], resource_name: str
+    key: str,
+    value: str,
+    custom_properties: Dict[str, str],
+    resource_name: str,
 ) -> Dict[str, str]:
     if key in custom_properties:
         key = f"{key}_{resource_name}"
@@ -124,7 +127,7 @@ def create_properties(
                 )
         except Exception as exception:
             logger.debug(
-                f"Could not create property {key} value {value}, from resource {resource_name}: {exception}."
+                f"Could not create property {key} value {value}, from resource {resource_name}: {exception}.",
             )
 
 
@@ -139,7 +142,7 @@ def get_abs_tags(
     # Todo add the service_client, when building out this get_abs_tags
     if azure_config is None:
         raise ValueError(
-            "Azure configuration is not provided. Cannot retrieve container client."
+            "Azure configuration is not provided. Cannot retrieve container client.",
         )
 
     tags_to_add: List[str] = []
@@ -176,17 +179,19 @@ def get_abs_tags(
     tags_to_add = sorted(list(set(tags_to_add)))
     # Remove duplicate tags
     new_tags = GlobalTagsClass(
-        tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add],
     )
     return new_tags
 
 
 def list_folders(
-    container_name: str, prefix: str, azure_config: Optional[AzureConnectionConfig]
+    container_name: str,
+    prefix: str,
+    azure_config: Optional[AzureConnectionConfig],
 ) -> Iterable[str]:
     if azure_config is None:
         raise ValueError(
-            "Azure configuration is not provided. Cannot retrieve container client."
+            "Azure configuration is not provided. Cannot retrieve container client.",
         )
 
     abs_blob_service_client = azure_config.get_blob_service_client()

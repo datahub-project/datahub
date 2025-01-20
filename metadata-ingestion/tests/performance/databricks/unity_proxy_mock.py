@@ -103,7 +103,7 @@ class UnityCatalogApiProxyMock:
                         comment=None,
                         type_precision=0,
                         type_scale=0,
-                    )
+                    ),
                 )
 
             yield Table(

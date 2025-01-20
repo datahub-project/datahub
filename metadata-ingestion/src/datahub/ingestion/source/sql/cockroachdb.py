@@ -16,7 +16,7 @@ from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 class CockroachDBConfig(PostgresConfig):
     scheme = Field(default="cockroachdb+psycopg2", description="database scheme")
     schema_pattern = Field(
-        default=AllowDenyPattern(deny=["information_schema", "crdb_internal"])
+        default=AllowDenyPattern(deny=["information_schema", "crdb_internal"]),
     )
 
 

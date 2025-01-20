@@ -177,7 +177,8 @@ class CustomAthenaRestDialect(AthenaRestDialect):
                 # `get_avro_schema_for_hive_column` accepts a DDL description as column type and
                 # returns the parsed data types in form of a dictionary
                 schema = get_avro_schema_for_hive_column(
-                    hive_column_name=type_name, hive_column_type=type_
+                    hive_column_name=type_name,
+                    hive_column_type=type_,
                 )
 
                 # the actual type description needs to be extracted
@@ -197,12 +198,12 @@ class CustomAthenaRestDialect(AthenaRestDialect):
                         struct_field["name"],
                         (
                             self._get_column_type(
-                                struct_field["type"]["native_data_type"]
+                                struct_field["type"]["native_data_type"],
                             )
                             if struct_field["type"]["type"] not in ["record", "array"]
                             else self._get_column_type(struct_field["type"])
                         ),
-                    )
+                    ),
                 )
 
             args = struct_args
@@ -240,14 +241,15 @@ class AthenaConfig(SQLCommonConfig):
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
     )
     password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, description="Same detection scheme as username"
+        default=None,
+        description="Same detection scheme as username",
     )
     database: Optional[str] = pydantic.Field(
         default=None,
         description="The athena database to ingest from. If not set it will be autodetected",
     )
     aws_region: str = pydantic.Field(
-        description="Aws region where your Athena database is located"
+        description="Aws region where your Athena database is located",
     )
     aws_role_arn: Optional[str] = pydantic.Field(
         default=None,
@@ -263,7 +265,7 @@ class AthenaConfig(SQLCommonConfig):
         description="[deprecated in favor of `query_result_location`] S3 query location",
     )
     work_group: str = pydantic.Field(
-        description="The name of your Amazon Athena Workgroups"
+        description="The name of your Amazon Athena Workgroups",
     )
     catalog_name: str = pydantic.Field(
         default="awsdatacatalog",
@@ -272,7 +274,7 @@ class AthenaConfig(SQLCommonConfig):
 
     query_result_location: str = pydantic.Field(
         description="S3 path to the [query result bucket](https://docs.aws.amazon.com/athena/latest/ug/querying.html#query-results-specify-location) which should be used by AWS Athena to store results of the"
-        "queries executed by DataHub."
+        "queries executed by DataHub.",
     )
 
     extract_partitions: bool = pydantic.Field(
@@ -362,14 +364,18 @@ class AthenaSource(SQLAlchemySource):
         return None, schema
 
     def get_table_properties(
-        self, inspector: Inspector, schema: str, table: str
+        self,
+        inspector: Inspector,
+        schema: str,
+        table: str,
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
             self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
             assert self.cursor
 
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
+            table_name=table,
+            schema_name=schema,
         )
         description = metadata.comment
         custom_properties: Dict[str, str] = {}
@@ -381,7 +387,7 @@ class AthenaSource(SQLAlchemySource):
                     "comment": partition.comment if partition.comment else "",
                 }
                 for partition in metadata.partition_keys
-            ]
+            ],
         )
         for key, value in metadata.parameters.items():
             custom_properties[key] = value if value else ""
@@ -402,7 +408,7 @@ class AthenaSource(SQLAlchemySource):
                 location = make_s3_urn(location, self.config.env)
             else:
                 logging.debug(
-                    f"Only s3 url supported for location. Skipping {location}"
+                    f"Only s3 url supported for location. Skipping {location}",
                 )
                 location = None
 
@@ -423,7 +429,8 @@ class AthenaSource(SQLAlchemySource):
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.get_database_container_key(
-            db_name=database, schema=schema
+            db_name=database,
+            schema=schema,
         )
 
         yield from gen_database_container(
@@ -480,7 +487,10 @@ class AthenaSource(SQLAlchemySource):
 
     @override
     def get_partitions(
-        self, inspector: Inspector, schema: str, table: str
+        self,
+        inspector: Inspector,
+        schema: str,
+        table: str,
     ) -> Optional[List[str]]:
         if not self.config.extract_partitions:
             return None
@@ -489,7 +499,8 @@ class AthenaSource(SQLAlchemySource):
             return None
 
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
+            table_name=table,
+            schema_name=schema,
         )
 
         partitions = []
@@ -559,20 +570,24 @@ class AthenaSource(SQLAlchemySource):
         return fields
 
     def generate_partition_profiler_query(
-        self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
+        self,
+        schema: str,
+        table: str,
+        partition_datetime: Optional[datetime.datetime],
     ) -> Tuple[Optional[str], Optional[str]]:
         if not self.config.profiling.partition_profiling_enabled:
             return None, None
 
         partition: Optional[Partitionitem] = self.table_partition_cache.get(
-            schema, {}
+            schema,
+            {},
         ).get(table, None)
 
         if partition and partition.max_partition:
             max_partition_filters = []
             for key, value in partition.max_partition.items():
                 max_partition_filters.append(
-                    f"{self._casted_partition_key(key)} = '{value}'"
+                    f"{self._casted_partition_key(key)} = '{value}'",
                 )
             max_partition = str(partition.max_partition)
             return (

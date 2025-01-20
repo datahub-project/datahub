@@ -10,11 +10,15 @@ emitter = DatahubRestEmitter(gms_server=gms_endpoint, extra_headers={})
 
 model_group_urns = [
     builder.make_ml_model_group_urn(
-        group_name="my-model-group", platform="science", env="PROD"
-    )
+        group_name="my-model-group",
+        platform="science",
+        env="PROD",
+    ),
 ]
 model_urn = builder.make_ml_model_urn(
-    model_name="science-model", platform="science", env="PROD"
+    model_name="science-model",
+    platform="science",
+    env="PROD",
 )
 
 # This code concatenates the new features with the existing features in the feature table.
@@ -22,7 +26,8 @@ model_urn = builder.make_ml_model_urn(
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 target_model_properties = graph.get_aspect(
-    entity_urn=model_urn, aspect_type=models.MLModelPropertiesClass
+    entity_urn=model_urn,
+    aspect_type=models.MLModelPropertiesClass,
 )
 if target_model_properties:
     current_model_groups = target_model_properties.groups

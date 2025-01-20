@@ -5,7 +5,7 @@ from typing import Optional
 # This file should not import any abs spectific modules as we import it in path_spec.py in datat_lake_common.py
 
 ABS_PREFIXES_REGEX = re.compile(
-    r"(http[s]?://[a-z0-9]{3,24}\.blob\.core\.windows\.net/)"
+    r"(http[s]?://[a-z0-9]{3,24}\.blob\.core\.windows\.net/)",
 )
 
 
@@ -25,7 +25,7 @@ def strip_abs_prefix(abs_uri: str) -> str:
     abs_prefix = get_abs_prefix(abs_uri)
     if not abs_prefix:
         raise ValueError(
-            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}"
+            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}",
         )
     length_abs_prefix = len(abs_prefix)
     return abs_uri[length_abs_prefix:]
@@ -49,7 +49,7 @@ def make_abs_urn(abs_uri: str, env: str) -> str:
 def get_container_name(abs_uri: str) -> str:
     if not is_abs_uri(abs_uri):
         raise ValueError(
-            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}"
+            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}",
         )
     return strip_abs_prefix(abs_uri).split("/")[0]
 
@@ -57,7 +57,7 @@ def get_container_name(abs_uri: str) -> str:
 def get_key_prefix(abs_uri: str) -> str:
     if not is_abs_uri(abs_uri):
         raise ValueError(
-            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}"
+            f"Not an Azure Blob Storage URI. Must match the following regular expression: {str(ABS_PREFIXES_REGEX)}",
         )
     return strip_abs_prefix(abs_uri).split("/", maxsplit=1)[1]
 

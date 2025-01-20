@@ -51,7 +51,7 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
     config = PostgresConfig.parse_obj(
-        {**_base_config(), "sqlalchemy_uri": "custom_url"}
+        {**_base_config(), "sqlalchemy_uri": "custom_url"},
     )
     source = PostgresSource(config, PipelineContext(run_id="test"))
     _ = list(source.get_inspectors())
@@ -64,7 +64,9 @@ def test_database_in_identifier():
     mock_inspector = mock.MagicMock()
     assert (
         PostgresSource(config, PipelineContext(run_id="test")).get_identifier(
-            schema="superset", entity="logs", inspector=mock_inspector
+            schema="superset",
+            entity="logs",
+            inspector=mock_inspector,
         )
         == "postgres.superset.logs"
     )
@@ -76,7 +78,9 @@ def test_current_sqlalchemy_database_in_identifier():
     mock_inspector.engine.url.database = "current_db"
     assert (
         PostgresSource(config, PipelineContext(run_id="test")).get_identifier(
-            schema="superset", entity="logs", inspector=mock_inspector
+            schema="superset",
+            entity="logs",
+            inspector=mock_inspector,
         )
         == "current_db.superset.logs"
     )

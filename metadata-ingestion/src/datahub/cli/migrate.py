@@ -141,7 +141,7 @@ def dataplatform2instance_func(
     keep: bool,
 ) -> None:
     click.echo(
-        f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}"
+        f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}",
     )
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
@@ -163,7 +163,8 @@ def dataplatform2instance_func(
         )
         if "dataPlatformInstance" in response:
             assert isinstance(
-                response["dataPlatformInstance"], DataPlatformInstanceClass
+                response["dataPlatformInstance"],
+                DataPlatformInstanceClass,
             )
             data_platform_instance: DataPlatformInstanceClass = response[
                 "dataPlatformInstance"
@@ -173,14 +174,15 @@ def dataplatform2instance_func(
                 continue
             else:
                 log.debug(
-                    f"{src_entity_urn} is not an instance specific urn. {response}"
+                    f"{src_entity_urn} is not an instance specific urn. {response}",
                 )
                 urns_to_migrate.append(src_entity_urn)
 
     if not force and not dry_run:
         # get a confirmation from the operator before proceeding if this is not a dry run
         sampled_urns_to_migrate = random.sample(
-            urns_to_migrate, k=min(10, len(urns_to_migrate))
+            urns_to_migrate,
+            k=min(10, len(urns_to_migrate)),
         )
         sampled_new_urns: List[str] = [
             make_dataset_urn_with_platform_instance(
@@ -193,13 +195,14 @@ def dataplatform2instance_func(
             if key
         ]
         click.echo(
-            f"Will migrate {len(urns_to_migrate)} urns such as {random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))}"
+            f"Will migrate {len(urns_to_migrate)} urns such as {random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))}",
         )
         click.echo(f"New urns will look like {sampled_new_urns}")
         click.confirm("Ok to proceed?", abort=True)
 
     for src_entity_urn in progressbar.progressbar(
-        urns_to_migrate, redirect_stdout=True
+        urns_to_migrate,
+        redirect_stdout=True,
     ):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
@@ -232,7 +235,7 @@ def dataplatform2instance_func(
                         instance=make_dataplatform_instance_urn(platform, instance),
                     ),
                     systemMetadata=system_metadata,
-                )
+                ),
             )
         migration_report.on_entity_create(new_urn, "dataPlatformInstance")
 
@@ -241,16 +244,24 @@ def dataplatform2instance_func(
             entity_type = _get_type_from_urn(target_urn)
             relationshipType = relationship.relationship_type
             aspect_name = migration_utils.get_aspect_name_from_relationship(
-                relationshipType, entity_type
+                relationshipType,
+                entity_type,
             )
             aspect_map = cli_utils.get_aspects_for_entity(
-                graph._session, graph.config.server, target_urn, aspects=[aspect_name]
+                graph._session,
+                graph.config.server,
+                target_urn,
+                aspects=[aspect_name],
             )
             if aspect_name in aspect_map:
                 aspect = aspect_map[aspect_name]
                 assert isinstance(aspect, DictWrapper)
                 aspect = migration_utils.modify_urn_list_for_aspect(
-                    aspect_name, aspect, relationshipType, src_entity_urn, new_urn
+                    aspect_name,
+                    aspect,
+                    relationshipType,
+                    src_entity_urn,
+                    new_urn,
                 )
                 # use mcpw
                 mcp = MetadataChangeProposalWrapper(
@@ -266,7 +277,10 @@ def dataplatform2instance_func(
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_entity_urn}")
             delete_cli._delete_one_urn(
-                graph, src_entity_urn, soft=not hard, run_id=run_id
+                graph,
+                src_entity_urn,
+                soft=not hard,
+                run_id=run_id,
             )
         migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
 
@@ -308,7 +322,7 @@ def migrate_containers(
             platform is not None and customProperties["platform"] != platform
         ):
             log.debug(
-                f"{container['urn']} does not match filter criteria, skipping.. {customProperties} {env} {platform}"
+                f"{container['urn']} does not match filter criteria, skipping.. {customProperties} {env} {platform}",
             )
             continue
 
@@ -332,7 +346,7 @@ def migrate_containers(
         newKey.instance = instance
 
         log.debug(
-            f"Container key migration: {container['urn']} -> urn:li:container:{newKey.guid()}"
+            f"Container key migration: {container['urn']} -> urn:li:container:{newKey.guid()}",
         )
 
         src_urn = container["urn"]
@@ -354,7 +368,8 @@ def migrate_containers(
                 assert isinstance(mcp.aspect, ContainerPropertiesClass)
                 containerProperties: ContainerPropertiesClass = mcp.aspect
                 containerProperties.customProperties = newKey.dict(
-                    by_alias=True, exclude_none=True
+                    by_alias=True,
+                    exclude_none=True,
                 )
                 mcp.aspect = containerProperties
             elif mcp.aspectName == "containerKey":
@@ -378,7 +393,10 @@ def migrate_containers(
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
             delete_cli._delete_one_urn(
-                rest_emitter, src_urn, soft=not hard, run_id=run_id
+                rest_emitter,
+                src_urn,
+                soft=not hard,
+                run_id=run_id,
             )
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
@@ -388,14 +406,15 @@ def migrate_containers(
 def get_containers_for_migration(env: str) -> List[Any]:
     client = get_default_graph()
     containers_to_migrate = list(
-        client.get_urns_by_filter(entity_types=["container"], env=env)
+        client.get_urns_by_filter(entity_types=["container"], env=env),
     )
     containers = []
 
     increment = 20
     for i in range(0, len(containers_to_migrate), increment):
         for container in batch_get_ids(
-            client, containers_to_migrate[i : i + increment]
+            client,
+            containers_to_migrate[i : i + increment],
         ):
             log.debug(container)
             containers.append(container)
@@ -443,7 +462,7 @@ def process_container_relationships(
     rest_emitter: DatahubRestEmitter,
 ) -> None:
     relationships: Iterable[RelatedEntity] = migration_utils.get_incoming_relationships(
-        urn=src_urn
+        urn=src_urn,
     )
     client = get_default_graph()
     for relationship in relationships:
@@ -457,7 +476,8 @@ def process_container_relationships(
         entity_type = _get_type_from_urn(target_urn)
         relationshipType = relationship.relationship_type
         aspect_name = migration_utils.get_aspect_name_from_relationship(
-            relationshipType, entity_type
+            relationshipType,
+            entity_type,
         )
         aspect_map = cli_utils.get_aspects_for_entity(
             client._session,
@@ -470,7 +490,11 @@ def process_container_relationships(
             aspect = aspect_map[aspect_name]
             assert isinstance(aspect, DictWrapper)
             aspect = migration_utils.modify_urn_list_for_aspect(
-                aspect_name, aspect, relationshipType, src_urn, dst_urn
+                aspect_name,
+                aspect,
+                relationshipType,
+                src_urn,
+                dst_urn,
             )
             # use mcpw
             mcp = MetadataChangeProposalWrapper(

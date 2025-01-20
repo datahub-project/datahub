@@ -93,7 +93,11 @@ def ingest() -> None:
     help="Turn off default reporting of ingestion results to DataHub",
 )
 @click.option(
-    "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
+    "--no-spinner",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off spinner",
 )
 @click.option(
     "--no-progress",
@@ -111,7 +115,7 @@ def ingest() -> None:
         "no_default_report",
         "no_spinner",
         "no_progress",
-    ]
+    ],
 )
 def run(
     config: str,
@@ -134,10 +138,10 @@ def run(
                 pipeline.run()
             except Exception as e:
                 logger.info(
-                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}"
+                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}",
                 )
                 logger.info(
-                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
+                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}",
                 )
                 raise e
             else:
@@ -183,7 +187,8 @@ def run(
     # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
     if ret == 0:
         upgrade.check_upgrade_post(
-            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
+            main_method_runtime=timer.elapsed_seconds(),
+            graph=pipeline.ctx.graph,
         )
 
     if ret:
@@ -195,7 +200,7 @@ def _make_ingestion_urn(name: str) -> str:
     guid = datahub_guid(
         {
             "name": name,
-        }
+        },
     )
     return f"urn:li:dataHubIngestionSource:deploy-{guid}"
 
@@ -293,7 +298,7 @@ def deploy(
     else:
         if not name:
             raise click.UsageError(
-                "Either --name must be set or deployment_name specified in the config"
+                "Either --name must be set or deployment_name specified in the config",
             )
         deploy_options = DeployOptions(name=name)
 
@@ -354,12 +359,14 @@ def deploy(
                 }
             })
         }
-        """
+        """,
     )
 
     try:
         response = datahub_graph.execute_graphql(
-            graphql_query, variables=variables, format_exception=False
+            graphql_query,
+            variables=variables,
+            format_exception=False,
         )
     except GraphError as graph_error:
         try:
@@ -367,12 +374,14 @@ def deploy(
             click.secho(error[0]["message"], fg="red", err=True)
         except Exception:
             click.secho(
-                f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
+                f"Could not create ingestion source:\n{graph_error}",
+                fg="red",
+                err=True,
             )
         sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:",
     )
     click.echo(response)
 
@@ -443,7 +452,10 @@ def mcps(path: str) -> None:
 @click.argument("page_size", type=int, default=100)
 @click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
 @click.option(
-    "--source", type=str, default=None, help="Filter by ingestion source name."
+    "--source",
+    type=str,
+    default=None,
+    help="Filter by ingestion source name.",
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
@@ -482,7 +494,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
             "start": page_offset,
             "count": page_size,
             "filters": filters,
-        }
+        },
     }
 
     client = get_default_graph()
@@ -534,7 +546,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
             try:
                 start_time = (
                     datetime.fromtimestamp(
-                        result.get("startTimeMs", 0) / 1000
+                        result.get("startTimeMs", 0) / 1000,
                     ).strftime("%Y-%m-%d %H:%M:%S")
                     if status != "DUPLICATE" and result.get("startTimeMs") is not None
                     else "N/A"
@@ -553,7 +565,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
             rows,
             headers=INGEST_SRC_TABLE_COLUMNS,
             tablefmt="grid",
-        )
+        ),
     )
 
 
@@ -595,7 +607,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
             row.get("runId"),
             row.get("rows"),
             datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
+                "%Y-%m-%d %H:%M:%S",
             )
             + f" ({local_timezone})",
         ]
@@ -619,7 +631,11 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def show(
-    run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
+    run_id: str,
+    start: int,
+    count: int,
+    include_soft_deletes: bool,
+    show_aspect: bool,
 ) -> None:
     """Describe a provided ingestion run to datahub"""
     client = get_default_graph()
@@ -647,7 +663,7 @@ def show(
                 cli_utils.format_aspect_summaries(rows),
                 RUN_TABLE_COLUMNS,
                 tablefmt="grid",
-            )
+            ),
         )
     else:
         for row in rows:
@@ -669,7 +685,11 @@ def show(
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def rollback(
-    run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
+    run_id: str,
+    force: bool,
+    dry_run: bool,
+    safe: bool,
+    report_dir: str,
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
     client = get_default_graph()
@@ -689,29 +709,32 @@ def rollback(
         unsafe_entity_count,
         unsafe_entities,
     ) = cli_utils.post_rollback_endpoint(
-        client._session, client.config.server, payload_obj, "/runs?action=rollback"
+        client._session,
+        client.config.server,
+        payload_obj,
+        "/runs?action=rollback",
     )
 
     click.echo(
-        "Rolling back deletes the entities created by a run and reverts the updated aspects"
+        "Rolling back deletes the entities created by a run and reverts the updated aspects",
     )
     click.echo(
-        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_reverted} aspects"
+        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_reverted} aspects",
     )
 
     click.echo(
-        f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be ' if dry_run else ''}reverted by this run"
+        f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be ' if dry_run else ''}reverted by this run",
     )
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
     if aspects_affected > 0:
         if safe:
             click.echo(
-                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
+                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id.",
             )
         else:
             click.echo(
-                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
+                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id.",
             )
 
     if unsafe_entity_count > 0:

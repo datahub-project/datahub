@@ -272,7 +272,9 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def alter_table_rename_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -293,7 +295,9 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """\
 SELECT DISTINCT
@@ -342,13 +346,17 @@ ORDER BY target_schema, target_table, filename
 
     @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         raise NotImplementedError
 
     @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         raise NotImplementedError
 
@@ -358,7 +366,9 @@ ORDER BY target_schema, target_table, filename
 
     @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         raise NotImplementedError
 
@@ -400,7 +410,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """
                         select
@@ -470,7 +482,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """
             select
@@ -502,7 +516,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """\
 with query_txt as (
@@ -794,7 +810,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
 
     @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """
             SELECT
@@ -861,7 +879,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
 
     @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """
             SELECT
@@ -893,7 +913,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
     # * querytxt do not contain newlines (to be confirmed it is not a problem)
     @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        db_name: str,
+        start_time: datetime,
+        end_time: datetime,
     ) -> str:
         return """
             SELECT

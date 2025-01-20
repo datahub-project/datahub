@@ -162,7 +162,7 @@ def test_redundant_run_skip_handler(
     # mocked_config = mock.MagicMock()
 
     with mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
+        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint",
     ) as mocked_fn:
         set_mock_last_run_time_window(
             mocked_fn,
@@ -175,33 +175,39 @@ def test_redundant_run_skip_handler(
         assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
         assert (
             stateful_source.lineage_extractor.redundant_run_skip_handler.should_skip_this_run(
-                start_time, end_time
+                start_time,
+                end_time,
             )
             == should_skip
         )
 
         if not should_skip:
             suggested_time_window = stateful_source.lineage_extractor.redundant_run_skip_handler.suggest_run_time_window(
-                start_time, end_time
+                start_time,
+                end_time,
             )
             assert suggested_time_window == (suggested_start_time, suggested_end_time)
 
         set_mock_last_run_time_window_usage(
-            mocked_fn, last_run_start_time, last_run_end_time
+            mocked_fn,
+            last_run_start_time,
+            last_run_end_time,
         )
         # Redundant Usage Skip Handler
         assert stateful_source.usage_extractor is not None
         assert stateful_source.usage_extractor.redundant_run_skip_handler is not None
         assert (
             stateful_source.usage_extractor.redundant_run_skip_handler.should_skip_this_run(
-                start_time, end_time
+                start_time,
+                end_time,
             )
             == should_skip
         )
 
         if not should_skip:
             suggested_time_window = stateful_source.usage_extractor.redundant_run_skip_handler.suggest_run_time_window(
-                start_time, end_time
+                start_time,
+                end_time,
             )
             assert suggested_time_window == (
                 get_time_bucket(suggested_start_time, BucketDuration.DAY),
@@ -232,9 +238,9 @@ def test_successful_run_creates_checkpoint(stateful_source: SnowflakeV2Source) -
     assert stateful_source.lineage_extractor is not None
     assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
     with mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
+        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint",
     ) as mocked_create_checkpoint_fn, mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
+        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint",
     ) as mocked_fn:
         set_mock_last_run_time_window(
             mocked_fn,
@@ -242,7 +248,8 @@ def test_successful_run_creates_checkpoint(stateful_source: SnowflakeV2Source) -
             last_run_end_time,
         )
         stateful_source.lineage_extractor.redundant_run_skip_handler.update_state(
-            datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc)
+            datetime.now(tz=timezone.utc),
+            datetime.now(tz=timezone.utc),
         )
         mocked_create_checkpoint_fn.assert_called_once()
 
@@ -253,12 +260,13 @@ def test_failed_run_does_not_create_checkpoint(
     assert stateful_source.lineage_extractor is not None
     assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
     stateful_source.lineage_extractor.redundant_run_skip_handler.report_current_run_status(
-        "some_step", False
+        "some_step",
+        False,
     )
     with mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
+        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint",
     ) as mocked_create_checkpoint_fn, mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
+        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint",
     ) as mocked_fn:
         set_mock_last_run_time_window(
             mocked_fn,
@@ -266,6 +274,7 @@ def test_failed_run_does_not_create_checkpoint(
             last_run_end_time,
         )
         stateful_source.lineage_extractor.redundant_run_skip_handler.update_state(
-            datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc)
+            datetime.now(tz=timezone.utc),
+            datetime.now(tz=timezone.utc),
         )
         mocked_create_checkpoint_fn.assert_not_called()

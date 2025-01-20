@@ -54,7 +54,8 @@ class SQLFilterConfig(ConfigModel):
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
-        cls, values: Dict[str, Any]
+        cls,
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         view_pattern = values.get("view_pattern")
         table_pattern = values.get("table_pattern")
@@ -87,10 +88,12 @@ class SQLCommonConfig(
     )
 
     include_views: bool = Field(
-        default=True, description="Whether views should be ingested."
+        default=True,
+        description="Whether views should be ingested.",
     )
     include_tables: bool = Field(
-        default=True, description="Whether tables should be ingested."
+        default=True,
+        description="Whether tables should be ingested.",
     )
 
     include_table_location_lineage: bool = Field(
@@ -127,12 +130,13 @@ class SQLCommonConfig(
     )
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
+        cls,
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         profiling: Optional[GEProfilingConfig] = values.get("profiling")
         # Note: isinstance() check is required here as unity-catalog source reuses
@@ -153,7 +157,9 @@ class SQLCommonConfig(
 class SQLAlchemyConnectionConfig(ConfigModel):
     username: Optional[str] = Field(default=None, description="username")
     password: Optional[pydantic.SecretStr] = Field(
-        default=None, exclude=True, description="password"
+        default=None,
+        exclude=True,
+        description="password",
     )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
@@ -177,7 +183,9 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     _database_alias_removed = pydantic_removed_field("database_alias")
 
     def get_sql_alchemy_url(
-        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        database: Optional[str] = None,
     ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
@@ -225,5 +233,5 @@ def make_sqlalchemy_uri(
             port=port,
             database=db,
             query=uri_opts or {},
-        )
+        ),
     )

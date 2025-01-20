@@ -52,7 +52,7 @@ urn_property_definition = StructuredPropertyDefinitionClass(
         "allowedTypes": [
             "urn:li:entityType:datahub.corpuser",
             "urn:li:entityType:datahub.corpGroup",
-        ]
+        ],
     },  # this line ensures only user or group urns can be assigned as values
 )
 

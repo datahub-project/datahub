@@ -125,7 +125,7 @@ def find_hunk_start(source_lines: List[str], hunk: Hunk) -> int:
         return hunk.source_start - 1  # Default to the original start if no context
 
     logger.debug(
-        f"Searching for {len(context_lines)} context lines, starting with {context_lines[0]}"
+        f"Searching for {len(context_lines)} context lines, starting with {context_lines[0]}",
     )
 
     # Define the range to search for the context lines
@@ -177,14 +177,14 @@ def apply_hunk(result_lines: List[str], hunk: Hunk, hunk_index: int) -> None:
             # If there's context or deletions past the end of the file, that's an error.
             if line_index < len(hunk.lines):
                 raise DiffApplyError(
-                    f"Found context or deletions after end of file in hunk {hunk_index + 1}"
+                    f"Found context or deletions after end of file in hunk {hunk_index + 1}",
                 )
             break
 
         if prefix == "-":
             if result_lines[current_line].strip() != content.strip():
                 raise DiffApplyError(
-                    f"Removing line that doesn't exactly match. Expected: '{content.strip()}', Found: '{result_lines[current_line].strip()}'"
+                    f"Removing line that doesn't exactly match. Expected: '{content.strip()}', Found: '{result_lines[current_line].strip()}'",
                 )
             result_lines.pop(current_line)
         elif prefix == "+":
@@ -193,12 +193,12 @@ def apply_hunk(result_lines: List[str], hunk: Hunk, hunk_index: int) -> None:
         elif prefix == " ":
             if result_lines[current_line].strip() != content.strip():
                 raise DiffApplyError(
-                    f"Context line doesn't exactly match. Expected: '{content.strip()}', Found: '{result_lines[current_line].strip()}'"
+                    f"Context line doesn't exactly match. Expected: '{content.strip()}', Found: '{result_lines[current_line].strip()}'",
                 )
             current_line += 1
         else:
             raise DiffApplyError(
-                f"Invalid line prefix '{prefix}' in hunk {hunk_index + 1}, line {line_index + 1}"
+                f"Invalid line prefix '{prefix}' in hunk {hunk_index + 1}, line {line_index + 1}",
             )
 
 

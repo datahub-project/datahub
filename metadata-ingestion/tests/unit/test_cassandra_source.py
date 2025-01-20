@@ -20,7 +20,8 @@ def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
 
 
 def assert_field_paths_match(
-    fields: List[SchemaField], expected_field_paths: List[str]
+    fields: List[SchemaField],
+    expected_field_paths: List[str],
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
@@ -44,7 +45,7 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
             "email",
             "name",
         ],
-    )
+    ),
 }
 
 
@@ -54,7 +55,8 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
     ids=schema_test_cases.keys(),
 )
 def test_cassandra_schema_conversion(
-    schema: str, expected_field_paths: List[str]
+    schema: str,
+    expected_field_paths: List[str],
 ) -> None:
     schema_dict: Dict[str, List[Any]] = json.loads(schema)
     column_infos: List = schema_dict["column_infos"]

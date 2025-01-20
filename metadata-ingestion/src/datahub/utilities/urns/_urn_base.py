@@ -127,17 +127,17 @@ class Urn:
 
         if not urn_str.startswith("urn:li:"):
             raise InvalidUrnError(
-                f"Invalid urn string: {urn_str}. Urns should start with 'urn:li:'"
+                f"Invalid urn string: {urn_str}. Urns should start with 'urn:li:'",
             )
 
         parts: List[str] = urn_str.split(":", maxsplit=3)
         if len(parts) != 4:
             raise InvalidUrnError(
-                f"Invalid urn string: {urn_str}. Expect 4 parts from urn string but found {len(parts)}"
+                f"Invalid urn string: {urn_str}. Expect 4 parts from urn string but found {len(parts)}",
             )
         if "" in parts:
             raise InvalidUrnError(
-                f"Invalid urn string: {urn_str}. There should not be empty parts in urn string."
+                f"Invalid urn string: {urn_str}. There should not be empty parts in urn string.",
             )
 
         _urn, _li, entity_type, entity_ids_str = parts
@@ -150,14 +150,14 @@ class Urn:
                 # with Urn.from_string(), that's fine. However, if we're called as
                 # DatasetUrn.from_string('urn:li:corpuser:foo'), that should throw an error.
                 raise InvalidUrnError(
-                    f"Passed an urn of type {entity_type} to the from_string method of {cls.__name__}. Use Urn.from_string() or {UrnCls.__name__}.from_string() instead."
+                    f"Passed an urn of type {entity_type} to the from_string method of {cls.__name__}. Use Urn.from_string() or {UrnCls.__name__}.from_string() instead.",
                 )
             return UrnCls._parse_ids(entity_ids)  # type: ignore
 
         # Fallback for unknown types.
         if cls != Urn:
             raise InvalidUrnError(
-                f"Unknown urn type {entity_type} for urn {urn_str} of type {cls}"
+                f"Unknown urn type {entity_type} for urn {urn_str} of type {cls}",
             )
         return cls(entity_type, entity_ids)
 
@@ -186,7 +186,7 @@ class Urn:
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, Urn):
             raise TypeError(
-                f"'<' not supported between instances of '{type(self)}' and '{type(other)}'"
+                f"'<' not supported between instances of '{type(self)}' and '{type(other)}'",
             )
         return self.urn() < other.urn()
 

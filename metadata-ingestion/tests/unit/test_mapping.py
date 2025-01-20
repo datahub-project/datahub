@@ -387,7 +387,7 @@ def test_operation_processor_datahub_props():
                 },
             ],
             "domain": "domain1",
-        }
+        },
     }
 
     processor = OperationProcessor(

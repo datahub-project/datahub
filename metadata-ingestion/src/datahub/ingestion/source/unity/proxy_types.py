@@ -164,7 +164,9 @@ class TableReference:
 
     @classmethod
     def create_from_lineage(
-        cls, d: dict, metastore: Optional[Metastore]
+        cls,
+        d: dict,
+        metastore: Optional[Metastore],
     ) -> Optional["TableReference"]:
         try:
             return cls(
@@ -282,7 +284,7 @@ class TableProfile:
                 self.num_columns is not None,
                 self.total_size is not None,
                 any(self.column_profiles),
-            )
+            ),
         )
 
 
@@ -305,7 +307,7 @@ class ColumnProfile:
                 self.distinct_count is not None,
                 self.min is not None,
                 self.max is not None,
-            )
+            ),
         )
 
 
@@ -325,5 +327,5 @@ class Notebook:
             **{  # type: ignore
                 **dataclasses.asdict(notebook),
                 "upstreams": frozenset([*notebook.upstreams, upstream]),
-            }
+            },
         )

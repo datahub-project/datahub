@@ -84,7 +84,7 @@ class _ResultProxyFake:
             return row[0]
         elif self._result:
             raise MultipleResultsFound(
-                "Multiple rows were found when exactly one was required"
+                "Multiple rows were found when exactly one was required",
             )
         return None
 
@@ -148,17 +148,17 @@ class SQLAlchemyQueryCombiner:
     # The Python GIL ensures that modifications to the report's counters
     # are safe.
     report: SQLAlchemyQueryCombinerReport = dataclasses.field(
-        default_factory=SQLAlchemyQueryCombinerReport
+        default_factory=SQLAlchemyQueryCombinerReport,
     )
 
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
     # of the greenlets we spawn for bookkeeping purposes.
     _queries_by_thread_lock: threading.Lock = dataclasses.field(
-        default_factory=lambda: threading.Lock()
+        default_factory=lambda: threading.Lock(),
     )
     _greenlets_by_thread_lock: threading.Lock = dataclasses.field(
-        default_factory=lambda: threading.Lock()
+        default_factory=lambda: threading.Lock(),
     )
     _queries_by_thread: Dict[greenlet.greenlet, Dict[str, _QueryFuture]] = (
         dataclasses.field(default_factory=lambda: collections.defaultdict(dict))
@@ -186,7 +186,8 @@ class SQLAlchemyQueryCombiner:
             return self._queries_by_thread.setdefault(main_greenlet, {})
 
     def _get_greenlet_pool(
-        self, main_greenlet: greenlet.greenlet
+        self,
+        main_greenlet: greenlet.greenlet,
     ) -> Set[greenlet.greenlet]:
         assert main_greenlet.parent is None
 
@@ -194,7 +195,11 @@ class SQLAlchemyQueryCombiner:
             return self._greenlets_by_thread[main_greenlet]
 
     def _handle_execute(
-        self, conn: Connection, query: Any, multiparams: Any, params: Any
+        self,
+        conn: Connection,
+        query: Any,
+        multiparams: Any,
+        params: Any,
     ) -> Tuple[bool, Optional[_QueryFuture]]:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
@@ -224,7 +229,7 @@ class SQLAlchemyQueryCombiner:
             assert len(get_query_columns(query)) > 0
         except AttributeError as e:
             logger.debug(
-                f"Query of type: '{type(query)}' does not contain attributes required by 'get_query_columns()'. AttributeError: {e}"
+                f"Query of type: '{type(query)}' does not contain attributes required by 'get_query_columns()'. AttributeError: {e}",
             )
             return False, None
 
@@ -246,7 +251,10 @@ class SQLAlchemyQueryCombiner:
     @contextlib.contextmanager
     def activate(self) -> Iterator["SQLAlchemyQueryCombiner"]:
         def _sa_execute_fake(
-            conn: Connection, query: Any, *args: Any, **kwargs: Any
+            conn: Connection,
+            query: Any,
+            *args: Any,
+            **kwargs: Any,
         ) -> Any:
             try:
                 self.report.total_queries += 1
@@ -255,7 +263,7 @@ class SQLAlchemyQueryCombiner:
                 if not self.catch_exceptions:
                     raise e
                 logger.warning(
-                    f"Failed to execute query normally, using fallback: {str(query)}"
+                    f"Failed to execute query normally, using fallback: {str(query)}",
                 )
                 logger.debug("Failed to execute query normally", exc_info=e)
                 self.report.query_exceptions += 1
@@ -274,7 +282,8 @@ class SQLAlchemyQueryCombiner:
 
         with _sa_execute_method_patching_lock:
             with unittest.mock.patch(
-                "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+                "sqlalchemy.engine.Connection.execute",
+                _sa_execute_fake,
             ):
                 yield self
 
@@ -301,7 +310,7 @@ class SQLAlchemyQueryCombiner:
         pending_queue = {k: v for k, v in full_queue.items() if not v.done}
 
         pending_queue = dict(
-            itertools.islice(pending_queue.items(), MAX_QUERIES_TO_COMBINE_AT_ONCE)
+            itertools.islice(pending_queue.items(), MAX_QUERIES_TO_COMBINE_AT_ONCE),
         )
 
         if pending_queue:
@@ -323,7 +332,7 @@ class SQLAlchemyQueryCombiner:
                         for col in get_query_columns(cte)
                     ]
                     for _, cte in ctes.items()
-                ]
+                ],
             )
             combined_query = sqlalchemy.select(combined_cols)
             for cte in ctes.values():
@@ -402,7 +411,7 @@ class SQLAlchemyQueryCombiner:
                 if not self.serial_execution_fallback_enabled:
                     raise e
                 logger.warning(
-                    "Failed to execute queue using combiner, will fallback to execute one by one."
+                    "Failed to execute queue using combiner, will fallback to execute one by one.",
                 )
                 logger.debug("Failed to execute queue using combiner", exc_info=e)
                 self.report.query_exceptions += 1

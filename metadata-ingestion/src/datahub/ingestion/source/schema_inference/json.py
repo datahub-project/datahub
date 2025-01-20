@@ -45,7 +45,8 @@ class JsonInferrer(SchemaInferenceBase):
             datastore = [
                 obj
                 for obj in itertools.islice(
-                    reader.iter(type=dict, skip_invalid=True), self.max_rows
+                    reader.iter(type=dict, skip_invalid=True),
+                    self.max_rows,
                 )
             ]
         else:

@@ -113,12 +113,12 @@ class ElasticToSchemaFieldConverter:
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
         type_class: Optional[Type] = (
             ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
-                elastic_column_type
+                elastic_column_type,
             )
         )
         if type_class is None:
             logger.warning(
-                f"Cannot map {elastic_column_type!r} to SchemaFieldDataType, using NullTypeClass."
+                f"Cannot map {elastic_column_type!r} to SchemaFieldDataType, using NullTypeClass.",
             )
             type_class = NullTypeClass
 
@@ -131,7 +131,8 @@ class ElasticToSchemaFieldConverter:
         return ".".join(self._prefix_name_stack)
 
     def _get_schema_fields(
-        self, elastic_schema_dict: Dict[str, Any]
+        self,
+        elastic_schema_dict: Dict[str, Any],
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
         PROPERTIES: str = "properties"
@@ -168,19 +169,20 @@ class ElasticToSchemaFieldConverter:
                 # Unexpected! Log a warning.
                 logger.warning(
                     f"Elastic schema does not have either 'type' or 'properties'!"
-                    f" Schema={json.dumps(elastic_schema_dict)}"
+                    f" Schema={json.dumps(elastic_schema_dict)}",
                 )
                 continue
 
     @classmethod
     def get_schema_fields(
-        cls, elastic_mappings: Dict[str, Any]
+        cls,
+        elastic_mappings: Dict[str, Any],
     ) -> Generator[SchemaField, None, None]:
         converter = cls()
         properties = elastic_mappings.get("properties")
         if not properties:
             logger.warning(
-                f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!"
+                f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!",
             )
             return
         yield from converter._get_schema_fields(properties)
@@ -235,19 +237,22 @@ def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
             platform_id=data_platform_urn.get_entity_id_as_string(),
             table_name=name,
             env=urn_obj.get_env(),
-        )
+        ),
     )
 
 
 class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     host: str = Field(
-        default="localhost:9200", description="The elastic search host URI."
+        default="localhost:9200",
+        description="The elastic search host URI.",
     )
     username: Optional[str] = Field(
-        default=None, description="The username credential."
+        default=None,
+        description="The username credential.",
     )
     password: Optional[str] = Field(
-        default=None, description="The password credential."
+        default=None,
+        description="The password credential.",
     )
     api_key: Optional[Union[Any, str]] = Field(
         default=None,
@@ -255,15 +260,18 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
     use_ssl: bool = Field(
-        default=False, description="Whether to use SSL for the connection or not."
+        default=False,
+        description="Whether to use SSL for the connection or not.",
     )
 
     verify_certs: bool = Field(
-        default=False, description="Whether to verify SSL certificates."
+        default=False,
+        description="Whether to verify SSL certificates.",
     )
 
     ca_certs: Optional[str] = Field(
-        default=None, description="Path to a certificate authority (CA) certificate."
+        default=None,
+        description="Path to a certificate authority (CA) certificate.",
     )
 
     client_cert: Optional[str] = Field(
@@ -277,7 +285,8 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
     ssl_assert_hostname: bool = Field(
-        default=False, description="Use hostname verification if not False."
+        default=False,
+        description="Use hostname verification if not False.",
     )
 
     ssl_assert_fingerprint: Optional[str] = Field(
@@ -294,7 +303,8 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="regex patterns for indexes to filter in ingestion.",
     )
     ingest_index_templates: bool = Field(
-        default=False, description="Ingests ES index templates if enabled."
+        default=False,
+        description="Ingests ES index templates if enabled.",
     )
     index_template_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
@@ -314,7 +324,7 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @validator("host")
@@ -367,7 +377,9 @@ class ElasticsearchSource(Source):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
     ) -> "ElasticsearchSource":
         config = ElasticsearchSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -403,17 +415,20 @@ class ElasticsearchSource(Source):
                 platform_instance=self.source_config.platform_instance,
             )
             dataset_urn = collapse_urn(
-                urn=dataset_urn, collapse_urns=self.source_config.collapse_urns
+                urn=dataset_urn,
+                collapse_urns=self.source_config.collapse_urns,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DatasetPropertiesClass(
-                    customProperties={"numPartitions": str(count)}
+                    customProperties={"numPartitions": str(count)},
                 ),
             )
 
     def _extract_mcps(
-        self, index: str, is_index: bool = True
+        self,
+        index: str,
+        is_index: bool = True,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         logger.debug(f"index='{index}', is_index={is_index}")
 
@@ -433,7 +448,8 @@ class ElasticsearchSource(Source):
             raw_index = self.client.indices.get_template(name=index)
             raw_index_metadata = raw_index[index]
         collapsed_index_name = collapse_name(
-            name=index, collapse_urns=self.source_config.collapse_urns
+            name=index,
+            collapse_urns=self.source_config.collapse_urns,
         )
 
         # 1. Construct and emit the schemaMetadata aspect
@@ -442,7 +458,7 @@ class ElasticsearchSource(Source):
         index_mappings_json_str: str = json.dumps(index_mappings)
         md5_hash = md5(index_mappings_json_str.encode()).hexdigest()
         schema_fields = list(
-            ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
+            ElasticToSchemaFieldConverter.get_schema_fields(index_mappings),
         )
         if not schema_fields:
             return
@@ -465,7 +481,8 @@ class ElasticsearchSource(Source):
             env=self.source_config.env,
         )
         dataset_urn = collapse_urn(
-            urn=dataset_urn, collapse_urns=self.source_config.collapse_urns
+            urn=dataset_urn,
+            collapse_urns=self.source_config.collapse_urns,
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -491,8 +508,8 @@ class ElasticsearchSource(Source):
                             if not data_stream
                             else DatasetSubTypes.ELASTIC_DATASTREAM
                         )
-                    )
-                ]
+                    ),
+                ],
             ),
         )
 
@@ -509,7 +526,8 @@ class ElasticsearchSource(Source):
 
         # 4.3 number_of_shards
         index_settings: Dict[str, Any] = raw_index_metadata.get("settings", {}).get(
-            "index", {}
+            "index",
+            {},
         )
         num_shards: str = index_settings.get("number_of_shards", "")
         if num_shards:
@@ -531,7 +549,8 @@ class ElasticsearchSource(Source):
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
+                        self.platform,
+                        self.source_config.platform_instance,
                     ),
                 ),
             )
@@ -543,7 +562,7 @@ class ElasticsearchSource(Source):
                         "format": "json",
                         "bytes": "b",
                         "h": "index,docs.count,store.size",
-                    }
+                    },
                 )
                 if self.cat_response is None:
                     return
@@ -554,13 +573,14 @@ class ElasticsearchSource(Source):
                     )
 
             profile_info_current = list(
-                filter(lambda x: x["index"] == collapsed_index_name, self.cat_response)
+                filter(lambda x: x["index"] == collapsed_index_name, self.cat_response),
             )
             if len(profile_info_current) > 0:
                 self.cat_response = list(
                     filter(
-                        lambda x: x["index"] != collapsed_index_name, self.cat_response
-                    )
+                        lambda x: x["index"] != collapsed_index_name,
+                        self.cat_response,
+                    ),
                 )
                 row_count = 0
                 size_in_bytes = 0

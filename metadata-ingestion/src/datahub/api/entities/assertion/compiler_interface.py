@@ -54,7 +54,7 @@ class AssertionCompilationResult:
     status: Literal["success", "failure"]
 
     report: AssertionCompilationReport = field(
-        default_factory=AssertionCompilationReport
+        default_factory=AssertionCompilationReport,
     )
 
     artifacts: List[CompileResultArtifact] = field(default_factory=list)
@@ -72,6 +72,7 @@ class AssertionCompiler:
 
     @abstractmethod
     def compile(
-        self, assertion_config_spec: AssertionsConfigSpec
+        self,
+        assertion_config_spec: AssertionsConfigSpec,
     ) -> AssertionCompilationResult:
         pass

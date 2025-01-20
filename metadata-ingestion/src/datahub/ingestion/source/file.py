@@ -69,7 +69,7 @@ class FileSourceConfig(StatefulIngestionConfigBase):
         description=(
             "File path to folder or file to ingest, or URL to a remote file. "
             "If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
-        )
+        ),
     )
     file_extension: str = Field(
         ".json",
@@ -96,7 +96,9 @@ class FileSourceConfig(StatefulIngestionConfigBase):
     )
 
     _filename_populates_path_if_present = pydantic_renamed_field(
-        "filename", "path", print_warning=False
+        "filename",
+        "path",
+        print_warning=False,
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -163,7 +165,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
         ):
             current_files_bytes_read = int(
                 (self.current_file_elements_read / self.current_file_num_elements)
-                * self.current_file_size
+                * self.current_file_size,
             )
             total_bytes_read += current_files_bytes_read
         percentage_completion = (
@@ -179,7 +181,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
                     * (100 - percentage_completion)
                     / percentage_completion
                 )
-                / 60
+                / 60,
             )
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
@@ -212,7 +214,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         fs = fs_class.create()
         for file_info in fs.list(path_str):
             if file_info.is_file and file_info.path.endswith(
-                self.config.file_extension
+                self.config.file_extension,
             ):
                 yield file_info
 
@@ -222,7 +224,9 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             partial(auto_workunit_reporter, self.report),
             auto_status_aspect if self.config.stateful_ingestion else None,
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -233,7 +237,8 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             for i, obj in self.iterate_generic_file(f):
                 id = f"{f.path}:{i}"
                 if isinstance(
-                    obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
+                    obj,
+                    (MetadataChangeProposalWrapper, MetadataChangeProposal),
                 ):
                     if (
                         self.config.aspect is not None
@@ -329,7 +334,8 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             yield mce
 
     def iterate_generic_file(
-        self, file_status: FileInfo
+        self,
+        file_status: FileInfo,
     ) -> Iterator[
         Tuple[
             int,
@@ -362,7 +368,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                 basic_connectivity=CapabilityReport(
                     capable=False,
                     failure_reason=f"{config.path} doesn't appear to be a valid file or directory.",
-                )
+                ),
             )
         is_dir = os.path.isdir(config.path)
         failure_message = None
@@ -377,12 +383,13 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         if failure_message:
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(
-                    capable=False, failure_reason=failure_message
-                )
+                    capable=False,
+                    failure_reason=failure_message,
+                ),
             )
         else:
             return TestConnectionReport(
-                basic_connectivity=CapabilityReport(capable=True)
+                basic_connectivity=CapabilityReport(capable=True),
             )
 
     @staticmethod

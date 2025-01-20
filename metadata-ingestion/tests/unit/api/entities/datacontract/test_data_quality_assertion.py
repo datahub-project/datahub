@@ -27,7 +27,8 @@ def test_parse_sql_assertion():
     }
 
     assert DataQualityAssertion.parse_obj(d).generate_mcp(
-        assertion_urn, entity_urn
+        assertion_urn,
+        entity_urn,
     ) == [
         MetadataChangeProposalWrapper(
             entityUrn=assertion_urn,
@@ -51,5 +52,5 @@ def test_parse_sql_assertion():
                     ),
                 ),
             ),
-        )
+        ),
     ]

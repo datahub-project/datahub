@@ -20,7 +20,7 @@ def mock_temp_table_cursor(cursor: MagicMock) -> None:
                 "price_usd from player_activity group by player_id",
                 "CREATE TABLE #player_price",
                 datetime.now(),
-            )
+            ),
         ],
         [
             # Empty result to stop the while loop
@@ -46,7 +46,7 @@ def mock_stl_insert_table_cursor(cursor: MagicMock) -> None:
                 "player_price_with_hike_v6",
                 "INSERT INTO player_price_with_hike_v6 SELECT (price_usd + 0.2 * price_usd) as price, '20%' FROM "
                 "#player_price",
-            )
+            ),
         ],
         [
             # Empty result to stop the while loop

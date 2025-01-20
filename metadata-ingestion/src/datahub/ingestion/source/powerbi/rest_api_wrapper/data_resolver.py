@@ -111,7 +111,7 @@ class DataResolverBase(ABC):
                     backoff_factor=1,
                     allowed_methods=None,
                     status_forcelist=[429, 500, 502, 503, 504],
-                )
+                ),
             ),
         )
 
@@ -147,13 +147,17 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_dataset(
-        self, workspace: Workspace, dataset_id: str
+        self,
+        workspace: Workspace,
+        dataset_id: str,
     ) -> Optional[PowerBIDataset]:
         pass
 
     @abstractmethod
     def get_dataset_parameters(
-        self, workspace_id: str, dataset_id: str
+        self,
+        workspace_id: str,
+        dataset_id: str,
     ) -> Dict[str, str]:
         pass
 
@@ -181,27 +185,27 @@ class DataResolverBase(ABC):
         logger.info("Generating PowerBi access token")
 
         auth_response = self._msal_client.acquire_token_for_client(
-            scopes=[DataResolverBase.SCOPE]
+            scopes=[DataResolverBase.SCOPE],
         )
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
             logger.warning(
-                "Failed to generate the PowerBi access token. Please check input configuration"
+                "Failed to generate the PowerBi access token. Please check input configuration",
             )
             raise ConfigurationError(
-                "Failed to retrieve access token for PowerBI principal. Please verify your configuration values"
+                "Failed to retrieve access token for PowerBI principal. Please verify your configuration values",
             )
 
         logger.info("Generated PowerBi access token")
 
         self._access_token = "Bearer {}".format(
-            auth_response.get(Constant.ACCESS_TOKEN)
+            auth_response.get(Constant.ACCESS_TOKEN),
         )
         safety_gap = 300
         self._access_token_expiry_time = datetime.now() + timedelta(
             seconds=(
                 max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
-            )
+            ),
         )
 
         logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
@@ -273,7 +277,9 @@ class DataResolverBase(ABC):
         return output
 
     def get_reports(
-        self, workspace: Workspace, _filter: Optional[str] = None
+        self,
+        workspace: Workspace,
+        _filter: Optional[str] = None,
     ) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
         # Hit PowerBi
@@ -302,7 +308,8 @@ class DataResolverBase(ABC):
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
                 description=raw_instance.get(Constant.DESCRIPTION, ""),
                 pages=self._get_pages_by_report(
-                    workspace=workspace, report_id=raw_instance[Constant.ID]
+                    workspace=workspace,
+                    report_id=raw_instance[Constant.ID],
                 ),
                 dataset_id=raw_instance.get(Constant.DATASET_ID),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
@@ -321,7 +328,8 @@ class DataResolverBase(ABC):
 
     def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
         reports: List[Report] = self.get_reports(
-            workspace, _filter=f"id eq '{report_id}'"
+            workspace,
+            _filter=f"id eq '{report_id}'",
         )
 
         if len(reports) == 0:
@@ -373,7 +381,8 @@ class DataResolverBase(ABC):
             return report_fields
 
         tile_list_endpoint: str = self.get_tiles_endpoint(
-            workspace, dashboard_id=dashboard.id
+            workspace,
+            dashboard_id=dashboard.id,
         )
         # Hit PowerBi
         logger.debug(f"Request to URL={tile_list_endpoint}")
@@ -482,7 +491,9 @@ class RegularAPIResolver(DataResolverBase):
     }
 
     def get_dataset(
-        self, workspace: Workspace, dataset_id: str
+        self,
+        workspace: Workspace,
+        dataset_id: str,
     ) -> Optional[PowerBIDataset]:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
@@ -517,7 +528,9 @@ class RegularAPIResolver(DataResolverBase):
         return new_powerbi_dataset(workspace, response_dict)
 
     def get_dataset_parameters(
-        self, workspace_id: str, dataset_id: str
+        self,
+        workspace_id: str,
+        dataset_id: str,
     ) -> Dict[str, str]:
         dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
             Constant.DATASET_GET
@@ -555,13 +568,15 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         return dashboards_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            WORKSPACE_ID=workspace.id,
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
         reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            WORKSPACE_ID=workspace.id,
         )
 
     def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
@@ -595,7 +610,8 @@ class RegularAPIResolver(DataResolverBase):
         return [
             Page(
                 id="{}.{}".format(
-                    report_id, raw_instance[Constant.NAME].replace(" ", "_")
+                    report_id,
+                    raw_instance[Constant.NAME].replace(" ", "_"),
                 ),
                 name=raw_instance[Constant.NAME],
                 displayName=raw_instance.get(Constant.DISPLAY_NAME),
@@ -626,7 +642,7 @@ class RegularAPIResolver(DataResolverBase):
             "queries": [
                 {
                     "query": query,
-                }
+                },
             ],
             "serializerSettings": {
                 "includeNulls": True,
@@ -654,7 +670,7 @@ class RegularAPIResolver(DataResolverBase):
             )
         except (KeyError, IndexError) as ex:
             logger.warning(
-                f"Profiling failed for getting row count for dataset {dataset.id}, with {ex}"
+                f"Profiling failed for getting row count for dataset {dataset.id}, with {ex}",
             )
         return 0
 
@@ -670,12 +686,15 @@ class RegularAPIResolver(DataResolverBase):
             )
         except (KeyError, IndexError) as ex:
             logger.warning(
-                f"Getting sample with TopN failed for dataset {dataset.id}, with {ex}"
+                f"Getting sample with TopN failed for dataset {dataset.id}, with {ex}",
             )
         return {}
 
     def _get_column_data(
-        self, dataset: PowerBIDataset, table: Table, column: Union[Column, Measure]
+        self,
+        dataset: PowerBIDataset,
+        table: Table,
+        column: Union[Column, Measure],
     ) -> dict:
         try:
             logger.debug(f"Column data query for {dataset.name}, {column.name}")
@@ -689,7 +708,7 @@ class RegularAPIResolver(DataResolverBase):
             )
         except (KeyError, IndexError) as ex:
             logger.warning(
-                f"Getting column statistics failed for dataset {dataset.name}, {column.name}, with {ex}"
+                f"Getting column statistics failed for dataset {dataset.name}, {column.name}, with {ex}",
             )
         return {}
 
@@ -706,7 +725,7 @@ class RegularAPIResolver(DataResolverBase):
 
         if not profile_pattern.allowed(f"{workspace_name}.{dataset.name}.{table.name}"):
             logger.info(
-                f"Table {table.name} in {dataset.name}, not allowed for profiling"
+                f"Table {table.name} in {dataset.name}, not allowed for profiling",
             )
             return
 
@@ -729,7 +748,8 @@ class RegularAPIResolver(DataResolverBase):
             column_stats = self._get_column_data(dataset, table, column)
 
             column.measure_profile = MeasureProfile(
-                sample_values=column_sample, **column_stats
+                sample_values=column_sample,
+                **column_stats,
             )
             column_count += 1
 
@@ -768,7 +788,7 @@ class AdminAPIResolver(DataResolverBase):
 
         scan_create_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
         )
 
         logger.debug(
@@ -800,7 +820,7 @@ class AdminAPIResolver(DataResolverBase):
     def _calculate_max_retry(minimum_sleep: int, timeout: int) -> int:
         if timeout < minimum_sleep:
             logger.info(
-                f"Setting timeout to minimum_sleep time {minimum_sleep} seconds"
+                f"Setting timeout to minimum_sleep time {minimum_sleep} seconds",
             )
             timeout = minimum_sleep
 
@@ -833,12 +853,12 @@ class AdminAPIResolver(DataResolverBase):
             if retry == max_retry:
                 logger.warning(
                     "Max retry reached when polling for scan job (lineage) result. Scan job is not "
-                    "available! Try increasing your max retry using config option scan_timeout"
+                    "available! Try increasing your max retry using config option scan_timeout",
                 )
                 break
 
             logger.debug(
-                f"Waiting to check for scan job completion for {minimum_sleep_seconds} seconds."
+                f"Waiting to check for scan job completion for {minimum_sleep_seconds} seconds.",
             )
             sleep(minimum_sleep_seconds)
             retry += 1
@@ -851,13 +871,15 @@ class AdminAPIResolver(DataResolverBase):
         """
         minimum_sleep_seconds = 3
         max_retry: int = AdminAPIResolver._calculate_max_retry(
-            minimum_sleep_seconds, timeout
+            minimum_sleep_seconds,
+            timeout,
         )
         # logger.info(f"Max trial {max_retry}")
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            SCAN_ID=scan_id,
         )
 
         return self._is_scan_result_ready(
@@ -904,7 +926,7 @@ class AdminAPIResolver(DataResolverBase):
                 datasetUserAccessRight=instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
                 reportUserAccessRight=instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
                 dashboardUserAccessRight=instance.get(
-                    Constant.DASHBOARD_USER_ACCESS_RIGHT
+                    Constant.DASHBOARD_USER_ACCESS_RIGHT,
                 ),
                 groupUserAccessRight=instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
             )
@@ -920,7 +942,8 @@ class AdminAPIResolver(DataResolverBase):
             Constant.SCAN_RESULT_GET
         ]
         scan_result_get_endpoint = scan_result_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            SCAN_ID=scan_id,
         )
 
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")
@@ -938,7 +961,7 @@ class AdminAPIResolver(DataResolverBase):
             or len(res.json().get("workspaces")) == 0
         ):
             logger.warning(
-                f"Scan result is not available for scan identifier = {scan_id}"
+                f"Scan result is not available for scan identifier = {scan_id}",
             )
             return None
 
@@ -971,7 +994,9 @@ class AdminAPIResolver(DataResolverBase):
         )
 
     def get_dataset(
-        self, workspace: Workspace, dataset_id: str
+        self,
+        workspace: Workspace,
+        dataset_id: str,
     ) -> Optional[PowerBIDataset]:
         datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
@@ -1029,11 +1054,11 @@ class AdminAPIResolver(DataResolverBase):
                 and error_msg_json["error"]["code"] == "InvalidRequest"
             ):
                 raise ConfigurationError(
-                    "Please check if modified_since is within last 30 days."
+                    "Please check if modified_since is within last 30 days.",
                 )
             else:
                 raise ConfigurationError(
-                    f"Please resolve the following error: {res.text}"
+                    f"Please resolve the following error: {res.text}",
                 )
         res.raise_for_status()
 
@@ -1043,7 +1068,9 @@ class AdminAPIResolver(DataResolverBase):
         return workspace_ids
 
     def get_dataset_parameters(
-        self, workspace_id: str, dataset_id: str
+        self,
+        workspace_id: str,
+        dataset_id: str,
     ) -> Dict[str, str]:
         logger.debug("Get dataset parameter is unsupported in Admin API")
         return {}

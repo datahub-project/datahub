@@ -41,7 +41,8 @@ def form_full_table_name(
     table_name: str,
 ) -> str:
     full_table_name: str = "{}.{}".format(
-        dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
+        dataset_name.replace(" ", "_"),
+        table_name.replace(" ", "_"),
     )
 
     if config.include_workspace_name_in_dataset_urn:
@@ -105,7 +106,8 @@ class PowerBiAPI:
         return e
 
     def _get_dashboard_endorsements(
-        self, scan_result: Optional[dict]
+        self,
+        scan_result: Optional[dict],
     ) -> Dict[str, List[str]]:
         """
         Store saved dashboard endorsements into a dict with dashboard id as key and
@@ -119,14 +121,15 @@ class PowerBiAPI:
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
-                scanned_dashboard.get(Constant.ENDORSEMENT_DETAIL, None)
+                scanned_dashboard.get(Constant.ENDORSEMENT_DETAIL, None),
             )
             results[dashboard_id] = tags
 
         return results
 
     def _get_report_endorsements(
-        self, scan_result: Optional[dict]
+        self,
+        scan_result: Optional[dict],
     ) -> Dict[str, List[str]]:
         results: Dict[str, List[str]] = {}
 
@@ -139,11 +142,11 @@ class PowerBiAPI:
             report_id = report.get(Constant.ID, None)
             if report_id is None:
                 logger.warning(
-                    f"Report id is none. Skipping endorsement tag for report instance {report}"
+                    f"Report id is none. Skipping endorsement tag for report instance {report}",
                 )
                 continue
             endorsements = self._parse_endorsement(
-                report.get(Constant.ENDORSEMENT_DETAIL, None)
+                report.get(Constant.ENDORSEMENT_DETAIL, None),
             )
             results[report_id] = endorsements
 
@@ -155,7 +158,10 @@ class PowerBiAPI:
         return self.__regular_api_resolver
 
     def _get_entity_users(
-        self, workspace_id: str, entity_name: str, entity_id: str
+        self,
+        workspace_id: str,
+        entity_name: str,
+        entity_id: str,
     ) -> List[User]:
         """
         Return list of dashboard users
@@ -163,7 +169,7 @@ class PowerBiAPI:
         users: List[User] = []
         if self.__config.extract_ownership is False:
             logger.info(
-                "Extract ownership capabilities is disabled from configuration and hence returning empty users list"
+                "Extract ownership capabilities is disabled from configuration and hence returning empty users list",
             )
             return users
 
@@ -175,7 +181,7 @@ class PowerBiAPI:
             )
         except Exception:
             e = self.log_http_error(
-                message=f"Unable to fetch users for {entity_name}({entity_id})."
+                message=f"Unable to fetch users for {entity_name}({entity_id}).",
             )
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
@@ -187,7 +193,9 @@ class PowerBiAPI:
 
     def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
         return self._get_entity_users(
-            dashboard.workspace_id, Constant.DASHBOARDS, dashboard.id
+            dashboard.workspace_id,
+            Constant.DASHBOARDS,
+            dashboard.id,
         )
 
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
@@ -212,25 +220,26 @@ class PowerBiAPI:
                         )
         except Exception:
             self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+                message=f"Unable to fetch reports for workspace {workspace.name}",
             )
 
         def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
                 logger.info(
-                    "Skipping user retrieval for report as extract_ownership is set to false"
+                    "Skipping user retrieval for report as extract_ownership is set to false",
                 )
                 return
 
             for report in reports:
                 report.users = self.get_report_users(
-                    workspace_id=workspace.id, report_id=report.id
+                    workspace_id=workspace.id,
+                    report_id=report.id,
                 )
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
                 logger.info(
-                    "Skipping endorsements tags retrieval for report as extract_endorsements_to_tags is set to false"
+                    "Skipping endorsements tags retrieval for report as extract_endorsements_to_tags is set to false",
                 )
                 return
 
@@ -290,7 +299,7 @@ class PowerBiAPI:
 
         try:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
-                self.__config.modified_since
+                self.__config.modified_since,
             )
         except Exception:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
@@ -301,27 +310,28 @@ class PowerBiAPI:
         scan_id: Optional[str] = None
         try:
             scan_id = self.__admin_api_resolver.create_scan_job(
-                workspace_ids=workspace_ids
+                workspace_ids=workspace_ids,
             )
         except Exception:
             e = self.log_http_error(message="Unable to fetch get scan result.")
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
-                    "API. "
+                    "API. ",
                 )
             return None
 
         logger.debug("Waiting for scan to complete")
         if (
             self.__admin_api_resolver.wait_for_scan_to_complete(
-                scan_id=scan_id, timeout=self.__config.scan_timeout
+                scan_id=scan_id,
+                timeout=self.__config.scan_timeout,
             )
             is False
         ):
             raise ValueError(
                 "Workspace detail is not available. Please increase the scan_timeout configuration value to wait "
-                "longer for the scan job to complete."
+                "longer for the scan job to complete.",
             )
 
         # Scan is complete lets take the result
@@ -355,7 +365,7 @@ class PowerBiAPI:
         datasets: Optional[Any] = scan_result.get(Constant.DATASETS)
         if datasets is None or len(datasets) == 0:
             logger.warning(
-                f"Workspace {scan_result[Constant.NAME]}({scan_result[Constant.ID]}) does not have datasets"
+                f"Workspace {scan_result[Constant.NAME]}({scan_result[Constant.ID]}) does not have datasets",
             )
 
             logger.info("Returning empty datasets")
@@ -393,7 +403,7 @@ class PowerBiAPI:
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
-                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None)
+                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None),
                 )
 
             dataset_map[dataset_instance.id] = dataset_instance
@@ -424,7 +434,8 @@ class PowerBiAPI:
                         Column(
                             **column,
                             datahubDataType=FIELD_TYPE_MAPPING.get(
-                                column["dataType"], FIELD_TYPE_MAPPING["Null"]
+                                column["dataType"],
+                                FIELD_TYPE_MAPPING["Null"],
                             ),
                         )
                         for column in table.get("columns", [])
@@ -455,7 +466,9 @@ class PowerBiAPI:
         )
 
     def _populate_app_details(
-        self, workspace: Workspace, workspace_metadata: Dict
+        self,
+        workspace: Workspace,
+        workspace_metadata: Dict,
     ) -> None:
         # App_id is not present at the root level of workspace_metadata.
         # It can be found in the workspace_metadata.dashboards or workspace_metadata.reports lists.
@@ -474,7 +487,7 @@ class PowerBiAPI:
                     AppReport(
                         id=report[Constant.ID],
                         original_report_id=report[Constant.ORIGINAL_REPORT_OBJECT_ID],
-                    )
+                    ),
                 )
                 if app_id is None:  # In PowerBI one workspace can have one app
                     app_id = report.get(Constant.APP_ID)
@@ -520,7 +533,7 @@ class PowerBiAPI:
                             Constant.ID
                         ],
                         original_dashboard_id=dashboard[Constant.ID],
-                    )
+                    ),
                 )
 
         app.reports = app_reports
@@ -576,14 +589,14 @@ class PowerBiAPI:
             # Fetch endorsement tag if it is enabled from configuration
             if self.__config.extract_endorsements_to_tags:
                 cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-                    cur_workspace.scan_result
+                    cur_workspace.scan_result,
                 )
                 cur_workspace.report_endorsements = self._get_report_endorsements(
-                    cur_workspace.scan_result
+                    cur_workspace.scan_result,
                 )
             else:
                 logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
+                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled",
                 )
 
             self._populate_app_details(
@@ -617,7 +630,8 @@ class PowerBiAPI:
             # set tiles of Dashboard
             for dashboard in workspace.dashboards:
                 dashboard.tiles = self._get_resolver().get_tiles(
-                    workspace, dashboard=dashboard
+                    workspace,
+                    dashboard=dashboard,
                 )
                 # set the dataset for tiles
                 for tile in dashboard.tiles:
@@ -633,7 +647,7 @@ class PowerBiAPI:
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
                 logger.info(
-                    "Skipping report retrieval as extract_reports is set to false"
+                    "Skipping report retrieval as extract_reports is set to false",
                 )
                 return
             workspace.reports = self.get_reports(workspace)
@@ -641,7 +655,7 @@ class PowerBiAPI:
         def fill_dashboard_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
                 logger.info(
-                    "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false"
+                    "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false",
                 )
                 return
             for dashboard in workspace.dashboards:
@@ -656,10 +670,12 @@ class PowerBiAPI:
 
     # flake8: noqa: C901
     def fill_workspaces(
-        self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
+        self,
+        workspaces: List[Workspace],
+        reporter: PowerBiDashboardSourceReport,
     ) -> Iterable[Workspace]:
         logger.info(
-            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
+            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}",
         )
 
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)

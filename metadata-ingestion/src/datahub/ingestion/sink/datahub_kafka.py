@@ -27,7 +27,9 @@ class _KafkaCallback:
         if err is not None:
             self.reporter.report_failure(err)
             self.write_callback.on_failure(
-                self.record_envelope, err, {"error": err, "msg": msg}
+                self.record_envelope,
+                err,
+                {"error": err, "msg": msg},
             )
         else:
             self.reporter.report_record_written(self.record_envelope)
@@ -58,7 +60,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         write_callback: WriteCallback,
     ) -> None:
         callback = _KafkaCallback(
-            self.report, record_envelope, write_callback
+            self.report,
+            record_envelope,
+            write_callback,
         ).kafka_callback
         try:
             record = record_envelope.record

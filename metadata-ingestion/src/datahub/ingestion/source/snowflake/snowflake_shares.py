@@ -31,7 +31,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self.report = report
 
     def get_shares_workunits(
-        self, databases: List[SnowflakeDatabase]
+        self,
+        databases: List[SnowflakeDatabase],
     ) -> Iterable[MetadataWorkUnit]:
         inbounds = self.config.inbounds()
         outbounds = self.config.outbounds()
@@ -74,11 +75,16 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                         # hence this lineage code is not written in SnowflakeLineageExtractor
                         # also this is not governed by configs include_table_lineage
                         yield self.get_upstream_lineage_with_primary_sibling(
-                            db.name, schema.name, table_name, sibling_dbs[0]
+                            db.name,
+                            schema.name,
+                            table_name,
+                            sibling_dbs[0],
                         )
 
         self.report_missing_databases(
-            databases, list(inbounds.keys()), list(outbounds.keys())
+            databases,
+            list(inbounds.keys()),
+            list(outbounds.keys()),
         )
 
     def report_missing_databases(
@@ -112,7 +118,9 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         if not sibling_databases:
             return
         dataset_identifier = self.identifiers.get_dataset_identifier(
-            table_name, schema_name, database_name
+            table_name,
+            schema_name,
+            database_name,
         )
         urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
@@ -120,7 +128,9 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             make_dataset_urn_with_platform_instance(
                 self.identifiers.platform,
                 self.identifiers.get_dataset_identifier(
-                    table_name, schema_name, sibling_db.database
+                    table_name,
+                    schema_name,
+                    sibling_db.database,
                 ),
                 sibling_db.platform_instance,
             )
@@ -140,14 +150,18 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         primary_sibling_db: DatabaseId,
     ) -> MetadataWorkUnit:
         dataset_identifier = self.identifiers.get_dataset_identifier(
-            table_name, schema_name, database_name
+            table_name,
+            schema_name,
+            database_name,
         )
         urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
         upstream_urn = make_dataset_urn_with_platform_instance(
             self.identifiers.platform,
             self.identifiers.get_dataset_identifier(
-                table_name, schema_name, primary_sibling_db.database
+                table_name,
+                schema_name,
+                primary_sibling_db.database,
             ),
             primary_sibling_db.platform_instance,
         )
@@ -155,6 +169,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         return MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=UpstreamLineage(
-                upstreams=[Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)]
+                upstreams=[
+                    Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY),
+                ],
             ),
         ).as_workunit()

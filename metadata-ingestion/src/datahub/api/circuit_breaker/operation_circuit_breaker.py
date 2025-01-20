@@ -61,7 +61,7 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
         """
 
         start_time_millis: int = int(
-            (datetime.now() - self.config.time_delta).timestamp() * 1000
+            (datetime.now() - self.config.time_delta).timestamp() * 1000,
         )
         operations = self.operation_api.query_operations(
             urn,

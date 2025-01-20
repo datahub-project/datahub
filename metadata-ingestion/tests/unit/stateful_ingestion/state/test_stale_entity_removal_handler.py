@@ -41,10 +41,13 @@ new_old_ent_tests: Dict[str, Tuple[EntList, EntList, float]] = {
     ids=new_old_ent_tests.keys(),
 )
 def test_change_percent(
-    new_entities: EntList, old_entities: EntList, expected_percent_change: float
+    new_entities: EntList,
+    old_entities: EntList,
+    expected_percent_change: float,
 ) -> None:
     actual_percent_change = compute_percent_entities_changed(
-        new_entities=new_entities, old_entities=old_entities
+        new_entities=new_entities,
+        old_entities=old_entities,
     )
     assert actual_percent_change == expected_percent_change
 
@@ -57,7 +60,7 @@ def test_filter_ignored_entity_types():
             "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset3,PROD)",
             "urn:li:dataProcessInstance:478810e859f870a54f72c681f41af619",
             "urn:li:query:query1",
-        ]
+        ],
     ) == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)",

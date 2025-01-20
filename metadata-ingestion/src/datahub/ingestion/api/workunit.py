@@ -19,7 +19,9 @@ T_Aspect = TypeVar("T_Aspect", bound=_Aspect)
 @dataclass
 class MetadataWorkUnit(WorkUnit):
     metadata: Union[
-        MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
     ]
 
     # A workunit creator can determine if this workunit is allowed to fail.
@@ -34,7 +36,11 @@ class MetadataWorkUnit(WorkUnit):
 
     @overload
     def __init__(
-        self, id: str, mce: MetadataChangeEvent, *, is_primary_source: bool = True
+        self,
+        id: str,
+        mce: MetadataChangeEvent,
+        *,
+        is_primary_source: bool = True,
     ):
         # TODO: Force `mce` to be a keyword-only argument.
         ...
@@ -100,7 +106,9 @@ class MetadataWorkUnit(WorkUnit):
     def generate_workunit_id(
         cls,
         item: Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
         ],
     ) -> str:
         if isinstance(item, MetadataChangeEvent):
@@ -160,7 +168,9 @@ class MetadataWorkUnit(WorkUnit):
     def from_metadata(
         cls,
         metadata: Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
         ],
         id: Optional[str] = None,
     ) -> "MetadataWorkUnit":

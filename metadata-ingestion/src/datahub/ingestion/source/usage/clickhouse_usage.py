@@ -152,13 +152,13 @@ class ClickHouseUsageSource(Source):
                     event_dict[k] = v.strip()
 
             if not self.config.database_pattern.allowed(
-                event_dict.get("database")
+                event_dict.get("database"),
             ) or not (
                 self.config.table_pattern.allowed(event_dict.get("full_table_name"))
                 or self.config.view_pattern.allowed(event_dict.get("full_table_name"))
             ):
                 logger.debug(
-                    f"Dropping usage event for {event_dict.get('full_table_name')}"
+                    f"Dropping usage event for {event_dict.get('full_table_name')}",
                 )
                 continue
 
@@ -192,10 +192,10 @@ class ClickHouseUsageSource(Source):
         joined_access_events = []
         for event_dict in events:
             event_dict["starttime"] = self._convert_str_to_datetime(
-                event_dict.get("starttime")
+                event_dict.get("starttime"),
             )
             event_dict["endtime"] = self._convert_str_to_datetime(
-                event_dict.get("endtime")
+                event_dict.get("endtime"),
             )
 
             if not (event_dict.get("database", None) and event_dict.get("table", None)):
@@ -211,7 +211,8 @@ class ClickHouseUsageSource(Source):
         return joined_access_events
 
     def _aggregate_access_events(
-        self, events: List[ClickHouseJoinedAccessEvent]
+        self,
+        events: List[ClickHouseJoinedAccessEvent],
     ) -> Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]]:
         datasets: Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]] = (
             collections.defaultdict(dict)
@@ -246,7 +247,9 @@ class ClickHouseUsageSource(Source):
         return agg.make_usage_workunit(
             self.config.bucket_duration,
             lambda resource: builder.make_dataset_urn(
-                "clickhouse", resource, self.config.env
+                "clickhouse",
+                resource,
+                self.config.env,
             ),
             self.config.top_n_queries,
             self.config.format_sql_queries,

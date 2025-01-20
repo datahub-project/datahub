@@ -6,7 +6,10 @@ from datahub.ingestion.api.closeable import Closeable
 
 class DataReader(Closeable):
     def get_sample_data_for_column(
-        self, table_id: List[str], column_name: str, sample_size: int
+        self,
+        table_id: List[str],
+        column_name: str,
+        sample_size: int,
     ) -> list:
         raise NotImplementedError()
 

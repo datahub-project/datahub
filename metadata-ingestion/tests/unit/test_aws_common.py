@@ -46,7 +46,8 @@ class TestAwsCommon:
             assert detect_aws_environment() == AwsEnvironment.LAMBDA
 
     def test_environment_detection_lambda_cloudformation(
-        self, mock_disable_ec2_metadata
+        self,
+        mock_disable_ec2_metadata,
     ):
         """Test CloudFormation Lambda environment detection"""
         with patch.dict(
@@ -77,7 +78,8 @@ class TestAwsCommon:
     def test_environment_detection_ecs(self, mock_disable_ec2_metadata):
         """Test ECS environment detection"""
         with patch.dict(
-            os.environ, {"ECS_CONTAINER_METADATA_URI_V4": "http://169.254.170.2/v4"}
+            os.environ,
+            {"ECS_CONTAINER_METADATA_URI_V4": "http://169.254.170.2/v4"},
         ):
             assert detect_aws_environment() == AwsEnvironment.ECS
 
@@ -164,11 +166,12 @@ class TestAwsCommon:
                         "Effect": "Allow",
                         "Principal": {"Service": "lambda.amazonaws.com"},
                         "Action": "sts:AssumeRole",
-                    }
+                    },
                 ],
             }
             iam_client.create_role(
-                RoleName="test-role", AssumeRolePolicyDocument=json.dumps(trust_policy)
+                RoleName="test-role",
+                AssumeRolePolicyDocument=json.dumps(trust_policy),
             )
 
             lambda_client = boto3.client("lambda", region_name="us-east-1")
@@ -197,7 +200,7 @@ class TestAwsCommon:
         with patch("boto3.client") as mock_boto:
             mock_sts = MagicMock()
             mock_sts.get_caller_identity.return_value = {
-                "Arn": "arn:aws:sts::123456789012:assumed-role/test-role/instance"
+                "Arn": "arn:aws:sts::123456789012:assumed-role/test-role/instance",
             }
             mock_boto.return_value = mock_sts
 
@@ -239,7 +242,7 @@ class TestAwsCommon:
         )
 
         with patch(
-            "datahub.ingestion.source.aws.aws_common.get_current_identity"
+            "datahub.ingestion.source.aws.aws_common.get_current_identity",
         ) as mock_identity:
             mock_identity.return_value = (None, None)
             session = config.get_session()
@@ -255,7 +258,7 @@ class TestAwsCommon:
         )
 
         with patch(
-            "datahub.ingestion.source.aws.aws_common.get_current_identity"
+            "datahub.ingestion.source.aws.aws_common.get_current_identity",
         ) as mock_identity:
             mock_identity.return_value = (
                 "arn:aws:iam::123456789012:role/current-role",
@@ -278,7 +281,7 @@ class TestAwsCommon:
         )
 
         with patch(
-            "datahub.ingestion.source.aws.aws_common.get_current_identity"
+            "datahub.ingestion.source.aws.aws_common.get_current_identity",
         ) as mock_identity:
             mock_identity.return_value = (None, None)
             session = config.get_session()
@@ -334,7 +337,10 @@ class TestAwsCommon:
         ],
     )
     def test_environment_detection_parametrized(
-        self, mock_disable_ec2_metadata, env_vars, expected_environment
+        self,
+        mock_disable_ec2_metadata,
+        env_vars,
+        expected_environment,
     ):
         """Parametrized test for environment detection with different configurations"""
         with patch.dict(os.environ, env_vars, clear=True):

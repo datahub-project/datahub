@@ -40,8 +40,8 @@ basicAuditStamp = models.AuditStampClass(
                                     dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)",
                                     type="TRANSFORMED",
                                 ),
-                            ]
-                        )
+                            ],
+                        ),
                     ],
                 ),
             ),
@@ -71,12 +71,12 @@ basicAuditStamp = models.AuditStampClass(
                                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)",
                                                 "type": "TRANSFORMED",
                                             },
-                                        ]
-                                    }
-                                }
+                                        ],
+                                    },
+                                },
                             ],
-                        }
-                    }
+                        },
+                    },
                 },
                 "systemMetadata": {
                     "lastObserved": FROZEN_TIME,
@@ -105,7 +105,7 @@ basicAuditStamp = models.AuditStampClass(
                             type=models.ChartTypeClass.SCATTER,
                         ),
                     ],
-                )
+                ),
             ),
             "/entities?action=ingest",
             {
@@ -130,11 +130,11 @@ basicAuditStamp = models.AuditStampClass(
                                             },
                                         },
                                         "type": "SCATTER",
-                                    }
-                                }
+                                    },
+                                },
                             ],
-                        }
-                    }
+                        },
+                    },
                 },
                 "systemMetadata": {
                     "lastObserved": FROZEN_TIME,
@@ -157,9 +157,9 @@ basicAuditStamp = models.AuditStampClass(
                             name="User Deletions",
                             description="Constructs the fct_users_deleted from logging_events",
                             type=models.AzkabanJobTypeClass.SQL,
-                        )
+                        ),
                     ],
-                )
+                ),
             ),
             "/entities?action=ingest",
             {
@@ -174,11 +174,11 @@ basicAuditStamp = models.AuditStampClass(
                                         "name": "User Deletions",
                                         "description": "Constructs the fct_users_deleted from logging_events",
                                         "type": {"string": "SQL"},
-                                    }
-                                }
+                                    },
+                                },
                             ],
-                        }
-                    }
+                        },
+                    },
                 },
                 "systemMetadata": {
                     "lastObserved": FROZEN_TIME,
@@ -234,8 +234,8 @@ basicAuditStamp = models.AuditStampClass(
                             "totalSqlQueries": 1,
                             "topSqlQueries": ["SELECT * FROM foo"],
                         },
-                    }
-                ]
+                    },
+                ],
             },
         ),
         (
@@ -246,7 +246,7 @@ basicAuditStamp = models.AuditStampClass(
                         models.OwnerClass(
                             owner="urn:li:corpuser:fbar",
                             type=models.OwnershipTypeClass.DATAOWNER,
-                        )
+                        ),
                     ],
                     lastModified=models.AuditStampClass(
                         time=0,
@@ -274,7 +274,7 @@ basicAuditStamp = models.AuditStampClass(
                         },
                         "runId": "no-run-id-provided",
                     },
-                }
+                },
             },
         ),
     ],

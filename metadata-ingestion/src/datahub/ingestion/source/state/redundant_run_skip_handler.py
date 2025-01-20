@@ -76,7 +76,7 @@ class RedundantRunSkipHandler(
         return JobId(
             f"{platform}_skip_redundant_run{job_name_suffix}"
             if platform
-            else f"skip_redundant_run{job_name_suffix}"
+            else f"skip_redundant_run{job_name_suffix}",
         )
 
     @abstractmethod
@@ -130,12 +130,15 @@ class RedundantRunSkipHandler(
         return cur_checkpoint
 
     def should_skip_this_run(
-        self, cur_start_time: datetime, cur_end_time: datetime
+        self,
+        cur_start_time: datetime,
+        cur_end_time: datetime,
     ) -> bool:
         skip: bool = False
 
         last_checkpoint = self.state_provider.get_last_checkpoint(
-            self.job_id, BaseTimeWindowCheckpointState
+            self.job_id,
+            BaseTimeWindowCheckpointState,
         )
 
         if last_checkpoint:
@@ -145,7 +148,7 @@ class RedundantRunSkipHandler(
             )
 
             logger.debug(
-                f"{self.job_id} : Last run start, end times:({last_run_time_window})"
+                f"{self.job_id} : Last run start, end times:({last_run_time_window})",
             )
 
             # If current run's time window is subset of last run's time window, then skip.
@@ -166,10 +169,12 @@ class RedundantRunSkipHandler(
         # as part of stateful ingestion configuration. It is likely that they may cause
         # more confusion than help to most users hence not added to start with.
         last_checkpoint = self.state_provider.get_last_checkpoint(
-            self.job_id, BaseTimeWindowCheckpointState
+            self.job_id,
+            BaseTimeWindowCheckpointState,
         )
         if (last_checkpoint is None) or self.should_skip_this_run(
-            cur_start_time, cur_end_time
+            cur_start_time,
+            cur_end_time,
         ):
             return cur_start_time, cur_end_time
 
@@ -185,33 +190,34 @@ class RedundantRunSkipHandler(
             if allow_expand:
                 suggested_start_time = last_run.end_time
                 self.log(
-                    f"Expanding time window. Updating start time to {suggested_start_time}."
+                    f"Expanding time window. Updating start time to {suggested_start_time}.",
                 )
             else:
                 self.log(
-                    f"Observed gap in last run end time({last_run.end_time}) and current run start time({cur_start_time})."
+                    f"Observed gap in last run end time({last_run.end_time}) and current run start time({cur_start_time}).",
                 )
         elif allow_reduce and cur_run.left_intersects(last_run):
             # scenario of scheduled ingestions with default start, end times
             suggested_start_time = last_run.end_time
             self.log(
-                f"Reducing time window. Updating start time to {suggested_start_time}."
+                f"Reducing time window. Updating start time to {suggested_start_time}.",
             )
         elif allow_reduce and cur_run.right_intersects(last_run):
             # a manual backdated run
             suggested_end_time = last_run.start_time
             self.log(
-                f"Reducing time window. Updating end time to {suggested_end_time}."
+                f"Reducing time window. Updating end time to {suggested_end_time}.",
             )
 
         # make sure to consider complete time bucket for usage
         if last_checkpoint.state.bucket_duration:
             suggested_start_time = get_time_bucket(
-                suggested_start_time, last_checkpoint.state.bucket_duration
+                suggested_start_time,
+                last_checkpoint.state.bucket_duration,
             )
 
         self.log(
-            f"Adjusted start, end times: ({suggested_start_time}, {suggested_end_time})"
+            f"Adjusted start, end times: ({suggested_start_time}, {suggested_end_time})",
         )
         return (suggested_start_time, suggested_end_time)
 
@@ -236,7 +242,10 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
         return "_usage"
 
     def update_state(
-        self, start_time: datetime, end_time: datetime, bucket_duration: BucketDuration
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        bucket_duration: BucketDuration,
     ) -> None:
         cur_checkpoint = self.get_current_checkpoint()
         if cur_checkpoint:

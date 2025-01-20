@@ -15,7 +15,7 @@ class DataHubSourceReport(StatefulIngestionReport):
     num_database_parse_errors: int = 0
     # error -> aspect -> [urn]
     database_parse_errors: LossyDict[str, LossyDict[str, LossyList[str]]] = field(
-        default_factory=LossyDict
+        default_factory=LossyDict,
     )
 
     num_kafka_aspects_ingested: int = 0

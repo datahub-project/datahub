@@ -263,7 +263,8 @@ class MSSQLDataFlow:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.entity.orchestrator),
                 instance=make_dataplatform_instance_urn(
-                    self.entity.orchestrator, self.entity.platform_instance
+                    self.entity.orchestrator,
+                    self.entity.platform_instance,
                 ),
             )
         return None

@@ -23,7 +23,10 @@ class TestSoftDeletedEntitiesCleanup(unittest.TestCase):
         self.config = SoftDeletedEntitiesCleanupConfig()
         self.report = SoftDeletedEntitiesReport()
         self.cleanup = SoftDeletedEntitiesCleanup(
-            self.ctx, self.config, self.report, dry_run=True
+            self.ctx,
+            self.config,
+            self.report,
+            dry_run=True,
         )
 
     def test_update_report(self):
@@ -46,11 +49,14 @@ class TestDataProcessCleanup(unittest.TestCase):
         self.config = DataProcessCleanupConfig()
         self.report = DataProcessCleanupReport()
         self.cleanup = DataProcessCleanup(
-            self.ctx, self.config, self.report, dry_run=True
+            self.ctx,
+            self.config,
+            self.report,
+            dry_run=True,
         )
 
     @patch(
-        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis",
     )
     def test_delete_dpi_from_datajobs(self, mock_fetch_dpis):
         job = DataJobEntity(
@@ -65,7 +71,7 @@ class TestDataProcessCleanup(unittest.TestCase):
             {
                 "urn": f"urn:li:dataprocessInstance:{i}",
                 "created": {
-                    "time": int(datetime.now(timezone.utc).timestamp() + i) * 1000
+                    "time": int(datetime.now(timezone.utc).timestamp() + i) * 1000,
                 },
             }
             for i in range(10)
@@ -74,7 +80,7 @@ class TestDataProcessCleanup(unittest.TestCase):
         self.assertEqual(5, self.report.num_aspects_removed)
 
     @patch(
-        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis",
     )
     def test_delete_dpi_from_datajobs_without_dpis(self, mock_fetch_dpis):
         job = DataJobEntity(
@@ -90,7 +96,7 @@ class TestDataProcessCleanup(unittest.TestCase):
         self.assertEqual(0, self.report.num_aspects_removed)
 
     @patch(
-        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis",
     )
     def test_delete_dpi_from_datajobs_without_dpi_created_time(self, mock_fetch_dpis):
         job = DataJobEntity(
@@ -107,16 +113,17 @@ class TestDataProcessCleanup(unittest.TestCase):
             {
                 "urn": "urn:li:dataprocessInstance:11",
                 "created": {"time": int(datetime.now(timezone.utc).timestamp() * 1000)},
-            }
+            },
         ]
         self.cleanup.delete_dpi_from_datajobs(job)
         self.assertEqual(10, self.report.num_aspects_removed)
 
     @patch(
-        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis",
     )
     def test_delete_dpi_from_datajobs_without_dpi_null_created_time(
-        self, mock_fetch_dpis
+        self,
+        mock_fetch_dpis,
     ):
         job = DataJobEntity(
             urn="urn:li:dataJob:1",
@@ -132,13 +139,13 @@ class TestDataProcessCleanup(unittest.TestCase):
             {
                 "urn": "urn:li:dataprocessInstance:11",
                 "created": {"time": None},
-            }
+            },
         ]
         self.cleanup.delete_dpi_from_datajobs(job)
         self.assertEqual(11, self.report.num_aspects_removed)
 
     @patch(
-        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis",
     )
     def test_delete_dpi_from_datajobs_without_dpi_without_time(self, mock_fetch_dpis):
         job = DataJobEntity(
@@ -155,7 +162,7 @@ class TestDataProcessCleanup(unittest.TestCase):
             {
                 "urn": "urn:li:dataprocessInstance:11",
                 "created": None,
-            }
+            },
         ]
         self.cleanup.delete_dpi_from_datajobs(job)
         self.assertEqual(11, self.report.num_aspects_removed)
@@ -170,12 +177,12 @@ class TestDataProcessCleanup(unittest.TestCase):
                         {
                             "urn": "urn:li:dataprocessInstance:1",
                             "created": {
-                                "time": int(datetime.now(timezone.utc).timestamp())
+                                "time": int(datetime.now(timezone.utc).timestamp()),
                             },
-                        }
-                    ]
-                }
-            }
+                        },
+                    ],
+                },
+            },
         }
         dpis = self.cleanup.fetch_dpis("urn:li:dataJob:1", 10)
         self.assertEqual(len(dpis), 1)

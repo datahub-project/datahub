@@ -22,7 +22,8 @@ class ThreadedIteratorExecutor:
         out_q: queue.Queue[T] = queue.Queue()
 
         def _worker_wrapper(
-            worker_func: Callable[..., Iterable[T]], *args: Any
+            worker_func: Callable[..., Iterable[T]],
+            *args: Any,
         ) -> None:
             for item in worker_func(*args):
                 out_q.put(item)

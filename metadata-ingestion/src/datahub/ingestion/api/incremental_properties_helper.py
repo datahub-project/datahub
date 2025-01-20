@@ -46,15 +46,20 @@ def auto_incremental_properties(
 
             if properties_aspect:
                 yield convert_dataset_properties_to_patch(
-                    urn, properties_aspect, wu.metadata.systemMetadata
+                    urn,
+                    properties_aspect,
+                    wu.metadata.systemMetadata,
                 )
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
-            wu.metadata.aspect, DatasetPropertiesClass
+            wu.metadata.aspect,
+            DatasetPropertiesClass,
         ):
             properties_aspect = wu.metadata.aspect
             if properties_aspect:
                 yield convert_dataset_properties_to_patch(
-                    urn, properties_aspect, wu.metadata.systemMetadata
+                    urn,
+                    properties_aspect,
+                    wu.metadata.systemMetadata,
                 )
         else:
             yield wu

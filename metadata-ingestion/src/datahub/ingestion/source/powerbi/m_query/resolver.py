@@ -77,7 +77,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
         item_selector: Optional[Tree] = tree_function.first_item_selector_func(
-            expression_tree
+            expression_tree,
         )
         if item_selector is None:
             logger.debug("Item Selector not found in tree")
@@ -85,7 +85,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return None, None
 
         identifier_tree: Optional[Tree] = tree_function.first_identifier_func(
-            expression_tree
+            expression_tree,
         )
         if identifier_tree is None:
             logger.debug("Identifier not found in tree")
@@ -95,11 +95,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # remove whitespaces and quotes from token
         tokens: List[str] = tree_function.strip_char_from_list(
             tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(item_selector, parameters=self.parameters)
+                tree_function.token_values(item_selector, parameters=self.parameters),
             ),
         )
         identifier: List[str] = tree_function.token_values(
-            identifier_tree, parameters={}
+            identifier_tree,
+            parameters={},
         )
 
         # convert tokens to dict
@@ -110,7 +111,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     @staticmethod
     def get_argument_list(invoke_expression: Tree) -> Optional[Tree]:
         argument_list: Optional[Tree] = tree_function.first_arg_list_func(
-            invoke_expression
+            invoke_expression,
         )
         if argument_list is None:
             logger.debug("First argument-list rule not found in input tree")
@@ -124,7 +125,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         if first_arg_tree is None:
             logger.debug(
-                f"Function invocation without argument in expression = {expression.pretty()}"
+                f"Function invocation without argument in expression = {expression.pretty()}",
             )
             self.reporter.report_warning(
                 f"{self.table.full_name}-variable-statement",
@@ -134,7 +135,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return first_arg_tree
 
     def _process_invoke_expression(
-        self, invoke_expression: Tree
+        self,
+        invoke_expression: Tree,
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
         letter_tree: Tree = invoke_expression.children[0]
         data_access_func: str = tree_function.make_function_name(letter_tree)
@@ -145,7 +147,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         if data_access_func in self.data_access_functions:
             arg_list: Optional[Tree] = MQueryResolver.get_argument_list(
-                invoke_expression
+                invoke_expression,
             )
             if arg_list is None:
                 self.reporter.report_warning(
@@ -206,7 +208,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             first_argument = flat_arg_list[0]  # take first argument only
 
         expression: Optional[Tree] = tree_function.first_list_expression_func(
-            first_argument
+            first_argument,
         )
 
         if TRACE_POWERBI_MQUERY_PARSER:
@@ -217,7 +219,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             expression = tree_function.first_type_expression_func(first_argument)
             if expression is None:
                 logger.debug(
-                    f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}"
+                    f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}",
                 )
                 self.reporter.report_warning(
                     title="M-Query Resolver Error",
@@ -227,14 +229,15 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 return None
 
         tokens: List[str] = tree_function.remove_whitespaces_from_list(
-            tree_function.token_values(expression)
+            tree_function.token_values(expression),
         )
 
         logger.debug(f"Tokens in invoke expression are {tokens}")
         return tokens
 
     def _process_item_selector_expression(
-        self, rh_tree: Tree
+        self,
+        rh_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
         first_expression: Optional[Tree] = tree_function.first_expression_func(rh_tree)
         assert first_expression is not None
@@ -251,17 +254,22 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # It is first identifier_accessor
         if identifier_accessor is None:
             return IdentifierAccessor(
-                identifier=new_identifier, items=key_vs_value, next=None
+                identifier=new_identifier,
+                items=key_vs_value,
+                next=None,
             )
 
         new_identifier_accessor: IdentifierAccessor = IdentifierAccessor(
-            identifier=new_identifier, items=key_vs_value, next=identifier_accessor
+            identifier=new_identifier,
+            items=key_vs_value,
+            next=identifier_accessor,
         )
 
         return new_identifier_accessor
 
     def create_data_access_functional_detail(
-        self, identifier: str
+        self,
+        identifier: str,
     ) -> List[DataAccessFunctionDetail]:
         table_links: List[DataAccessFunctionDetail] = []
 
@@ -287,7 +295,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             # Examples: Source = PostgreSql.Database(<arg-list>)
             #           public_order_date = Source{[Schema="public",Item="order_date"]}[Data]
             v_statement: Optional[Tree] = tree_function.get_variable_statement(
-                self.parse_tree, current_identifier
+                self.parse_tree,
+                current_identifier,
             )
             if v_statement is None:
                 self.reporter.report_warning(
@@ -330,14 +339,16 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             else:
                 new_identifier, key_vs_value = self._process_item_selector_expression(
-                    rh_tree
+                    rh_tree,
                 )
                 if new_identifier is None or key_vs_value is None:
                     logger.debug("Required information not found in rh_tree")
                     return None
                 new_identifier_accessor: IdentifierAccessor = (
                     self._create_or_update_identifier_accessor(
-                        identifier_accessor, new_identifier, key_vs_value
+                        identifier_accessor,
+                        new_identifier,
+                        key_vs_value,
                     )
                 )
 
@@ -357,7 +368,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         # Find out output variable as we are doing backtracking in M-Query
         output_variable: Optional[str] = tree_function.get_output_variable(
-            self.parse_tree
+            self.parse_tree,
         )
 
         if output_variable is None:
@@ -376,11 +387,11 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         for f_detail in table_links:
             # Get & Check if we support data-access-function available in M-Query
             supported_resolver = SupportedPattern.get_pattern_handler(
-                f_detail.data_access_function_name
+                f_detail.data_access_function_name,
             )
             if supported_resolver is None:
                 logger.debug(
-                    f"Resolver not found for the data-access-function {f_detail.data_access_function_name}"
+                    f"Resolver not found for the data-access-function {f_detail.data_access_function_name}",
                 )
                 self.reporter.report_warning(
                     f"{self.table.full_name}-data-access-function",

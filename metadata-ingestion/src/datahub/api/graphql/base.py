@@ -38,7 +38,8 @@ class BaseApi:
         )
 
     def gen_filter(
-        self, filters: Dict[str, Optional[str]]
+        self,
+        filters: Dict[str, Optional[str]],
     ) -> Optional[Dict[str, List[Dict[str, str]]]]:
         filter_expression: Optional[Dict[str, List[Dict[str, str]]]] = None
         if not filters:

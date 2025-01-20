@@ -314,7 +314,9 @@ def test_make_usage_workunit_include_top_n_queries():
 @freeze_time("2023-01-01 00:00:00")
 def test_convert_usage_aggregation_class():
     urn = make_dataset_urn_with_platform_instance(
-        "platform", "test_db.test_schema.test_table", None
+        "platform",
+        "test_db.test_schema.test_table",
+        None,
     )
     usage_aggregation = UsageAggregationClass(
         bucket=int(time.time() * 1000),
@@ -333,7 +335,7 @@ def test_convert_usage_aggregation_class():
         ),
     )
     assert convert_usage_aggregation_class(
-        usage_aggregation
+        usage_aggregation,
     ) == MetadataChangeProposalWrapper(
         entityUrn=urn,
         aspect=DatasetUsageStatisticsClass(
@@ -344,7 +346,9 @@ def test_convert_usage_aggregation_class():
             topSqlQueries=["SELECT * FROM my_table", "SELECT col from a.b.c"],
             userCounts=[
                 DatasetUserUsageCountsClass(
-                    user="abc", count=3, userEmail="abc@acryl.io"
+                    user="abc",
+                    count=3,
+                    userEmail="abc@acryl.io",
                 ),
                 DatasetUserUsageCountsClass(user="def", count=1),
             ],
@@ -367,7 +371,7 @@ def test_convert_usage_aggregation_class():
         metrics=UsageAggregationMetricsClass(),
     )
     assert convert_usage_aggregation_class(
-        empty_usage_aggregation
+        empty_usage_aggregation,
     ) == MetadataChangeProposalWrapper(
         entityUrn=empty_urn,
         aspect=DatasetUsageStatisticsClass(

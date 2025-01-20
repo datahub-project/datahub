@@ -61,11 +61,11 @@ class NamingPattern(ConfigModel):
         for v in variables:
             if v not in self.ALLOWED_VARS:
                 raise ValueError(
-                    f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
+                    f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}",
                 )
         if at_least_one and len(variables) == 0:
             raise ValueError(
-                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
+                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}",
             )
         return True
 
@@ -123,7 +123,7 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     )
 
     _deprecate_explore_browse_pattern = pydantic_field_deprecated(
-        "explore_browse_pattern"
+        "explore_browse_pattern",
     )
     _deprecate_view_browse_pattern = pydantic_field_deprecated("view_browse_pattern")
 
@@ -155,7 +155,8 @@ def _get_bigquery_definition(
 
 
 def _get_generic_definition(
-    looker_connection: DBConnection, platform: Optional[str] = None
+    looker_connection: DBConnection,
+    platform: Optional[str] = None,
 ) -> Tuple[str, Optional[str], Optional[str]]:
     if platform is None:
         # We extract the platform from the dialect name
@@ -199,7 +200,8 @@ class LookerConnectionDefinition(ConfigModel):
 
     @classmethod
     def from_looker_connection(
-        cls, looker_connection: DBConnection
+        cls,
+        looker_connection: DBConnection,
     ) -> "LookerConnectionDefinition":
         """Dialect definitions are here: https://docs.looker.com/setup-and-management/database-config"""
         extractors: Dict[str, Any] = {
@@ -209,14 +211,14 @@ class LookerConnectionDefinition(ConfigModel):
 
         if looker_connection.dialect_name is None:
             raise ConfigurationError(
-                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
+                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions.",
             )
         for extractor_pattern, extracting_function in extractors.items():
             if re.match(extractor_pattern, looker_connection.dialect_name):
                 (platform, db, schema) = extracting_function(looker_connection)
                 return cls(platform=platform, default_db=db, default_schema=schema)
         raise ConfigurationError(
-            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
+            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}",
         )
 
 
@@ -282,7 +284,8 @@ class LookerDashboardSourceConfig(
         "enabled inside of Looker to use this feature.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
+        default=None,
+        description="",
     )
     extract_independent_looks: bool = Field(
         False,
@@ -315,16 +318,25 @@ class LookerDashboardSourceConfig(
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
-        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+        cls,
+        v: Optional[str],
+        *,
+        values: Dict[str, Any],
+        **kwargs: Dict[str, Any],
     ) -> Optional[str]:
         return v or values.get("base_url")
 
     @validator("extract_independent_looks", always=True)
     def stateful_ingestion_should_be_enabled(
-        cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+        cls,
+        v: Optional[bool],
+        *,
+        values: Dict[str, Any],
+        **kwargs: Dict[str, Any],
     ) -> Optional[bool]:
         stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
-            StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
+            StatefulStaleMetadataRemovalConfig,
+            values.get("stateful_ingestion"),
         )
         if v is True and (
             stateful_ingestion is None or stateful_ingestion.enabled is False

@@ -86,14 +86,15 @@ class CorpUser(ConfigModel):
     def generate_group_membership_aspect(self) -> Iterable[GroupMembershipClass]:
         if self.groups is not None:
             group_membership = GroupMembershipClass(
-                groups=[builder.make_group_urn(group) for group in self.groups]
+                groups=[builder.make_group_urn(group) for group in self.groups],
             )
             return [group_membership]
         else:
             return []
 
     def generate_mcp(
-        self, generation_config: CorpUserGenerationConfig = CorpUserGenerationConfig()
+        self,
+        generation_config: CorpUserGenerationConfig = CorpUserGenerationConfig(),
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if generation_config.override_editable or self._needs_editable_aspect():
             mcp = MetadataChangeProposalWrapper(
@@ -136,7 +137,8 @@ class CorpUser(ConfigModel):
 
         # Finally emit status
         yield MetadataChangeProposalWrapper(
-            entityUrn=self.urn, aspect=StatusClass(removed=False)
+            entityUrn=self.urn,
+            aspect=StatusClass(removed=False),
         )
 
     def emit(

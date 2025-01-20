@@ -97,7 +97,8 @@ class SlackSource(Source):
         self.report = SlackSourceReport()
         self.workspace_base_url: Optional[str] = None
         self.rate_limiter = RateLimiter(
-            max_calls=self.config.api_requests_per_min, period=60
+            max_calls=self.config.api_requests_per_min,
+            period=60,
         )
         self._use_users_info = False
 
@@ -135,7 +136,8 @@ class SlackSource(Source):
             logger.info(f"User: {user_obj}")
             corpuser_editable_info = (
                 self.ctx.graph.get_aspect(
-                    entity_urn=user_obj.urn, aspect_type=CorpUserEditableInfoClass
+                    entity_urn=user_obj.urn,
+                    aspect_type=CorpUserEditableInfoClass,
                 )
                 or CorpUserEditableInfoClass()
             )
@@ -161,7 +163,8 @@ class SlackSource(Source):
             )
 
     def _get_channel_info(
-        self, cursor: Optional[str]
+        self,
+        cursor: Optional[str],
     ) -> Tuple[List[MetadataWorkUnit], Optional[str]]:
         result_channels: List[MetadataWorkUnit] = []
         with self.rate_limiter:
@@ -173,7 +176,8 @@ class SlackSource(Source):
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
             self.report.report_failure(
-                "public_channel", "Failed to fetch public channels"
+                "public_channel",
+                "Failed to fetch public channels",
             )
             return result_channels, None
         for channel in response.data["channels"]:
@@ -182,7 +186,8 @@ class SlackSource(Source):
                 continue
             channel_id = channel["id"]
             urn_channel = builder.make_dataset_urn(
-                platform=PLATFORM_NAME, name=channel_id
+                platform=PLATFORM_NAME,
+                name=channel_id,
             )
             name = channel["name"]
             is_archived = channel.get("is_archived", False)
@@ -202,7 +207,7 @@ class SlackSource(Source):
                                 actor="urn:li:corpuser:datahub",
                             ),
                         ),
-                    )
+                    ),
                 )
 
             topic = channel.get("topic", {}).get("value")
@@ -220,7 +225,7 @@ class SlackSource(Source):
                             description=f"Topic: {topic}\nPurpose: {purpose}",
                         ),
                     ),
-                )
+                ),
             )
             result_channels.append(
                 MetadataWorkUnit(
@@ -231,7 +236,7 @@ class SlackSource(Source):
                             typeNames=["Slack Channel"],
                         ),
                     ),
-                )
+                ),
             )
         cursor = str(response.data["response_metadata"]["next_cursor"])
         return result_channels, cursor
@@ -255,12 +260,12 @@ class SlackSource(Source):
             with self.rate_limiter:
                 if self._use_users_info:
                     user_profile_res = self.get_slack_client().users_info(
-                        user=user_obj.slack_id
+                        user=user_obj.slack_id,
                     )
                     user_profile_res = user_profile_res.get("user", {})
                 else:
                     user_profile_res = self.get_slack_client().users_profile_get(
-                        user=user_obj.slack_id
+                        user=user_obj.slack_id,
                     )
             logger.debug(f"User profile: {user_profile_res}")
             user_profile = user_profile_res.get("profile", {})
@@ -285,7 +290,7 @@ class SlackSource(Source):
             # https://api.slack.com/methods/users.lookupByEmail
             with self.rate_limiter:
                 user_info_res = self.get_slack_client().users_lookupByEmail(
-                    email=user_obj.email
+                    email=user_obj.email,
                 )
             user_info = user_info_res.get("user", {})
             user_obj.slack_id = user_info.get("id")
@@ -309,7 +314,7 @@ class SlackSource(Source):
                     }
                 }
             }
-        """
+        """,
         )
         start = 0
         count = 10
@@ -320,7 +325,8 @@ class SlackSource(Source):
         while start < total:
             variables = {"input": {"start": start, "count": count}}
             response = self.ctx.graph.execute_graphql(
-                query=graphql_query, variables=variables
+                query=graphql_query,
+                variables=variables,
             )
             list_users = response.get("listUsers", {})
             total = list_users.get("total", 0)

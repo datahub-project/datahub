@@ -114,7 +114,7 @@ def detect_aws_environment() -> AwsEnvironment:
 
     # Check ECS
     if os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-        "ECS_CONTAINER_METADATA_URI"
+        "ECS_CONTAINER_METADATA_URI",
     ):
         return AwsEnvironment.ECS
 
@@ -160,7 +160,7 @@ def get_lambda_role_arn() -> Optional[str]:
 
         lambda_client = boto3.client("lambda")
         function_config = lambda_client.get_function_configuration(
-            FunctionName=function_name
+            FunctionName=function_name,
         )
         return function_config.get("Role")
     except Exception as e:
@@ -194,7 +194,7 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
     elif env == AwsEnvironment.ECS:
         try:
             metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-                "ECS_CONTAINER_METADATA_URI"
+                "ECS_CONTAINER_METADATA_URI",
             )
             if metadata_uri:
                 response = requests.get(f"{metadata_uri}/task", timeout=1)
@@ -339,7 +339,8 @@ class AwsConnectionConfig(ConfigModel):
         elif self.aws_profile:
             # Named profile is second priority
             session = Session(
-                region_name=self.aws_region, profile_name=self.aws_profile
+                region_name=self.aws_region,
+                profile_name=self.aws_profile,
             )
         else:
             # Use boto3's credential autodetection
@@ -419,7 +420,8 @@ class AwsConnectionConfig(ConfigModel):
         )
 
     def get_s3_client(
-        self, verify_ssl: Optional[Union[bool, str]] = None
+        self,
+        verify_ssl: Optional[Union[bool, str]] = None,
     ) -> "S3Client":
         return self.get_session().client(
             "s3",
@@ -429,7 +431,8 @@ class AwsConnectionConfig(ConfigModel):
         )
 
     def get_s3_resource(
-        self, verify_ssl: Optional[Union[bool, str]] = None
+        self,
+        verify_ssl: Optional[Union[bool, str]] = None,
     ) -> "S3ServiceResource":
         resource = self.get_session().resource(
             "s3",

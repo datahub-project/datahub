@@ -58,7 +58,7 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4"),
 )
 
 _DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
@@ -73,7 +73,7 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
-    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
+    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200),
 )
 
 
@@ -127,7 +127,9 @@ class RequestsSessionConfig(ConfigModel):
             )
 
         adapter = HTTPAdapter(
-            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+            pool_connections=100,
+            pool_maxsize=100,
+            max_retries=retry_strategy,
         )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
@@ -205,19 +207,20 @@ class DataHubRestEmitter(Closeable, Emitter):
                 or timeout[1] < _TIMEOUT_LOWER_BOUND_SEC
             ):
                 logger.warning(
-                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is (connect_timeout, read_timeout) = {timeout} seconds"
+                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is (connect_timeout, read_timeout) = {timeout} seconds",
                 )
         else:
             timeout = get_or_else(timeout_sec, _DEFAULT_TIMEOUT_SEC)
             if timeout < _TIMEOUT_LOWER_BOUND_SEC:
                 logger.warning(
-                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is timeout = {timeout} seconds"
+                    f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is timeout = {timeout} seconds",
                 )
 
         self._session_config = RequestsSessionConfig(
             timeout=timeout,
             retry_status_codes=get_or_else(
-                retry_status_codes, _DEFAULT_RETRY_STATUS_CODES
+                retry_status_codes,
+                _DEFAULT_RETRY_STATUS_CODES,
             ),
             retry_methods=get_or_else(retry_methods, _DEFAULT_RETRY_METHODS),
             retry_max_times=get_or_else(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
@@ -242,11 +245,11 @@ class DataHubRestEmitter(Closeable, Emitter):
                 raise ConfigurationError(
                     "You seem to have connected to the frontend service instead of the GMS endpoint. "
                     "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms). "
-                    "For Acryl users, the endpoint should be https://<name>.acryl.io/gms"
+                    "For Acryl users, the endpoint should be https://<name>.acryl.io/gms",
                 )
         else:
             logger.debug(
-                f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
+                f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}",
             )
             if response.status_code == 401:
                 message = f"Unable to connect to {url} - got an authentication error: {response.text}."
@@ -279,7 +282,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
             elif isinstance(
-                item, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+                item,
+                (MetadataChangeProposal, MetadataChangeProposalWrapper),
             ):
                 self.emit_mcp(item, async_flag=async_flag)
             else:
@@ -351,7 +355,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             mcp_obj_size = len(json.dumps(mcp_obj))
             if _DATAHUB_EMITTER_TRACE:
                 logger.debug(
-                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}",
                 )
 
             if (
@@ -366,7 +370,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             current_chunk_size += mcp_obj_size
         if len(mcp_obj_chunks) > 0:
             logger.debug(
-                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks",
             )
 
         for mcp_obj_chunk in mcp_obj_chunks:
@@ -398,7 +402,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
             # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
             logger.warning(
-                f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
+                f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size",
             )
         logger.debug(
             "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
@@ -414,7 +418,8 @@ class DataHubRestEmitter(Closeable, Emitter):
 
                 if info.get("stackTrace"):
                     logger.debug(
-                        "Full stack trace from DataHub:\n%s", info.get("stackTrace")
+                        "Full stack trace from DataHub:\n%s",
+                        info.get("stackTrace"),
                     )
                     info.pop("stackTrace", None)
 
@@ -431,11 +436,13 @@ class DataHubRestEmitter(Closeable, Emitter):
             except JSONDecodeError:
                 # If we can't parse the JSON, just raise the original error.
                 raise OperationalError(
-                    "Unable to emit metadata to DataHub GMS", {"message": str(e)}
+                    "Unable to emit metadata to DataHub GMS",
+                    {"message": str(e)},
                 ) from e
         except RequestException as e:
             raise OperationalError(
-                "Unable to emit metadata to DataHub GMS", {"message": str(e)}
+                "Unable to emit metadata to DataHub GMS",
+                {"message": str(e)},
             ) from e
 
     def __repr__(self) -> str:

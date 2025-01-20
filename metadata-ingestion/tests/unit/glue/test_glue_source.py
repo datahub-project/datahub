@@ -153,7 +153,8 @@ column_type_test_cases: Dict[str, Tuple[str, Type]] = {
 )
 def test_column_type(hive_column_type: str, expected_type: Type) -> None:
     avro_schema = get_avro_schema_for_hive_column(
-        f"test_column_{hive_column_type}", hive_column_type
+        f"test_column_{hive_column_type}",
+        hive_column_type,
     )
     schema_fields = avro_schema_to_mce_fields(json.dumps(avro_schema))
     actual_schema_field_type = schema_fields[0].type
@@ -213,7 +214,7 @@ def test_glue_ingest(
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
                 len(get_tables_response_1["TableList"])
-                + len(get_tables_response_2["TableList"])
+                + len(get_tables_response_2["TableList"]),
             ):
                 s3_stubber.add_response(
                     "get_bucket_tagging",
@@ -334,21 +335,23 @@ def test_get_databases_filters_by_catalog():
     )
     with Stubber(single_catalog_source.glue_client) as glue_stubber:
         glue_stubber.add_response(
-            "get_databases", get_databases_response, {"CatalogId": catalog_id}
+            "get_databases",
+            get_databases_response,
+            {"CatalogId": catalog_id},
         )
 
         expected = [flights_database, test_database]
         actual = single_catalog_source.get_all_databases()
         assert format_databases(actual) == format_databases(expected)
         assert single_catalog_source.report.databases.dropped_entities.as_obj() == [
-            "empty-database"
+            "empty-database",
         ]
 
 
 @freeze_time(FROZEN_TIME)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
-        test_resources_dir
+        test_resources_dir,
     )
 
     stateful_config = {
@@ -376,7 +379,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         },
         "sink": {
             # we are not really interested in the resulting events for this test
-            "type": "console"
+            "type": "console",
         },
         "pipeline_name": "statefulpipeline",
     }
@@ -416,10 +419,12 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
             # Validate that all providers have committed successfully.
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=1
+                pipeline=pipeline_run1,
+                expected_providers=1,
             )
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run2, expected_providers=1
+                pipeline=pipeline_run2,
+                expected_providers=1,
             )
 
             # Validate against golden MCEs where Status(removed=true)
@@ -434,7 +439,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
             state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
             difference_urns = set(
-                state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
+                state1.get_urns_not_in(type="*", other_checkpoint_state=state2),
             )
             assert difference_urns == {
                 "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
@@ -567,7 +572,7 @@ def test_glue_ingest_include_table_lineage(
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
                 len(get_tables_response_1["TableList"])
-                + len(get_tables_response_2["TableList"])
+                + len(get_tables_response_2["TableList"]),
             ):
                 s3_stubber.add_response(
                     "get_bucket_tagging",
@@ -642,7 +647,7 @@ def test_glue_ingest_include_column_lineage(
             version=0,
             hash="",
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -694,7 +699,9 @@ def test_glue_ingest_include_column_lineage(
 
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
         glue_stubber.add_response(
-            "get_databases", get_databases_response_for_lineage, {}
+            "get_databases",
+            get_databases_response_for_lineage,
+            {},
         )
         glue_stubber.add_response(
             "get_tables",

@@ -43,22 +43,22 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
                 # It is rare to attach tags to fields as part of the technical schema unless you are purely reflecting state that exists in the source system.
                 # For an editable (in UI) version of this, use the editableSchemaMetadata aspect
                 globalTags=GlobalTagsClass(
-                    tags=[TagAssociationClass(tag=make_tag_urn("location"))]
+                    tags=[TagAssociationClass(tag=make_tag_urn("location"))],
                 ),
                 # It is rare to attach glossary terms to fields as part of the technical schema unless you are purely reflecting state that exists in the source system.
                 # For an editable (in UI) version of this, use the editableSchemaMetadata aspect
                 glossaryTerms=GlossaryTermsClass(
                     terms=[
                         GlossaryTermAssociationClass(
-                            urn=make_term_urn("Classification.PII")
-                        )
+                            urn=make_term_urn("Classification.PII"),
+                        ),
                     ],
                     auditStamp=AuditStampClass(  # represents the time when this term was attached to this field?
                         time=0,  # time in milliseconds, leave as 0 if no time of association is known
                         actor="urn:li:corpuser:ingestion",  # if this is a system provided tag, use a bot user id like ingestion
                     ),
                 ),
-            )
+            ),
         ],
     ),
 )

@@ -4,7 +4,8 @@ from datahub.utilities import config_clean
 def test_remove_suffix():
     assert (
         config_clean.remove_suffix(
-            "xaaabcdef.snowflakecomputing.com", ".snowflakecomputing.com"
+            "xaaabcdef.snowflakecomputing.com",
+            ".snowflakecomputing.com",
         )
         == "xaaabcdef"
     )

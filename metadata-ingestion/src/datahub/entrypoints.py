@@ -135,10 +135,12 @@ def init(use_password: bool = False) -> None:
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
     click.echo(
-        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
+        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)",
     )
     host = click.prompt(
-        "Enter your DataHub host", type=str, default="http://localhost:8080"
+        "Enter your DataHub host",
+        type=str,
+        default="http://localhost:8080",
     )
     host = fixup_gms_url(host)
     if use_password:
@@ -148,7 +150,9 @@ def init(use_password: bool = False) -> None:
             type=str,
         )
         _, token = generate_access_token(
-            username=username, password=password, gms_url=host
+            username=username,
+            password=password,
+            gms_url=host,
         )
     else:
         token = click.prompt(
@@ -188,7 +192,7 @@ try:
 except ImportError as e:
     logger.debug(f"Failed to load datahub lite command: {e}")
     datahub.add_command(
-        make_shim_command("lite", "run `pip install 'acryl-datahub[datahub-lite]'`")
+        make_shim_command("lite", "run `pip install 'acryl-datahub[datahub-lite]'`"),
     )
 
 try:
@@ -198,7 +202,7 @@ try:
 except ImportError as e:
     logger.debug(f"Failed to load datahub actions framework: {e}")
     datahub.add_command(
-        make_shim_command("actions", "run `pip install acryl-datahub-actions`")
+        make_shim_command("actions", "run `pip install acryl-datahub-actions`"),
     )
 
 
@@ -221,10 +225,10 @@ def main(**kwargs):
             logger.exception(f"Command failed: {exc}")
 
         logger.debug(
-            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}",
         )
         logger.debug(
-            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
+            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}",
         )
         gms_config = get_gms_config()
         if gms_config:

@@ -19,7 +19,9 @@ class FormPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     def set_name(self, name: Optional[str] = None) -> "FormPatchBuilder":

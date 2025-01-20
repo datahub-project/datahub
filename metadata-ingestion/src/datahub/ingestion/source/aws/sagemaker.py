@@ -73,7 +73,9 @@ class SagemakerSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -81,7 +83,9 @@ class SagemakerSource(StatefulIngestionSourceBase):
         logger.info("Starting SageMaker ingestion...")
         # get common lineage graph
         lineage_processor = LineageProcessor(
-            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+            sagemaker_client=self.sagemaker_client,
+            env=self.env,
+            report=self.report,
         )
         lineage = lineage_processor.get_lineage()
 
@@ -89,12 +93,14 @@ class SagemakerSource(StatefulIngestionSourceBase):
         if self.source_config.extract_feature_groups:
             logger.info("Extracting feature groups...")
             feature_group_processor = FeatureGroupProcessor(
-                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
             )
             yield from feature_group_processor.get_workunits()
 
         model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(
-            dict
+            dict,
         )
         model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(dict)
 

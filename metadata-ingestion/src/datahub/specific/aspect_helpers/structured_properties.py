@@ -14,7 +14,9 @@ from datahub.utilities.urns.structured_properties_urn import (
 
 class HasStructuredPropertiesPatch(MetadataPatchProposal):
     def set_structured_property(
-        self, key: str, value: Union[str, float, List[Union[str, float]]]
+        self,
+        key: str,
+        value: Union[str, float, List[Union[str, float]]],
     ) -> Self:
         """Add or update a structured property.
 
@@ -48,7 +50,9 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         return self
 
     def add_structured_property(
-        self, key: str, value: Union[str, float, List[Union[str, float]]]
+        self,
+        key: str,
+        value: Union[str, float, List[Union[str, float]]],
     ) -> Self:
         """Add a structured property.
 

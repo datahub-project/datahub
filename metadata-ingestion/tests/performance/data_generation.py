@@ -50,7 +50,10 @@ class Distribution(metaclass=ABCMeta):
         raise NotImplementedError
 
     def sample(
-        self, *, floor: Optional[int] = None, ceiling: Optional[int] = None
+        self,
+        *,
+        floor: Optional[int] = None,
+        ceiling: Optional[int] = None,
     ) -> int:
         value = self._sample()
         if floor is not None:
@@ -208,7 +211,8 @@ def generate_queries(
             type="SELECT",
             actor=random.choice(users),
             timestamp=_random_time_between(
-                seed_metadata.start_time, seed_metadata.end_time
+                seed_metadata.start_time,
+                seed_metadata.end_time,
             ),
             fields_accessed=_sample_list(all_columns, columns_per_select),
         )
@@ -229,7 +233,8 @@ def generate_queries(
             type=random.choice(OPERATION_TYPES),
             actor=random.choice(users),
             timestamp=_random_time_between(
-                seed_metadata.start_time, seed_metadata.end_time
+                seed_metadata.start_time,
+                seed_metadata.end_time,
             ),
             # Can have no field accesses, e.g. on a standard INSERT
             fields_accessed=_sample_list(all_columns, num_columns_modified, 0),
@@ -247,7 +252,9 @@ def _container_type(i: int) -> str:
 
 
 def _generate_table(
-    i: int, parents: List[Container], columns_per_table: Distribution
+    i: int,
+    parents: List[Container],
+    columns_per_table: Distribution,
 ) -> Table:
     num_columns = columns_per_table.sample(floor=1)
 

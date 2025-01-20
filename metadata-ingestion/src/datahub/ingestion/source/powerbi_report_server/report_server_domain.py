@@ -29,7 +29,8 @@ class CatalogItem(BaseModel):
     display_name: Optional[str] = Field(None, alias="DisplayName")
     has_data_sources: bool = Field(default=False, alias="HasDataSources")
     data_sources: Optional[List["DataSource"]] = Field(
-        default_factory=list, alias="DataSources"
+        default_factory=list,
+        alias="DataSources",
     )
 
     @validator("display_name", always=True)
@@ -45,10 +46,18 @@ class CatalogItem(BaseModel):
         return f"{base_reports_url}powerbi{self.path}"
 
     def get_browse_path(
-        self, base_folder: str, workspace: str, env: str, report_directory: str
+        self,
+        base_folder: str,
+        workspace: str,
+        env: str,
+        report_directory: str,
     ) -> str:
         return "/{}/{}/{}/{}{}".format(
-            base_folder, env.lower(), workspace, report_directory, self.path
+            base_folder,
+            env.lower(),
+            workspace,
+            report_directory,
+            self.path,
         )
 
 
@@ -118,7 +127,7 @@ class Subscription(BaseModel):
     extension_settings: ExtensionSettings = Field(alias="ExtensionSettings")
     delivery_extension: str = Field(alias="DeliveryExtension")
     localized_delivery_extension_name: str = Field(
-        alias="LocalizedDeliveryExtensionName"
+        alias="LocalizedDeliveryExtensionName",
     )
     modified_by: str = Field(alias="ModifiedBy")
     modified_date: datetime = Field(alias="ModifiedDate")
@@ -135,19 +144,22 @@ class DataSource(CatalogItem):
     is_enabled: bool = Field(alias="IsEnabled")
     connection_string: str = Field(alias="ConnectionString")
     data_model_data_source: Optional[DataModelDataSource] = Field(
-        None, alias="DataModelDataSource"
+        None,
+        alias="DataModelDataSource",
     )
     data_source_sub_type: Optional[str] = Field(None, alias="DataSourceSubType")
     data_source_type: Optional[str] = Field(None, alias="DataSourceType")
     is_original_connection_string_expression_based: bool = Field(
-        alias="IsOriginalConnectionStringExpressionBased"
+        alias="IsOriginalConnectionStringExpressionBased",
     )
     is_connection_string_overridden: bool = Field(alias="IsConnectionStringOverridden")
     credentials_by_user: Optional[CredentialsByUser] = Field(
-        None, alias="CredentialsByUser"
+        None,
+        alias="CredentialsByUser",
     )
     credentials_in_server: Optional[CredentialsInServer] = Field(
-        None, alias="CredentialsInServer"
+        None,
+        alias="CredentialsInServer",
     )
     is_reference: bool = Field(alias="IsReference")
     subscriptions: Optional[Subscription] = Field(None, alias="Subscriptions")
@@ -330,7 +342,8 @@ class CorpUser(BaseModel):
     username: str
     properties: CorpUserProperties
     editable_properties: Optional[CorpUserEditableProperties] = Field(
-        None, alias="editableProperties"
+        None,
+        alias="editableProperties",
     )
     status: Optional[CorpUserStatus] = None
     tags: Optional[GlobalTags] = None

@@ -16,7 +16,7 @@ def test_csv_enricher_config():
             write_semantics="OVERRIDE",
             delimiter=",",
             array_delimiter="|",
-        )
+        ),
     )
     assert config
 
@@ -45,7 +45,7 @@ def test_csv_enricher_source(pytestconfig, tmp_path):
                     "filename": f"{tmp_path}/csv_enricher.json",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()

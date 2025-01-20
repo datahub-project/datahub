@@ -43,7 +43,9 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         return cls(config, ctx)
 
     def extend_field(
-        self, schema_field: SchemaFieldClass, server_field: Optional[SchemaFieldClass]
+        self,
+        schema_field: SchemaFieldClass,
+        server_field: Optional[SchemaFieldClass],
     ) -> SchemaFieldClass:
         all_terms = self.config.get_terms_to_add(schema_field.fieldPath)
         if len(all_terms) == 0:
@@ -86,7 +88,8 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
                 schema_field.glossaryTerms.auditStamp
                 if schema_field.glossaryTerms is not None
                 else AuditStampClass(
-                    time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                    time=builder.get_sys_time(),
+                    actor="urn:li:corpUser:restEmitter",
                 )
             ),
         )
@@ -96,15 +99,20 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         return schema_field
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[builder.Aspect],
     ) -> Optional[builder.Aspect]:
         schema_metadata_aspect: SchemaMetadataClass = cast(SchemaMetadataClass, aspect)
         assert schema_metadata_aspect is None or isinstance(
-            schema_metadata_aspect, SchemaMetadataClass
+            schema_metadata_aspect,
+            SchemaMetadataClass,
         )
 
         server_field_map: Dict[
-            str, SchemaFieldClass
+            str,
+            SchemaFieldClass,
         ] = {}  # Map to cache server field objects, where fieldPath is key
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
@@ -160,7 +168,9 @@ class PatternAddDatasetSchemaTerms(AddDatasetSchemaTerms):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetSchemaTerms":
         config = PatternDatasetTermsConfig.parse_obj(config_dict)
         return cls(config, ctx)

@@ -20,7 +20,8 @@ from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 def mssql_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "sql-server"
+        test_resources_dir / "docker-compose.yml",
+        "sql-server",
     ) as docker_services:
         # Wait for SQL Server to be ready. We wait an extra couple seconds, as the port being available
         # does not mean the server is accepting connections.
@@ -49,7 +50,9 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
     # Run the metadata ingestion pipeline.
     config_file_path = (test_resources_dir / f"source_files/{config_file}").resolve()
     run_datahub_cmd(
-        ["ingest", "-c", f"{config_file_path}"], tmp_path=tmp_path, check_result=True
+        ["ingest", "-c", f"{config_file_path}"],
+        tmp_path=tmp_path,
+        check_result=True,
     )
 
     # Verify the output.
@@ -74,7 +77,8 @@ procedure_sqls = [sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir()]
 @pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
 def test_stored_procedure_lineage(
-    pytestconfig: pytest.Config, procedure_sql_file: str
+    pytestconfig: pytest.Config,
+    procedure_sql_file: str,
 ) -> None:
     sql_file_path = PROCEDURE_SQLS_DIR / procedure_sql_file
     procedure_code = sql_file_path.read_text()
@@ -102,7 +106,7 @@ def test_stored_procedure_lineage(
             procedure=procedure,
             procedure_job_urn=data_job_urn,
             is_temp_table=lambda name: "temp" in name.lower(),
-        )
+        ),
     )
     mce_helpers.check_goldens_stream(
         pytestconfig,

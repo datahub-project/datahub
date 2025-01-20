@@ -18,7 +18,9 @@ log = logging.getLogger(__name__)
 
 
 def _update_work_unit_id(
-    envelope: RecordEnvelope, urn: str, aspect_name: str
+    envelope: RecordEnvelope,
+    urn: str,
+    aspect_name: str,
 ) -> Dict[Any, Any]:
     structured_urn = Urn.from_string(urn)
     simple_name = "-".join(structured_urn.entity_ids)
@@ -35,7 +37,9 @@ class HandleEndOfStreamTransformer:
 
 
 class LegacyMCETransformer(
-    Transformer, HandleEndOfStreamTransformer, metaclass=ABCMeta
+    Transformer,
+    HandleEndOfStreamTransformer,
+    metaclass=ABCMeta,
 ):
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
@@ -50,7 +54,10 @@ class SingleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta):
 
     @abstractmethod
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         """Implement this method to transform a single aspect for an entity.
         param: entity_urn: the entity that is being processed
@@ -100,7 +107,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             entity_type = guess_entity_type(record.proposedSnapshot.urn)
             return entity_type in entity_types
         elif isinstance(
-            record, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
+            record,
+            (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
         ):
             return record.entityType in entity_types
 
@@ -115,7 +123,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             self.entity_map[mce.proposedSnapshot.urn] = record_entry
 
     def _record_mcp(
-        self, mcp: Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        self,
+        mcp: Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass],
     ) -> None:
         assert mcp.entityUrn
         record_entry = self.entity_map.get(mcp.entityUrn, {"seen": {}})
@@ -191,7 +200,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             if transformed_aspect is None:
                 # drop the record
                 log.debug(
-                    f"Dropping record {envelope} as transformation result is None"
+                    f"Dropping record {envelope} as transformation result is None",
                 )
             envelope.record.aspect = transformed_aspect
         else:
@@ -199,10 +208,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         return envelope if envelope.record.aspect is not None else None
 
     def _handle_end_of_stream(
-        self, envelope: RecordEnvelope
+        self,
+        envelope: RecordEnvelope,
     ) -> Iterable[RecordEnvelope]:
         if not isinstance(self, SingleAspectTransformer) and not isinstance(
-            self, LegacyMCETransformer
+            self,
+            LegacyMCETransformer,
         ):
             return
 
@@ -228,7 +239,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             )
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
             if not self._should_process(envelope.record):
@@ -237,7 +249,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             elif isinstance(envelope.record, MetadataChangeEventClass):
                 envelope = self._transform_or_record_mce(envelope)
             elif isinstance(
-                envelope.record, MetadataChangeProposalWrapper
+                envelope.record,
+                MetadataChangeProposalWrapper,
             ) and isinstance(self, SingleAspectTransformer):
                 return_envelope = self._transform_or_record_mcpw(envelope)
                 if return_envelope is None:
@@ -245,7 +258,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                 else:
                     envelope = return_envelope
             elif isinstance(envelope.record, EndOfStream) and isinstance(
-                self, SingleAspectTransformer
+                self,
+                SingleAspectTransformer,
             ):
                 # walk through state and call transform for any unprocessed entities
                 for urn, state in self.entity_map.items():

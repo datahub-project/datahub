@@ -77,8 +77,9 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
             aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,  # purposely using the misspelled version to work with gql
             parameters=AssertionStdParametersClass(
                 value=AssertionStdParameterClass(
-                    value="1", type=AssertionStdParameterTypeClass.NUMBER
-                )
+                    value="1",
+                    type=AssertionStdParameterTypeClass.NUMBER,
+                ),
             ),
         )
         return AssertionInfoClass(
@@ -104,11 +105,13 @@ class DataQualityAssertion(v1_ConfigModel):
             return self.__root__.type
 
     def generate_mcp(
-        self, assertion_urn: str, entity_urn: str
+        self,
+        assertion_urn: str,
+        entity_urn: str,
     ) -> List[MetadataChangeProposalWrapper]:
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
                 aspect=self.__root__.generate_assertion_info(entity_urn),
-            )
+            ),
         ]

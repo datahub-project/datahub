@@ -31,7 +31,9 @@ class PatternCleanUpOwnership(OwnershipTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternCleanUpOwnership":
         config = PatternCleanUpOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -50,7 +52,10 @@ class PatternCleanUpOwnership(OwnershipTransformer):
             return set()
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[builder.Aspect],
     ) -> Optional[builder.Aspect]:
         # get current owner URNs from the graph
         current_owner_urns = self._get_current_owner_urns(entity_urn)
@@ -65,7 +70,7 @@ class PatternCleanUpOwnership(OwnershipTransformer):
             cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
-            OwnershipTypeClass.DATAOWNER
+            OwnershipTypeClass.DATAOWNER,
         )
         owners = [
             OwnerClass(

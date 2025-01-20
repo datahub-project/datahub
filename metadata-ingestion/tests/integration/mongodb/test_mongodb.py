@@ -10,7 +10,8 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mongodb"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "mongo"
+        test_resources_dir / "docker-compose.yml",
+        "mongo",
     ) as docker_services:
         wait_for_port(docker_services, "testmongodb", 27017)
 
@@ -35,7 +36,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                         "filename": f"{tmp_path}/mongodb_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -67,7 +68,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                         "filename": f"{tmp_path}/mongodb_mces_small_schema_size.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

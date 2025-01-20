@@ -60,7 +60,7 @@ class DataFlow:
     def __post_init__(self):
         if self.env is not None and self.cluster is not None:
             raise ValueError(
-                "Cannot provide both env and cluster parameter. Cluster is deprecated in favor of env."
+                "Cannot provide both env and cluster parameter. Cluster is deprecated in favor of env.",
             )
 
         if self.env is None and self.cluster is None:
@@ -68,7 +68,7 @@ class DataFlow:
 
         if self.cluster is not None:
             logger.warning(
-                "The cluster argument is deprecated. Use env and possibly platform_instance instead."
+                "The cluster argument is deprecated. Use env and possibly platform_instance instead.",
             )
             self.env = self.cluster
 
@@ -97,7 +97,8 @@ class DataFlow:
                 for urn in (owners or [])
             ],
             lastModified=AuditStampClass(
-                time=0, actor=builder.make_user_urn(self.orchestrator)
+                time=0,
+                actor=builder.make_user_urn(self.orchestrator),
             ),
         )
         return [ownership]
@@ -107,7 +108,7 @@ class DataFlow:
             tags=[
                 TagAssociationClass(tag=builder.make_tag_urn(tag))
                 for tag in (sorted(self.tags) or [])
-            ]
+            ],
         )
         return [tags]
 
@@ -117,7 +118,7 @@ class DataFlow:
             env = self.env.upper()
         else:
             logger.debug(
-                f"{self.env} is not a valid environment type so Environment filter won't work."
+                f"{self.env} is not a valid environment type so Environment filter won't work.",
             )
         return env
 
@@ -137,7 +138,7 @@ class DataFlow:
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
                 ],
-            )
+            ),
         )
 
         return flow_mce

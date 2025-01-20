@@ -54,7 +54,10 @@ class BaseTimeWindowConfig(ConfigModel):
 
     @pydantic.validator("start_time", pre=True, always=True)
     def default_start_time(
-        cls, v: Any, values: Dict[str, Any], **kwargs: Any
+        cls,
+        v: Any,
+        values: Dict[str, Any],
+        **kwargs: Any,
     ) -> datetime:
         if v is None:
             return get_time_bucket(
@@ -70,7 +73,7 @@ class BaseTimeWindowConfig(ConfigModel):
                     "Relative start time should start with minus sign (-) e.g. '-2 days'."
                 )
                 assert abs(delta) >= get_bucket_duration_delta(
-                    values["bucket_duration"]
+                    values["bucket_duration"],
                 ), (
                     "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
                 )
@@ -81,7 +84,8 @@ class BaseTimeWindowConfig(ConfigModel):
                     values["end_time"] = datetime.now(tz=timezone.utc)
 
                 return get_time_bucket(
-                    values["end_time"] + delta, values["bucket_duration"]
+                    values["end_time"] + delta,
+                    values["bucket_duration"],
                 )
             except humanfriendly.InvalidTimespan:
                 # We do not floor start_time to the bucket start time if absolute start time is specified.
@@ -94,7 +98,7 @@ class BaseTimeWindowConfig(ConfigModel):
     def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError(
-                "Timestamps must be in UTC. Try adding a 'Z' to the value e.g. '2021-07-20T00:00:00Z'"
+                "Timestamps must be in UTC. Try adding a 'Z' to the value e.g. '2021-07-20T00:00:00Z'",
             )
 
         # If the timestamp is timezone-aware but not in UTC, convert it to UTC.

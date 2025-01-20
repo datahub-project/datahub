@@ -10,7 +10,8 @@ RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
 @pytest.fixture(autouse=True)
 def set_update_sql_parser(
-    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
 

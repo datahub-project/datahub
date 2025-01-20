@@ -23,7 +23,7 @@ def pydantic_renamed_field(
         if old_name in values:
             if new_name in values:
                 raise ValueError(
-                    f"Cannot specify both {old_name} and {new_name} in the same config. Note that {old_name} has been deprecated in favor of {new_name}."
+                    f"Cannot specify both {old_name} and {new_name} in the same config. Note that {old_name} has been deprecated in favor of {new_name}.",
                 )
             else:
                 if print_warning:
@@ -50,5 +50,5 @@ def pydantic_renamed_field(
     # Given that a renamed field doesn't show up in the fields list, we can't use
     # the field-level validator, even with a different field name.
     return pydantic.root_validator(pre=True, skip_on_failure=True, allow_reuse=True)(
-        _validate_field_rename
+        _validate_field_rename,
     )

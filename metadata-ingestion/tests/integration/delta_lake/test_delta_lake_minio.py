@@ -35,7 +35,8 @@ def test_resources_dir(pytestconfig):
 def minio_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     container_name = "minio_test"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", container_name
+        test_resources_dir / "docker-compose.yml",
+        container_name,
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -101,7 +102,7 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
                     "filename": f"{tmp_path}/delta_lake_minio_mces.json",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()

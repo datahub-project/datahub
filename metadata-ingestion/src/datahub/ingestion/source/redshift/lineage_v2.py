@@ -145,7 +145,7 @@ class RedshiftSqlLineageV2(Closeable):
                 database=self.database,
                 connection=connection,
                 all_tables=collections.defaultdict(
-                    lambda: collections.defaultdict(set)
+                    lambda: collections.defaultdict(set),
                 ),
             )
             for entry in table_renames.values():
@@ -166,7 +166,7 @@ class RedshiftSqlLineageV2(Closeable):
                     LineageCollectorType.QUERY_SQL_PARSER,
                     query,
                     self._process_sql_parser_lineage,
-                )
+                ),
             )
         if self.config.table_lineage_mode in {
             LineageMode.STL_SCAN_BASED,
@@ -179,14 +179,18 @@ class RedshiftSqlLineageV2(Closeable):
                 self.end_time,
             )
             populate_calls.append(
-                (LineageCollectorType.QUERY_SCAN, query, self._process_stl_scan_lineage)
+                (
+                    LineageCollectorType.QUERY_SCAN,
+                    query,
+                    self._process_stl_scan_lineage,
+                ),
             )
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate lineage for views
             query = self.queries.view_lineage_query()
             populate_calls.append(
-                (LineageCollectorType.VIEW, query, self._process_view_lineage)
+                (LineageCollectorType.VIEW, query, self._process_view_lineage),
             )
 
             # Populate lineage for late binding views
@@ -196,7 +200,7 @@ class RedshiftSqlLineageV2(Closeable):
                     LineageCollectorType.VIEW_DDL_SQL_PARSING,
                     query,
                     self._process_view_lineage,
-                )
+                ),
             )
 
         if self.config.include_copy_lineage:
@@ -207,7 +211,7 @@ class RedshiftSqlLineageV2(Closeable):
                 end_time=self.end_time,
             )
             populate_calls.append(
-                (LineageCollectorType.COPY, query, self._process_copy_command)
+                (LineageCollectorType.COPY, query, self._process_copy_command),
             )
 
         if self.config.include_unload_lineage:
@@ -218,7 +222,7 @@ class RedshiftSqlLineageV2(Closeable):
                 end_time=self.end_time,
             )
             populate_calls.append(
-                (LineageCollectorType.UNLOAD, query, self._process_unload_command)
+                (LineageCollectorType.UNLOAD, query, self._process_unload_command),
             )
 
         for lineage_type, query, processor in populate_calls:
@@ -244,11 +248,13 @@ class RedshiftSqlLineageV2(Closeable):
             logger.debug(f"Processing {lineage_type.name} lineage query: {query}")
 
             timer = self.report.lineage_phases_timer.setdefault(
-                lineage_type.name, PerfTimer()
+                lineage_type.name,
+                PerfTimer(),
             )
             with timer:
                 for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                    conn=connection, query=query
+                    conn=connection,
+                    query=query,
                 ):
                     processor(lineage_row)
         except Exception as e:
@@ -274,7 +280,7 @@ class RedshiftSqlLineageV2(Closeable):
                 default_schema=self.config.default_schema,
                 timestamp=lineage_row.timestamp,
                 session_id=lineage_row.session_id,
-            )
+            ),
         )
 
     def _make_filtered_target(self, lineage_row: LineageRow) -> Optional[DatasetUrn]:
@@ -286,7 +292,7 @@ class RedshiftSqlLineageV2(Closeable):
         )
         if target.urn() not in self.known_urns:
             logger.debug(
-                f"Skipping lineage for {target.urn()} as it is not in known_urns"
+                f"Skipping lineage for {target.urn()} as it is not in known_urns",
             )
             return None
 
@@ -306,7 +312,7 @@ class RedshiftSqlLineageV2(Closeable):
 
         if lineage_row.ddl is None:
             logger.warning(
-                f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}"
+                f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}",
             )
             return
         self.aggregator.add_known_query_lineage(
@@ -354,7 +360,7 @@ class RedshiftSqlLineageV2(Closeable):
         logger.debug(f"Recognized s3 dataset urn: {s3_urn}")
         if not lineage_row.target_schema or not lineage_row.target_table:
             logger.debug(
-                f"Didn't find target schema (found: {lineage_row.target_schema}) or target table (found: {lineage_row.target_table})"
+                f"Didn't find target schema (found: {lineage_row.target_schema}) or target table (found: {lineage_row.target_table})",
             )
             return
         target = self._make_filtered_target(lineage_row)
@@ -362,7 +368,8 @@ class RedshiftSqlLineageV2(Closeable):
             return
 
         self.aggregator.add_known_lineage_mapping(
-            upstream_urn=s3_urn, downstream_urn=target.urn()
+            upstream_urn=s3_urn,
+            downstream_urn=target.urn(),
         )
 
     def _process_unload_command(self, lineage_row: LineageRow) -> None:
@@ -386,12 +393,13 @@ class RedshiftSqlLineageV2(Closeable):
         )
         if source.urn() not in self.known_urns:
             logger.debug(
-                f"Skipping unload lineage for {source.urn()} as it is not in known_urns"
+                f"Skipping unload lineage for {source.urn()} as it is not in known_urns",
             )
             return
 
         self.aggregator.add_known_lineage_mapping(
-            upstream_urn=source.urn(), downstream_urn=output_urn
+            upstream_urn=source.urn(),
+            downstream_urn=output_urn,
         )
 
     def _process_external_tables(

@@ -35,7 +35,8 @@ def handle_redshift_exceptions_yield(
 
 
 def report_redshift_failure(
-    report: RedshiftReport, e: redshift_connector.Error
+    report: RedshiftReport,
+    e: redshift_connector.Error,
 ) -> None:
     error_message = str(e).lower()
     if "permission denied" in error_message:

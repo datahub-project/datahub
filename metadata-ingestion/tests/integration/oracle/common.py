@@ -57,7 +57,7 @@ class MockConstraints:
                 self.rem_pos,
                 self.search_condition,
                 self.delete_rule,
-            )
+            ),
         ]
 
 
@@ -89,7 +89,7 @@ class MockColumns:
                 self.generated,
                 self.default_on_nul,
                 self.identity_options,
-            ]
+            ],
         ]
 
 
@@ -161,7 +161,7 @@ class OracleTestCaseBase:
                 "config": {
                     **self.get_default_recipe_config().dict(),
                 },
-            }
+            },
         }
 
     def get_username(self) -> str:
@@ -207,7 +207,7 @@ class OracleTestCaseBase:
                 "config": {
                     "filename": output_path,
                 },
-            }
+            },
         }
 
     def get_output_mce_path(self):
@@ -232,6 +232,7 @@ class OracleTestCaseBase:
             self.pytestconfig,
             output_path=output_path,
             golden_path="{}/{}".format(
-                self.get_test_resource_dir(), self.golden_file_name
+                self.get_test_resource_dir(),
+                self.golden_file_name,
             ),
         )

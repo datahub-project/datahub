@@ -32,7 +32,8 @@ def make_lineage_aspect(
                 dataset=upstream_urn,
                 type=models.DatasetLineageTypeClass.TRANSFORMED,
                 auditStamp=models.AuditStampClass(
-                    time=timestamp, actor="urn:li:corpuser:unknown"
+                    time=timestamp,
+                    actor="urn:li:corpuser:unknown",
                 ),
             )
             for upstream_urn in upstreams
@@ -89,8 +90,10 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
         incremental_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
-            ).as_workunit()
+                entityUrn=urn,
+                aspect=aspect,
+                systemMetadata=system_metadata,
+            ).as_workunit(),
         ],
     )
 
@@ -99,7 +102,9 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
         [wu.metadata for wu in processed_wus],
     )
     mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
+        pytestconfig=pytestconfig,
+        output_path=test_file,
+        golden_path=golden_file,
     )
 
 
@@ -114,8 +119,10 @@ def test_incremental_table_lineage_empty_upstreams(tmp_path, pytestconfig):
         incremental_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
-            ).as_workunit()
+                entityUrn=urn,
+                aspect=aspect,
+                systemMetadata=system_metadata,
+            ).as_workunit(),
         ],
     )
 
@@ -134,8 +141,10 @@ def test_incremental_column_lineage(tmp_path, pytestconfig):
         incremental_lineage=True,
         stream=[
             MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
-            ).as_workunit()
+                entityUrn=urn,
+                aspect=aspect,
+                systemMetadata=system_metadata,
+            ).as_workunit(),
         ],
     )
 
@@ -144,7 +153,9 @@ def test_incremental_column_lineage(tmp_path, pytestconfig):
         [wu.metadata for wu in processed_wus],
     )
     mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
+        pytestconfig=pytestconfig,
+        output_path=test_file,
+        golden_path=golden_file,
     )
 
 
@@ -181,5 +192,7 @@ def test_incremental_lineage_pass_through(tmp_path, pytestconfig):
         [wu.metadata for wu in processed_wus],
     )
     mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig, output_path=test_file, golden_path=golden_file
+        pytestconfig=pytestconfig,
+        output_path=test_file,
+        golden_path=golden_file,
     )

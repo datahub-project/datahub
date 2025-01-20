@@ -45,7 +45,7 @@ from datahub.utilities.server_config_util import set_gms_config
 logger = logging.getLogger(__name__)
 
 _DEFAULT_REST_SINK_MAX_THREADS = int(
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15),
 )
 
 
@@ -60,7 +60,8 @@ class RestSinkMode(ConfigEnum):
 
 
 _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
+    RestSinkMode,
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH),
 )
 
 
@@ -78,7 +79,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     def validate_max_per_batch(cls, v):
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(
-                f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
+                f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}",
             )
         return v
 
@@ -131,7 +132,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             gms_config = self.emitter.get_server_config()
         except Exception as exc:
             raise ConfigurationError(
-                f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
+                f"💥 Failed to connect to DataHub with {repr(self.emitter)}",
             ) from exc
 
         self.report.gms_version = (
@@ -202,7 +203,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         if future.cancelled():
             self.report.report_failure({"error": "future was cancelled"})
             write_callback.on_failure(
-                record_envelope, OperationalError("future was cancelled"), {}
+                record_envelope,
+                OperationalError("future was cancelled"),
+                {},
             )
         elif future.done():
             e = future.exception()
@@ -215,7 +218,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 if "stackTrace" in e.info:
                     with contextlib.suppress(Exception):
                         e.info["stackTrace"] = "\n".join(
-                            e.info["stackTrace"].split("\n")[:3]
+                            e.info["stackTrace"].split("\n")[:3],
                         )
                         e.info["message"] = e.info.get("message", "").split("\n")[0][
                             :200
@@ -277,7 +280,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             self.report.async_batches_split += chunks
             logger.info(
                 f"In async_batch mode, the payload was split into {chunks} batches. "
-                "If there's many of these issues, consider decreasing `max_per_batch`."
+                "If there's many of these issues, consider decreasing `max_per_batch`.",
             )
 
     def write_record_async(
@@ -303,7 +306,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     self._emit_wrapper,
                     record,
                     done_callback=functools.partial(
-                        self._write_done_callback, record_envelope, write_callback
+                        self._write_done_callback,
+                        record_envelope,
+                        write_callback,
                     ),
                 )
                 self.report.pending_requests += 1
@@ -314,7 +319,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     partition_key,
                     record,
                     done_callback=functools.partial(
-                        self._write_done_callback, record_envelope, write_callback
+                        self._write_done_callback,
+                        record_envelope,
+                        write_callback,
                     ),
                 )
                 self.report.pending_requests += 1
@@ -329,7 +336,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     def emit_async(
         self,
         item: Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
         ],
     ) -> None:
         return self.write_record_async(

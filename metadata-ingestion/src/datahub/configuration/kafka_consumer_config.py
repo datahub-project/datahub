@@ -55,7 +55,7 @@ class CallableConsumerConfig:
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 )
                 and param.default == inspect.Parameter.empty
-            ]
+            ],
         )
 
         has_variadic_args = any(

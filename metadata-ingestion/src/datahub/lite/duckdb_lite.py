@@ -50,17 +50,22 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         fpath = pathlib.Path(self.config.file)
         fpath.parent.mkdir(exist_ok=True)
         self.duckdb_client = duckdb.connect(
-            str(fpath), read_only=config.read_only, config=config.options
+            str(fpath),
+            read_only=config.read_only,
+            config=config.options,
         )
         if not config.read_only:
             self._init_db()
 
     def _create_unique_index(
-        self, index_name: str, table_name: str, columns: list
+        self,
+        index_name: str,
+        table_name: str,
+        columns: list,
     ) -> None:
         try:
             self.duckdb_client.execute(
-                f"CREATE UNIQUE INDEX {index_name} ON {table_name} ({', '.join(columns)})"
+                f"CREATE UNIQUE INDEX {index_name} ON {table_name} ({', '.join(columns)})",
             )
         except duckdb.CatalogException as e:
             if "already exists" not in str(e).lower():
@@ -69,20 +74,24 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def _init_db(self) -> None:
         self.duckdb_client.execute(
             "CREATE TABLE IF NOT EXISTS metadata_aspect_v2 "
-            "(urn VARCHAR, aspect_name VARCHAR, version BIGINT, metadata JSON, system_metadata JSON, createdon BIGINT)"
+            "(urn VARCHAR, aspect_name VARCHAR, version BIGINT, metadata JSON, system_metadata JSON, createdon BIGINT)",
         )
 
         self._create_unique_index(
-            "aspect_idx", "metadata_aspect_v2", ["urn", "aspect_name", "version"]
+            "aspect_idx",
+            "metadata_aspect_v2",
+            ["urn", "aspect_name", "version"],
         )
 
         self.duckdb_client.execute(
             "CREATE TABLE IF NOT EXISTS metadata_edge_v2 "
-            "(src_id VARCHAR, relnship VARCHAR, dst_id VARCHAR, dst_label VARCHAR)"
+            "(src_id VARCHAR, relnship VARCHAR, dst_id VARCHAR, dst_label VARCHAR)",
         )
 
         self._create_unique_index(
-            "edge_idx", "metadata_edge_v2", ["src_id", "relnship", "dst_id"]
+            "edge_idx",
+            "metadata_edge_v2",
+            ["src_id", "relnship", "dst_id"],
         )
 
     def location(self) -> str:
@@ -106,7 +115,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             writeables = mcps_from_mce(record)
         else:
             raise ValueError(
-                f"DuckDBCatalog only supports MCEs and MCPs, not {type(record)}"
+                f"DuckDBCatalog only supports MCEs and MCPs, not {type(record)}",
             )
 
         if not writeables:
@@ -130,7 +139,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     metadata_dict = json.loads(max_row[0])  # type: ignore
                     system_metadata = json.loads(max_row[1])  # type: ignore
                     real_version = system_metadata.get("properties", {}).get(
-                        "sysVersion"
+                        "sysVersion",
                     )
                     if real_version is None:
                         max_version_row = self.duckdb_client.execute(
@@ -156,7 +165,8 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
                 if writeable.systemMetadata is None:
                     writeable.systemMetadata = SystemMetadataClass(
-                        lastObserved=created_on, properties={}
+                        lastObserved=created_on,
+                        properties={},
                     )
                 elif writeable.systemMetadata.lastObserved is None:
                     writeable.systemMetadata.lastObserved = created_on
@@ -205,7 +215,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     # this is a dup, we still want to update the lastObserved timestamp
                     if not system_metadata:
                         system_metadata = {
-                            "lastObserved": writeable.systemMetadata.lastObserved
+                            "lastObserved": writeable.systemMetadata.lastObserved,
                         }
                     else:
                         system_metadata["lastObserved"] = (
@@ -229,7 +239,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                         and writeable.aspect
                     )
                     self.post_update_hook(
-                        writeable.entityUrn, writeable.aspectName, writeable.aspect
+                        writeable.entityUrn,
+                        writeable.aspectName,
+                        writeable.aspect,
                     )
 
         self.duckdb_client.commit()
@@ -291,13 +303,17 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
             for r in self.duckdb_client.execute(base_query).fetchall():
                 yield Searchable(
-                    id=r[0], aspect=r[1], snippet=r[2] if snippet else None
+                    id=r[0],
+                    aspect=r[1],
+                    snippet=r[2] if snippet else None,
                 )
         elif flavor == SearchFlavor.EXACT:
             base_query = f"SELECT urn, aspect_name, metadata from metadata_aspect_v2 where version = 0 AND ({query})"
             for r in self.duckdb_client.execute(base_query).fetchall():
                 yield Searchable(
-                    id=r[0], aspect=r[1], snippet=r[2] if snippet else None
+                    id=r[0],
+                    aspect=r[1],
+                    snippet=r[2] if snippet else None,
                 )
         else:
             raise Exception(f"Unhandled search flavor {flavor}")
@@ -368,7 +384,8 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     )
         except Exception as e:
             logger.error(
-                f"Failed to write {src_id}, {relnship}, {dst_id}, {dst_label}", e
+                f"Failed to write {src_id}, {relnship}, {dst_id}, {dst_label}",
+                e,
             )
             raise
 
@@ -443,14 +460,15 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                                     success_path=success_path,
                                     failed_token=p,
                                     suggested_path=f"{success_path}/{r_name}".replace(
-                                        "//", "/"
+                                        "//",
+                                        "/",
                                     ),
                                 ),
-                            )
+                            ),
                         )
                     return results_list
                 raise PathNotFoundException(
-                    f"Path {path} not found at {p} for query: {query}, did you mean {alternatives}"
+                    f"Path {path} not found at {p} for query: {query}, did you mean {alternatives}",
                 )
             in_list = [r[0] for r in results]
             in_list_quoted = [f"'{r}'" for r in in_list]
@@ -486,7 +504,8 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 self.global_post_update_hook(urn, aspect_map)  # type: ignore
 
     def get_all_entities(
-        self, typed: bool = False
+        self,
+        typed: bool = False,
     ) -> Iterable[Dict[str, Union[dict, _Aspect]]]:
         query = "SELECT urn, aspect_name, metadata, system_metadata from metadata_aspect_v2 where version = 0 order by (urn, aspect_name)"
         results = self.duckdb_client.execute(query)
@@ -502,7 +521,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 )
                 try:
                     aspect_payload = ASPECT_MAP[aspect_name].from_obj(
-                        post_json_transform(aspect_payload)
+                        post_json_transform(aspect_payload),
                     )
                 except Exception as e:
                     logger.exception(
@@ -532,7 +551,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             urn = r[0]
             aspect_name = r[1]
             aspect_metadata = ASPECT_MAP[aspect_name].from_obj(
-                post_json_transform(json.loads(r[2]))
+                post_json_transform(json.loads(r[2])),
             )  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
@@ -580,35 +599,40 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 return Urn(entity_type="systemNode", entity_id=[k])
 
         logger.debug(
-            f"Failed to find category for platform {data_platform_urn}, mapping to generic data_platform"
+            f"Failed to find category for platform {data_platform_urn}, mapping to generic data_platform",
         )
         return Urn(entity_type="systemNode", entity_id=["data_platforms"])
 
     def global_post_update_hook(
-        self, entity_urn: str, aspect_map: Dict[str, _Aspect]
+        self,
+        entity_urn: str,
+        aspect_map: Dict[str, _Aspect],
     ) -> None:
         def pluralize(noun: str) -> str:
             return noun.lower() + "s"
 
         def get_typed_aspect(
-            aspect_map: Dict[str, _Aspect], aspect_type: Type[_Aspect]
+            aspect_map: Dict[str, _Aspect],
+            aspect_type: Type[_Aspect],
         ) -> Optional[_Aspect]:
             aspect_names = [k for k, v in ASPECT_MAP.items() if v == aspect_type]
             if aspect_names:
                 return aspect_map.get(aspect_names[0])
             raise Exception(
-                f"Unable to locate aspect type {aspect_type} in the registry"
+                f"Unable to locate aspect type {aspect_type} in the registry",
             )
 
         if not entity_urn:
             logger.error(f"Bad input {entity_urn}: {aspect_map}")
 
         container: Optional[ContainerClass] = get_typed_aspect(  # type: ignore
-            aspect_map, ContainerClass
+            aspect_map,
+            ContainerClass,
         )  # type: ignore
         subtypes: Optional[SubTypesClass] = get_typed_aspect(aspect_map, SubTypesClass)  # type: ignore
         dpi: Optional[DataPlatformInstanceClass] = get_typed_aspect(  # type: ignore
-            aspect_map, DataPlatformInstanceClass
+            aspect_map,
+            DataPlatformInstanceClass,
         )  # type: ignore
 
         needs_platform = Urn.from_string(entity_urn).get_type() in [
@@ -638,7 +662,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     parent_urn = maybe_parent_urn
                     if Urn.from_string(maybe_parent_urn).get_type() == "dataPlatform":
                         data_platform_urn = DataPlatformUrn.from_string(
-                            maybe_parent_urn
+                            maybe_parent_urn,
                         )
                         needs_dpi = True
                 else:
@@ -653,7 +677,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     )
                     try:
                         self._create_edges_from_data_platform_instance(
-                            data_platform_instance_urn
+                            data_platform_instance_urn,
                         )
                     except Exception as e:
                         logger.error(f"Failed to generate edges entity {entity_urn}", e)
@@ -681,13 +705,15 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             self.add_edge(type_urn, "name", pluralize(t), remove_existing=True)
 
     def _create_edges_from_data_platform_instance(
-        self, data_platform_instance_urn: Urn
+        self,
+        data_platform_instance_urn: Urn,
     ) -> None:
         data_platform_urn = DataPlatformUrn.from_string(
-            data_platform_instance_urn.get_entity_id()[0]
+            data_platform_instance_urn.get_entity_id()[0],
         )
         data_platform_instances_urn = Urn(
-            entity_type="systemNode", entity_id=[str(data_platform_urn), "instances"]
+            entity_type="systemNode",
+            entity_id=[str(data_platform_urn), "instances"],
         )
 
         data_platform_category = self.get_category_from_platform(data_platform_urn)
@@ -716,7 +742,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         # /<data_platform_category>/<data_platform>/instances
         self.add_edge(str(data_platform_urn), "child", str(data_platform_instances_urn))
         self.add_edge(
-            str(data_platform_instances_urn), "name", "instances", remove_existing=True
+            str(data_platform_instances_urn),
+            "name",
+            "instances",
+            remove_existing=True,
         )
         # /<data_platform_category>/<data_platform>/instances/<instance_name>
         self.add_edge(
@@ -727,7 +756,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         )
 
     def post_update_hook(
-        self, entity_urn: str, aspect_name: str, aspect: _Aspect
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: _Aspect,
     ) -> None:
         if isinstance(aspect, DatasetPropertiesClass):
             dp: DatasetPropertiesClass = aspect

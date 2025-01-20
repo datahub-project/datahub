@@ -99,7 +99,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         connector_manifest: ConnectorManifest,
     ) -> JdbcParser:
         url = remove_prefix(
-            str(connector_manifest.config.get("connection.url")), "jdbc:"
+            str(connector_manifest.config.get("connection.url")),
+            "jdbc:",
         )
         url_instance = make_url(url)
         source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
@@ -189,11 +190,12 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                     [
                         task["config"].get("tables")
                         for task in self.connector_manifest.tasks
-                    ]
+                    ],
                 )
             ).split(",")
             quote_method = self.connector_manifest.config.get(
-                "quote.sql.identifiers", "always"
+                "quote.sql.identifiers",
+                "always",
             )
             if (
                 quote_method == "always"
@@ -212,13 +214,17 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             (
                 (
                     unquote(
-                        table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
+                        table_id.split(sep)[-2],
+                        leading_quote_char,
+                        trailing_quote_char,
                     )
                     if len(table_id.split(sep)) > 1
                     else ""
                 ),
                 unquote(
-                    table_id.split(sep)[-1], leading_quote_char, trailing_quote_char
+                    table_id.split(sep)[-1],
+                    leading_quote_char,
+                    trailing_quote_char,
                 ),
             )
             for table_id in table_ids
@@ -234,7 +240,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         # Mask/Remove properties that may reveal credentials
         flow_property_bag["connection.url"] = self.get_parser(
-            self.connector_manifest
+            self.connector_manifest,
         ).db_connection_url
 
         return flow_property_bag
@@ -249,7 +255,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         transforms = parser.transforms
 
         logging.debug(
-            f"Extracting source platform: {source_platform} and database name: {database_name} from connection url "
+            f"Extracting source platform: {source_platform} and database name: {database_name} from connection url ",
         )
 
         if not self.connector_manifest.topic_names:
@@ -282,13 +288,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 not in self.KNOWN_TOPICROUTING_TRANSFORMS
                 + self.KNOWN_NONTOPICROUTING_TRANSFORMS
                 for transform in transforms
-            ]
+            ],
         )
         ALL_TRANSFORMS_NON_TOPICROUTING = all(
             [
                 transform["type"] in self.KNOWN_NONTOPICROUTING_TRANSFORMS
                 for transform in transforms
-            ]
+            ],
         )
 
         if NO_TRANSFORM or ALL_TRANSFORMS_NON_TOPICROUTING:
@@ -342,7 +348,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                         topic_prefix=topic_prefix,
                         topic_names=topic_names,
                         include_source_dataset=False,
-                    )
+                    ),
                 )
                 self.report.warning(
                     "Could not find input dataset for connector topics",
@@ -479,12 +485,12 @@ class DebeziumSourceConnector(BaseConnector):
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
             database_name = connector_manifest.config.get(
-                "database.names"
+                "database.names",
             ) or connector_manifest.config.get("database.dbname")
 
             if "," in str(database_name):
                 raise Exception(
-                    f"Only one database is supported for Debezium's SQL Server connector. Found: {database_name}"
+                    f"Only one database is supported for Debezium's SQL Server connector. Found: {database_name}",
                 )
 
             parser = self.DebeziumParser(

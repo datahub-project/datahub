@@ -72,7 +72,8 @@ class PartitionInfo:
     # TimePartitioning field doesn't provide data_type so we have to add it afterwards
     @classmethod
     def from_time_partitioning(
-        cls, time_partitioning: TimePartitioning
+        cls,
+        time_partitioning: TimePartitioning,
     ) -> "PartitionInfo":
         return cls(
             field=time_partitioning.field or "_PARTITIONTIME",
@@ -83,7 +84,8 @@ class PartitionInfo:
 
     @classmethod
     def from_range_partitioning(
-        cls, range_partitioning: Dict[str, Any]
+        cls,
+        range_partitioning: Dict[str, Any],
     ) -> Optional["PartitionInfo"]:
         field: Optional[str] = range_partitioning.get("field")
         if not field:
@@ -102,7 +104,7 @@ class PartitionInfo:
             return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
         elif RANGE_PARTITIONING_KEY in table_info._properties:
             return PartitionInfo.from_range_partitioning(
-                table_info._properties[RANGE_PARTITIONING_KEY]
+                table_info._properties[RANGE_PARTITIONING_KEY],
             )
         else:
             return None
@@ -158,7 +160,7 @@ class BigqueryDataset:
     # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
     def is_biglake_dataset(self) -> bool:
         return self.location is not None and self.location.lower().startswith(
-            ("aws-", "azure-")
+            ("aws-", "azure-"),
         )
 
     def supports_table_constraints(self) -> bool:
@@ -212,7 +214,7 @@ class BigQuerySchemaApi:
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request...",
             )
             self.report.num_list_projects_retry_request += 1
             return True
@@ -265,20 +267,24 @@ class BigQuerySchemaApi:
                 for project in self.projects_client.search_projects(query=labels_query):
                     projects.append(
                         BigqueryProject(
-                            id=project.project_id, name=project.display_name
-                        )
+                            id=project.project_id,
+                            name=project.display_name,
+                        ),
                     )
 
                 return projects
 
             except Exception as e:
                 logger.error(
-                    f"Error getting projects with labels: {labels}. {e}", exc_info=True
+                    f"Error getting projects with labels: {labels}. {e}",
+                    exc_info=True,
                 )
                 return []
 
     def get_datasets_for_project_id(
-        self, project_id: str, maxResults: Optional[int] = None
+        self,
+        project_id: str,
+        maxResults: Optional[int] = None,
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
@@ -298,7 +304,8 @@ class BigQuerySchemaApi:
 
     # This is not used anywhere
     def get_datasets_for_project_id_with_information_schema(
-        self, project_id: str
+        self,
+        project_id: str,
     ) -> List[BigqueryDataset]:
         """
         This method is not used as of now, due to below limitation.
@@ -321,7 +328,9 @@ class BigQuerySchemaApi:
         ]
 
     def list_tables(
-        self, dataset_name: str, project_id: str
+        self,
+        dataset_name: str,
+        project_id: str,
     ) -> Iterator[TableListItem]:
         with PerfTimer() as current_timer:
             for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
@@ -364,7 +373,8 @@ class BigQuerySchemaApi:
                 try:
                     with current_timer.pause():
                         yield BigQuerySchemaApi._make_bigquery_table(
-                            table, tables.get(table.table_name)
+                            table,
+                            tables.get(table.table_name),
                         )
                 except Exception as e:
                     table_name = f"{project_id}.{dataset_name}.{table.table_name}"
@@ -379,7 +389,8 @@ class BigQuerySchemaApi:
 
     @staticmethod
     def _make_bigquery_table(
-        table: bigquery.Row, table_basic: Optional[TableListItem]
+        table: bigquery.Row,
+        table_basic: Optional[TableListItem],
     ) -> BigqueryTable:
         # Some properties we want to capture are only available from the TableListItem
         # we get from an earlier query of the list of tables.
@@ -425,13 +436,15 @@ class BigQuerySchemaApi:
                 # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
                     ),
                 )
             else:
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset_without_data_read.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
                     ),
                 )
 
@@ -492,11 +505,11 @@ class BigQuerySchemaApi:
                     if rate_limiter:
                         with rate_limiter:
                             policy_tag = self.datacatalog_client.get_policy_tag(
-                                name=policy_tag_name
+                                name=policy_tag_name,
                             )
                     else:
                         policy_tag = self.datacatalog_client.get_policy_tag(
-                            name=policy_tag_name
+                            name=policy_tag_name,
                         )
                     yield policy_tag.display_name
                 except Exception as e:
@@ -525,8 +538,9 @@ class BigQuerySchemaApi:
             try:
                 cur = self.get_query_result(
                     BigqueryQuery.constraints_for_table.format(
-                        project_id=project_id, dataset_name=dataset_name
-                    )
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    ),
                 )
             except Exception as e:
                 report.warning(
@@ -566,7 +580,7 @@ class BigQuerySchemaApi:
                             if constraint.constraint_type == "FOREIGN KEY"
                             else None
                         ),
-                    )
+                    ),
                 )
             self.report.num_get_table_constraints_for_dataset_api_requests += 1
             self.report.get_table_constraints_for_dataset_sec += timer.elapsed_seconds()
@@ -589,7 +603,8 @@ class BigQuerySchemaApi:
                 cur = self.get_query_result(
                     (
                         BigqueryQuery.columns_for_dataset.format(
-                            project_id=project_id, dataset_name=dataset_name
+                            project_id=project_id,
+                            dataset_name=dataset_name,
                         )
                         if not run_optimized_column_query
                         else BigqueryQuery.optimized_columns_for_dataset.format(
@@ -618,7 +633,7 @@ class BigQuerySchemaApi:
                     ):
                         if last_seen_table != column.table_name:
                             logger.warning(
-                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns",
                             )
                             last_seen_table = column.table_name
                     else:
@@ -642,12 +657,12 @@ class BigQuerySchemaApi:
                                             column.column_name,
                                             report,
                                             rate_limiter,
-                                        )
+                                        ),
                                     )
                                     if extract_policy_tags_from_catalog
                                     else []
                                 ),
-                            )
+                            ),
                         )
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
@@ -666,13 +681,15 @@ class BigQuerySchemaApi:
                 # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
                     ),
                 )
             else:
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset_without_data_read.format(
-                        project_id=project_id, dataset_name=dataset_name
+                        project_id=project_id,
+                        dataset_name=dataset_name,
                     ),
                 )
 
@@ -738,7 +755,7 @@ def query_project_list(
             yield project
         else:
             logger.debug(
-                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern",
             )
 
 
@@ -765,7 +782,7 @@ def query_project_list_from_labels(
     filters: BigQueryFilter,
 ) -> Iterable[BigqueryProject]:
     projects = schema_api.get_projects_with_labels(
-        frozenset(filters.filter_config.project_labels)
+        frozenset(filters.filter_config.project_labels),
     )
 
     if not projects:  # Report failure on exception and if empty list is returned
@@ -781,5 +798,5 @@ def query_project_list_from_labels(
             yield project
         else:
             logger.debug(
-                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern",
             )

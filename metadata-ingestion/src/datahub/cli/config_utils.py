@@ -79,7 +79,7 @@ def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
     # If port is not being used we assume someone is using host env var as URL
     if url is None and host is not None:
         logger.warning(
-            f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
+            f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead",
         )
     return url or host, token
 
@@ -99,14 +99,14 @@ def load_client_config() -> DatahubClientConfig:
 
     if _should_skip_config():
         raise MissingConfigError(
-            "You have set the skip config flag, but no GMS host or token was provided in env variables."
+            "You have set the skip config flag, but no GMS host or token was provided in env variables.",
         )
 
     try:
         _ensure_datahub_config()
         client_config_dict = get_raw_client_config()
         datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
-            client_config_dict
+            client_config_dict,
         ).gms
 
         return datahub_config
@@ -120,12 +120,14 @@ def _ensure_datahub_config() -> None:
     if not os.path.isfile(DATAHUB_CONFIG_PATH):
         raise MissingConfigError(
             f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, and no configuration was found in environment variables. "
-            f"Run `datahub init` to create a {CONDENSED_DATAHUB_CONFIG_PATH} file."
+            f"Run `datahub init` to create a {CONDENSED_DATAHUB_CONFIG_PATH} file.",
         )
 
 
 def write_gms_config(
-    host: str, token: Optional[str], merge_with_previous: bool = True
+    host: str,
+    token: Optional[str],
+    merge_with_previous: bool = True,
 ) -> None:
     config = DatahubConfig(gms=DatahubClientConfig(server=host, token=token))
     if merge_with_previous:
@@ -136,7 +138,7 @@ def write_gms_config(
             # ok to fail on this
             previous_config = {}
             logger.debug(
-                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}: {e}. This isn't fatal."
+                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}: {e}. This isn't fatal.",
             )
         config_dict = {**previous_config, **config.dict()}
     else:

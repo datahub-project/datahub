@@ -46,12 +46,14 @@ def upsert(file: Path, override_editable: bool) -> None:
                 datahub_group = CorpGroup.parse_obj(group_config)
                 for mcp in datahub_group.generate_mcp(
                     generation_config=CorpGroupGenerationConfig(
-                        override_editable=override_editable, datahub_graph=emitter
-                    )
+                        override_editable=override_editable,
+                        datahub_graph=emitter,
+                    ),
                 ):
                     emitter.emit(mcp)
                 click.secho(
-                    f"Update succeeded for group {datahub_group.urn}.", fg="green"
+                    f"Update succeeded for group {datahub_group.urn}.",
+                    fg="green",
                 )
             except Exception as e:
                 click.secho(

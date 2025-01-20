@@ -101,7 +101,8 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
 
     @abstractmethod
     def get_all_entities(
-        self, typed: bool = False
+        self,
+        typed: bool = False,
     ) -> Iterable[Dict[str, Union[dict, _Aspect]]]:
         pass
 

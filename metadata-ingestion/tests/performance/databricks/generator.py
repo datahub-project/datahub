@@ -35,7 +35,9 @@ class DatabricksDataGenerator:
             uri_opts={"http_path": f"/sql/1.0/warehouses/{warehouse_id}"},
         )
         engine = create_engine(
-            url, connect_args={"timeout": 600}, pool_size=MAX_WORKERS
+            url,
+            connect_args={"timeout": 600},
+            pool_size=MAX_WORKERS,
         )
         self.connection = engine.connect()
 
@@ -64,11 +66,14 @@ class DatabricksDataGenerator:
             "populate tables",
             seed_metadata.tables,
             lambda t: self._populate_table(
-                t, num_rows_distribution.sample(ceiling=1_000_000)
+                t,
+                num_rows_distribution.sample(ceiling=1_000_000),
             ),
         )
         _thread_pool_execute(
-            "create table lineage", seed_metadata.tables, self._create_table_lineage
+            "create table lineage",
+            seed_metadata.tables,
+            self._create_table_lineage,
         )
 
     def _create_catalog(self, catalog: Container) -> None:

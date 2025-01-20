@@ -24,7 +24,8 @@ class DataHubIngestionState(CheckpointStateBase):
     @property
     def database_createdon_datetime(self) -> datetime:
         return datetime.fromtimestamp(
-            self.database_createdon_ts / 1000, tz=timezone.utc
+            self.database_createdon_ts / 1000,
+            tz=timezone.utc,
         )
 
 
@@ -34,7 +35,7 @@ class PartitionOffset(NamedTuple):
 
 
 class StatefulDataHubIngestionHandler(
-    StatefulIngestionUsecaseHandlerBase[DataHubIngestionState]
+    StatefulIngestionUsecaseHandlerBase[DataHubIngestionState],
 ):
     def __init__(self, source: "DataHubSource"):
         self.state_provider = source.state_provider
@@ -50,7 +51,8 @@ class StatefulDataHubIngestionHandler(
     def get_last_run_state(self) -> DataHubIngestionState:
         if self.is_checkpointing_enabled() and not self.config.ignore_old_state:
             last_checkpoint = self.state_provider.get_last_checkpoint(
-                self.job_id, DataHubIngestionState
+                self.job_id,
+                DataHubIngestionState,
             )
             if last_checkpoint and last_checkpoint.state:
                 return last_checkpoint.state
@@ -63,7 +65,7 @@ class StatefulDataHubIngestionHandler(
 
         if self.pipeline_name is None:
             raise ValueError(
-                "Pipeline name must be set to use stateful datahub ingestion"
+                "Pipeline name must be set to use stateful datahub ingestion",
             )
 
         return Checkpoint(

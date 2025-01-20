@@ -23,7 +23,7 @@ prompt_1 = FormPromptClass(
     title="First Prompt",
     type=FormPromptTypeClass.STRUCTURED_PROPERTY,  # structured property type prompt
     structuredPropertyParams=StructuredPropertyParamsClass(
-        urn="urn:li:structuredProperty:property1"
+        urn="urn:li:structuredProperty:property1",
     ),  # reference existing structured property
     required=True,
 )
@@ -32,7 +32,7 @@ prompt_2 = FormPromptClass(
     title="Second Prompt",
     type=FormPromptTypeClass.FIELDS_STRUCTURED_PROPERTY,  # structured property prompt on dataset schema fields
     structuredPropertyParams=StructuredPropertyParamsClass(
-        urn="urn:li:structuredProperty:property1"
+        urn="urn:li:structuredProperty:property1",
     ),
     required=False,  # dataset schema fields prompts should not be required
 )

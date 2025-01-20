@@ -108,7 +108,7 @@ class LossySet(Set[T], Generic[T]):
         base_list: List[Union[T, str]] = list(self.__iter__())
         if self.sampled:
             base_list.append(
-                f"... sampled with at most {self._items_removed} elements missing."
+                f"... sampled with at most {self._items_removed} elements missing.",
             )
         return base_list
 

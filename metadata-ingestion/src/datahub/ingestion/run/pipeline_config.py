@@ -64,7 +64,8 @@ class FlagsConfig(ConfigModel):
     )
 
     set_system_metadata: bool = Field(
-        True, description="Set system metadata on entities."
+        True,
+        description="Set system metadata on entities.",
     )
     set_system_metadata_pipeline_name: bool = Field(
         True,
@@ -98,7 +99,10 @@ class PipelineConfig(ConfigModel):
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
-        cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
+        cls,
+        v: Optional[str],
+        values: Dict[str, Any],
+        **kwargs: Any,
     ) -> str:
         if v == DEFAULT_RUN_ID:
             source_type = None
@@ -112,7 +116,9 @@ class PipelineConfig(ConfigModel):
 
     @classmethod
     def from_dict(
-        cls, resolved_dict: dict, raw_dict: Optional[dict] = None
+        cls,
+        resolved_dict: dict,
+        raw_dict: Optional[dict] = None,
     ) -> "PipelineConfig":
         config = cls.parse_obj(resolved_dict)
         config._raw_dict = raw_dict

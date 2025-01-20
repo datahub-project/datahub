@@ -36,7 +36,8 @@ default_connector_query_results = [
 
 
 def default_query_results(
-    query, connector_query_results=default_connector_query_results
+    query,
+    connector_query_results=default_connector_query_results,
 ):
     fivetran_log_query = FivetranLogQuery()
     fivetran_log_query.set_db("test")
@@ -45,7 +46,7 @@ def default_query_results(
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
     elif query == fivetran_log_query.get_table_lineage_query(
-        connector_ids=["calendar_elected"]
+        connector_ids=["calendar_elected"],
     ):
         return [
             {
@@ -68,7 +69,7 @@ def default_query_results(
             },
         ]
     elif query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected"]
+        connector_ids=["calendar_elected"],
     ):
         return [
             {
@@ -103,7 +104,7 @@ def default_query_results(
                 "given_name": "Shubham",
                 "family_name": "Jagtap",
                 "email": "abc.xyz@email.com",
-            }
+            },
         ]
     elif query == fivetran_log_query.get_sync_logs_query(
         syncs_interval=7,
@@ -146,7 +147,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     golden_file = test_resources_dir / "fivetran_snowflake_golden.json"
 
     with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine",
     ) as mock_create_engine:
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.side_effect = default_query_results
@@ -174,18 +175,18 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                         "connector_patterns": {
                             "allow": [
                                 "postgres",
-                            ]
+                            ],
                         },
                         "destination_patterns": {
                             "allow": [
                                 "interval_unconstitutional",
-                            ]
+                            ],
                         },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
                                 "database": "postgres_db",
                                 "env": "DEV",
-                            }
+                            },
                         },
                     },
                 },
@@ -195,7 +196,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                         "filename": f"{output_file}",
                     },
                 },
-            }
+            },
         )
 
     pipeline.run()
@@ -220,7 +221,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
     )
 
     with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine",
     ) as mock_create_engine:
         connection_magic_mock = MagicMock()
 
@@ -237,7 +238,8 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
         ]
 
         connection_magic_mock.execute.side_effect = partial(
-            default_query_results, connector_query_results=connector_query_results
+            default_query_results,
+            connector_query_results=connector_query_results,
         )
 
         mock_create_engine.return_value = connection_magic_mock
@@ -263,19 +265,19 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                         "connector_patterns": {
                             "allow": [
                                 "postgres",
-                            ]
+                            ],
                         },
                         "destination_patterns": {
                             "allow": [
                                 "interval_unconstitutional",
-                            ]
+                            ],
                         },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
                                 "platform": "postgres",
                                 "env": "DEV",
                                 "database": "postgres_db",
-                            }
+                            },
                         },
                     },
                 },
@@ -285,7 +287,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                         "filename": f"{output_file}",
                     },
                 },
-            }
+            },
         )
 
     pipeline.run()

@@ -18,9 +18,10 @@ def base_entity_metadata():
     return {
         "urn:li:domain:12345": {
             "domainProperties": DomainPropertiesClass(
-                name="Marketing", description="Marketing Domain"
-            )
-        }
+                name="Marketing",
+                description="Marketing Domain",
+            ),
+        },
     }
 
 
@@ -45,7 +46,11 @@ def check_yaml_golden_file(input_file: str, golden_file: str) -> bool:
 
     diff_exists = False
     for line in difflib.unified_diff(
-        input_lines, golden_lines, fromfile=input_file, tofile=golden_file, lineterm=""
+        input_lines,
+        golden_lines,
+        fromfile=input_file,
+        tofile=golden_file,
+        lineterm="",
     ):
         print(line)
         diff_exists = True
@@ -99,7 +104,8 @@ def test_dataproduct_from_datahub(
     mock_graph.import_file(golden_file)
 
     data_product: DataProduct = DataProduct.from_datahub(
-        mock_graph, id="urn:li:dataProduct:pet_of_the_week"
+        mock_graph,
+        id="urn:li:dataProduct:pet_of_the_week",
     )
     assert data_product.domain == "urn:li:domain:12345"
     assert data_product.assets is not None
@@ -139,17 +145,20 @@ def test_dataproduct_patch_yaml(
 
     data_product_file = test_resources_dir / original_file
     original_data_product: DataProduct = DataProduct.from_yaml(
-        data_product_file, mock_graph
+        data_product_file,
+        mock_graph,
     )
     data_product: DataProduct = DataProduct.from_datahub(
-        mock_graph, id="urn:li:dataProduct:pet_of_the_week"
+        mock_graph,
+        id="urn:li:dataProduct:pet_of_the_week",
     )
     dataproduct_output_file = Path(tmp_path / f"patch_{original_file}")
     data_product.patch_yaml(original_data_product, dataproduct_output_file)
     dataproduct_golden_file = Path(test_resources_dir / "golden_dataproduct_v2.yaml")
     assert (
         check_yaml_golden_file(
-            str(dataproduct_output_file), str(dataproduct_golden_file)
+            str(dataproduct_output_file),
+            str(dataproduct_golden_file),
         )
         is False
     )
@@ -177,7 +186,9 @@ def test_dataproduct_ownership_type_urn_from_yaml(
 
 @freeze_time(FROZEN_TIME)
 def test_dataproduct_ownership_type_urn_patch_yaml(
-    tmp_path: Path, test_resources_dir: Path, base_mock_graph: MockDataHubGraph
+    tmp_path: Path,
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
 ) -> None:
     mock_graph = base_mock_graph
     source_file = test_resources_dir / "golden_dataproduct_out_ownership_type_urn.json"
@@ -187,11 +198,13 @@ def test_dataproduct_ownership_type_urn_patch_yaml(
         test_resources_dir / "dataproduct_ownership_type_urn_different_owner.yaml"
     )
     original_data_product: DataProduct = DataProduct.from_yaml(
-        data_product_file, mock_graph
+        data_product_file,
+        mock_graph,
     )
 
     data_product: DataProduct = DataProduct.from_datahub(
-        mock_graph, id="urn:li:dataProduct:pet_of_the_week"
+        mock_graph,
+        id="urn:li:dataProduct:pet_of_the_week",
     )
 
     dataproduct_output_file = (

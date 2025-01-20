@@ -45,7 +45,8 @@ class ValuesFactorConfig(ConfigModel):
         description="List of regex patterns the column value follows for the info type",
     )
     library: Optional[List[str]] = Field(
-        default=None, description="Library used for prediction"
+        default=None,
+        description="Library used for prediction",
     )
 
 
@@ -81,7 +82,8 @@ class InfoTypeConfig(ConfigModel):
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
     Description: Optional[DescriptionFactorConfig] = Field(
-        default=None, alias="description"
+        default=None,
+        alias="description",
     )
 
     Datatype: Optional[DataTypeFactorConfig] = Field(default=None, alias="datatype")

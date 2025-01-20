@@ -55,7 +55,8 @@ class DataProductPatchBuilder(
         return self
 
     def set_assets(
-        self, assets: List[DataProductAssociation]
+        self,
+        assets: List[DataProductAssociation],
     ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,

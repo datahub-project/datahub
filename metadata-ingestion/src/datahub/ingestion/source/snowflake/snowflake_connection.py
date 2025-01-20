@@ -65,10 +65,13 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     scheme: str = "snowflake"
     username: Optional[str] = pydantic.Field(
-        default=None, description="Snowflake username."
+        default=None,
+        description="Snowflake username.",
     )
     password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, exclude=True, description="Snowflake password."
+        default=None,
+        exclude=True,
+        description="Snowflake password.",
     )
     private_key: Optional[str] = pydantic.Field(
         default=None,
@@ -97,7 +100,8 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
     )
     warehouse: Optional[str] = pydantic.Field(
-        default=None, description="Snowflake warehouse."
+        default=None,
+        description="Snowflake warehouse.",
     )
     role: Optional[str] = pydantic.Field(default=None, description="Snowflake role.")
     connect_args: Optional[Dict[str, Any]] = pydantic.Field(
@@ -128,7 +132,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         if v not in _VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
-                f" use one of {list(_VALID_AUTH_TYPES.keys())}"
+                f" use one of {list(_VALID_AUTH_TYPES.keys())}",
             )
         if (
             values.get("private_key") is not None
@@ -136,7 +140,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         ) and v != "KEY_PAIR_AUTHENTICATOR":
             raise ValueError(
                 f"Either `private_key` and `private_key_path` is set but `authentication_type` is {v}. "
-                f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
+                f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication",
             )
         if v == "KEY_PAIR_AUTHENTICATOR":
             # If we are using key pair auth, we need the private key path and password to be set
@@ -146,7 +150,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             ):
                 raise ValueError(
                     f"Both `private_key` and `private_key_path` are none. "
-                    f"At least one should be set when using {v} authentication"
+                    f"At least one should be set when using {v} authentication",
                 )
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
@@ -161,7 +165,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
         elif v is not None:
             raise ValueError(
-                "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN"
+                "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN",
             )
         return v
 
@@ -169,27 +173,27 @@ class SnowflakeConnectionConfig(ConfigModel):
     def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:
         if oauth_config is None:
             raise ValueError(
-                "'oauth_config' is none but should be set when using OAUTH_AUTHENTICATOR authentication"
+                "'oauth_config' is none but should be set when using OAUTH_AUTHENTICATOR authentication",
             )
         if oauth_config.use_certificate is True:
             if oauth_config.provider == OAuthIdentityProvider.OKTA:
                 raise ValueError(
-                    "Certificate authentication is not supported for Okta."
+                    "Certificate authentication is not supported for Okta.",
                 )
             if oauth_config.encoded_oauth_private_key is None:
                 raise ValueError(
                     "'base64_encoded_oauth_private_key' was none "
-                    "but should be set when using certificate for oauth_config"
+                    "but should be set when using certificate for oauth_config",
                 )
             if oauth_config.encoded_oauth_public_key is None:
                 raise ValueError(
                     "'base64_encoded_oauth_public_key' was none"
-                    "but should be set when using use_certificate true for oauth_config"
+                    "but should be set when using use_certificate true for oauth_config",
                 )
         elif oauth_config.client_secret is None:
             raise ValueError(
                 "'oauth_config.client_secret' was none "
-                "but should be set when using use_certificate false for oauth_config"
+                "but should be set when using use_certificate false for oauth_config",
             )
 
     def get_sql_alchemy_url(
@@ -311,7 +315,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         except KeyError:
             raise ValueError(
                 f"access_token not found in response {response}. "
-                "Please check your OAuth configuration."
+                "Please check your OAuth configuration.",
             )
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
@@ -388,11 +392,11 @@ class SnowflakeConnectionConfig(ConfigModel):
 
             if "not granted to this user" in str(e):
                 raise SnowflakePermissionError(
-                    f"Permissions error when connecting to snowflake: {e}"
+                    f"Permissions error when connecting to snowflake: {e}",
                 ) from e
 
             raise ConfigurationError(
-                f"Failed to connect to snowflake instance: {e}"
+                f"Failed to connect to snowflake instance: {e}",
             ) from e
 
 

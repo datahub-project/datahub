@@ -73,7 +73,8 @@ def protobuf_schema_to_mce_fields(
     :return: The list of MCE compatible SchemaFields.
     """
     descriptor: FileDescriptor = _from_protobuf_schema_to_descriptors(
-        main_schema, imported_schemas
+        main_schema,
+        imported_schemas,
     )
     graph: nx.DiGraph = _populate_graph(descriptor)
 
@@ -199,7 +200,10 @@ def _add_message(graph: nx.DiGraph, message: Descriptor, visited: Set[str]) -> N
 
 
 def _add_oneof(
-    graph: nx.DiGraph, parent_node: str, oneof: OneofDescriptor, visited: Set[str]
+    graph: nx.DiGraph,
+    parent_node: str,
+    oneof: OneofDescriptor,
+    visited: Set[str],
 ) -> None:
     node_name: str = _get_node_name(cast(DescriptorBase, oneof))
     node_type: str = _get_type_ascription(cast(DescriptorBase, oneof))
@@ -233,7 +237,8 @@ def _create_schema_field(path: List[str], field: FieldDescriptor) -> _PathAndFie
 
 
 def _from_protobuf_schema_to_descriptors(
-    main_schema: ProtobufSchema, imported_schemas: Optional[List[ProtobufSchema]] = None
+    main_schema: ProtobufSchema,
+    imported_schemas: Optional[List[ProtobufSchema]] = None,
 ) -> FileDescriptor:
     if imported_schemas is None:
         imported_schemas = []
@@ -351,7 +356,8 @@ def _sanitise_type(name: str) -> str:
 
 
 def _schema_fields_from_dag(
-    graph: nx.DiGraph, is_key_schema: bool
+    graph: nx.DiGraph,
+    is_key_schema: bool,
 ) -> List[SchemaField]:
     generations: List = list(nx.algorithms.dag.topological_generations(graph))
     fields: Dict = {}
@@ -386,7 +392,9 @@ def _schema_fields_from_dag(
 
 
 def _traverse_path(
-    graph: nx.DiGraph, path: List[Tuple[str, str]], stack: List[str]
+    graph: nx.DiGraph,
+    path: List[Tuple[str, str]],
+    stack: List[str],
 ) -> Generator[_PathAndField, None, None]:
     if path:
         src, dst = path[0]

@@ -48,7 +48,10 @@ def gen_schema_key(
 
 
 def gen_database_key(
-    database: str, platform: str, platform_instance: Optional[str], env: Optional[str]
+    database: str,
+    platform: str,
+    platform_instance: Optional[str],
+    env: Optional[str],
 ) -> DatabaseKey:
     return DatabaseKey(
         database=database,
@@ -142,7 +145,9 @@ def gen_database_container(
     if domain_registry:
         assert domain_config
         domain_urn = gen_domain_urn(
-            database, domain_config=domain_config, domain_registry=domain_registry
+            database,
+            domain_config=domain_config,
+            domain_registry=domain_registry,
         )
 
     yield from gen_containers(
@@ -187,7 +192,9 @@ def get_domain_wu(
 
 
 def get_dataplatform_instance_aspect(
-    dataset_urn: str, platform: str, platform_instance: Optional[str]
+    dataset_urn: str,
+    platform: str,
+    platform_instance: Optional[str],
 ) -> Optional[MetadataWorkUnit]:
     # If we are a platform instance based source, emit the instance aspect
     if platform_instance:
@@ -211,8 +218,9 @@ def gen_lineage(
     if upstream_lineage is not None:
         lineage_workunits = [
             MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=upstream_lineage
-            ).as_workunit()
+                entityUrn=dataset_urn,
+                aspect=upstream_lineage,
+            ).as_workunit(),
         ]
 
         yield from lineage_workunits
@@ -221,7 +229,7 @@ def gen_lineage(
 # downgrade a schema field
 def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
     field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(
-        field.fieldPath
+        field.fieldPath,
     )
     return field
 
@@ -246,7 +254,8 @@ CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN = re.compile("\\\\?\\.")
 
 
 def check_table_with_profile_pattern(
-    profile_pattern: AllowDenyPattern, table_name: str
+    profile_pattern: AllowDenyPattern,
+    table_name: str,
 ) -> bool:
     parts = len(table_name.split("."))
     allow_list: List[str] = []
@@ -261,6 +270,7 @@ def check_table_with_profile_pattern(
             allow_list.append(pattern)
 
     table_allow_deny_pattern = AllowDenyPattern(
-        allow=allow_list, deny=profile_pattern.deny
+        allow=allow_list,
+        deny=profile_pattern.deny,
     )
     return table_allow_deny_pattern.allowed(table_name)

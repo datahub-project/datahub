@@ -111,7 +111,9 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
 
 class SnowflakeQueriesSourceConfig(
-    SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
+    SnowflakeQueriesExtractorConfig,
+    SnowflakeIdentifierConfig,
+    SnowflakeFilterConfig,
 ):
     connection: SnowflakeConnectionConfig
 
@@ -183,7 +185,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 is_temp_table=self.is_temp_table,
                 is_allowed_table=self.is_allowed_table,
                 format_queries=False,
-            )
+            ),
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -227,7 +229,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             return False
 
         return self.filters.is_dataset_pattern_allowed(
-            name, SnowflakeObjectDomain.TABLE
+            name,
+            SnowflakeObjectDomain.TABLE,
         )
 
     def get_workunits_internal(
@@ -303,7 +306,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         )
 
         with self.structured_reporter.report_exc(
-            "Error fetching copy history from Snowflake"
+            "Error fetching copy history from Snowflake",
         ):
             logger.info("Fetching copy history from Snowflake")
             resp = self.connection.query(query)
@@ -328,7 +331,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         yield result
 
     def fetch_query_log(
-        self, users: UsersMapping
+        self,
+        users: UsersMapping,
     ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
@@ -338,7 +342,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         )
 
         with self.structured_reporter.report_exc(
-            "Error fetching query log from Snowflake"
+            "Error fetching query log from Snowflake",
         ):
             logger.info("Fetching query log from Snowflake")
             resp = self.connection.query(query_log_query)
@@ -361,7 +365,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         yield entry
 
     def _parse_audit_log_row(
-        self, row: Dict[str, Any], users: UsersMapping
+        self,
+        row: Dict[str, Any],
+        users: UsersMapping,
     ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
@@ -383,7 +389,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         if object_modified_by_ddl and not objects_modified:
             known_ddl_entry: Optional[Union[TableRename, TableSwap]] = None
             with self.structured_reporter.report_exc(
-                "Error fetching ddl lineage from Snowflake"
+                "Error fetching ddl lineage from Snowflake",
             ):
                 known_ddl_entry = self.parse_ddl_query(
                     res["query_text"],
@@ -404,14 +410,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         for obj in direct_objects_accessed:
             dataset = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    obj["objectName"]
-                )
+                    obj["objectName"],
+                ),
             )
 
             columns = set()
             for modified_column in obj["columns"]:
                 columns.add(
-                    self.identifiers.snowflake_identifier(modified_column["columnName"])
+                    self.identifiers.snowflake_identifier(
+                        modified_column["columnName"],
+                    ),
                 )
 
             upstreams.append(dataset)
@@ -429,8 +437,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             downstream = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    obj["objectName"]
-                )
+                    obj["objectName"],
+                ),
             )
             column_lineage = []
             for modified_column in obj["columns"]:
@@ -439,31 +447,32 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         downstream=DownstreamColumnRef(
                             dataset=downstream,
                             column=self.identifiers.snowflake_identifier(
-                                modified_column["columnName"]
+                                modified_column["columnName"],
                             ),
                         ),
                         upstreams=[
                             ColumnRef(
                                 table=self.identifiers.gen_dataset_urn(
                                     self.identifiers.get_dataset_identifier_from_qualified_name(
-                                        upstream["objectName"]
-                                    )
+                                        upstream["objectName"],
+                                    ),
                                 ),
                                 column=self.identifiers.snowflake_identifier(
-                                    upstream["columnName"]
+                                    upstream["columnName"],
                                 ),
                             )
                             for upstream in modified_column["directSources"]
                             if upstream["objectDomain"]
                             in SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS
                         ],
-                    )
+                    ),
                 )
 
         user = CorpUserUrn(
             self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
+                res["user_name"],
+                users.get(res["user_name"]),
+            ),
         )
 
         timestamp: datetime = res["query_start_time"]
@@ -471,7 +480,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         # TODO need to map snowflake query types to ours
         query_type = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
-            res["query_type"], QueryType.UNKNOWN
+            res["query_type"],
+            QueryType.UNKNOWN,
         )
 
         entry = PreparsedQuery(
@@ -479,7 +489,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
             # here
             query_id=get_query_fingerprint(
-                res["query_text"], self.identifiers.platform, fast=True
+                res["query_text"],
+                self.identifiers.platform,
+                fast=True,
             ),
             query_text=res["query_text"],
             upstreams=upstreams,
@@ -509,14 +521,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
             urn1 = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["objectName"]
-                )
+                    object_modified_by_ddl["objectName"],
+                ),
             )
 
             urn2 = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["swapTargetName"]["value"]
-                )
+                    object_modified_by_ddl["properties"]["swapTargetName"]["value"],
+                ),
             )
 
             return TableSwap(urn1, urn2, query, session_id, timestamp)
@@ -525,14 +537,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
             original_un = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["objectName"]
-                )
+                    object_modified_by_ddl["objectName"],
+                ),
             )
 
             new_urn = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["objectName"]["value"]
-                )
+                    object_modified_by_ddl["properties"]["objectName"]["value"],
+                ),
             )
 
             return TableRename(original_un, new_urn, query, session_id, timestamp)

@@ -7,7 +7,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 class KafkaSchemaRegistryBase(ABC):
     @abstractmethod
     def get_schema_metadata(
-        self, topic: str, platform_urn: str, is_subject: bool
+        self,
+        topic: str,
+        platform_urn: str,
+        is_subject: bool,
     ) -> Optional[SchemaMetadata]:
         pass
 
@@ -17,6 +20,8 @@ class KafkaSchemaRegistryBase(ABC):
 
     @abstractmethod
     def _get_subject_for_topic(
-        self, dataset_subtype: str, is_key_schema: bool
+        self,
+        dataset_subtype: str,
+        is_key_schema: bool,
     ) -> Optional[str]:
         pass

@@ -54,13 +54,14 @@ class SnowflakeAssertionsHandler:
         self._urns_processed: List[str] = []
 
     def get_assertion_workunits(
-        self, discovered_datasets: List[str]
+        self,
+        discovered_datasets: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         cur = self.connection.query(
             SnowflakeQuery.dmf_assertion_results(
                 datetime_to_ts_millis(self.config.start_time),
                 datetime_to_ts_millis(self.config.end_time),
-            )
+            ),
         )
         for db_row in cur:
             mcp = self._process_result_row(db_row, discovered_datasets)
@@ -79,7 +80,8 @@ class SnowflakeAssertionsHandler:
                 platform=make_data_platform_urn(self.identifiers.platform),
                 instance=(
                     make_dataplatform_instance_urn(
-                        self.identifiers.platform, self.config.platform_instance
+                        self.identifiers.platform,
+                        self.config.platform_instance,
                     )
                     if self.config.platform_instance
                     else None
@@ -88,14 +90,18 @@ class SnowflakeAssertionsHandler:
         ).as_workunit(is_primary_source=False)
 
     def _process_result_row(
-        self, result_row: dict, discovered_datasets: List[str]
+        self,
+        result_row: dict,
+        discovered_datasets: List[str],
     ) -> Optional[MetadataChangeProposalWrapper]:
         try:
             result = DataQualityMonitoringResult.parse_obj(result_row)
             assertion_guid = result.METRIC_NAME.split("__")[-1].lower()
             status = bool(result.VALUE)  # 1 if PASS, 0 if FAIL
             assertee = self.identifiers.get_dataset_identifier(
-                result.TABLE_NAME, result.TABLE_SCHEMA, result.TABLE_DATABASE
+                result.TABLE_NAME,
+                result.TABLE_SCHEMA,
+                result.TABLE_DATABASE,
             )
             if assertee in discovered_datasets:
                 return MetadataChangeProposalWrapper(
@@ -111,7 +117,7 @@ class SnowflakeAssertionsHandler:
                                 AssertionResultType.SUCCESS
                                 if status
                                 else AssertionResultType.FAILURE
-                            )
+                            ),
                         ),
                     ),
                 )

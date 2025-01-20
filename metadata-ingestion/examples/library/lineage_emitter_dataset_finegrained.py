@@ -70,7 +70,8 @@ fineGrainedLineages = [
 upstream = Upstream(dataset=datasetUrn("bar2"), type=DatasetLineageType.TRANSFORMED)
 
 fieldLineages = UpstreamLineage(
-    upstreams=[upstream], fineGrainedLineages=fineGrainedLineages
+    upstreams=[upstream],
+    fineGrainedLineages=fineGrainedLineages,
 )
 
 lineageMcp = MetadataChangeProposalWrapper(

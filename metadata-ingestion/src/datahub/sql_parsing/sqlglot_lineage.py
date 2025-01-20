@@ -63,7 +63,8 @@ Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
-    "SQL_LINEAGE_TIMEOUT_ENABLED", True
+    "SQL_LINEAGE_TIMEOUT_ENABLED",
+    True,
 )
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
@@ -119,7 +120,8 @@ class DownstreamColumnRef(_ParserBaseModel):
 
     @pydantic.validator("column_type", pre=True)
     def _load_column_type(
-        cls, v: Optional[Union[dict, SchemaFieldDataTypeClass]]
+        cls,
+        v: Optional[Union[dict, SchemaFieldDataTypeClass]],
     ) -> Optional[SchemaFieldDataTypeClass]:
         if v is None:
             return None
@@ -183,7 +185,7 @@ class SqlParsingResult(_ParserBaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo()
+        default_factory=lambda: SqlParsingDebugInfo(),
     )
 
     @classmethod
@@ -198,7 +200,8 @@ class SqlParsingResult(_ParserBaseModel):
 
 
 def _table_level_lineage(
-    statement: sqlglot.Expression, dialect: sqlglot.Dialect
+    statement: sqlglot.Expression,
+    dialect: sqlglot.Dialect,
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
     # Generate table-level lineage.
     modified = (
@@ -289,14 +292,17 @@ class _ColumnResolver:
     use_case_insensitive_cols: bool
 
     def schema_aware_fuzzy_column_resolve(
-        self, table: Optional[_TableName], sqlglot_column: str
+        self,
+        table: Optional[_TableName],
+        sqlglot_column: str,
     ) -> str:
         default_col_name = (
             sqlglot_column.lower() if self.use_case_insensitive_cols else sqlglot_column
         )
         if table:
             return self.table_schema_normalized_mapping[table].get(
-                sqlglot_column, default_col_name
+                sqlglot_column,
+                default_col_name,
             )
         else:
             return default_col_name
@@ -318,11 +324,12 @@ def _prepare_query_columns(
         and not is_create_ddl
     ):
         raise UnsupportedStatementTypeError(
-            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
+            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}",
         )
 
     use_case_insensitive_cols = is_dialect_instance(
-        dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
+        dialect,
+        DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     )
 
     sqlglot_db_schema = sqlglot.MappingSchema(
@@ -331,7 +338,7 @@ def _prepare_query_columns(
         normalize=False,
     )
     table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
-        dict
+        dict,
     )
     for table, table_schema in table_schemas.items():
         normalized_table_schema: SchemaInfo = {}
@@ -341,7 +348,8 @@ def _prepare_query_columns(
                     # This is required to match Sqlglot's behavior.
                     col.upper()
                     if is_dialect_instance(
-                        dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
+                        dialect,
+                        DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
                     )
                     else col.lower()
                 )
@@ -407,24 +415,27 @@ def _prepare_query_columns(
             )
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
-                f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
+                f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}",
             ) from e
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "Qualified sql %s", statement.sql(pretty=True, dialect=dialect)
+                "Qualified sql %s",
+                statement.sql(pretty=True, dialect=dialect),
             )
 
         # Try to figure out the types of the output columns.
         try:
             statement = sqlglot.optimizer.annotate_types.annotate_types(
-                statement, schema=sqlglot_db_schema
+                statement,
+                schema=sqlglot_db_schema,
             )
         except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
             # This is not a fatal error, so we can continue.
             logger.debug("sqlglot failed to annotate or parse types: %s", e)
         if _DEBUG_TYPE_ANNOTATIONS and logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "Type annotated sql %s", statement.sql(pretty=True, dialect=dialect)
+                "Type annotated sql %s",
+                statement.sql(pretty=True, dialect=dialect),
             )
 
     return statement, _ColumnResolver(
@@ -455,7 +466,8 @@ def _create_table_ddl_cll(
             continue
 
         output_col = column_resolver.schema_aware_fuzzy_column_resolve(
-            output_table, column_def.name
+            output_table,
+            column_def.name,
         )
         output_col_type = column_def.args.get("kind")
 
@@ -467,7 +479,7 @@ def _create_table_ddl_cll(
                     column_type=output_col_type,
                 ),
                 upstreams=[],
-            )
+            ),
         )
 
     return column_lineage
@@ -531,7 +543,8 @@ def _select_statement_cll(  # noqa: C901
                 output_col = original_col_expression.this.sql(dialect=dialect)
 
             output_col = column_resolver.schema_aware_fuzzy_column_resolve(
-                output_table, output_col
+                output_table,
+                output_col,
             )
 
             # Guess the output column type.
@@ -544,7 +557,8 @@ def _select_statement_cll(  # noqa: C901
                 _ColumnRef(
                     table=edge.table,
                     column=column_resolver.schema_aware_fuzzy_column_resolve(
-                        edge.table, edge.column
+                        edge.table,
+                        edge.column,
                     ),
                 )
                 for edge in direct_raw_col_upstreams
@@ -561,13 +575,13 @@ def _select_statement_cll(  # noqa: C901
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
                     # logic=column_logic.sql(pretty=True, dialect=dialect),
-                )
+                ),
             )
 
         # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
-            f"sqlglot failed to compute some lineage: {e}"
+            f"sqlglot failed to compute some lineage: {e}",
         ) from e
 
     return column_lineage
@@ -593,7 +607,7 @@ def _column_level_lineage(
         select_statement = _try_extract_select(statement)
     except Exception as e:
         raise SqlUnderstandingError(
-            f"Failed to extract select from statement: {e}"
+            f"Failed to extract select from statement: {e}",
         ) from e
 
     try:
@@ -629,11 +643,11 @@ def _column_level_lineage(
         root_scope = sqlglot.optimizer.build_scope(select_statement)
         if root_scope is None:
             raise SqlUnderstandingError(
-                f"Failed to build scope for statement - scope was empty: {statement}"
+                f"Failed to build scope for statement - scope was empty: {statement}",
             )
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
-            f"sqlglot failed to preprocess statement: {e}"
+            f"sqlglot failed to preprocess statement: {e}",
         ) from e
 
     # Generate column-level lineage.
@@ -680,7 +694,7 @@ def _get_direct_raw_col_upstreams(
                 normalized_col = f"{normalized_col}.{node.subfield}"
 
             direct_raw_col_upstreams.add(
-                _ColumnRef(table=table_ref, column=normalized_col)
+                _ColumnRef(table=table_ref, column=normalized_col),
             )
         else:
             # This branch doesn't matter. For example, a count(*) column would go here, and
@@ -703,7 +717,7 @@ def _extract_select_from_create(
 
 
 _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT: Set[str] = set(
-    sqlglot.exp.Update.arg_types.keys()
+    sqlglot.exp.Update.arg_types.keys(),
 ) - set(sqlglot.exp.Select.arg_types.keys())
 _UPDATE_FROM_TABLE_ARGS_TO_MOVE = {"joins", "laterals", "pivot"}
 
@@ -719,13 +733,14 @@ def _extract_select_from_update(
     new_expressions = []
     for expr in statement.expressions:
         if isinstance(expr, sqlglot.exp.EQ) and isinstance(
-            expr.left, sqlglot.exp.Column
+            expr.left,
+            sqlglot.exp.Column,
         ):
             new_expressions.append(
                 sqlglot.exp.Alias(
                     this=expr.right,
                     alias=expr.left.this,
-                )
+                ),
             )
         else:
             # If we don't know how to convert it, just leave it as-is. If this causes issues,
@@ -754,14 +769,16 @@ def _extract_select_from_update(
             },
             **extra_args,
             "expressions": new_expressions,
-        }
+        },
     )
 
     # Update statements always implicitly have the updated table in context.
     # TODO: Retain table name alias, if one was present.
     if select_statement.args.get("from"):
         select_statement = select_statement.join(
-            statement.this, append=True, join_kind="cross"
+            statement.this,
+            append=True,
+            join_kind="cross",
         )
     else:
         select_statement = select_statement.from_(statement.this)
@@ -951,7 +968,7 @@ def _sqlglot_lineage_inner(
         # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
         # and https://github.com/tobymao/sqlglot/pull/2874
         raise UnsupportedStatementTypeError(
-            f"Got unsupported syntax for statement: {sql}"
+            f"Got unsupported syntax for statement: {sql}",
         )
 
     original_statement, statement = statement, statement.copy()
@@ -996,7 +1013,9 @@ def _sqlglot_lineage_inner(
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
+            dialect=dialect,
+            default_db=default_db,
+            default_schema=default_schema,
         )
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
@@ -1022,7 +1041,7 @@ def _sqlglot_lineage_inner(
         table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
-        f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
+        f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas",
     )
     if SQL_PARSER_TRACE:
         for qualified_table, schema_info in table_name_schema_mapping.items():
@@ -1038,7 +1057,7 @@ def _sqlglot_lineage_inner(
         with cooperative_timeout(
             timeout=(
                 SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
-            )
+            ),
         ):
             column_lineage_debug_info = _column_level_lineage(
                 statement,
@@ -1070,7 +1089,9 @@ def _sqlglot_lineage_inner(
         try:
             column_lineage_urns = [
                 _translate_internal_column_lineage(
-                    table_name_urn_mapping, internal_col_lineage, dialect=dialect
+                    table_name_urn_mapping,
+                    internal_col_lineage,
+                    dialect=dialect,
                 )
                 for internal_col_lineage in column_lineage
             ]
@@ -1078,15 +1099,18 @@ def _sqlglot_lineage_inner(
             # When this happens, it's usually because of things like PIVOT where we can't
             # really go up the scope chain.
             logger.debug(
-                f"Failed to translate column lineage to urns: {e}", exc_info=True
+                f"Failed to translate column lineage to urns: {e}",
+                exc_info=True,
             )
             debug_info.column_error = e
 
     query_type, query_type_props = get_query_type_of_sql(
-        original_statement, dialect=dialect
+        original_statement,
+        dialect=dialect,
     )
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
-        original_statement, dialect
+        original_statement,
+        dialect,
     )
     return SqlParsingResult(
         query_type=query_type,
@@ -1170,7 +1194,7 @@ def _sqlglot_lineage_nocache(
 
 
 _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
-    _sqlglot_lineage_nocache
+    _sqlglot_lineage_nocache,
 )
 
 
@@ -1183,11 +1207,19 @@ def sqlglot_lineage(
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            default_dialect,
         )
     else:
         return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            default_dialect,
         )
 
 
@@ -1280,13 +1312,14 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
                     or SchemaFieldDataTypeClass(type=NullTypeClass())
                 ),
                 nativeDataType=column_info.downstream.native_column_type or "",
-            )
+            ),
         )
     return output_schema
 
 
 def view_definition_lineage_helper(
-    result: SqlParsingResult, view_urn: str
+    result: SqlParsingResult,
+    view_urn: str,
 ) -> SqlParsingResult:
     if result.query_type is QueryType.SELECT or (
         result.out_tables and result.out_tables != [view_urn]

@@ -19,7 +19,8 @@ pytestmark = pytest.mark.integration_batch_1
 def hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "hive"
+        test_resources_dir / "docker-compose.yml",
+        "hive",
     ) as docker_services:
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
         yield docker_services
@@ -57,7 +58,11 @@ def base_pipeline_config(events_file, db=None):
 
 @freeze_time(FROZEN_TIME)
 def test_hive_ingest(
-    loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
+    loaded_hive,
+    pytestconfig,
+    test_resources_dir,
+    tmp_path,
+    mock_time,
 ):
     mce_out_file = "test_hive_ingest.json"
     events_file = tmp_path / mce_out_file
@@ -85,7 +90,11 @@ def test_hive_ingest(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
 def test_hive_ingest_all_db(
-    loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
+    loaded_hive,
+    pytestconfig,
+    test_resources_dir,
+    tmp_path,
+    mock_time,
 ):
     mce_out_file = "test_hive_ingest.json"
     events_file = tmp_path / mce_out_file
@@ -128,7 +137,7 @@ def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestco
 
     # Assert that all events generated have instance specific urns
     urn_pattern = "^" + re.escape(
-        f"urn:li:dataset:(urn:li:dataPlatform:{data_platform},{instance}."
+        f"urn:li:dataset:(urn:li:dataPlatform:{data_platform},{instance}.",
     )
     mce_helpers.assert_mce_entity_urn(
         "ALL",
@@ -151,7 +160,7 @@ def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestco
             entity_type="dataset",
             aspect_name="dataPlatformInstance",
             aspect_field_matcher={
-                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{data_platform},{instance})"
+                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{data_platform},{instance})",
             },
             file=events_file,
         )

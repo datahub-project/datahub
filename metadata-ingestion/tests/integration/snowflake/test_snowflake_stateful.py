@@ -41,7 +41,7 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
                             "type": "datahub",
                             "config": {"datahub_api": {"server": GMS_SERVER}},
                         },
-                    }
+                    },
                 ),
             ),
         ),
@@ -92,10 +92,12 @@ def test_stale_metadata_removal(mock_datahub_graph):
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
+        pipeline=pipeline_run1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
+        pipeline=pipeline_run2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted table should not be
@@ -104,7 +106,7 @@ def test_stale_metadata_removal(mock_datahub_graph):
     state2 = checkpoint2.state
 
     difference_dataset_urns = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
     )
     assert sorted(difference_dataset_urns) == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",

@@ -9,6 +9,8 @@ def test_threaded_iterator_executor():
     assert {
         res
         for res in ThreadedIteratorExecutor.process(
-            table_of, [(i,) for i in range(1, 30)], max_workers=2
+            table_of,
+            [(i,) for i in range(1, 30)],
+            max_workers=2,
         )
     } == {x for i in range(1, 30) for x in table_of(i)}

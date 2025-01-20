@@ -11,7 +11,9 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 def get_default_recipe(
-    glossary_yml_file_path: str, event_output_file_path: str, enable_auto_id: bool
+    glossary_yml_file_path: str,
+    event_output_file_path: str,
+    enable_auto_id: bool,
 ) -> Dict[str, Any]:
     return {
         "source": {
@@ -57,7 +59,7 @@ def test_glossary_ingest(
             glossary_yml_file_path=f"{test_resources_dir}/business_glossary.yml",
             event_output_file_path=output_mces_path,
             enable_auto_id=enable_auto_id,
-        )
+        ),
     )
     pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
@@ -89,7 +91,7 @@ def test_single_owner_types(
             glossary_yml_file_path=f"{test_resources_dir}/single_owner_types.yml",
             event_output_file_path=output_mces_path,
             enable_auto_id=False,
-        )
+        ),
     )
     pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
@@ -122,7 +124,7 @@ def test_multiple_owners_same_type(
             glossary_yml_file_path=f"{test_resources_dir}/multiple_owners_same_type.yml",
             event_output_file_path=output_mces_path,
             enable_auto_id=False,
-        )
+        ),
     )
     pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
@@ -155,7 +157,7 @@ def test_multiple_owners_different_types(
             glossary_yml_file_path=f"{test_resources_dir}/multiple_owners_different_types.yml",
             event_output_file_path=output_mces_path,
             enable_auto_id=False,
-        )
+        ),
     )
     pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()
@@ -186,7 +188,7 @@ def test_custom_ownership_urns(
             glossary_yml_file_path=f"{test_resources_dir}/custom_ownership_urns.yml",
             event_output_file_path=output_mces_path,
             enable_auto_id=False,
-        )
+        ),
     )
     pipeline.ctx.graph = mock_datahub_graph_instance
     pipeline.run()

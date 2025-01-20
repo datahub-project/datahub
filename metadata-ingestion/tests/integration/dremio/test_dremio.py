@@ -411,7 +411,8 @@ def test_resources_dir(pytestconfig):
 def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir):
     # Spin up Dremio and MinIO (for mock S3) services using Docker Compose.
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "dremio"
+        test_resources_dir / "docker-compose.yml",
+        "dremio",
     ) as docker_services:
         wait_for_port(docker_services, "dremio", 9047, timeout=120)
         wait_for_port(
@@ -431,7 +432,8 @@ def mock_dremio_service(docker_compose_runner, pytestconfig, test_resources_dir)
 
         # Ensure the admin and data setup scripts have the right permissions
         subprocess.run(
-            ["chmod", "+x", f"{test_resources_dir}/setup_dremio_admin.sh"], check=True
+            ["chmod", "+x", f"{test_resources_dir}/setup_dremio_admin.sh"],
+            check=True,
         )
 
         # Run the setup_dremio_admin.sh script

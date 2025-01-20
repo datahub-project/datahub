@@ -59,7 +59,9 @@ class SSLAdapter(HTTPAdapter):
     def __init__(self, certfile, keyfile, password=None):
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         self.context.load_cert_chain(
-            certfile=certfile, keyfile=keyfile, password=password
+            certfile=certfile,
+            keyfile=keyfile,
+            password=password,
         )
         super().__init__()
 
@@ -82,7 +84,7 @@ class ProcessGroupKey(ContainerKey):
 
 class NifiSourceConfig(EnvConfigMixin):
     site_url: str = Field(
-        description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
+        description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/",
     )
 
     auth: NifiAuthType = Field(
@@ -111,10 +113,12 @@ class NifiSourceConfig(EnvConfigMixin):
 
     # Required to be set if auth is of type SINGLE_USER
     username: Optional[str] = Field(
-        default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
+        default=None,
+        description='Nifi username, must be set for auth = "SINGLE_USER"',
     )
     password: Optional[str] = Field(
-        default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
+        default=None,
+        description='Nifi password, must be set for auth = "SINGLE_USER"',
     )
 
     # Required to be set if auth is of type CLIENT_CERT
@@ -123,10 +127,12 @@ class NifiSourceConfig(EnvConfigMixin):
         description='Path to PEM file containing the public certificates for the user/client identity, must be set for auth = "CLIENT_CERT"',
     )
     client_key_file: Optional[str] = Field(
-        default=None, description="Path to PEM file containing the client’s secret key"
+        default=None,
+        description="Path to PEM file containing the client’s secret key",
     )
     client_key_password: Optional[str] = Field(
-        default=None, description="The password to decrypt the client_key_file"
+        default=None,
+        description="The password to decrypt the client_key_file",
     )
 
     # Required to be set if nifi server certificate is not signed by
@@ -153,17 +159,17 @@ class NifiSourceConfig(EnvConfigMixin):
     @root_validator(skip_on_failure=True)
     def validate_auth_params(cla, values):
         if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
-            "client_cert_file"
+            "client_cert_file",
         ):
             raise ValueError(
-                "Config `client_cert_file` is required for CLIENT_CERT auth"
+                "Config `client_cert_file` is required for CLIENT_CERT auth",
             )
         elif values.get("auth") in (
             NifiAuthType.SINGLE_USER,
             NifiAuthType.BASIC_AUTH,
         ) and (not values.get("username") or not values.get("password")):
             raise ValueError(
-                f"Config `username` and `password` is required for {values.get('auth').value} auth"
+                f"Config `username` and `password` is required for {values.get('auth').value} auth",
             )
         return values
 
@@ -215,7 +221,7 @@ class BidirectionalComponentGraph:
 
         if outgoing_duplicated or incoming_duplicated:
             logger.warning(
-                f"Somehow we attempted to add a connection between 2 components which already existed! Duplicated incoming: {incoming_duplicated}, duplicated outgoing: {outgoing_duplicated}. Connection from component: {from_component} to component: {to_component}"
+                f"Somehow we attempted to add a connection between 2 components which already existed! Duplicated incoming: {incoming_duplicated}, duplicated outgoing: {outgoing_duplicated}. Connection from component: {from_component} to component: {to_component}",
             )
 
     def remove_connection(self, from_component: str, to_component: str) -> None:
@@ -233,11 +239,11 @@ class BidirectionalComponentGraph:
         logger.debug(f"Deleting component with id: {component}")
         incoming = self._incoming[component]
         logger.debug(
-            f"Recognized {len(incoming)} incoming connections to the component"
+            f"Recognized {len(incoming)} incoming connections to the component",
         )
         outgoing = self._outgoing[component]
         logger.debug(
-            f"Recognized {len(outgoing)} outgoing connections from the component"
+            f"Recognized {len(outgoing)} outgoing connections from the component",
         )
 
         for i in incoming:
@@ -252,7 +258,7 @@ class BidirectionalComponentGraph:
         added_connections_cnt = len(incoming) * len(outgoing)
         deleted_connections_cnt = len(incoming) + len(outgoing)
         logger.debug(
-            f"Deleted {deleted_connections_cnt} connections and added {added_connections_cnt}"
+            f"Deleted {deleted_connections_cnt} connections and added {added_connections_cnt}",
         )
 
         del self._outgoing[component]
@@ -320,7 +326,8 @@ class NifiProcessorProvenanceEventAnalyzer:
     def __init__(self) -> None:
         # Map of Nifi processor type to the provenance event analyzer to find lineage
         self.provenance_event_to_lineage_map: Dict[
-            str, Callable[[Dict], ExternalDataset]
+            str,
+            Callable[[Dict], ExternalDataset],
         ] = {
             NifiProcessorType.ListS3: self.process_s3_provenance_event,
             NifiProcessorType.FetchS3Object: self.process_s3_provenance_event,
@@ -338,7 +345,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_key = get_attribute_value(attributes, "s3.key")
         if not s3_key:
             logger.debug(
-                "s3.key not present in the list of attributes, trying to use filename attribute instead"
+                "s3.key not present in the list of attributes, trying to use filename attribute instead",
             )
             s3_key = get_attribute_value(attributes, "filename")
 
@@ -436,7 +443,7 @@ class NifiFlow:
     components: Dict[str, NifiComponent] = field(default_factory=dict)
     remotely_accessible_ports: Dict[str, NifiComponent] = field(default_factory=dict)
     connections: BidirectionalComponentGraph = field(
-        default_factory=BidirectionalComponentGraph
+        default_factory=BidirectionalComponentGraph,
     )
     processGroups: Dict[str, NifiProcessGroup] = field(default_factory=dict)
     remoteProcessGroups: Dict[str, NifiRemoteProcessGroup] = field(default_factory=dict)
@@ -492,7 +499,7 @@ class NifiSource(Source):
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
         logger.debug(
-            f"Updating flow with pg_flow_dto {pg_flow_dto.get('breadcrumb', {}).get('breadcrumb', {}).get('id')}, recursion level: {recursion_level}"
+            f"Updating flow with pg_flow_dto {pg_flow_dto.get('breadcrumb', {}).get('breadcrumb', {}).get('id')}, recursion level: {recursion_level}",
         )
         breadcrumb_dto = pg_flow_dto.get("breadcrumb", {}).get("breadcrumb", {})
         nifi_pg = NifiProcessGroup(
@@ -539,7 +546,8 @@ class NifiSource(Source):
             # Exclude self - recursive relationships
             if connection.get("sourceId") != connection.get("destinationId"):
                 self.nifi_flow.connections.add_connection(
-                    connection.get("sourceId"), connection.get("destinationId")
+                    connection.get("sourceId"),
+                    connection.get("destinationId"),
                 )
 
         logger.debug(f"Processing {len(flow_dto.get('inputPorts', []))} inputPorts")
@@ -599,7 +607,7 @@ class NifiSource(Source):
                 logger.debug(f"Adding report port {component.get('id')}")
 
         logger.debug(
-            f"Processing {len(flow_dto.get('remoteProcessGroups', []))} remoteProcessGroups"
+            f"Processing {len(flow_dto.get('remoteProcessGroups', []))} remoteProcessGroups",
         )
         for rpg in flow_dto.get("remoteProcessGroups", []):
             rpg_component = rpg.get("component", {})
@@ -647,14 +655,14 @@ class NifiSource(Source):
             self.nifi_flow.remoteProcessGroups[nifi_rpg.id] = nifi_rpg
 
         logger.debug(
-            f"Processing {len(flow_dto.get('processGroups', []))} processGroups"
+            f"Processing {len(flow_dto.get('processGroups', []))} processGroups",
         )
         for pg in flow_dto.get("processGroups", []):
             logger.debug(
-                f"Retrieving process group: {pg.get('id')} while updating flow for {pg_flow_dto.get('breadcrumb', {}).get('breadcrumb', {}).get('id')}"
+                f"Retrieving process group: {pg.get('id')} while updating flow for {pg_flow_dto.get('breadcrumb', {}).get('breadcrumb', {}).get('id')}",
             )
             pg_response = self.session.get(
-                url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + pg.get("id")
+                url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + pg.get("id"),
             )
 
             if not pg_response.ok:
@@ -672,17 +680,17 @@ class NifiSource(Source):
         components_to_del: List[NifiComponent] = []
         components = self.nifi_flow.components.values()
         logger.debug(
-            f"Processing {len(components)} components for keep only ingress/egress"
+            f"Processing {len(components)} components for keep only ingress/egress",
         )
         logger.debug(
-            f"All the connections recognized: {len(self.nifi_flow.connections)}"
+            f"All the connections recognized: {len(self.nifi_flow.connections)}",
         )
         for index, component in enumerate(components, start=1):
             logger.debug(
-                f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}, type: {component.type}"
+                f"Processing {index}th component for ingress/egress pruning. Component id: {component.id}, name: {component.name}, type: {component.type}",
             )
             logger.debug(
-                f"Current amount of connections: {len(self.nifi_flow.connections)}"
+                f"Current amount of connections: {len(self.nifi_flow.connections)}",
             )
             if (
                 component.nifi_type is NifiType.PROCESSOR
@@ -698,7 +706,7 @@ class NifiSource(Source):
 
         for component in components_to_del:
             if component.nifi_type is NifiType.PROCESSOR and component.name.startswith(
-                ("Get", "List", "Fetch", "Put")
+                ("Get", "List", "Fetch", "Put"),
             ):
                 self.report.warning(
                     f"Dropping NiFi Processor of type {component.type}, id {component.id}, name {component.name} from lineage view. \
@@ -708,7 +716,7 @@ class NifiSource(Source):
                 )
             else:
                 logger.debug(
-                    f"Dropping NiFi Component of type {component.type}, id {component.id}, name {component.name} from lineage view."
+                    f"Dropping NiFi Component of type {component.type}, id {component.id}, name {component.name} from lineage view.",
                 )
 
             del self.nifi_flow.components[component.id]
@@ -716,7 +724,7 @@ class NifiSource(Source):
     def create_nifi_flow(self):
         logger.debug(f"Retrieving NIFI info from {ABOUT_ENDPOINT}")
         about_response = self.session.get(
-            url=urljoin(self.rest_api_base_url, ABOUT_ENDPOINT)
+            url=urljoin(self.rest_api_base_url, ABOUT_ENDPOINT),
         )
         nifi_version: Optional[str] = None
         if about_response.ok:
@@ -724,14 +732,14 @@ class NifiSource(Source):
                 nifi_version = about_response.json().get("about", {}).get("version")
             except Exception as e:
                 logger.error(
-                    f"Unable to parse about response from Nifi: {about_response} due to {e}"
+                    f"Unable to parse about response from Nifi: {about_response} due to {e}",
                 )
         else:
             logger.warning("Failed to fetch version for nifi")
         logger.debug(f"Retrieved nifi version: {nifi_version}")
         logger.debug(f"Retrieving cluster info from {CLUSTER_ENDPOINT}")
         cluster_response = self.session.get(
-            url=urljoin(self.rest_api_base_url, CLUSTER_ENDPOINT)
+            url=urljoin(self.rest_api_base_url, CLUSTER_ENDPOINT),
         )
         clustered: Optional[bool] = None
         if cluster_response.ok:
@@ -743,7 +751,7 @@ class NifiSource(Source):
             logger.warning("Failed to fetch cluster summary for flow")
         logger.debug("Retrieving ROOT Process Group")
         pg_response = self.session.get(
-            url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + "root"
+            url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + "root",
         )
 
         pg_response.raise_for_status()
@@ -771,11 +779,14 @@ class NifiSource(Source):
     ) -> Iterable[Dict]:
         logger.debug(
             f"Fetching {eventType} provenance events for {processor.id}\
-            of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
+            of processor type {processor.type}, Start date: {startDate}, End date: {endDate}",
         )
 
         provenance_response = self.submit_provenance_query(
-            processor, eventType, startDate, endDate
+            processor,
+            eventType,
+            startDate,
+            endDate,
         )
 
         if provenance_response.ok:
@@ -789,7 +800,7 @@ class NifiSource(Source):
             attempts = 5  # wait for at most 5 attempts 5*1= 5 seconds
             while (not provenance.get("finished", False)) and attempts > 0:
                 logger.warning(
-                    f"Provenance query not completed, attempts left : {attempts}"
+                    f"Provenance query not completed, attempts left : {attempts}",
                 )
                 # wait until the uri returns percentcomplete 100
                 time.sleep(1)
@@ -824,7 +835,10 @@ class NifiSource(Source):
             if total != str(totalCount):
                 logger.debug("Trying to retrieve more events for the same processor")
                 yield from self.fetch_provenance_events(
-                    processor, eventType, startDate, oldest_event_time
+                    processor,
+                    eventType,
+                    startDate,
+                    oldest_event_time,
                 )
         else:
             self.report.warning(
@@ -837,7 +851,7 @@ class NifiSource(Source):
 
     def submit_provenance_query(self, processor, eventType, startDate, endDate):
         older_version: bool = self.nifi_flow.version is not None and version.parse(
-            self.nifi_flow.version
+            self.nifi_flow.version,
         ) < version.parse("1.13.0")
 
         if older_version:
@@ -864,9 +878,9 @@ class NifiSource(Source):
                             if endDate
                             else None
                         ),
-                    }
-                }
-            }
+                    },
+                },
+            },
         )
         logger.debug(payload)
         self.session.headers.update({})
@@ -882,7 +896,7 @@ class NifiSource(Source):
             self.session.headers.update(
                 {
                     "Content-Type": "application/x-www-form-urlencoded",
-                }
+                },
             )
 
         return provenance_response
@@ -903,12 +917,15 @@ class NifiSource(Source):
         if self.nifi_flow.version is not None:
             flow_properties["version"] = str(self.nifi_flow.version)
         yield self.construct_flow_workunits(
-            flow_urn, flow_name, self.make_external_url(rootpg.id), flow_properties
+            flow_urn,
+            flow_name,
+            self.make_external_url(rootpg.id),
+            flow_properties,
         )
 
         for component in self.nifi_flow.components.values():
             logger.debug(
-                f"Beginng construction of workunits for component {component.id} of type {component.type} and name {component.name}"
+                f"Beginng construction of workunits for component {component.id} of type {component.type} and name {component.name}",
             )
             logger.debug(f"Inlets of the component: {component.inlets.keys()}")
             logger.debug(f"Outlets of the component: {component.outlets.keys()}")
@@ -933,14 +950,14 @@ class NifiSource(Source):
                     ]
                 }
                 jobProperties["properties"] = json.dumps(
-                    component.config.get("properties")  # type: ignore
+                    component.config.get("properties"),  # type: ignore
                 )
                 if component.last_event_time is not None:
                     jobProperties["last_event_time"] = component.last_event_time
 
                 for dataset in component.inlets.values():
                     logger.debug(
-                        f"Yielding dataset workunits for {dataset.dataset_urn} (inlet)"
+                        f"Yielding dataset workunits for {dataset.dataset_urn} (inlet)",
                     )
                     yield from self.construct_dataset_workunits(
                         dataset.platform,
@@ -951,7 +968,7 @@ class NifiSource(Source):
 
                 for dataset in component.outlets.values():
                     logger.debug(
-                        f"Yielding dataset workunits for {dataset.dataset_urn} (outlet)"
+                        f"Yielding dataset workunits for {dataset.dataset_urn} (outlet)",
                     )
                     yield from self.construct_dataset_workunits(
                         dataset.platform,
@@ -964,7 +981,9 @@ class NifiSource(Source):
                 if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
-                        NIFI, dataset_name, self.config.env
+                        NIFI,
+                        dataset_name,
+                        self.config.env,
                     )
                     component.inlets[dataset_urn] = ExternalDataset(
                         NIFI,
@@ -974,14 +993,16 @@ class NifiSource(Source):
                     )
                 else:
                     inputJobs.add(
-                        builder.make_data_job_urn_with_flow(flow_urn, incoming_from)
+                        builder.make_data_job_urn_with_flow(flow_urn, incoming_from),
                     )
 
             for outgoing_to in outgoing:
                 if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
                     dataset_urn = builder.make_dataset_urn(
-                        NIFI, dataset_name, self.config.env
+                        NIFI,
+                        dataset_name,
+                        self.config.env,
                     )
                     component.outlets[dataset_urn] = ExternalDataset(
                         NIFI,
@@ -1005,10 +1026,15 @@ class NifiSource(Source):
                         site_name = self.config.site_url_to_site_name[site_url]
                         dataset_name = f"{site_name}.{component.name}"
                         dataset_urn = builder.make_dataset_urn(
-                            NIFI, dataset_name, self.config.env
+                            NIFI,
+                            dataset_name,
+                            self.config.env,
                         )
                         component.outlets[dataset_urn] = ExternalDataset(
-                            NIFI, dataset_name, dict(nifi_uri=site_url), dataset_urn
+                            NIFI,
+                            dataset_name,
+                            dict(nifi_uri=site_url),
+                            dataset_urn,
                         )
                         break
 
@@ -1027,17 +1053,22 @@ class NifiSource(Source):
 
                         dataset_name = f"{site_name}.{component.name}"
                         dataset_urn = builder.make_dataset_urn(
-                            NIFI, dataset_name, self.config.env
+                            NIFI,
+                            dataset_name,
+                            self.config.env,
                         )
                         component.inlets[dataset_urn] = ExternalDataset(
-                            NIFI, dataset_name, dict(nifi_uri=site_url), dataset_urn
+                            NIFI,
+                            dataset_name,
+                            dict(nifi_uri=site_url),
+                            dataset_urn,
                         )
                         break
 
             if self.config.emit_process_group_as_container:
                 # We emit process groups only for all nifi components qualifying as datajobs
                 yield from self.construct_process_group_workunits(
-                    component.parent_group_id
+                    component.parent_group_id,
                 )
 
             yield from self.construct_job_workunits(
@@ -1045,7 +1076,9 @@ class NifiSource(Source):
                 job_name,
                 component.parent_group_id,
                 external_url=self.make_external_url(
-                    component.parent_group_id, component.id, component.parent_rpg_id
+                    component.parent_group_id,
+                    component.id,
+                    component.parent_rpg_id,
                 ),
                 job_type=NIFI.upper() + "_" + component.nifi_type.value,
                 description=component.comments,
@@ -1067,13 +1100,15 @@ class NifiSource(Source):
 
     def make_flow_urn(self) -> str:
         return builder.make_data_flow_urn(
-            NIFI, self.nifi_flow.root_process_group.id, self.config.env
+            NIFI,
+            self.nifi_flow.root_process_group.id,
+            self.config.env,
         )
 
     def process_provenance_events(self):
         logger.debug("Starting processing of provenance events")
         startDate = datetime.now(timezone.utc) - timedelta(
-            days=self.config.provenance_days
+            days=self.config.provenance_days,
         )
 
         eventAnalyzer = NifiProcessorProvenanceEventAnalyzer()
@@ -1082,7 +1117,7 @@ class NifiSource(Source):
         logger.debug(f"Processing {len(components)} components")
         for component in components:
             logger.debug(
-                f"Processing provenance events for component id: {component.id} name: {component.name}"
+                f"Processing provenance events for component id: {component.id} name: {component.name}",
             )
             if component.nifi_type is NifiType.PROCESSOR:
                 eventType = eventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS[component.type]
@@ -1109,12 +1144,13 @@ class NifiSource(Source):
             assert self.config.username is not None
             assert self.config.password is not None
             self.session.auth = HTTPBasicAuth(
-                self.config.username, self.config.password
+                self.config.username,
+                self.config.password,
             )
             self.session.headers.update(
                 {
                     "Content-Type": "application/x-www-form-urlencoded",
-                }
+                },
             )
             return
 
@@ -1162,7 +1198,9 @@ class NifiSource(Source):
             self.create_nifi_flow()
         except Exception as e:
             self.report.failure(
-                "Failed to get root process group flow", self.config.site_url, exc=e
+                "Failed to get root process group flow",
+                self.config.site_url,
+                exc=e,
             )
             return
 
@@ -1254,7 +1292,8 @@ class NifiSource(Source):
             for patch_mcp in patch_builder.build():
                 logger.debug(f"Preparing Patch MCP: {patch_mcp}")
                 yield MetadataWorkUnit(
-                    id=f"{job_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                    id=f"{job_urn}-{patch_mcp.aspectName}",
+                    mcp_raw=patch_mcp,
                 )
         else:
             yield MetadataChangeProposalWrapper(
@@ -1267,7 +1306,9 @@ class NifiSource(Source):
             ).as_workunit()
 
     def gen_browse_path_v2_workunit(
-        self, entity_urn: str, process_group_id: str
+        self,
+        entity_urn: str,
+        process_group_id: str,
     ) -> MetadataWorkUnit:
         flow_urn = self.make_flow_urn()
         return MetadataChangeProposalWrapper(
@@ -1276,12 +1317,13 @@ class NifiSource(Source):
                 path=[
                     BrowsePathEntryClass(id=flow_urn, urn=flow_urn),
                     *self._get_browse_path_v2_entries(process_group_id),
-                ]
+                ],
             ),
         ).as_workunit()
 
     def _get_browse_path_v2_entries(
-        self, process_group_id: str
+        self,
+        process_group_id: str,
     ) -> List[BrowsePathEntryClass]:
         """Browse path entries till current process group"""
         if self._is_root_process_group(process_group_id):
@@ -1292,13 +1334,14 @@ class NifiSource(Source):
             current_process_group.parent_group_id
         )  # always present for non-root process group
         parent_browse_path = self._get_browse_path_v2_entries(
-            current_process_group.parent_group_id
+            current_process_group.parent_group_id,
         )
 
         if self.config.emit_process_group_as_container:
             container_urn = self.gen_process_group_key(process_group_id).as_urn()
             current_browse_entry = BrowsePathEntryClass(
-                id=container_urn, urn=container_urn
+                id=container_urn,
+                urn=container_urn,
             )
         else:
             current_browse_entry = BrowsePathEntryClass(id=current_process_group.name)
@@ -1308,7 +1351,8 @@ class NifiSource(Source):
         return self.nifi_flow.root_process_group.id == process_group_id
 
     def construct_process_group_workunits(
-        self, process_group_id: str
+        self,
+        process_group_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         if (
             self._is_root_process_group(process_group_id)
@@ -1336,12 +1380,15 @@ class NifiSource(Source):
 
             if self._is_root_process_group(pg.parent_group_id):
                 yield self.gen_browse_path_v2_workunit(
-                    container_key.as_urn(), pg.parent_group_id
+                    container_key.as_urn(),
+                    pg.parent_group_id,
                 )
 
     def gen_process_group_key(self, process_group_id: str) -> ProcessGroupKey:
         return ProcessGroupKey(
-            process_group_id=process_group_id, platform=NIFI, env=self.config.env
+            process_group_id=process_group_id,
+            platform=NIFI,
+            env=self.config.env,
         )
 
     def construct_dataset_workunits(
@@ -1354,19 +1401,22 @@ class NifiSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         if not dataset_urn:
             dataset_urn = builder.make_dataset_urn(
-                dataset_platform, dataset_name, self.config.env
+                dataset_platform,
+                dataset_name,
+                self.config.env,
             )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(dataset_platform)
+                platform=builder.make_data_platform_urn(dataset_platform),
             ),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
-                externalUrl=external_url, customProperties=datasetProperties
+                externalUrl=external_url,
+                customProperties=datasetProperties,
             ),
         ).as_workunit()

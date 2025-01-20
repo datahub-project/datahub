@@ -75,7 +75,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
     )
     include_stored_procedures_code: bool = Field(
-        default=True, description="Include information about object code."
+        default=True,
+        description="Include information about object code.",
     )
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -87,7 +88,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Include ingest of MSSQL Jobs. Requires access to the 'msdb' and 'sys' schema.",
     )
     include_descriptions: bool = Field(
-        default=True, description="Include table descriptions information."
+        default=True,
+        description="Include table descriptions information.",
     )
     use_odbc: bool = Field(
         default=False,
@@ -201,7 +203,7 @@ class SQLServerSource(SQLAlchemySource):
             conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
         except AttributeError as e:
             logger.debug(
-                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
+                f"Failed to mount output converter for MSSQL data type -150 due to {e}",
             )
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
@@ -219,7 +221,7 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.MINOR_ID = 0
               AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
-            """
+            """,
         )
         for row in table_metadata:
             self.table_descriptions[
@@ -242,7 +244,7 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.MINOR_ID = C.COLUMN_ID
               AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
-            """
+            """,
         )
         for row in column_metadata:
             self.column_descriptions[
@@ -256,24 +258,37 @@ class SQLServerSource(SQLAlchemySource):
 
     # override to get table descriptions
     def get_table_properties(
-        self, inspector: Inspector, schema: str, table: str
+        self,
+        inspector: Inspector,
+        schema: str,
+        table: str,
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
-            inspector, schema, table
+            inspector,
+            schema,
+            table,
         )
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
-            f"{db_name}.{schema}.{table}", description
+            f"{db_name}.{schema}.{table}",
+            description,
         )
         return description, properties, location_urn
 
     # override to get column descriptions
     def _get_columns(
-        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
     ) -> List[Dict]:
         columns: List[Dict] = super()._get_columns(
-            dataset_name, inspector, schema, table
+            dataset_name,
+            inspector,
+            schema,
+            table,
         )
         # Update column description if available.
         db_name: str = self.get_db_name(inspector)
@@ -344,7 +359,7 @@ class SQLServerSource(SQLAlchemySource):
             ON
                 job.job_id = steps.job_id
             where database_name = '{db_name}'
-            """
+            """,
         )
         jobs: Dict[str, Dict[str, Any]] = {}
         for row in jobs_data:
@@ -389,7 +404,9 @@ class SQLServerSource(SQLAlchemySource):
                 yield from self.loop_job_steps(job, job_steps)
 
     def loop_job_steps(
-        self, job: MSSQLJob, job_steps: Dict[str, Any]
+        self,
+        job: MSSQLJob,
+        job_steps: Dict[str, Any],
     ) -> Iterable[MetadataWorkUnit]:
         for _step_id, step_data in job_steps.items():
             step = JobStep(
@@ -429,7 +446,7 @@ class SQLServerSource(SQLAlchemySource):
                     self.report.report_dropped(procedure_full_name)
                     continue
                 procedures.append(
-                    StoredProcedure(flow=mssql_default_job, **procedure_data)
+                    StoredProcedure(flow=mssql_default_job, **procedure_data),
                 )
 
             if procedures:
@@ -438,7 +455,9 @@ class SQLServerSource(SQLAlchemySource):
                 yield from self._process_stored_procedure(conn, procedure)
 
     def _process_stored_procedure(
-        self, conn: Connection, procedure: StoredProcedure
+        self,
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> Iterable[MetadataWorkUnit]:
         upstream = self._get_procedure_upstream(conn, procedure)
         downstream = self._get_procedure_downstream(conn, procedure)
@@ -459,7 +478,8 @@ class SQLServerSource(SQLAlchemySource):
         procedure_inputs = self._get_procedure_inputs(conn, procedure)
         properties = self._get_procedure_properties(conn, procedure)
         data_job.add_property(
-            "input parameters", str([param.name for param in procedure_inputs])
+            "input parameters",
+            str([param.name for param in procedure_inputs]),
         )
         for param in procedure_inputs:
             data_job.add_property(f"parameter {param.name}", str(param.properties))
@@ -476,7 +496,8 @@ class SQLServerSource(SQLAlchemySource):
 
     @staticmethod
     def _get_procedure_downstream(
-        conn: Connection, procedure: StoredProcedure
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> ProcedureLineageStream:
         downstream_data = conn.execute(
             f"""
@@ -488,7 +509,7 @@ class SQLServerSource(SQLAlchemySource):
             left join sys.objects o1 on sed.referenced_id = o1.object_id
             WHERE referenced_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND o.type_desc in ('TABLE_TYPE', 'VIEW', 'USER_TABLE')
-            """
+            """,
         )
         downstream_dependencies = []
         for row in downstream_data:
@@ -500,13 +521,14 @@ class SQLServerSource(SQLAlchemySource):
                     type=row["type"],
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
-                )
+                ),
             )
         return ProcedureLineageStream(dependencies=downstream_dependencies)
 
     @staticmethod
     def _get_procedure_upstream(
-        conn: Connection, procedure: StoredProcedure
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> ProcedureLineageStream:
         upstream_data = conn.execute(
             f"""
@@ -521,7 +543,7 @@ class SQLServerSource(SQLAlchemySource):
             WHERE referencing_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND referenced_schema_name is not null
                 AND o1.type_desc in ('TABLE_TYPE', 'VIEW', 'SQL_STORED_PROCEDURE', 'USER_TABLE')
-            """
+            """,
         )
         upstream_dependencies = []
         for row in upstream_data:
@@ -533,13 +555,14 @@ class SQLServerSource(SQLAlchemySource):
                     type=row["type"],
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
-                )
+                ),
             )
         return ProcedureLineageStream(dependencies=upstream_dependencies)
 
     @staticmethod
     def _get_procedure_inputs(
-        conn: Connection, procedure: StoredProcedure
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> List[ProcedureParameter]:
         inputs_data = conn.execute(
             f"""
@@ -548,7 +571,7 @@ class SQLServerSource(SQLAlchemySource):
                 type_name(user_type_id) AS 'type'
             FROM sys.parameters
             WHERE object_id = object_id('{procedure.escape_full_name}')
-            """
+            """,
         )
         inputs_list = []
         for row in inputs_data:
@@ -557,7 +580,8 @@ class SQLServerSource(SQLAlchemySource):
 
     @staticmethod
     def _get_procedure_code(
-        conn: Connection, procedure: StoredProcedure
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> Tuple[Optional[str], Optional[str]]:
         query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
         try:
@@ -588,7 +612,8 @@ class SQLServerSource(SQLAlchemySource):
 
     @staticmethod
     def _get_procedure_properties(
-        conn: Connection, procedure: StoredProcedure
+        conn: Connection,
+        procedure: StoredProcedure,
     ) -> Dict[str, Any]:
         properties_data = conn.execute(
             f"""
@@ -597,18 +622,21 @@ class SQLServerSource(SQLAlchemySource):
                 modify_date as date_modified
             FROM sys.procedures
             WHERE object_id = object_id('{procedure.escape_full_name}')
-            """
+            """,
         )
         properties = {}
         for row in properties_data:
             properties = dict(
-                date_created=row["date_created"], date_modified=row["date_modified"]
+                date_created=row["date_created"],
+                date_modified=row["date_modified"],
             )
         return properties
 
     @staticmethod
     def _get_stored_procedures(
-        conn: Connection, db_name: str, schema: str
+        conn: Connection,
+        db_name: str,
+        schema: str,
     ) -> List[Dict[str, str]]:
         stored_procedures_data = conn.execute(
             f"""
@@ -620,12 +648,12 @@ class SQLServerSource(SQLAlchemySource):
             INNER JOIN
                 [{db_name}].[sys].[schemas] s ON pr.schema_id = s.schema_id
             where s.name = '{schema}'
-            """
+            """,
         )
         procedures_list = []
         for row in stored_procedures_data:
             procedures_list.append(
-                dict(db=db_name, schema=row["schema_name"], name=row["procedure_name"])
+                dict(db=db_name, schema=row["schema_name"], name=row["procedure_name"]),
             )
         return procedures_list
 
@@ -684,20 +712,26 @@ class SQLServerSource(SQLAlchemySource):
                 databases = conn.execute(
                     "SELECT name FROM master.sys.databases WHERE name NOT IN \
                   ('master', 'model', 'msdb', 'tempdb', 'Resource', \
-                       'distribution' , 'reportserver', 'reportservertempdb'); "
+                       'distribution' , 'reportserver', 'reportservertempdb'); ",
                 )
                 for db in databases:
                     if self.config.database_pattern.allowed(db["name"]):
                         url = self.config.get_sql_alchemy_url(current_db=db["name"])
                         with create_engine(
-                            url, **self.config.options
+                            url,
+                            **self.config.options,
                         ).connect() as conn:
                             inspector = inspect(conn)
                             self.current_database = db["name"]
                             yield inspector
 
     def get_identifier(
-        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+        self,
+        *,
+        schema: str,
+        entity: str,
+        inspector: Inspector,
+        **kwargs: Any,
     ) -> str:
         regular = f"{schema}.{entity}"
         qualified_table_name = regular
@@ -728,7 +762,7 @@ class SQLServerSource(SQLAlchemySource):
                         procedure=procedure,
                         procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
                         is_temp_table=self.is_temp_table,
-                    )
+                    ),
                 )
 
     def is_temp_table(self, name: str) -> bool:

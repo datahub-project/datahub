@@ -71,7 +71,8 @@ class DremioToDataHubSourceTypeMapping:
         Return the DataHub source type.
         """
         return DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING.get(
-            dremio_source_type.upper(), dremio_source_type.lower()
+            dremio_source_type.upper(),
+            dremio_source_type.lower(),
         )
 
     @staticmethod
@@ -108,9 +109,9 @@ class DremioToDataHubSourceTypeMapping:
         if category:
             if category.lower() == "file_object_storage":
                 DremioToDataHubSourceTypeMapping.FILE_OBJECT_STORAGE_TYPES.add(
-                    dremio_source_type
+                    dremio_source_type,
                 )
             else:
                 DremioToDataHubSourceTypeMapping.DATABASE_SOURCE_TYPES.add(
-                    dremio_source_type
+                    dremio_source_type,
                 )

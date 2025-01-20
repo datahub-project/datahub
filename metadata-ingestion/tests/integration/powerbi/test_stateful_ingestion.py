@@ -71,7 +71,7 @@ def register_mock_api_state1(request_mock):
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/44444444-7C10-4684-8180-826122881108/dashboards": {
@@ -86,7 +86,7 @@ def register_mock_api_state1(request_mock):
                         "embedUrl": "https://localhost/dashboards/embed/multi_workspace",
                         "webUrl": "https://localhost/dashboards/web/multi_workspace",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
@@ -161,8 +161,8 @@ def register_mock_api_state2(request_mock):
                         "displayName": "marketing",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
+                    },
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/44444444-7C10-4684-8180-826122881108/dashboards": {
@@ -206,7 +206,7 @@ def default_source_config():
             "allow": [
                 "64ED5CAD-7C10-4684-8180-826122881108",
                 "44444444-7C10-4684-8180-826122881108",
-            ]
+            ],
         },
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
@@ -234,7 +234,7 @@ def get_current_checkpoint_from_pipeline(
     for job_id in powerbi_source.state_provider._usecase_handlers.keys():
         # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
         checkpoints[job_id] = powerbi_source.state_provider.get_current_checkpoint(
-            job_id
+            job_id,
         )
     return checkpoints
 
@@ -271,7 +271,12 @@ def ingest(pipeline_name, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_stateful_ingestion(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
+    mock_datahub_graph,
 ):
     register_mock_api_state1(request_mock=requests_mock)
     pipeline1 = ingest("run1", tmp_path, mock_datahub_graph)
@@ -289,17 +294,20 @@ def test_powerbi_stateful_ingestion(
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline1, expected_providers=1
+        pipeline=pipeline1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline2, expected_providers=1
+        pipeline=pipeline2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted Dashboard should not be
     # part of the second state
     for job_id in checkpoint1.keys():
         if isinstance(checkpoint1[job_id], Checkpoint) and isinstance(
-            checkpoint2[job_id], Checkpoint
+            checkpoint2[job_id],
+            Checkpoint,
         ):
             state1 = checkpoint1[job_id].state  # type:ignore
             state2 = checkpoint2[job_id].state  # type:ignore
@@ -309,22 +317,22 @@ def test_powerbi_stateful_ingestion(
             == "powerbi_stale_entity_removal_64ED5CAD-7C10-4684-8180-826122881108"
         ):
             difference_dashboard_urns = list(
-                state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+                state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
             )
 
             assert len(difference_dashboard_urns) == 1
             assert difference_dashboard_urns == [
-                "urn:li:dashboard:(powerbi,dashboards.e41cbfe7-9f54-40ad-8d6a-043ab97cf303)"
+                "urn:li:dashboard:(powerbi,dashboards.e41cbfe7-9f54-40ad-8d6a-043ab97cf303)",
             ]
         elif (
             job_id
             == "powerbi_stale_entity_removal_44444444-7C10-4684-8180-826122881108"
         ):
             difference_dashboard_urns = list(
-                state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+                state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
             )
 
             assert len(difference_dashboard_urns) == 1
             assert difference_dashboard_urns == [
-                "urn:li:dashboard:(powerbi,dashboards.7D668CAD-4444-4505-9215-655BCA5BEBAE)"
+                "urn:li:dashboard:(powerbi,dashboards.7D668CAD-4444-4505-9215-655BCA5BEBAE)",
             ]

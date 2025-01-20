@@ -81,7 +81,11 @@ class KafkaTopicsCxtManager:
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest_with_stateful(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka"
     topic_prefix: str = "stateful_ingestion_test"
@@ -89,7 +93,8 @@ def test_kafka_ingest_with_stateful(
     platform_instance = "test_platform_instance_1"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "kafka"
+        test_resources_dir / "docker-compose.yml",
+        "kafka",
     ) as docker_services:
         wait_for_port(docker_services, "test_broker", KAFKA_PORT, timeout=120)
         wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
@@ -118,20 +123,21 @@ def test_kafka_ingest_with_stateful(
             },
             "sink": {
                 # we are not really interested in the resulting events for this test
-                "type": "console"
+                "type": "console",
             },
             "pipeline_name": "test_pipeline",
             # enable reporting
             "reporting": [
                 {
                     "type": "datahub",
-                }
+                },
             ],
         }
 
         # topics will be automatically created and deleted upon test completion
         with KafkaTopicsCxtManager(
-            topic_names, KAFKA_BOOTSTRAP_SERVER
+            topic_names,
+            KAFKA_BOOTSTRAP_SERVER,
         ) as kafka_ctx, patch(
             "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
             mock_datahub_graph,
@@ -161,7 +167,7 @@ def test_kafka_ingest_with_stateful(
             state1 = checkpoint1.state
             state2 = checkpoint2.state
             difference_urns = list(
-                state1.get_urns_not_in(type="topic", other_checkpoint_state=state2)
+                state1.get_urns_not_in(type="topic", other_checkpoint_state=state2),
             )
 
             assert len(difference_urns) == 1
@@ -174,8 +180,10 @@ def test_kafka_ingest_with_stateful(
             # NOTE: The following validation asserts for presence of state as well
             # and validates reporting.
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=1
+                pipeline=pipeline_run1,
+                expected_providers=1,
             )
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=1
+                pipeline=pipeline_run1,
+                expected_providers=1,
             )

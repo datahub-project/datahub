@@ -47,7 +47,7 @@ def test_snowflake_source_throws_error_on_account_id_missing():
             {
                 "username": "user",
                 "password": "password",
-            }
+            },
         )
 
 
@@ -72,7 +72,7 @@ def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_f
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
                 "oauth_config": oauth_dict,
-            }
+            },
         )
 
 
@@ -89,7 +89,7 @@ def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_cert
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
                 "oauth_config": oauth_dict,
-            }
+            },
         )
 
 
@@ -99,14 +99,15 @@ def test_snowflake_oauth_okta_does_not_support_certificate():
     oauth_dict["provider"] = "okta"
     OAuthConfiguration.parse_obj(oauth_dict)
     with pytest.raises(
-        ValueError, match="Certificate authentication is not supported for Okta."
+        ValueError,
+        match="Certificate authentication is not supported for Okta.",
     ):
         SnowflakeV2Config.parse_obj(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR",
                 "oauth_config": oauth_dict,
-            }
+            },
         )
 
 
@@ -118,7 +119,7 @@ def test_snowflake_oauth_happy_paths():
             "account_id": "test",
             "authentication_type": "OAUTH_AUTHENTICATOR",
             "oauth_config": oauth_dict,
-        }
+        },
     )
     oauth_dict["use_certificate"] = True
     oauth_dict["provider"] = "microsoft"
@@ -129,7 +130,7 @@ def test_snowflake_oauth_happy_paths():
             "account_id": "test",
             "authentication_type": "OAUTH_AUTHENTICATOR",
             "oauth_config": oauth_dict,
-        }
+        },
     )
 
 
@@ -141,20 +142,21 @@ def test_snowflake_oauth_token_happy_path():
             "token": "valid-token",
             "username": "test-user",
             "oauth_config": None,
-        }
+        },
     )
 
 
 def test_snowflake_oauth_token_without_token():
     with pytest.raises(
-        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+        ValidationError,
+        match="Token required for OAUTH_AUTHENTICATOR_TOKEN.",
     ):
         SnowflakeV2Config.parse_obj(
             {
                 "account_id": "test",
                 "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
                 "username": "test-user",
-            }
+            },
         )
 
 
@@ -169,13 +171,14 @@ def test_snowflake_oauth_token_with_wrong_auth_type():
                 "authentication_type": "OAUTH_AUTHENTICATOR",
                 "token": "some-token",
                 "username": "test-user",
-            }
+            },
         )
 
 
 def test_snowflake_oauth_token_with_empty_token():
     with pytest.raises(
-        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+        ValidationError,
+        match="Token required for OAUTH_AUTHENTICATOR_TOKEN.",
     ):
         SnowflakeV2Config.parse_obj(
             {
@@ -183,7 +186,7 @@ def test_snowflake_oauth_token_with_empty_token():
                 "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
                 "token": "",
                 "username": "test-user",
-            }
+            },
         )
 
 
@@ -286,7 +289,7 @@ def test_private_key_set_but_auth_not_changed():
             {
                 "account_id": "acctname",
                 "private_key_path": "/a/random/path",
-            }
+            },
         )
 
 
@@ -305,17 +308,20 @@ def test_snowflake_config_with_connect_args_overrides_base_connect_args():
 def test_test_connection_failure(mock_connect):
     mock_connect.side_effect = Exception("Failed to connect to snowflake")
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_failure(
-        report, "Failed to connect to snowflake"
+        report,
+        "Failed to connect to snowflake",
     )
 
 
 @patch("snowflake.connector.connect")
 def test_test_connection_basic_success(mock_connect):
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -360,7 +366,8 @@ def test_test_connection_no_warehouse(mock_connect):
 
     setup_mock_connect(mock_connect, query_results)
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -368,7 +375,7 @@ def test_test_connection_no_warehouse(mock_connect):
         capability_report=report.capability_report,
         success_capabilities=[SourceCapability.CONTAINERS],
         failure_capabilities={
-            SourceCapability.SCHEMA_METADATA: "Current role TEST_ROLE does not have permissions to use warehouse"
+            SourceCapability.SCHEMA_METADATA: "Current role TEST_ROLE does not have permissions to use warehouse",
         },
     )
 
@@ -383,7 +390,8 @@ def test_test_connection_capability_schema_failure(mock_connect):
     setup_mock_connect(mock_connect, query_results)
 
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -391,7 +399,7 @@ def test_test_connection_capability_schema_failure(mock_connect):
         capability_report=report.capability_report,
         success_capabilities=[SourceCapability.CONTAINERS],
         failure_capabilities={
-            SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them"
+            SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
         },
     )
 
@@ -414,7 +422,8 @@ def test_test_connection_capability_schema_success(mock_connect):
     setup_mock_connect(mock_connect, query_results)
 
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -467,7 +476,8 @@ def test_test_connection_capability_all_success(mock_connect):
     setup_mock_connect(mock_connect, query_results)
 
     report = test_connection_helpers.run_test_connection(
-        SnowflakeV2Source, default_config_dict
+        SnowflakeV2Source,
+        default_config_dict,
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -488,7 +498,7 @@ def test_aws_cloud_region_from_snowflake_region_id():
         cloud,
         cloud_region_id,
     ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-        "aws_ca_central_1"
+        "aws_ca_central_1",
     )
 
     assert cloud == SnowflakeCloudProvider.AWS
@@ -498,7 +508,7 @@ def test_aws_cloud_region_from_snowflake_region_id():
         cloud,
         cloud_region_id,
     ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-        "aws_us_east_1_gov"
+        "aws_us_east_1_gov",
     )
 
     assert cloud == SnowflakeCloudProvider.AWS
@@ -510,7 +520,7 @@ def test_google_cloud_region_from_snowflake_region_id():
         cloud,
         cloud_region_id,
     ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-        "gcp_europe_west2"
+        "gcp_europe_west2",
     )
 
     assert cloud == SnowflakeCloudProvider.GCP
@@ -522,7 +532,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
         cloud,
         cloud_region_id,
     ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-        "azure_switzerlandnorth"
+        "azure_switzerlandnorth",
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
@@ -532,7 +542,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
         cloud,
         cloud_region_id,
     ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-        "azure_centralindia"
+        "azure_centralindia",
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
@@ -542,7 +552,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
 def test_unknown_cloud_region_from_snowflake_region_id():
     with pytest.raises(Exception, match="Unknown snowflake region"):
         SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
-            "somecloud_someregion"
+            "somecloud_someregion",
         )
 
 
@@ -555,7 +565,7 @@ def test_snowflake_object_access_entry_missing_object_id():
             ],
             "objectDomain": "View",
             "objectName": "SOME.OBJECT.NAME",
-        }
+        },
     )
 
 
@@ -578,7 +588,8 @@ def test_snowflake_query_create_deny_regex_sql():
 
     assert (
         create_deny_regex_sql_filter(
-            DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
+            DEFAULT_TEMP_TABLES_PATTERNS,
+            ["upstream_table_name"],
         )
         == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i')"
     )
@@ -591,7 +602,7 @@ def test_snowflake_temporary_patterns_config_rename():
             "username": "user",
             "password": "password",
             "upstreams_deny_pattern": [".*tmp.*"],
-        }
+        },
     )
     assert conf.temporary_tables_pattern == [".*tmp.*"]
 
@@ -628,7 +639,9 @@ def test_email_filter_query_generation_one_allow_and_deny():
 
 def test_email_filter_query_generation_with_case_insensitive_filter():
     email_filter = AllowDenyPattern(
-        allow=[".*@example.com"], deny=[".*@example2.com"], ignoreCase=False
+        allow=[".*@example.com"],
+        deny=[".*@example2.com"],
+        ignoreCase=False,
     )
     filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
     assert (
@@ -639,14 +652,18 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
 
 def test_create_snowsight_base_url_us_west():
     result = SnowsightUrlBuilder(
-        "account_locator", "aws_us_west_2", privatelink=False
+        "account_locator",
+        "aws_us_west_2",
+        privatelink=False,
     ).snowsight_base_url
     assert result == "https://app.snowflake.com/us-west-2/account_locator/"
 
 
 def test_create_snowsight_base_url_ap_northeast_1():
     result = SnowsightUrlBuilder(
-        "account_locator", "aws_ap_northeast_1", privatelink=False
+        "account_locator",
+        "aws_ap_northeast_1",
+        privatelink=False,
     ).snowsight_base_url
 
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"
@@ -664,7 +681,7 @@ def test_using_removed_fields_causes_no_error() -> None:
             "password": "snowflake",
             "include_view_lineage": "true",
             "include_view_column_lineage": "true",
-        }
+        },
     )
 
 
@@ -677,7 +694,7 @@ def test_snowflake_query_result_parsing():
                 "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
                 "upstream_object_domain": "Table",
                 "upstream_object_name": "db.schema.upstream_table",
-            }
+            },
         ],
         "UPSTREAM_COLUMNS": [{}],
         "QUERIES": [
@@ -685,7 +702,7 @@ def test_snowflake_query_result_parsing():
                 "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
                 "query_text": "Query test",
                 "start_time": "2022-12-01 19:56:34",
-            }
+            },
         ],
     }
     assert UpstreamLineageEdge.parse_obj(db_row)

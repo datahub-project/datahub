@@ -41,7 +41,8 @@ query listEntities($input: ScrollAcrossEntitiesInput!) {
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     enabled: bool = Field(
-        default=True, description="Whether to do soft deletion cleanup."
+        default=True,
+        description="Whether to do soft deletion cleanup.",
     )
     retention_days: int = Field(
         10,
@@ -84,11 +85,13 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     )
 
     limit_entities_delete: Optional[int] = Field(
-        25000, description="Max number of entities to delete."
+        25000,
+        description="Max number of entities to delete.",
     )
 
     futures_max_at_time: int = Field(
-        1000, description="Max number of futures to have at a time."
+        1000,
+        description="Max number of futures to have at a time.",
     )
 
     runtime_limit_seconds: int = Field(
@@ -107,7 +110,7 @@ class SoftDeletedEntitiesReport(SourceReport):
     num_hard_deleted: int = 0
     num_hard_deleted_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
     sample_hard_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     runtime_limit_reached: bool = False
     deletion_limit_reached: bool = False
@@ -166,7 +169,7 @@ class SoftDeletedEntitiesCleanup:
         entity_urn = Urn.from_string(urn)
         if self.dry_run:
             logger.info(
-                f"Dry run is on otherwise it would have deleted {urn} with hard deletion"
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion",
             )
             return
         if self._deletion_limit_reached() or self._times_up():
@@ -224,7 +227,7 @@ class SoftDeletedEntitiesCleanup:
             ):
                 if self.config.delay:
                     logger.debug(
-                        f"Sleeping for {self.config.delay} seconds before further processing batch"
+                        f"Sleeping for {self.config.delay} seconds before further processing batch",
                     )
                     time.sleep(self.config.delay)
         return futures
@@ -263,16 +266,17 @@ class SoftDeletedEntitiesCleanup:
                                             "field": "removed",
                                             "values": ["true"],
                                             "condition": "EQUAL",
-                                        }
-                                    ]
-                                }
+                                        },
+                                    ],
+                                },
                             ],
-                        }
+                        },
                     },
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get {entity_type} with {scroll_id}", exc=e
+                    f"While trying to get {entity_type} with {scroll_id}",
+                    exc=e,
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
@@ -292,7 +296,7 @@ class SoftDeletedEntitiesCleanup:
             if entity_type not in self.report.num_entities_found:
                 self.report.num_entities_found[entity_type] = 0
             self.report.num_entities_found[entity_type] += scroll_across_entities.get(
-                "count"
+                "count",
             )
             for query in search_results:
                 yield query["entity"]["urn"]

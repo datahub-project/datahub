@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -> dict:
     # Attempt to resolve secret using by checking each configured secret store.
-    final_secret_values = dict({})
+    final_secret_values = {}
 
     for secret_store in secret_stores:
         try:
@@ -34,13 +34,15 @@ def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -
                     final_secret_values[secret_name] = secret_value
         except Exception:
             logger.exception(
-                f"Failed to fetch secret values from secret store with id {secret_store.get_id()}"
+                f"Failed to fetch secret values from secret store with id {secret_store.get_id()}",
             )
     return final_secret_values
 
 
 def resolve_recipe(
-    recipe: str, secret_stores: List[SecretStore], strict_env_syntax: bool = True
+    recipe: str,
+    secret_stores: List[SecretStore],
+    strict_env_syntax: bool = True,
 ) -> dict:
     # Note: the default for `strict_env_syntax` is normally False, but here we override
     # it to be true. Particularly when fetching secrets from external secret stores, we
@@ -50,7 +52,8 @@ def resolve_recipe(
 
     # 1. Extract all secrets needing resolved.
     secrets_to_resolve = EnvResolver.list_referenced_variables(
-        json_recipe_raw, strict_env_syntax=strict_env_syntax
+        json_recipe_raw,
+        strict_env_syntax=strict_env_syntax,
     )
 
     # 2. Resolve secret values
@@ -58,7 +61,8 @@ def resolve_recipe(
 
     # 3. Substitute secrets into recipe file
     resolver = EnvResolver(
-        environ=secret_values_dict, strict_env_syntax=strict_env_syntax
+        environ=secret_values_dict,
+        strict_env_syntax=strict_env_syntax,
     )
     json_recipe_resolved = resolver.resolve(json_recipe_raw)
 

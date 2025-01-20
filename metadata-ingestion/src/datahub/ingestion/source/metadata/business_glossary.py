@@ -34,7 +34,9 @@ from datahub.utilities.urn_encoder import UrnEncoder
 logger = logging.getLogger(__name__)
 
 GlossaryNodeInterface = TypeVar(
-    "GlossaryNodeInterface", "GlossaryNodeConfig", "BusinessGlossaryConfig"
+    "GlossaryNodeInterface",
+    "GlossaryNodeConfig",
+    "BusinessGlossaryConfig",
 )
 
 
@@ -98,7 +100,7 @@ class DefaultConfig(ConfigModel):
 
 class BusinessGlossarySourceConfig(ConfigModel):
     file: Union[str, pathlib.Path] = Field(
-        description="File path or URL to business glossary file to ingest."
+        description="File path or URL to business glossary file to ingest.",
     )
     enable_auto_id: bool = Field(
         description="Generate guid urns instead of a plaintext path urn with the node/term's hierarchy.",
@@ -133,11 +135,13 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
 
 def make_glossary_node_urn(
-    path: List[str], default_id: Optional[str], enable_auto_id: bool
+    path: List[str],
+    default_id: Optional[str],
+    enable_auto_id: bool,
 ) -> str:
     if default_id is not None and default_id.startswith("urn:li:glossaryNode:"):
         logger.debug(
-            f"node's default_id({default_id}) is in urn format for path {path}. Returning same as urn"
+            f"node's default_id({default_id}) is in urn format for path {path}. Returning same as urn",
         )
         return default_id
 
@@ -145,11 +149,13 @@ def make_glossary_node_urn(
 
 
 def make_glossary_term_urn(
-    path: List[str], default_id: Optional[str], enable_auto_id: bool
+    path: List[str],
+    default_id: Optional[str],
+    enable_auto_id: bool,
 ) -> str:
     if default_id is not None and default_id.startswith("urn:li:glossaryTerm:"):
         logger.debug(
-            f"term's default_id({default_id}) is in urn format for path {path}. Returning same as urn"
+            f"term's default_id({default_id}) is in urn format for path {path}. Returning same as urn",
         )
         return default_id
 
@@ -234,7 +240,8 @@ def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
 
 
 def make_institutional_memory_mcp(
-    urn: str, knowledge_cards: List[KnowledgeCard]
+    urn: str,
+    knowledge_cards: List[KnowledgeCard],
 ) -> Optional[MetadataChangeProposalWrapper]:
     elements: List[models.InstitutionalMemoryMetadataClass] = []
 
@@ -249,7 +256,7 @@ def make_institutional_memory_mcp(
                         actor="urn:li:corpuser:datahub",
                         message="ingestion bot",
                     ),
-                )
+                ),
             )
 
     if elements:
@@ -262,7 +269,8 @@ def make_institutional_memory_mcp(
 
 
 def make_domain_mcp(
-    term_urn: str, domain_aspect: models.DomainsClass
+    term_urn: str,
+    domain_aspect: models.DomainsClass,
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(entityUrn=term_urn, aspect=domain_aspect)
 
@@ -297,7 +305,8 @@ def get_mces_from_node(
 
     if glossaryNode.knowledge_links is not None:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
-            node_urn, glossaryNode.knowledge_links
+            node_urn,
+            glossaryNode.knowledge_links,
         )
         if mcp is not None:
             yield mcp
@@ -328,17 +337,19 @@ def get_mces_from_node(
 
 
 def get_domain_class(
-    graph: Optional[DataHubGraph], domains: List[str]
+    graph: Optional[DataHubGraph],
+    domains: List[str],
 ) -> models.DomainsClass:
     # FIXME: In the ideal case, the domain registry would be an instance variable so that it
     # preserves its cache across calls to this function. However, the current implementation
     # requires the full list of domains to be passed in at instantiation time, so we can't
     # actually do that.
     domain_registry: DomainRegistry = DomainRegistry(
-        cached_domains=[k for k in domains], graph=graph
+        cached_domains=[k for k in domains],
+        graph=graph,
     )
     domain_class = models.DomainsClass(
-        domains=[domain_registry.get_domain_urn(domain) for domain in domains]
+        domains=[domain_registry.get_domain_urn(domain) for domain in domains],
     )
     return domain_class
 
@@ -448,7 +459,8 @@ def get_mces_from_term(
 
     if glossaryTerm.domain is not None:
         yield make_domain_mcp(
-            term_urn, get_domain_class(ctx.graph, [glossaryTerm.domain])
+            term_urn,
+            get_domain_class(ctx.graph, [glossaryTerm.domain]),
         )
 
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
@@ -459,28 +471,35 @@ def get_mces_from_term(
 
     if glossaryTerm.knowledge_links:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
-            term_urn, glossaryTerm.knowledge_links
+            term_urn,
+            glossaryTerm.knowledge_links,
         )
         if mcp is not None:
             yield mcp
 
 
 def materialize_all_node_urns(
-    glossary: BusinessGlossaryConfig, enable_auto_id: bool
+    glossary: BusinessGlossaryConfig,
+    enable_auto_id: bool,
 ) -> None:
     """After this runs, all nodes will have an id value that is a valid urn."""
 
     def _process_child_terms(
-        parent_node: GlossaryNodeInterface, path: List[str]
+        parent_node: GlossaryNodeInterface,
+        path: List[str],
     ) -> None:
         for term in parent_node.terms or []:
             term._urn = make_glossary_term_urn(
-                path + [term.name], term.id, enable_auto_id
+                path + [term.name],
+                term.id,
+                enable_auto_id,
             )
 
         for node in parent_node.nodes or []:
             node._urn = make_glossary_node_urn(
-                path + [node.name], node.id, enable_auto_id
+                path + [node.name],
+                node.id,
+                enable_auto_id,
             )
             _process_child_terms(node, path + [node.name])
 
@@ -493,7 +512,8 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
     path_vs_id: Dict[str, str] = {}
 
     def _process_child_terms(
-        parent_node: GlossaryNodeInterface, path: List[str]
+        parent_node: GlossaryNodeInterface,
+        path: List[str],
     ) -> None:
         for term in parent_node.terms or []:
             path_vs_id[".".join(path + [term.name])] = term._urn
@@ -526,7 +546,8 @@ class BusinessGlossaryFileSource(Source):
 
     @classmethod
     def load_glossary_config(
-        cls, file_name: Union[str, pathlib.Path]
+        cls,
+        file_name: Union[str, pathlib.Path],
     ) -> BusinessGlossaryConfig:
         config = load_config_file(file_name, resolve_env_vars=True)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
@@ -542,8 +563,11 @@ class BusinessGlossaryFileSource(Source):
 
         yield from auto_workunit(
             get_mces(
-                glossary_config, path_vs_id, ingestion_config=self.config, ctx=self.ctx
-            )
+                glossary_config,
+                path_vs_id,
+                ingestion_config=self.config,
+                ctx=self.ctx,
+            ),
         )
 
     def get_report(self):

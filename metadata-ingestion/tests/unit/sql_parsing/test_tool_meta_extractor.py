@@ -35,7 +35,8 @@ LIMIT 100
 
 def test_extract_looker_metadata() -> None:
     extractor = ToolMetaExtractor(
-        report=ToolMetaExtractorReport(), looker_user_mapping={"7": "john.doe@xyz.com"}
+        report=ToolMetaExtractorReport(),
+        looker_user_mapping={"7": "john.doe@xyz.com"},
     )
     looker_query = """\
 SELECT

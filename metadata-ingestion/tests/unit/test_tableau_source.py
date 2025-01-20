@@ -35,14 +35,15 @@ def test_tablea_source_handles_none_nativedatatype():
         "formula": "a/b + d",
     }
     schema_field: SchemaField = tableau_field_to_schema_field(
-        field=field, ingest_tags=False
+        field=field,
+        ingest_tags=False,
     )
     assert schema_field.nativeDataType == "UNKNOWN"
 
 
 def test_tableau_source_unescapes_lt():
     res = TableauSiteSource._clean_tableau_query_parameters(
-        "select * from t where c1 << 135"
+        "select * from t where c1 << 135",
     )
 
     assert res == "select * from t where c1 < 135"
@@ -50,7 +51,7 @@ def test_tableau_source_unescapes_lt():
 
 def test_tableau_source_unescapes_gt():
     res = TableauSiteSource._clean_tableau_query_parameters(
-        "select * from t where c1 >> 135"
+        "select * from t where c1 >> 135",
     )
 
     assert res == "select * from t where c1 > 135"
@@ -58,7 +59,7 @@ def test_tableau_source_unescapes_gt():
 
 def test_tableau_source_unescapes_gte():
     res = TableauSiteSource._clean_tableau_query_parameters(
-        "select * from t where c1 >>= 135"
+        "select * from t where c1 >>= 135",
     )
 
     assert res == "select * from t where c1 >= 135"
@@ -66,7 +67,7 @@ def test_tableau_source_unescapes_gte():
 
 def test_tableau_source_unescapeslgte():
     res = TableauSiteSource._clean_tableau_query_parameters(
-        "select * from t where c1 <<= 135"
+        "select * from t where c1 <<= 135",
     )
 
     assert res == "select * from t where c1 <= 135"
@@ -74,7 +75,7 @@ def test_tableau_source_unescapeslgte():
 
 def test_tableau_source_doesnt_touch_not_escaped():
     res = TableauSiteSource._clean_tableau_query_parameters(
-        "select * from t where c1 < 135 and c2 > 15"
+        "select * from t where c1 < 135 and c2 > 15",
     )
 
     assert res == "select * from t where c1 < 135 and c2 > 15"
@@ -106,7 +107,7 @@ TABLEAU_PARAMS = [
 def test_tableau_source_cleanups_tableau_parameters_in_equi_predicates(p):
     assert (
         TableauSiteSource._clean_tableau_query_parameters(
-            f"select * from t where c1 = {p} and c2 = {p} and c3 = 7"
+            f"select * from t where c1 = {p} and c2 = {p} and c3 = 7",
         )
         == "select * from t where c1 = 1 and c2 = 1 and c3 = 7"
     )
@@ -116,7 +117,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_equi_predicates(p):
 def test_tableau_source_cleanups_tableau_parameters_in_lt_gt_predicates(p):
     assert (
         TableauSiteSource._clean_tableau_query_parameters(
-            f"select * from t where c1 << {p} and c2<<{p} and c3 >> {p} and c4>>{p} or {p} >> c1 and {p}>>c2 and {p} << c3 and {p}<<c4"
+            f"select * from t where c1 << {p} and c2<<{p} and c3 >> {p} and c4>>{p} or {p} >> c1 and {p}>>c2 and {p} << c3 and {p}<<c4",
         )
         == "select * from t where c1 < 1 and c2<1 and c3 > 1 and c4>1 or 1 > c1 and 1>c2 and 1 < c3 and 1<c4"
     )
@@ -126,7 +127,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_lt_gt_predicates(p):
 def test_tableau_source_cleanups_tableau_parameters_in_lte_gte_predicates(p):
     assert (
         TableauSiteSource._clean_tableau_query_parameters(
-            f"select * from t where c1 <<= {p} and c2<<={p} and c3 >>= {p} and c4>>={p} or {p} >>= c1 and {p}>>=c2 and {p} <<= c3 and {p}<<=c4"
+            f"select * from t where c1 <<= {p} and c2<<={p} and c3 >>= {p} and c4>>={p} or {p} >>= c1 and {p}>>=c2 and {p} <<= c3 and {p}<<=c4",
         )
         == "select * from t where c1 <= 1 and c2<=1 and c3 >= 1 and c4>=1 or 1 >= c1 and 1>=c2 and 1 <= c3 and 1<=c4"
     )
@@ -136,7 +137,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_lte_gte_predicates(p):
 def test_tableau_source_cleanups_tableau_parameters_in_join_predicate(p):
     assert (
         TableauSiteSource._clean_tableau_query_parameters(
-            f"select * from t1 inner join t2 on t1.id = t2.id and t2.c21 = {p} and t1.c11 = 123 + {p}"
+            f"select * from t1 inner join t2 on t1.id = t2.id and t2.c21 = {p} and t1.c11 = 123 + {p}",
         )
         == "select * from t1 inner join t2 on t1.id = t2.id and t2.c21 = 1 and t1.c11 = 123 + 1"
     )
@@ -146,7 +147,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_join_predicate(p):
 def test_tableau_source_cleanups_tableau_parameters_in_complex_expressions(p):
     assert (
         TableauSiteSource._clean_tableau_query_parameters(
-            f"select myudf1(c1, {p}, c2) / myudf2({p}) > ({p} + 3 * {p} * c5) * {p} - c4"
+            f"select myudf1(c1, {p}, c2) / myudf2({p}) > ({p} + 3 * {p} * c5) * {p} - c4",
         )
         == "select myudf1(c1, 1, c2) / myudf2(1) > (1 + 3 * 1 * c5) * 1 - c4"
     )
@@ -276,7 +277,7 @@ def test_tableau_upstream_reference():
     try:
         ref = TableauUpstreamReference.create(None)  # type: ignore[arg-type]
         raise AssertionError(
-            "TableauUpstreamReference.create with None should have raised exception"
+            "TableauUpstreamReference.create with None should have raised exception",
         )
     except ValueError:
         assert True
@@ -349,7 +350,7 @@ class TestTableauPageSizeConfig:
         assert config.effective_embedded_datasource_page_size == any_page_size
 
         config = TableauPageSizeConfig(
-            embedded_datasource_field_upstream_page_size=any_page_size
+            embedded_datasource_field_upstream_page_size=any_page_size,
         )
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert (
@@ -362,7 +363,7 @@ class TestTableauPageSizeConfig:
         assert config.effective_published_datasource_page_size == any_page_size
 
         config = TableauPageSizeConfig(
-            published_datasource_field_upstream_page_size=any_page_size
+            published_datasource_field_upstream_page_size=any_page_size,
         )
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert (

@@ -41,7 +41,9 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
 ):
     credential: HMACKey = Field(
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
@@ -61,7 +63,9 @@ class GCSSourceConfig(
 
     @validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
+        cls,
+        path_specs: List[PathSpec],
+        values: Dict,
     ) -> List[PathSpec]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
@@ -128,7 +132,7 @@ class GCSSource(StatefulIngestionSourceBase):
                     table_name=path_spec.table_name,
                     enable_compression=path_spec.enable_compression,
                     sample_files=path_spec.sample_files,
-                )
+                ),
             )
 
         return s3_path_specs
@@ -142,7 +146,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
         source.is_s3_platform = lambda: True  # type: ignore
         source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
-            f"s3://{bucket_name}/{key}"
+            f"s3://{bucket_name}/{key}",
         )
         return source
 
@@ -150,7 +154,9 @@ class GCSSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 

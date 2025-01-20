@@ -36,7 +36,7 @@ def _get_owner_urn(maybe_urn: str) -> str:
     elif maybe_urn.startswith("urn:li:"):
         # this looks like an urn, but not a type we recognize
         raise Exception(
-            f"Owner urn {maybe_urn} not recognized as one of the supported types (corpuser, corpGroup)"
+            f"Owner urn {maybe_urn} not recognized as one of the supported types (corpuser, corpGroup)",
         )
     else:
         # mint a user urn as the default
@@ -66,7 +66,7 @@ def _print_diff(orig_file, new_file):
         new_lines = fp.readlines()
 
     sys.stdout.writelines(
-        difflib.unified_diff(orig_lines, new_lines, orig_file, new_file)
+        difflib.unified_diff(orig_lines, new_lines, orig_file, new_file),
     )
 
 
@@ -125,7 +125,10 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option(
-    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+    "--validate-assets/--no-validate-assets",
+    required=False,
+    is_flag=True,
+    default=True,
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
@@ -141,7 +144,10 @@ def update(file: Path, validate_assets: bool, external_url: str) -> None:
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option(
-    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+    "--validate-assets/--no-validate-assets",
+    required=False,
+    is_flag=True,
+    default=True,
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
@@ -168,7 +174,8 @@ def diff(file: Path, update: bool) -> None:
             data_product_local: DataProduct = DataProduct.from_yaml(file, emitter)
             id = data_product_local.id
             data_product_remote = DataProduct.from_datahub(
-                emitter, data_product_local.urn
+                emitter,
+                data_product_local.urn,
             )
             with NamedTemporaryFile(suffix=".yaml") as temp_fp:
                 update_needed = data_product_remote.patch_yaml(
@@ -194,7 +201,10 @@ def diff(file: Path, update: bool) -> None:
     name="delete",
 )
 @click.option(
-    "--urn", required=False, type=str, help="The urn for the data product to delete"
+    "--urn",
+    required=False,
+    type=str,
+    help="The urn for the data product to delete",
 )
 @click.option(
     "-f",
@@ -211,7 +221,8 @@ def delete(urn: str, file: Path, hard: bool) -> None:
 
     if not urn and not file:
         click.secho(
-            "Must provide either an urn or a file to delete a data product", fg="red"
+            "Must provide either an urn or a file to delete a data product",
+            fg="red",
         )
         raise click.Abort()
 
@@ -252,7 +263,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             dataproduct: DataProduct = DataProduct.from_datahub(graph=graph, id=urn)
             click.secho(
-                f"{json.dumps(dataproduct.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataproduct.dict(exclude_unset=True, exclude_none=True), indent=2)}",
             )
             if to_file:
                 dataproduct.to_yaml(Path(to_file))
@@ -339,8 +350,10 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
     owner_type, owner_type_urn = validate_ownership_type(owner_type)
     dataproduct_patcher.add_owner(
         owner=OwnerClass(
-            owner=_get_owner_urn(owner), type=owner_type, typeUrn=owner_type_urn
-        )
+            owner=_get_owner_urn(owner),
+            type=owner_type,
+            typeUrn=owner_type_urn,
+        ),
     )
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "add owners")
@@ -371,7 +384,10 @@ def remove_owner(urn: str, owner_urn: str) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--asset", required=True, type=str)
 @click.option(
-    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+    "--validate-assets/--no-validate-assets",
+    required=False,
+    is_flag=True,
+    default=True,
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
@@ -398,7 +414,10 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--asset", required=True, type=str)
 @click.option(
-    "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
+    "--validate-assets/--no-validate-assets",
+    required=False,
+    is_flag=True,
+    default=True,
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry()

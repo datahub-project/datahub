@@ -32,7 +32,7 @@ class BigQueryTestConnection:
             assert client
 
             test_report.basic_connectivity = BigQueryTestConnection.connectivity_test(
-                client
+                client,
             )
 
             connection_conf.start_time = datetime.now()
@@ -48,7 +48,8 @@ class BigQueryTestConnection:
 
             metadata_read_capability = (
                 BigQueryTestConnection.metadata_read_capability_test(
-                    project_ids, connection_conf
+                    project_ids,
+                    connection_conf,
                 )
             )
             if SourceCapability.SCHEMA_METADATA not in _report:
@@ -56,14 +57,18 @@ class BigQueryTestConnection:
 
             if connection_conf.include_table_lineage:
                 lineage_capability = BigQueryTestConnection.lineage_capability_test(
-                    connection_conf, project_ids, report
+                    connection_conf,
+                    project_ids,
+                    report,
                 )
                 if SourceCapability.LINEAGE_COARSE not in _report:
                     _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
 
             if connection_conf.include_usage_statistics:
                 usage_capability = BigQueryTestConnection.usage_capability_test(
-                    connection_conf, project_ids, report
+                    connection_conf,
+                    project_ids,
+                    report,
                 )
                 if SourceCapability.USAGE_STATS not in _report:
                     _report[SourceCapability.USAGE_STATS] = usage_capability
@@ -73,7 +78,8 @@ class BigQueryTestConnection:
 
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=f"{e}"
+                capable=False,
+                failure_reason=f"{e}",
             )
             return test_report
 
@@ -82,14 +88,16 @@ class BigQueryTestConnection:
         ret = client.query("select 1")
         if ret.error_result:
             return CapabilityReport(
-                capable=False, failure_reason=f"{ret.error_result['message']}"
+                capable=False,
+                failure_reason=f"{ret.error_result['message']}",
             )
         else:
             return CapabilityReport(capable=True)
 
     @staticmethod
     def metadata_read_capability_test(
-        project_ids: List[str], config: BigQueryV2Config
+        project_ids: List[str],
+        config: BigQueryV2Config,
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
@@ -102,7 +110,8 @@ class BigQueryTestConnection:
                     client=client,
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
-                    project_id, 10
+                    project_id,
+                    10,
                 )
                 if len(result) == 0:
                     return CapabilityReport(

@@ -43,7 +43,7 @@ target_database_tables = [
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "432143214321",
         "VersionId": "504",
-    }
+    },
 ]
 get_tables_response_for_target_database = {"TableList": target_database_tables}
 
@@ -55,10 +55,10 @@ get_databases_response = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "123412341234",
             "LocationUri": "s3://test-bucket/test-prefix",
@@ -70,10 +70,10 @@ get_databases_response = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "123412341234",
         },
@@ -83,14 +83,14 @@ get_databases_response = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "000000000000",
         },
-    ]
+    ],
 }
 flights_database = {"Name": "flights-database", "CatalogId": "123412341234"}
 test_database = {"Name": "test-database", "CatalogId": "123412341234"}
@@ -145,7 +145,7 @@ tables_1 = [
             "StoredAsSubDirectories": False,
         },
         "PartitionKeys": [
-            {"Name": "year", "Type": "string", "Comment": "partition test comment"}
+            {"Name": "year", "Type": "string", "Comment": "partition test comment"},
         ],
         "TableType": "EXTERNAL_TABLE",
         "Parameters": {
@@ -164,7 +164,7 @@ tables_1 = [
         "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "123412341234",
-    }
+    },
 ]
 get_tables_response_1 = {"TableList": tables_1}
 tables_2 = [
@@ -181,7 +181,7 @@ tables_2 = [
                 {
                     "Name": "markers",
                     "Type": "array<struct<name:string,position:array<double>,location:array<double>>>",
-                }
+                },
             ],
             "Location": "s3://test-glue-jsons/markers/",
             "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
@@ -355,7 +355,7 @@ get_jobs_response = {
             "NumberOfWorkers": 10,
             "GlueVersion": "2.0",
         },
-    ]
+    ],
 }
 # for job 1
 get_dataflow_graph_response_1 = {
@@ -813,14 +813,14 @@ get_databases_delta_response = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "123412341234",
         },
-    ]
+    ],
 }
 delta_tables_1 = [
     {
@@ -848,7 +848,7 @@ delta_tables_1 = [
         "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "123412341234",
-    }
+    },
 ]
 get_delta_tables_response_1 = {"TableList": delta_tables_1}
 
@@ -876,7 +876,7 @@ delta_tables_2 = [
         "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "123412341234",
-    }
+    },
 ]
 get_delta_tables_response_2 = {"TableList": delta_tables_2}
 
@@ -888,16 +888,16 @@ get_databases_response_for_lineage = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "123412341234",
             "LocationUri": "s3://test-bucket/test-prefix",
             "Parameters": {"param1": "value1", "param2": "value2"},
         },
-    ]
+    ],
 }
 
 tables_lineage_1 = [
@@ -949,7 +949,7 @@ tables_lineage_1 = [
             "StoredAsSubDirectories": False,
         },
         "PartitionKeys": [
-            {"Name": "year", "Type": "string", "Comment": "partition test comment"}
+            {"Name": "year", "Type": "string", "Comment": "partition test comment"},
         ],
         "TableType": "EXTERNAL_TABLE",
         "Parameters": {
@@ -968,7 +968,7 @@ tables_lineage_1 = [
         "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "123412341234",
-    }
+    },
 ]
 get_tables_lineage_response_1 = {"TableList": tables_lineage_1}
 
@@ -981,16 +981,16 @@ get_databases_response_profiling = {
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {
-                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS",
                     },
                     "Permissions": ["ALL"],
-                }
+                },
             ],
             "CatalogId": "123412341234",
             "LocationUri": "s3://test-bucket/test-prefix",
             "Parameters": {"param1": "value1", "param2": "value2"},
         },
-    ]
+    ],
 }
 
 tables_profiling_1 = [
@@ -1074,7 +1074,7 @@ tables_profiling_1 = [
         "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "123412341234",
-    }
+    },
 ]
 get_tables_response_profiling_1 = {"TableList": tables_profiling_1}
 

@@ -102,7 +102,8 @@ def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tm
 def test_source_close_cleans_tmp(projects_client, client, tmp_path):
     with patch("tempfile.tempdir", str(tmp_path)):
         source = BigQueryQueriesSource.create(
-            {"project_ids": ["project1"]}, PipelineContext("run-id")
+            {"project_ids": ["project1"]},
+            PipelineContext("run-id"),
         )
         assert len(os.listdir(tmp_path)) > 0
         # This closes QueriesExtractor which in turn closes SqlParsingAggregator

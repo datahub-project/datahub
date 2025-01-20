@@ -19,7 +19,10 @@ def source(tracking_uri: str) -> Neo4jSource:
     return Neo4jSource(
         ctx=PipelineContext(run_id="neo4j-test"),
         config=Neo4jConfig(
-            uri=tracking_uri, env="Prod", username="test", password="test"
+            uri=tracking_uri,
+            env="Prod",
+            username="test",
+            password="test",
         ),
     )
 
@@ -39,11 +42,11 @@ def data():
                                 "type": "STRING",
                                 "indexed": False,
                                 "array": False,
-                            }
+                            },
                         },
                         "direction": "in",
                         "labels": ["Node_2"],
-                    }
+                    },
                 },
                 "RELATIONSHIP_2": {
                     "count": 2,
@@ -53,7 +56,7 @@ def data():
                             "type": "STRING",
                             "indexed": False,
                             "array": False,
-                        }
+                        },
                     },
                     "direction": "in",
                     "labels": ["Node_3"],
@@ -95,11 +98,11 @@ def data():
                                 "type": "STRING",
                                 "indexed": False,
                                 "array": False,
-                            }
+                            },
                         },
                         "direction": "out",
                         "labels": ["Node_2"],
-                    }
+                    },
                 },
                 "type": "node",
                 "properties": {
@@ -136,7 +139,7 @@ def data():
                         "type": "STRING",
                         "indexed": False,
                         "array": False,
-                    }
+                    },
                 },
             },
         },
@@ -150,7 +153,8 @@ def test_process_nodes(source):
 
 def test_process_relationships(source):
     df = source.process_relationships(
-        data=data(), node_df=source.process_nodes(data=data())
+        data=data(),
+        node_df=source.process_nodes(data=data()),
     )
     assert type(df) is pd.DataFrame
 
@@ -188,7 +192,7 @@ def test_get_property_data_types(source):
         {"Node2_Property3": "STRING"},
     ]
     assert source.get_property_data_types(results[2]["value"]["properties"]) == [
-        {"Relationship1_Property1": "STRING"}
+        {"Relationship1_Property1": "STRING"},
     ]
 
 
@@ -205,14 +209,14 @@ def test_get_properties(source):
         "Node2_Property3",
     ]
     assert list(source.get_properties(results[2]["value"]).keys()) == [
-        "Relationship1_Property1"
+        "Relationship1_Property1",
     ]
 
 
 def test_get_relationships(source):
     results = data()
     record = list(
-        results[0]["value"]["relationships"].keys()
+        results[0]["value"]["relationships"].keys(),
     )  # Get the first key from the dict_keys
     assert record == ["RELATIONSHIP_1"]
 

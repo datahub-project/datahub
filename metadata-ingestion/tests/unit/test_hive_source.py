@@ -68,7 +68,7 @@ def test_hive_configuration_get_avro_schema_from_native_data_type():
                                         "native_data_type": "string",
                                         "_nullable": True,
                                     },
-                                }
+                                },
                             ],
                         },
                     },

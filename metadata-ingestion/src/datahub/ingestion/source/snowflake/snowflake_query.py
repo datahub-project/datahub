@@ -12,7 +12,8 @@ SHOW_VIEWS_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
-    deny_pattern: List[str], filter_cols: List[str]
+    deny_pattern: List[str],
+    filter_cols: List[str],
 ) -> str:
     upstream_sql_filter = (
         " AND ".join(
@@ -20,7 +21,7 @@ def create_deny_regex_sql_filter(
                 (f"NOT RLIKE({col_name},'{regexp}','i')")
                 for col_name in filter_cols
                 for regexp in deny_pattern
-            ]
+            ],
         )
         if deny_pattern
         else ""
@@ -39,7 +40,7 @@ class SnowflakeQuery:
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
-        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
+        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS),
     )
     ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
         "("
@@ -161,7 +162,9 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_all_tags_on_object_with_propagation(
-        db_name: str, quoted_identifier: str, domain: str
+        db_name: str,
+        quoted_identifier: str,
+        domain: str,
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
         return f"""
@@ -202,7 +205,8 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_tags_on_columns_with_propagation(
-        db_name: str, quoted_table_identifier: str
+        db_name: str,
+        quoted_table_identifier: str,
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
         return f"""
@@ -287,8 +291,10 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
             selects.append(
                 columns_template.format(
-                    db_name=db_name, schema_name=schema_name, extra_clause=extra_clause
-                )
+                    db_name=db_name,
+                    schema_name=schema_name,
+                    extra_clause=extra_clause,
+                ),
             )
 
         return (
@@ -308,7 +314,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def operational_data_for_time_window(
-        start_time_millis: int, end_time_millis: int
+        start_time_millis: int,
+        end_time_millis: int,
     ) -> str:
         return f"""
         SELECT
@@ -650,7 +657,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         else:
             for allow_pattern in email_filter.allow:
                 allow_filters.append(
-                    f"rlike(user_name, '{allow_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+                    f"rlike(user_name, '{allow_pattern}','{'i' if email_filter.ignoreCase else 'c'}')",
                 )
             if allow_filters:
                 allow_filter = " OR ".join(allow_filters)
@@ -659,7 +666,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         deny_filter = ""
         for deny_pattern in email_filter.deny:
             deny_filters.append(
-                f"rlike(user_name, '{deny_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+                f"rlike(user_name, '{deny_pattern}','{'i' if email_filter.ignoreCase else 'c'}')",
             )
         if deny_filters:
             deny_filter = " OR ".join(deny_filters)

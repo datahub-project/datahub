@@ -24,7 +24,8 @@ class _TestSQLAlchemySource(SQLAlchemySource):
 
 def get_test_sql_alchemy_source():
     return _TestSQLAlchemySource.create(
-        config_dict={}, ctx=PipelineContext(run_id="test_ctx")
+        config_dict={},
+        ctx=PipelineContext(run_id="test_ctx"),
     )
 
 
@@ -46,10 +47,10 @@ def test_generate_foreign_key():
 
     assert fk_dict.get("name") == foreign_key.name
     assert [
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_referred_schema.test_table,PROD),test_referred_column)"
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_referred_schema.test_table,PROD),test_referred_column)",
     ] == foreign_key.foreignFields
     assert [
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)",
     ] == foreign_key.sourceFields
 
 
@@ -70,10 +71,10 @@ def test_use_source_schema_for_foreign_key_if_not_specified():
 
     assert fk_dict.get("name") == foreign_key.name
     assert [
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.test_table,PROD),test_referred_column)"
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.test_table,PROD),test_referred_column)",
     ] == foreign_key.foreignFields
     assert [
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)",
     ] == foreign_key.sourceFields
 
 
@@ -111,7 +112,7 @@ def test_get_platform_from_sqlalchemy_uri(uri: str, expected_platform: str) -> N
 def test_get_db_schema_with_dots_in_view_name():
     source = get_test_sql_alchemy_source()
     database, schema = source.get_db_schema(
-        dataset_identifier="database.schema.long.view.name1"
+        dataset_identifier="database.schema.long.view.name1",
     )
     assert database == "database"
     assert schema == "schema"

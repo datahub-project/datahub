@@ -14,7 +14,7 @@ from datahub.configuration.pydantic_migration_helpers import (
 class CronTrigger(v1_ConfigModel):
     type: Literal["cron"]
     cron: str = v1_Field(
-        description="The cron expression to use. See https://crontab.guru/ for help."
+        description="The cron expression to use. See https://crontab.guru/ for help.",
     )
     timezone: str = v1_Field(
         "UTC",
@@ -44,7 +44,10 @@ class ManualTrigger(v1_ConfigModel):
 
 class AssertionTrigger(v1_ConfigModel):
     __root__: Union[
-        CronTrigger, IntervalTrigger, EntityChangeTrigger, ManualTrigger
+        CronTrigger,
+        IntervalTrigger,
+        EntityChangeTrigger,
+        ManualTrigger,
     ] = v1_Field(discriminator="type")
 
     @property

@@ -154,7 +154,7 @@ def load_config_file(
             config_mech = TomlConfigurationMechanism()
         else:
             raise ConfigurationError(
-                f"Only .toml, .yml, and .json are supported. Cannot process file type {config_file_path.suffix}"
+                f"Only .toml, .yml, and .json are supported. Cannot process file type {config_file_path.suffix}",
             )
 
         url_parsed = parse.urlparse(str(config_file))
@@ -168,12 +168,12 @@ def load_config_file(
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {config_file_path}: {e}"
+                    f"Cannot read remote file {config_file_path}: {e}",
                 ) from e
         else:
             if not config_file_path.is_file():
                 raise ConfigurationError(
-                    f"Cannot open config file {config_file_path.resolve()}"
+                    f"Cannot open config file {config_file_path.resolve()}",
                 )
             raw_config_file = config_file_path.read_text()
 

@@ -99,7 +99,7 @@ def test_field_deprecated():
 
     with pytest.warns(ConfigurationWarning, match=r"d\d.+ deprecated"):
         v = TestModel.parse_obj(
-            {"b": "original", "d1": "deprecated", "d2": "deprecated"}
+            {"b": "original", "d1": "deprecated", "d2": "deprecated"},
         )
     assert v.b == "original"
     assert v.d1 == "deprecated"

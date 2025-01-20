@@ -44,7 +44,9 @@ test_profile_pattern_matching_on_table_allow_list_test_data = [
     test_profile_pattern_matching_on_table_allow_list_test_data,
 )
 def test_profile_pattern_matching_on_table_allow_list(
-    allow_pattern: str, table_name: str, result: bool
+    allow_pattern: str,
+    table_name: str,
+    result: bool,
 ) -> None:
     pattern = AllowDenyPattern(allow=[allow_pattern])
     assert check_table_with_profile_pattern(pattern, table_name) == result
@@ -73,7 +75,9 @@ test_profile_pattern_matching_on_table_deny_list_test_data = [
     test_profile_pattern_matching_on_table_deny_list_test_data,
 )
 def test_profile_pattern_matching_on_table_deny_list(
-    deny_pattern: str, table_name: str, result: bool
+    deny_pattern: str,
+    table_name: str,
+    result: bool,
 ) -> None:
     pattern = AllowDenyPattern(deny=[deny_pattern])
     assert check_table_with_profile_pattern(pattern, table_name) == result

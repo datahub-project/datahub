@@ -54,7 +54,8 @@ class FeatureGroupProcessor:
         return feature_groups
 
     def get_feature_group_details(
-        self, feature_group_name: str
+        self,
+        feature_group_name: str,
     ) -> "DescribeFeatureGroupResponseTypeDef":
         """
         Get details of a feature group (including list of component features).
@@ -62,7 +63,7 @@ class FeatureGroupProcessor:
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_feature_group
         feature_group = self.sagemaker_client.describe_feature_group(
-            FeatureGroupName=feature_group_name
+            FeatureGroupName=feature_group_name,
         )
 
         # use falsy fallback since AWS stubs require this to be a string in tests
@@ -71,7 +72,8 @@ class FeatureGroupProcessor:
         # paginate over feature group features
         while next_token:
             next_features = self.sagemaker_client.describe_feature_group(
-                FeatureGroupName=feature_group_name, NextToken=next_token
+                FeatureGroupName=feature_group_name,
+                NextToken=next_token,
             )
             feature_group["FeatureDefinitions"] += next_features["FeatureDefinitions"]
             next_token = feature_group.get("NextToken", "")
@@ -79,7 +81,8 @@ class FeatureGroupProcessor:
         return feature_group
 
     def get_feature_group_wu(
-        self, feature_group_details: "DescribeFeatureGroupResponseTypeDef"
+        self,
+        feature_group_details: "DescribeFeatureGroupResponseTypeDef",
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable workunit for a SageMaker feature group.
@@ -116,7 +119,7 @@ class FeatureGroupProcessor:
                     builder.make_ml_primary_key_urn(
                         feature_group_name,
                         feature_group_details["RecordIdentifierFeatureName"],
-                    )
+                    ),
                 ],
                 # additional metadata
                 customProperties={
@@ -124,7 +127,7 @@ class FeatureGroupProcessor:
                     "creation_time": str(feature_group_details["CreationTime"]),
                     "status": feature_group_details["FeatureGroupStatus"],
                 },
-            )
+            ),
         )
 
         # make the MCE and workunit
@@ -142,7 +145,8 @@ class FeatureGroupProcessor:
 
         if mapped_type is None:
             self.report.report_warning(
-                feature_name, f"unable to map type {aws_type} to metadata schema"
+                feature_name,
+                f"unable to map type {aws_type} to metadata schema",
             )
             mapped_type = MLFeatureDataType.UNKNOWN
 
@@ -187,7 +191,7 @@ class FeatureGroupProcessor:
                     "s3",
                     s3_name,
                     self.env,
-                )
+                ),
             )
 
             if "DataCatalogConfig" in feature_group_details["OfflineStoreConfig"]:
@@ -205,12 +209,12 @@ class FeatureGroupProcessor:
                     textwrap.dedent(
                         f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
                         To view full table metadata, run Glue ingestion
-                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)"""
-                    )
+                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)""",
+                    ),
                 )
 
                 feature_sources.append(
-                    f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+                    f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})",
                 )
 
         # note that there's also an OnlineStoreConfig field, but this
@@ -227,7 +231,8 @@ class FeatureGroupProcessor:
                 aspects=[
                     MLPrimaryKeyPropertiesClass(
                         dataType=self.get_feature_type(
-                            feature["FeatureType"], feature["FeatureName"]
+                            feature["FeatureType"],
+                            feature["FeatureName"],
                         ),
                         sources=feature_sources,
                     ),
@@ -246,10 +251,11 @@ class FeatureGroupProcessor:
                 aspects=[
                     MLFeaturePropertiesClass(
                         dataType=self.get_feature_type(
-                            feature["FeatureType"], feature["FeatureName"]
+                            feature["FeatureType"],
+                            feature["FeatureName"],
                         ),
                         sources=feature_sources,
-                    )
+                    ),
                 ],
             )
 
@@ -266,7 +272,7 @@ class FeatureGroupProcessor:
 
         for feature_group in feature_groups:
             feature_group_details = self.get_feature_group_details(
-                feature_group["FeatureGroupName"]
+                feature_group["FeatureGroupName"],
             )
 
             for feature in feature_group_details["FeatureDefinitions"]:

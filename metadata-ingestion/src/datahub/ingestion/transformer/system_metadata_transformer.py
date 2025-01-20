@@ -21,7 +21,8 @@ def auto_system_metadata(
     for workunit in stream:
         if set_system_metadata:
             workunit.metadata.systemMetadata = SystemMetadataClass(
-                lastObserved=get_sys_time(), runId=ctx.run_id
+                lastObserved=get_sys_time(),
+                runId=ctx.run_id,
             )
             if set_pipeline_name:
                 workunit.metadata.systemMetadata.pipelineName = ctx.pipeline_name
@@ -32,11 +33,12 @@ def auto_system_metadata(
 class SystemMetadataTransformer(Transformer):
     def __init__(self, ctx: PipelineContext):
         self._inner_transformer = AutoHelperTransformer(
-            functools.partial(auto_system_metadata, ctx)
+            functools.partial(auto_system_metadata, ctx),
         )
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         yield from self._inner_transformer.transform(record_envelopes)
 

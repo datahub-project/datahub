@@ -55,7 +55,7 @@ class AzureConnectionConfig(ConfigModel):
     # TODO DEX-1010
     def get_filesystem_client(self) -> FileSystemClient:
         return self.get_data_lake_service_client().get_file_system_client(
-            file_system=self.container_name
+            file_system=self.container_name,
         )
 
     def get_blob_service_client(self):
@@ -94,5 +94,5 @@ class AzureConnectionConfig(ConfigModel):
         ):
             return values
         raise ConfigurationError(
-            "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
+            "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)",
         )

@@ -40,7 +40,7 @@ class ClassificationReportMixin:
     num_tables_classification_found: int = 0
 
     info_types_detected: LossyDict[str, LossyList[str]] = field(
-        default_factory=LossyDict
+        default_factory=LossyDict,
     )
 
 
@@ -53,7 +53,9 @@ class ClassificationSourceConfigMixin(ConfigModel):
 
 class ClassificationHandler:
     def __init__(
-        self, config: ClassificationSourceConfigMixin, report: ClassificationReportMixin
+        self,
+        config: ClassificationSourceConfigMixin,
+        report: ClassificationReportMixin,
     ):
         self.config = config
         self.report = report
@@ -75,7 +77,9 @@ class ClassificationHandler:
         )
 
     def is_classification_enabled_for_column(
-        self, dataset_name: str, column_name: str
+        self,
+        dataset_name: str,
+        column_name: str,
     ) -> bool:
         return (
             self.config.classification is not None
@@ -83,7 +87,7 @@ class ClassificationHandler:
             and len(self.config.classification.classifiers) > 0
             and self.config.classification.table_pattern.allowed(dataset_name)
             and self.config.classification.column_pattern.allowed(
-                f"{dataset_name}.{column_name}"
+                f"{dataset_name}.{column_name}",
             )
         )
 
@@ -95,12 +99,12 @@ class ClassificationHandler:
             if classifier_class is None:
                 raise ConfigurationError(
                     f"Cannot find classifier class of type={self.config.classification.classifiers[0].type} "
-                    " in the registry! Please check the type of the classifier in your config."
+                    " in the registry! Please check the type of the classifier in your config.",
                 )
             classifiers.append(
                 classifier_class.create(
                     config_dict=classifier.config,  # type: ignore
-                )
+                ),
             )
 
         return classifiers
@@ -125,7 +129,9 @@ class ClassificationHandler:
                 logger.debug("Error", exc_info=e)
 
         column_infos = self.get_columns_to_classify(
-            dataset_name, schema_metadata, sample_data
+            dataset_name,
+            schema_metadata,
+            sample_data,
         )
 
         if not column_infos:
@@ -142,7 +148,8 @@ class ClassificationHandler:
                     column_infos_with_proposals: Iterable[ColumnInfo]
                     if self.config.classification.max_workers > 1:
                         column_infos_with_proposals = self.async_classify(
-                            classifier, column_infos
+                            classifier,
+                            column_infos,
                         )
                     else:
                         column_infos_with_proposals = classifier.classify(column_infos)
@@ -156,7 +163,7 @@ class ClassificationHandler:
             finally:
                 time_taken = timer.elapsed_seconds()
                 logger.debug(
-                    f"Finished classification {dataset_name}; took {time_taken:.3f} seconds"
+                    f"Finished classification {dataset_name}; took {time_taken:.3f} seconds",
                 )
 
         if field_terms:
@@ -164,20 +171,24 @@ class ClassificationHandler:
             self.populate_terms_in_schema_metadata(schema_metadata, field_terms)
 
     def update_field_terms(
-        self, field_terms: Dict[str, str], col_info: ColumnInfo
+        self,
+        field_terms: Dict[str, str],
+        col_info: ColumnInfo,
     ) -> None:
         term = self.get_terms_for_column(col_info)
         if term:
             field_terms[col_info.metadata.name] = term
 
     def async_classify(
-        self, classifier: Classifier, columns: List[ColumnInfo]
+        self,
+        classifier: Classifier,
+        columns: List[ColumnInfo],
     ) -> Iterable[ColumnInfo]:
         num_columns = len(columns)
         BATCH_SIZE = 5  # Number of columns passed to classify api at a time
 
         logger.debug(
-            f"Will Classify {num_columns} column(s) with {self.config.classification.max_workers} worker(s) with batch size {BATCH_SIZE}."
+            f"Will Classify {num_columns} column(s) with {self.config.classification.max_workers} worker(s) with batch size {BATCH_SIZE}.",
         )
 
         with concurrent.futures.ProcessPoolExecutor(
@@ -196,7 +207,7 @@ class ClassificationHandler:
             return [
                 column_with_proposal
                 for proposal_future in concurrent.futures.as_completed(
-                    column_info_proposal_futures
+                    column_info_proposal_futures,
                 )
                 for column_with_proposal in proposal_future.result()
             ]
@@ -211,8 +222,8 @@ class ClassificationHandler:
                 schema_field.glossaryTerms = GlossaryTerms(
                     terms=[
                         GlossaryTermAssociation(
-                            urn=make_term_urn(field_terms[schema_field.fieldPath])
-                        )
+                            urn=make_term_urn(field_terms[schema_field.fieldPath]),
+                        ),
                     ]
                     # Keep existing terms if present
                     + (
@@ -221,7 +232,8 @@ class ClassificationHandler:
                         else []
                     ),
                     auditStamp=AuditStamp(
-                        time=get_sys_time(), actor=make_user_urn("datahub")
+                        time=get_sys_time(),
+                        actor=make_user_urn("datahub"),
                     ),
                 )
 
@@ -229,13 +241,16 @@ class ClassificationHandler:
         if not col_info.infotype_proposals:
             return None
         infotype_proposal = max(
-            col_info.infotype_proposals, key=lambda p: p.confidence_level
+            col_info.infotype_proposals,
+            key=lambda p: p.confidence_level,
         )
         self.report.info_types_detected.setdefault(
-            infotype_proposal.infotype, LossyList()
+            infotype_proposal.infotype,
+            LossyList(),
         ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
         term = self.config.classification.info_type_to_term.get(
-            infotype_proposal.infotype, infotype_proposal.infotype
+            infotype_proposal.infotype,
+            infotype_proposal.infotype,
         )
 
         return term
@@ -250,10 +265,11 @@ class ClassificationHandler:
 
         for schema_field in schema_metadata.fields:
             if not self.is_classification_enabled_for_column(
-                dataset_name, schema_field.fieldPath
+                dataset_name,
+                schema_field.fieldPath,
             ):
                 logger.debug(
-                    f"Skipping column {dataset_name}.{schema_field.fieldPath} from classification"
+                    f"Skipping column {dataset_name}.{schema_field.fieldPath} from classification",
                 )
                 continue
 
@@ -271,14 +287,14 @@ class ClassificationHandler:
                             "Description": schema_field.description,
                             "DataType": schema_field.nativeDataType,
                             "Dataset_Name": dataset_name,
-                        }
+                        },
                     ),
                     values=(
                         sample_data[schema_field.fieldPath]
                         if schema_field.fieldPath in sample_data.keys()
                         else []
                     ),
-                )
+                ),
             )
 
         return column_infos
@@ -326,7 +342,8 @@ def classification_workunit_processor(
                     ),
                 )
                 yield MetadataChangeProposalWrapper(
-                    aspect=maybe_schema_metadata, entityUrn=wu.get_urn()
+                    aspect=maybe_schema_metadata,
+                    entityUrn=wu.get_urn(),
                 ).as_workunit(
                     is_primary_source=wu.is_primary_source,
                 )

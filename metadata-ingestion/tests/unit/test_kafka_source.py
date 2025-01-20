@@ -40,7 +40,8 @@ from datahub.metadata.schema_classes import (
 @pytest.fixture
 def mock_admin_client():
     with patch(
-        "datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True
+        "datahub.ingestion.source.kafka.kafka.AdminClient",
+        autospec=True,
     ) as mock:
         yield mock
 
@@ -152,7 +153,8 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
     ]
     assert len(data_platform_aspects) == 1
     assert data_platform_aspects[0].instance == make_dataplatform_instance_urn(
-        PLATFORM, PLATFORM_INSTANCE
+        PLATFORM,
+        PLATFORM_INSTANCE,
     )
 
     # The default browse path should include the platform_instance value
@@ -228,7 +230,9 @@ def test_close(mock_kafka, mock_admin_client):
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
-    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+    mock_kafka_consumer,
+    mock_schema_registry_client,
+    mock_admin_client,
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -489,7 +493,8 @@ def test_kafka_ignore_warnings_on_schema_type(
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_admin_client_init_error(
-    mock_kafka, mock_kafka_admin_client
+    mock_kafka,
+    mock_kafka_admin_client,
 ):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -519,7 +524,8 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_describe_configs_error(
-    mock_kafka, mock_kafka_admin_client
+    mock_kafka,
+    mock_kafka_admin_client,
 ):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -555,7 +561,9 @@ def test_kafka_source_succeeds_with_describe_configs_error(
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_topic_meta_mappings(
-    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+    mock_kafka_consumer,
+    mock_schema_registry_client,
+    mock_admin_client,
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -585,14 +593,14 @@ def test_kafka_source_topic_meta_mappings(
                             "has_pii": True,
                             "int_property": 1,
                             "double_property": 2.5,
-                        }
+                        },
                     ),
                     schema_type="AVRO",
                 ),
                 subject="topic1-value",
                 version=1,
             ),
-        )
+        ),
     }
 
     # Mock the kafka consumer
@@ -680,7 +688,7 @@ def test_kafka_source_topic_meta_mappings(
         asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, GlobalTagsClass)
     ][0]
     assert tags_aspect == make_global_tag_aspect_with_tag_list(
-        ["has_pii_test", "int_meta_property"]
+        ["has_pii_test", "int_meta_property"],
     )
 
     terms_aspect = [
@@ -692,7 +700,7 @@ def test_kafka_source_topic_meta_mappings(
         [
             "urn:li:glossaryTerm:Finance_test",
             "urn:li:glossaryTerm:double_meta_property",
-        ]
+        ],
     )
     assert isinstance(workunits[1].metadata, MetadataChangeProposalWrapper)
     mce = workunits[2].metadata
@@ -716,7 +724,7 @@ def test_kafka_source_topic_meta_mappings(
         asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, GlobalTagsClass)
     ][0]
     assert tags_aspect == make_global_tag_aspect_with_tag_list(
-        ["has_pii_test", "int_meta_property"]
+        ["has_pii_test", "int_meta_property"],
     )
 
     terms_aspect = [
@@ -728,7 +736,7 @@ def test_kafka_source_topic_meta_mappings(
         [
             "urn:li:glossaryTerm:Finance_test",
             "urn:li:glossaryTerm:double_meta_property",
-        ]
+        ],
     )
 
     assert isinstance(workunits[5].metadata, MetadataChangeProposalWrapper)
@@ -755,8 +763,8 @@ def test_kafka_source_oauth_cb_configuration():
                 "connection": {
                     "bootstrap": "foobar:9092",
                     "consumer_config": {
-                        "oauth_cb": test_kafka_ignore_warnings_on_schema_type
+                        "oauth_cb": test_kafka_ignore_warnings_on_schema_type,
                     },
-                }
-            }
+                },
+            },
         )

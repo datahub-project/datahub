@@ -90,10 +90,12 @@ class Space(BaseModel):
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
         values[Constant.CREATEDAT] = datetime.strptime(
-            values[Constant.CREATEDAT], QLIK_DATETIME_FORMAT
+            values[Constant.CREATEDAT],
+            QLIK_DATETIME_FORMAT,
         )
         values[Constant.UPDATEDAT] = datetime.strptime(
-            values[Constant.UPDATEDAT], QLIK_DATETIME_FORMAT
+            values[Constant.UPDATEDAT],
+            QLIK_DATETIME_FORMAT,
         )
         return values
 
@@ -132,10 +134,12 @@ class QlikDataset(Item):
     def update_values(cls, values: Dict) -> Dict:
         # Update str time to datetime
         values[Constant.CREATEDAT] = datetime.strptime(
-            values[Constant.CREATEDTIME], QLIK_DATETIME_FORMAT
+            values[Constant.CREATEDTIME],
+            QLIK_DATETIME_FORMAT,
         )
         values[Constant.UPDATEDAT] = datetime.strptime(
-            values[Constant.LASTMODIFIEDTIME], QLIK_DATETIME_FORMAT
+            values[Constant.LASTMODIFIEDTIME],
+            QLIK_DATETIME_FORMAT,
         )
         if not values.get(Constant.SPACEID):
             # spaceId none indicates dataset present in personal space
@@ -182,10 +186,12 @@ class Sheet(BaseModel):
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
         values[Constant.CREATEDAT] = datetime.strptime(
-            values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
+            values[Constant.CREATEDDATE],
+            QLIK_DATETIME_FORMAT,
         )
         values[Constant.UPDATEDAT] = datetime.strptime(
-            values[Constant.MODIFIEDDATE], QLIK_DATETIME_FORMAT
+            values[Constant.MODIFIEDDATE],
+            QLIK_DATETIME_FORMAT,
         )
         return values
 
@@ -224,10 +230,12 @@ class App(Item):
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
         values[Constant.CREATEDAT] = datetime.strptime(
-            values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
+            values[Constant.CREATEDDATE],
+            QLIK_DATETIME_FORMAT,
         )
         values[Constant.UPDATEDAT] = datetime.strptime(
-            values[Constant.MODIFIEDDATE], QLIK_DATETIME_FORMAT
+            values[Constant.MODIFIEDDATE],
+            QLIK_DATETIME_FORMAT,
         )
         if not values.get(Constant.SPACEID):
             # spaceId none indicates app present in personal space

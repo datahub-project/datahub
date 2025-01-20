@@ -18,7 +18,8 @@ DATASET_URN = (
 
 
 def create_owners_list_from_urn_list(
-    owner_urns: List[str], source_type: str
+    owner_urns: List[str],
+    source_type: str,
 ) -> List[OwnerClass]:
     ownership_source_type: Union[None, OwnershipSourceClass] = None
     if source_type:
@@ -38,33 +39,33 @@ def create_mocked_csv_enricher_source() -> CSVEnricherSource:
     ctx = PipelineContext("test-run-id")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
-        ["urn:li:corpuser:olduser1"], "AUDIT"
+        ["urn:li:corpuser:olduser1"],
+        "AUDIT",
     )
     graph.get_glossary_terms.return_value = (
         mce_builder.make_glossary_terms_aspect_from_urn_list(
-            ["urn:li:glossaryTerm:oldterm1", "urn:li:glossaryTerm:oldterm2"]
+            ["urn:li:glossaryTerm:oldterm1", "urn:li:glossaryTerm:oldterm2"],
         )
     )
     graph.get_tags.return_value = mce_builder.make_global_tag_aspect_with_tag_list(
-        ["oldtag1", "oldtag2"]
+        ["oldtag1", "oldtag2"],
     )
     graph.get_aspect_v2.return_value = None
     graph.get_domain.return_value = None
     ctx.graph = graph
     return CSVEnricherSource(
-        CSVEnricherConfig(**create_base_csv_enricher_config()), ctx
+        CSVEnricherConfig(**create_base_csv_enricher_config()),
+        ctx,
     )
 
 
 def create_base_csv_enricher_config() -> Dict:
-    return dict(
-        {
-            "filename": "../integration/csv_enricher/csv_enricher_test_data.csv",
-            "write_semantics": "PATCH",
-            "delimiter": ",",
-            "array_delimiter": "|",
-        },
-    )
+    return {
+        "filename": "../integration/csv_enricher/csv_enricher_test_data.csv",
+        "write_semantics": "PATCH",
+        "delimiter": ",",
+        "array_delimiter": "|",
+    }
 
 
 def test_get_resource_glossary_terms_work_unit_no_terms():
@@ -83,7 +84,8 @@ def test_get_resource_glossary_terms_no_new_glossary_terms():
         GlossaryTermAssociationClass(term) for term in new_glossary_terms
     ]
     maybe_terms_wu = source.get_resource_glossary_terms_work_unit(
-        DATASET_URN, term_associations
+        DATASET_URN,
+        term_associations,
     )
     assert not maybe_terms_wu
 
@@ -98,7 +100,8 @@ def test_get_resource_glossary_terms_work_unit_produced():
         GlossaryTermAssociationClass(term) for term in new_glossary_terms
     ]
     maybe_terms_wu = source.get_resource_glossary_terms_work_unit(
-        DATASET_URN, term_associations
+        DATASET_URN,
+        term_associations,
     )
     assert maybe_terms_wu
 
@@ -154,8 +157,9 @@ def test_maybe_extract_owners_ownership_type_urn():
     }
     assert source.maybe_extract_owners(row=row, is_resource_row=True) == [
         OwnerClass(
-            owner="urn:li:corpuser:datahub", type=OwnershipTypeClass.TECHNICAL_OWNER
-        )
+            owner="urn:li:corpuser:datahub",
+            type=OwnershipTypeClass.TECHNICAL_OWNER,
+        ),
     ]
 
     row2 = {
@@ -169,7 +173,7 @@ def test_maybe_extract_owners_ownership_type_urn():
             owner="urn:li:corpuser:datahub",
             type=OwnershipTypeClass.CUSTOM,
             typeUrn="urn:li:ownershipType:technical_owner",
-        )
+        ),
     ]
 
 
@@ -187,7 +191,8 @@ def test_get_resource_description_no_description():
     source = create_mocked_csv_enricher_source()
     new_description = None
     maybe_description_wu = source.get_resource_description_work_unit(
-        DATASET_URN, new_description
+        DATASET_URN,
+        new_description,
     )
     assert not maybe_description_wu
 
@@ -196,7 +201,8 @@ def test_get_resource_description_work_unit_produced():
     source = create_mocked_csv_enricher_source()
     new_description = "description"
     maybe_description_wu = source.get_resource_description_work_unit(
-        DATASET_URN, new_description
+        DATASET_URN,
+        new_description,
     )
     assert maybe_description_wu
 

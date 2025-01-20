@@ -137,7 +137,7 @@ class LookerModel:
                     resolved_project_name = remote_project
                 else:
                     logger.warning(
-                        f"Resolving {inc} failed. Could not find a locally checked out reference for {remote_project}"
+                        f"Resolving {inc} failed. Could not find a locally checked out reference for {remote_project}",
                     )
                     continue
             elif inc.startswith("/"):
@@ -155,12 +155,12 @@ class LookerModel:
                 if project_name == BASE_PROJECT_NAME and root_project_name is not None:
                     non_base_project_name = root_project_name
                 if non_base_project_name != BASE_PROJECT_NAME and inc.startswith(
-                    f"/{non_base_project_name}/"
+                    f"/{non_base_project_name}/",
                 ):
                     # This might be a local include. Let's make sure that '/{project_name}' doesn't
                     # exist as normal include in the project.
                     if not pathlib.Path(
-                        f"{resolved_project_folder}/{non_base_project_name}"
+                        f"{resolved_project_folder}/{non_base_project_name}",
                     ).exists():
                         path_within_project = pathlib.Path(*pathlib.Path(inc).parts[2:])
                         glob_expr = f"{resolved_project_folder}/{path_within_project}"
@@ -175,7 +175,7 @@ class LookerModel:
                     pathlib.Path(p)
                     for p in sorted(
                         glob.glob(glob_expr, recursive=True)
-                        + glob.glob(f"{glob_expr}.lkml", recursive=True)
+                        + glob.glob(f"{glob_expr}.lkml", recursive=True),
                     )
                 ]
                 # We don't want to match directories. The '**' glob can be used to
@@ -183,7 +183,7 @@ class LookerModel:
                 if p.is_file()
             ]
             logger.debug(
-                f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
+                f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}",
             )
             if "*" not in inc and not included_files:
                 reporter.warning(
@@ -207,12 +207,12 @@ class LookerModel:
                     or included_file.endswith(".dashboard.lkml")
                 ):
                     logger.debug(
-                        f"include '{included_file}' is a dashboard, skipping it"
+                        f"include '{included_file}' is a dashboard, skipping it",
                     )
                     continue
 
                 logger.debug(
-                    f"Will be loading {included_file}, traversed here via {traversal_path}"
+                    f"Will be loading {included_file}, traversed here via {traversal_path}",
                 )
                 try:
                     parsed = load_and_preprocess_file(
@@ -232,7 +232,7 @@ class LookerModel:
                                 reporter,
                                 seen_so_far,
                                 traversal_path=f"{traversal_path} -> {pathlib.Path(included_file).stem}",
-                            )
+                            ),
                         )
                 except Exception as e:
                     reporter.report_warning(
@@ -247,7 +247,7 @@ class LookerModel:
                 [
                     ProjectInclude(project=resolved_project_name, include=f)
                     for f in included_files
-                ]
+                ],
             )
         return resolved
 
@@ -289,7 +289,7 @@ class LookerViewFile:
             seen_so_far=seen_so_far,
         )
         logger.debug(
-            f"resolved_includes for {absolute_file_path} is {resolved_includes}"
+            f"resolved_includes for {absolute_file_path} is {resolved_includes}",
         )
         views = looker_view_file_dict.get("views", [])
 

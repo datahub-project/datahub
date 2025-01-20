@@ -28,12 +28,13 @@ class WorkUnitRecordExtractorConfig(ConfigModel):
 
 
 class WorkUnitRecordExtractor(
-    Extractor[MetadataWorkUnit, WorkUnitRecordExtractorConfig]
+    Extractor[MetadataWorkUnit, WorkUnitRecordExtractorConfig],
 ):
     """An extractor that simply returns the data inside workunits back as records."""
 
     def get_records(
-        self, workunit: WorkUnit
+        self,
+        workunit: WorkUnit,
     ) -> Iterable[
         RecordEnvelope[
             Union[
@@ -45,7 +46,8 @@ class WorkUnitRecordExtractor(
     ]:
         if isinstance(workunit, MetadataWorkUnit):
             if self.config.unpack_mces_into_mcps and isinstance(
-                workunit.metadata, MetadataChangeEvent
+                workunit.metadata,
+                MetadataChangeEvent,
             ):
                 for inner_workunit in workunit.decompose_mce_into_mcps():
                     yield from self.get_records(inner_workunit)
@@ -69,7 +71,7 @@ class WorkUnitRecordExtractor(
                 invalid_mce = _try_reformat_with_black(invalid_mce)
 
                 raise ValueError(
-                    f"source produced an invalid metadata work unit: {invalid_mce}"
+                    f"source produced an invalid metadata work unit: {invalid_mce}",
                 )
 
             yield RecordEnvelope(

@@ -44,7 +44,7 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
     schema_counters: Dict[str, int] = dataclasses.field(default_factory=dict)
     object_counters: Dict[str, Dict[str, int]] = dataclasses.field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
+        default_factory=lambda: defaultdict(lambda: defaultdict(int)),
     )
 
     num_snowflake_queries: Optional[int] = None
@@ -101,14 +101,18 @@ class SnowflakeSummarySource(Source):
             for schema in database.schemas:
                 # Tables/views.
                 tables = schema_generator.fetch_tables_for_schema(
-                    schema, database.name, schema.name
+                    schema,
+                    database.name,
+                    schema.name,
                 )
                 views = schema_generator.fetch_views_for_schema(
-                    schema, database.name, schema.name
+                    schema,
+                    database.name,
+                    schema.name,
                 )
 
                 self.report.object_counters[database.name][schema.name] = len(
-                    tables
+                    tables,
                 ) + len(views)
 
         # Queries for usage.
@@ -120,7 +124,7 @@ SELECT COUNT(*) AS CNT
 FROM snowflake.account_usage.query_history
 WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
   AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
-"""
+""",
         ):
             self.report.num_snowflake_queries = row["CNT"]
 
@@ -134,7 +138,7 @@ WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
   AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
   AND access_history.objects_modified is not null
   AND ARRAY_SIZE(access_history.objects_modified) > 0
-"""
+""",
         ):
             self.report.num_snowflake_mutations = row["CNT"]
 

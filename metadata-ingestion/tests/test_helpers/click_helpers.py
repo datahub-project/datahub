@@ -18,7 +18,9 @@ def assert_result_ok(result: Result) -> None:
 
 
 def run_datahub_cmd(
-    command: List[str], tmp_path: Optional[Path] = None, check_result: bool = True
+    command: List[str],
+    tmp_path: Optional[Path] = None,
+    check_result: bool = True,
 ) -> Result:
     runner = CliRunner()
 

@@ -42,8 +42,9 @@ def test_auto_browse_path_v2_gen_containers_threaded():
         if aspect:
             assert aspect.path == [
                 BrowsePathEntryClass(
-                    id=database_key.as_urn(), urn=database_key.as_urn()
-                )
+                    id=database_key.as_urn(),
+                    urn=database_key.as_urn(),
+                ),
             ]
 
 
@@ -108,7 +109,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
                 if wu.get_aspect_of_type(models.StatusClass) and wu.get_urn() == urn
             )
         assert new_wus[idx + 1].get_aspect_of_type(
-            models.BrowsePathsV2Class
+            models.BrowsePathsV2Class,
         ) or new_wus[idx + 2].get_aspect_of_type(models.BrowsePathsV2Class)
 
 
@@ -124,17 +125,19 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
                     "f": [
                         models.BrowsePathsClass(paths=["/one/two"]),
                         models.BrowsePathsV2Class(
-                            path=_make_browse_path_entries(["my", "path"])
+                            path=_make_browse_path_entries(["my", "path"]),
                         ),
                     ],
                     "c": [
                         models.BrowsePathsV2Class(
-                            path=_make_container_browse_path_entries(["custom", "path"])
-                        )
+                            path=_make_container_browse_path_entries(
+                                ["custom", "path"],
+                            ),
+                        ),
                     ],
                 },
             ),
-        )
+        ),
     ]
     new_wus = list(auto_browse_path_v2(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
@@ -149,7 +152,7 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     assert paths["f"] == _make_browse_path_entries(["my", "path"])
     assert paths["d"] == _make_container_browse_path_entries(["custom", "path", "c"])
     assert paths["e"] == _make_container_browse_path_entries(
-        ["custom", "path", "c", "d"]
+        ["custom", "path", "c", "d"],
     )
 
 
@@ -174,10 +177,10 @@ def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
                     ],
                 },
             ),
-        )
+        ),
     ]
     new_wus = list(
-        auto_browse_path_v2(wus, platform=platform, platform_instance=instance)
+        auto_browse_path_v2(wus, platform=platform, platform_instance=instance),
     )
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert (
@@ -254,7 +257,7 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
                 structure,
                 other_aspects={"b": [models.BrowsePathsClass(paths=["/one/two"])]},
             ),
-        )
+        ),
     )
     new_wus = list(auto_browse_path_v2(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
@@ -275,7 +278,8 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     platform_instance = "my_instance"
     platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
     platform_instance_entry = models.BrowsePathEntryClass(
-        platform_instance_urn, platform_instance_urn
+        platform_instance_urn,
+        platform_instance_urn,
     )
 
     structure = {"a": {"b": ["c"]}}
@@ -286,7 +290,7 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
             wus,
             platform=platform,
             platform_instance=platform_instance,
-        )
+        ),
     )
     assert telemetry_ping_mock.call_count == 0
 
@@ -409,12 +413,14 @@ def _create_container_aspects(
     for k, v in d.items():
         urn = make_container_urn(k)
         yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=models.StatusClass(removed=False)
+            entityUrn=urn,
+            aspect=models.StatusClass(removed=False),
         ).as_workunit()
 
         for aspect in other_aspects.pop(k, []):
             yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=aspect
+                entityUrn=urn,
+                aspect=aspect,
             ).as_workunit()
 
         for child in list(v):
@@ -424,14 +430,17 @@ def _create_container_aspects(
             ).as_workunit()
         if isinstance(v, dict):
             yield from _create_container_aspects(
-                v, other_aspects=other_aspects, root=False
+                v,
+                other_aspects=other_aspects,
+                root=False,
             )
 
     if root:
         for k, v in other_aspects.items():
             for aspect in v:
                 yield MetadataChangeProposalWrapper(
-                    entityUrn=make_container_urn(k), aspect=aspect
+                    entityUrn=make_container_urn(k),
+                    aspect=aspect,
                 ).as_workunit()
 
 

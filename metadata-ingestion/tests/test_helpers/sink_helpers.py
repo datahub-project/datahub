@@ -15,7 +15,9 @@ class RecordingSinkReport(SinkReport):
 
 class RecordingSink(Sink[ConfigModel, RecordingSinkReport]):
     def write_record_async(
-        self, record_envelope: RecordEnvelope, callback: WriteCallback
+        self,
+        record_envelope: RecordEnvelope,
+        callback: WriteCallback,
     ) -> None:
         self.report.report_record_written(record_envelope)
         callback.on_success(record_envelope, {})

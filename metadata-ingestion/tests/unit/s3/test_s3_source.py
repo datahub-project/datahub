@@ -136,7 +136,9 @@ def test_path_spec_with_double_star_ending():
     ],
 )
 def test_path_spec_partition_detection(
-    path_spec: str, path: str, expected: List[Tuple[str, str]]
+    path_spec: str,
+    path: str,
+    expected: List[Tuple[str, str]],
 ) -> None:
     ps = PathSpec(include=path_spec, default_extension="csv", allow_double_stars=True)
     assert ps.allowed(path)
@@ -175,7 +177,8 @@ def test_path_spec_dir_allowed():
 def test_container_generation_without_folders():
     cwu = ContainerWUCreator("s3", None, "PROD")
     mcps = cwu.create_container_hierarchy(
-        "s3://my-bucket/my-file.json.gz", "urn:li:dataset:123"
+        "s3://my-bucket/my-file.json.gz",
+        "urn:li:dataset:123",
     )
 
     def container_properties_filter(x: MetadataWorkUnit) -> bool:
@@ -194,7 +197,8 @@ def test_container_generation_without_folders():
 def test_container_generation_with_folder():
     cwu = ContainerWUCreator("s3", None, "PROD")
     mcps = cwu.create_container_hierarchy(
-        "s3://my-bucket/my-dir/my-file.json.gz", "urn:li:dataset:123"
+        "s3://my-bucket/my-dir/my-file.json.gz",
+        "urn:li:dataset:123",
     )
 
     def container_properties_filter(x: MetadataWorkUnit) -> bool:
@@ -218,7 +222,8 @@ def test_container_generation_with_folder():
 def test_container_generation_with_multiple_folders():
     cwu = ContainerWUCreator("s3", None, "PROD")
     mcps = cwu.create_container_hierarchy(
-        "s3://my-bucket/my-dir/my-dir2/my-file.json.gz", "urn:li:dataset:123"
+        "s3://my-bucket/my-dir/my-dir2/my-file.json.gz",
+        "urn:li:dataset:123",
     )
 
     def container_properties_filter(x: MetadataWorkUnit) -> bool:
@@ -291,12 +296,14 @@ def test_get_folder_info():
                 last_modified=datetime(2025, 1, 1, 2),
                 size=100,
             ),
-        ]
+        ],
     )
 
     # act
     res = _get_s3_source(path_spec).get_folder_info(
-        path_spec, bucket, prefix="/my-folder"
+        path_spec,
+        bucket,
+        prefix="/my-folder",
     )
 
     # assert

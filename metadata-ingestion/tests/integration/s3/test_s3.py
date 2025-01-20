@@ -100,7 +100,8 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
         )
 
         current_time_sec = datetime.strptime(
-            FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
+            FROZEN_TIME,
+            "%Y-%m-%d %H:%M:%S",
         ).timestamp()
         file_list = []
         for root, _dirs, files in os.walk(test_resources_dir):
@@ -161,7 +162,11 @@ s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
 def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
+    pytestconfig,
+    s3_populate,
+    source_file_tuple,
+    tmp_path,
+    mock_time,
 ):
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
@@ -198,7 +203,11 @@ def test_data_lake_s3_ingest(
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file_tuple", shared_source_files)
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
+    pytestconfig,
+    touch_local_files,
+    source_file_tuple,
+    tmp_path,
+    mock_time,
 ):
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
@@ -210,10 +219,12 @@ def test_data_lake_local_ingest(
         path_spec["include"] = (
             path_spec["include"]
             .replace(
-                "s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/"
+                "s3://my-test-bucket/",
+                "tests/integration/s3/test_data/local_system/",
             )
             .replace(
-                "s3://my-test-bucket-2/", "tests/integration/s3/test_data/local_system/"
+                "s3://my-test-bucket-2/",
+                "tests/integration/s3/test_data/local_system/",
             )
         )
 
@@ -259,7 +270,7 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
 
     # Baseline: valid config
     source: dict = {
-        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"}
+        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"},
     }
     s3 = S3Source.create(source, ctx)
     assert s3.source_config.platform == "file"
@@ -283,7 +294,7 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     source = {
         "path_spec": {
             "include": "a/b/c/d/{table}/*.hd5",
-        }
+        },
     }
     with pytest.raises(ValidationError, match="file type"):
         S3Source.create(source, ctx)

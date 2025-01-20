@@ -69,7 +69,8 @@ class DataJob:
             flow_id=self.flow_urn.flow_id,
         )
         self.urn = DataJobUrn.create_from_ids(
-            data_flow_urn=str(job_flow_urn), job_id=self.id
+            data_flow_urn=str(job_flow_urn),
+            job_id=self.id,
         )
 
     def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
@@ -100,19 +101,20 @@ class DataJob:
             tags=[
                 TagAssociationClass(tag=builder.make_tag_urn(tag))
                 for tag in (sorted(self.tags) or [])
-            ]
+            ],
         )
         return [tags]
 
     def generate_mcp(
-        self, materialize_iolets: bool = True
+        self,
+        materialize_iolets: bool = True,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
         if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
             env = self.flow_urn.cluster.upper()
         else:
             logger.debug(
-                f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
+                f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work.",
             )
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
@@ -136,7 +138,7 @@ class DataJob:
         yield mcp
 
         yield from self.generate_data_input_output_mcp(
-            materialize_iolets=materialize_iolets
+            materialize_iolets=materialize_iolets,
         )
 
         for owner in self.generate_ownership_aspect():
@@ -169,7 +171,8 @@ class DataJob:
             emitter.emit(mcp, callback)
 
     def generate_data_input_output_mcp(
-        self, materialize_iolets: bool
+        self,
+        materialize_iolets: bool,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),

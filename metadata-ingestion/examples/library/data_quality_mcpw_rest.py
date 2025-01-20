@@ -74,10 +74,12 @@ assertion_maxVal = AssertionInfo(
         nativeParameters={"max_value": "99", "min_value": "89"},
         parameters=AssertionStdParameters(
             minValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="89"
+                type=AssertionStdParameterType.NUMBER,
+                value="89",
             ),
             maxValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value="99"
+                type=AssertionStdParameterType.NUMBER,
+                value="99",
             ),
         ),
     ),
@@ -95,7 +97,7 @@ emitter.emit_mcp(assertion_maxVal_mcp)
 
 # Construct an assertion platform object.
 assertion_dataPlatformInstance = DataPlatformInstance(
-    platform=builder.make_data_platform_urn("great-expectations")
+    platform=builder.make_data_platform_urn("great-expectations"),
 )
 
 # Construct a MetadataChangeProposalWrapper object for assertion platform

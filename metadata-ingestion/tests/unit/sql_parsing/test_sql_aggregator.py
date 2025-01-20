@@ -33,7 +33,8 @@ RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06T01:23:45Z"
 
 check_goldens_stream = functools.partial(
-    mce_helpers.check_goldens_stream, ignore_order=False
+    mce_helpers.check_goldens_stream,
+    ignore_order=False,
 )
 
 
@@ -56,7 +57,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
             query="create table foo as select a, b from bar",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -78,10 +79,12 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
             str(query_log_db),
             "--output",
             str(query_log_json),
-        ]
+        ],
     )
     mce_helpers.check_golden_file(
-        pytestconfig, query_log_json, RESOURCE_DIR / "test_basic_lineage_query_log.json"
+        pytestconfig,
+        query_log_json,
+        RESOURCE_DIR / "test_basic_lineage_query_log.json",
     )
 
 
@@ -100,7 +103,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             timestamp=_ts(20),
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -108,7 +111,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             timestamp=_ts(25),
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -140,7 +143,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session1",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -148,7 +151,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session2",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -156,7 +159,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session2",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -164,7 +167,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session3",
-        )
+        ),
     )
 
     # foo_session2 should come from bar (via temp table foo), have columns a and c, and depend on bar.{a,b,c}
@@ -194,7 +197,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session1",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -202,7 +205,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session1",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -210,7 +213,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session1",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -218,7 +221,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             session_id="session1",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -230,7 +233,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
         len(
             report.queries_with_temp_upstreams[
                 "composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
-            ]
+            ],
         )
         == 4
     )
@@ -263,7 +266,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
             default_db="dev",
             default_schema="public",
             session_id="1234",
-        )
+        ),
     )
 
     aggregator.add_observed_query(
@@ -275,7 +278,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
             default_db="dev",
             default_schema="public",
             session_id="2323",
-        )
+        ),
     )
 
     aggregator.add_observed_query(
@@ -284,7 +287,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
             default_db="dev",
             default_schema="public",
             session_id="1234",
-        )
+        ),
     )
 
     aggregator.add_observed_query(
@@ -293,7 +296,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
             default_db="dev",
             default_schema="public",
             session_id="2323",
-        )
+        ),
     )
 
     # We only have one create temp table, but the same insert command from multiple sessions.
@@ -305,7 +308,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
             default_db="dev",
             default_schema="public",
             session_id="5435",
-        )
+        ),
     )
     assert len(report.queries_with_non_authoritative_session) == 1
 
@@ -334,7 +337,7 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
             default_schema="public",
             timestamp=_ts(20),
             user=CorpUserUrn("user1"),
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -343,7 +346,7 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
             default_schema="public",
             timestamp=_ts(25),
             user=CorpUserUrn("user2"),
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -352,7 +355,7 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
             default_schema="public",
             timestamp=_ts(26),
             user=CorpUserUrn("user3"),
-        )
+        ),
     )
 
     # The first query will basically be ignored, as it's a duplicate of the second one.
@@ -449,14 +452,14 @@ def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
             query="/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
             query="/* query 2 */ insert into foo (a, b) select a, b from bar",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -537,7 +540,7 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         TableRename(
             original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
             new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
-        )
+        ),
     )
 
     # Add an unrelated query.
@@ -546,7 +549,7 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
             query="create table bar as select a, b from baz",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the staging table.
@@ -555,7 +558,7 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
             query="create table foo_staging as select a, b from foo_dep",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the downstream from foo_staging table.
@@ -564,7 +567,7 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
             query="create table foo_downstream as select a, b from foo_staging",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -597,7 +600,7 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
             original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
             new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
             query="alter table dev.public.foo_staging rename to dev.public.foo",
-        )
+        ),
     )
 
     # Add an unrelated query.
@@ -606,7 +609,7 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
             query="create table bar as select a, b from baz",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the staging table.
@@ -615,7 +618,7 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
             query="create table foo_staging as select a, b from foo_dep",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the downstream from foo_staging table.
@@ -624,7 +627,7 @@ def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
             query="create table foo_downstream as select a, b from foo_staging",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -656,7 +659,7 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
             query="create table bar as select a, b from baz",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the swap table initially.
@@ -666,7 +669,7 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
             query_text="CREATE TABLE person_info_swap CLONE person_info;",
             upstreams=[DatasetUrn("snowflake", "dev.public.person_info").urn()],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
-        )
+        ),
     )
 
     # Add the query that created the incremental table.
@@ -678,9 +681,10 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_dep").urn(),
             ],
             downstream=DatasetUrn(
-                "snowflake", "dev.public.person_info_incremental"
+                "snowflake",
+                "dev.public.person_info_incremental",
             ).urn(),
-        )
+        ),
     )
 
     # Add the query that updated the swap table.
@@ -692,14 +696,14 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_incremental").urn(),
             ],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
-        )
+        ),
     )
 
     aggregator.add_table_swap(
         TableSwap(
             urn1=DatasetUrn("snowflake", "dev.public.person_info").urn(),
             urn2=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
-        )
+        ),
     )
 
     # Add the query that is created from swap table.
@@ -711,7 +715,7 @@ def test_table_swap(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
             ],
             downstream=DatasetUrn("snowflake", "dev.public.person_info_backup").urn(),
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -744,7 +748,7 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
             query="create table bar as select a, b from baz",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     # Add the query that created the swap table initially.
@@ -760,21 +764,23 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
                         table=DatasetUrn(
-                            "snowflake", "dev.public.person_info_swap"
+                            "snowflake",
+                            "dev.public.person_info_swap",
                         ).urn(),
                         column="a",
                     ),
                     upstreams=[
                         ColumnRef(
                             table=DatasetUrn(
-                                "snowflake", "dev.public.person_info"
+                                "snowflake",
+                                "dev.public.person_info",
                             ).urn(),
                             column="a",
-                        )
+                        ),
                     ],
-                )
+                ),
             ],
-        )
+        ),
     )
 
     # Add the query that created the incremental table.
@@ -786,7 +792,8 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 DatasetUrn("snowflake", "dev.public.person_info_dep").urn(),
             ],
             downstream=DatasetUrn(
-                "snowflake", "dev.public.person_info_incremental"
+                "snowflake",
+                "dev.public.person_info_incremental",
             ).urn(),
             session_id="xxx",
             timestamp=_ts(20),
@@ -794,21 +801,23 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
                         table=DatasetUrn(
-                            "snowflake", "dev.public.person_info_incremental"
+                            "snowflake",
+                            "dev.public.person_info_incremental",
                         ).urn(),
                         column="a",
                     ),
                     upstreams=[
                         ColumnRef(
                             table=DatasetUrn(
-                                "snowflake", "dev.public.person_info_dep"
+                                "snowflake",
+                                "dev.public.person_info_dep",
                             ).urn(),
                             column="a",
-                        )
+                        ),
                     ],
-                )
+                ),
             ],
-        )
+        ),
     )
 
     # Add the query that updated the swap table.
@@ -826,21 +835,23 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
                         table=DatasetUrn(
-                            "snowflake", "dev.public.person_info_swap"
+                            "snowflake",
+                            "dev.public.person_info_swap",
                         ).urn(),
                         column="a",
                     ),
                     upstreams=[
                         ColumnRef(
                             table=DatasetUrn(
-                                "snowflake", "dev.public.person_info_incremental"
+                                "snowflake",
+                                "dev.public.person_info_incremental",
                             ).urn(),
                             column="a",
-                        )
+                        ),
                     ],
-                )
+                ),
             ],
-        )
+        ),
     )
 
     aggregator.add_table_swap(
@@ -849,7 +860,7 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
             urn2=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
             session_id="xxx",
             timestamp=_ts(40),
-        )
+        ),
     )
 
     # Add the query that is created from swap table.
@@ -867,21 +878,23 @@ def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
                 ColumnLineageInfo(
                     downstream=DownstreamColumnRef(
                         table=DatasetUrn(
-                            "snowflake", "dev.public.person_info_backup"
+                            "snowflake",
+                            "dev.public.person_info_backup",
                         ).urn(),
                         column="a",
                     ),
                     upstreams=[
                         ColumnRef(
                             table=DatasetUrn(
-                                "snowflake", "dev.public.person_info_swap"
+                                "snowflake",
+                                "dev.public.person_info_swap",
                             ).urn(),
                             column="a",
-                        )
+                        ),
                     ],
-                )
+                ),
             ],
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -908,7 +921,7 @@ def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
             default_db="dev",
             default_schema="public",
             timestamp=datetime.now(),
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -936,14 +949,14 @@ def test_table_lineage_via_temp_table_disordered_add(
             query="create table derived_from_foo as select * from foo",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
             query="create temp table foo as select a, b+c as c from bar",
             default_db="dev",
             default_schema="public",
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -983,7 +996,7 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
             usage_multiplier=5,
             timestamp=frozen_timestamp,
             user=CorpUserUrn("user1"),
-        )
+        ),
     )
     aggregator.add_observed_query(
         ObservedQuery(
@@ -992,7 +1005,7 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
             default_schema="public",
             timestamp=frozen_timestamp,
             user=CorpUserUrn("user2"),
-        )
+        ),
     )
 
     mcps = list(aggregator.gen_metadata())

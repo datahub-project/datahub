@@ -124,13 +124,16 @@ class LineageItem:
 
 
 class ClickHouseConfig(
-    TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
+    TwoTierSQLAlchemyConfig,
+    BaseTimeWindowConfig,
+    DatasetLineageProviderConfigBase,
 ):
     # defaults
     host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
     scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
-        default=pydantic.SecretStr(""), description="password"
+        default=pydantic.SecretStr(""),
+        description="password",
     )
     secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
@@ -142,18 +145,19 @@ class ClickHouseConfig(
         description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
     )
     include_table_lineage: Optional[bool] = Field(
-        default=True, description="Whether table lineage should be ingested."
+        default=True,
+        description="Whether table lineage should be ingested.",
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
     def get_sql_alchemy_url(self, current_db=None):
         url = make_url(
-            super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
+            super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db),
         )
         if url.drivername == "clickhouse+native" and url.query.get("protocol"):
             logger.debug(f"driver = {url.drivername}, query = {url.query}")
             raise Exception(
-                "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
+                "You cannot use a schema clickhouse+native and clickhouse+http at the same time",
             )
 
         # We can setup clickhouse ingestion in sqlalchemy_uri form and config form.
@@ -175,10 +179,10 @@ class ClickHouseConfig(
             logger.warning(
                 "uri_opts is not set but protocol or secure option is set."
                 " secure and  protocol options is deprecated, please use "
-                "uri_opts instead."
+                "uri_opts instead.",
             )
             logger.info(
-                "Initializing uri_opts from deprecated secure or protocol options"
+                "Initializing uri_opts from deprecated secure or protocol options",
             )
             values["uri_opts"] = {}
             if secure:
@@ -188,7 +192,7 @@ class ClickHouseConfig(
             logger.debug(f"uri_opts: {uri_opts}")
         elif (secure or protocol) and uri_opts:
             raise ValueError(
-                "secure and protocol options is deprecated. Please use uri_opts only."
+                "secure and protocol options is deprecated. Please use uri_opts only.",
             )
 
         return values
@@ -206,7 +210,7 @@ PROPERTIES_COLUMNS = (
 def _get_all_table_comments_and_properties(self, connection, **kw):
     properties_clause = (
         "formatRow('JSONEachRow', {properties_columns})".format(
-            properties_columns=PROPERTIES_COLUMNS
+            properties_columns=PROPERTIES_COLUMNS,
         )
         if PROPERTIES_COLUMNS
         else "null"
@@ -218,7 +222,7 @@ def _get_all_table_comments_and_properties(self, connection, **kw):
              , comment
              , {properties_clause} AS properties
           FROM system.tables
-         WHERE name NOT LIKE '.inner%'""".format(properties_clause=properties_clause)
+         WHERE name NOT LIKE '.inner%'""".format(properties_clause=properties_clause),
     )
 
     all_table_comments: Dict[Tuple[str, str], Dict[str, Any]] = {}
@@ -252,9 +256,9 @@ def _get_all_relation_info(self, connection, **kw):
              , if(engine LIKE '%View', 'v', 'r') AS relkind
              , name                              AS relname
           FROM system.tables
-         WHERE name NOT LIKE '.inner%'"""
-            )
-        )
+         WHERE name NOT LIKE '.inner%'""",
+            ),
+        ),
     )
     relations = {}
     for rel in result:
@@ -299,9 +303,9 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
              , comment
           FROM system.columns
          WHERE {schema_clause}
-         ORDER BY database, table, position""".format(schema_clause=schema_clause)
-            )
-        )
+         ORDER BY database, table, position""".format(schema_clause=schema_clause),
+            ),
+        ),
     )
     for col in result:
         key = (col.database, col.table_name)
@@ -312,7 +316,9 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
 def _get_clickhouse_columns(self, connection, table_name, schema=None, **kw):
     info_cache = kw.get("info_cache")
     all_schema_columns = self._get_schema_column_info(
-        connection, schema, info_cache=info_cache
+        connection,
+        schema,
+        info_cache=info_cache,
     )
     key = (schema, table_name)
     return all_schema_columns[key]
@@ -419,7 +425,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 assert dataset_snapshot
 
                 lineage_mcp, lineage_properties_aspect = self.get_lineage_mcp(
-                    wu.metadata.proposedSnapshot.urn
+                    wu.metadata.proposedSnapshot.urn,
                 )
 
                 if lineage_mcp is not None:
@@ -461,7 +467,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             """\
         SELECT database, name AS table_name
           FROM system.tables
-         WHERE name NOT LIKE '.inner%'"""
+         WHERE name NOT LIKE '.inner%'""",
         )
 
         all_tables_set = set()
@@ -475,7 +481,9 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         return all_tables_set
 
     def _populate_lineage_map(
-        self, query: str, lineage_type: LineageCollectorType
+        self,
+        query: str,
+        lineage_type: LineageCollectorType,
     ) -> None:
         """
         This method generate table level lineage based with the given query.
@@ -501,7 +509,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             for db_row in engine.execute(text(query)):
                 dataset_name = f"{db_row['target_schema']}.{db_row['target_table']}"
                 if not self.config.database_pattern.allowed(
-                    db_row["target_schema"]
+                    db_row["target_schema"],
                 ) or not self.config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
@@ -513,7 +521,8 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 )
                 target = LineageItem(
                     dataset=LineageDataset(
-                        platform=LineageDatasetPlatform.CLICKHOUSE, path=target_path
+                        platform=LineageDatasetPlatform.CLICKHOUSE,
+                        path=target_path,
                     ),
                     upstreams=set(),
                     collector_type=lineage_type,
@@ -527,7 +536,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                     LineageDataset(
                         platform=platform,
                         path=path,
-                    )
+                    ),
                 ]
 
                 for source in sources:
@@ -554,13 +563,13 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                     self._lineage_map[target.dataset.path] = target
 
                 logger.info(
-                    f"Lineage[{target}]:{self._lineage_map[target.dataset.path]}"
+                    f"Lineage[{target}]:{self._lineage_map[target.dataset.path]}",
                 )
 
         except Exception as e:
             logger.warning(
                 f"Extracting {lineage_type.name} lineage from ClickHouse failed."
-                f"Continuing...\nError was {e}."
+                f"Continuing...\nError was {e}.",
             )
 
     def _populate_lineage(self) -> None:
@@ -581,7 +590,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
           FROM system.tables
          WHERE engine IN ('Dictionary')
            AND create_table_query LIKE '%SOURCE(CLICKHOUSE(%'
-         ORDER BY target_schema, target_table, source_schema, source_table"""
+         ORDER BY target_schema, target_table, source_schema, source_table""",
         )
 
         view_lineage_query = textwrap.dedent(
@@ -598,7 +607,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
          ARRAY JOIN arrayIntersect(splitByRegexp('[\\s()'']+', create_table_query), tables) AS source
          WHERE engine IN ('View')
            AND NOT (source_schema = target_schema AND source_table = target_table)
-         ORDER BY target_schema, target_table, source_schema, source_table"""
+         ORDER BY target_schema, target_table, source_schema, source_table""",
         )
 
         # get materialized view downstream and upstream
@@ -629,7 +638,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                   FROM system.tables
                  WHERE engine IN ('MaterializedView')
                    AND extract_to <> '')
-         ORDER BY target_schema, target_table, source_schema, source_table"""
+         ORDER BY target_schema, target_table, source_schema, source_table""",
         )
 
         if not self._lineage_map:
@@ -638,13 +647,15 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         if self.config.include_tables:
             # Populate table level lineage for dictionaries and distributed tables
             self._populate_lineage_map(
-                query=table_lineage_query, lineage_type=LineageCollectorType.TABLE
+                query=table_lineage_query,
+                lineage_type=LineageCollectorType.TABLE,
             )
 
         if self.config.include_views:
             # Populate table level lineage for views
             self._populate_lineage_map(
-                query=view_lineage_query, lineage_type=LineageCollectorType.VIEW
+                query=view_lineage_query,
+                lineage_type=LineageCollectorType.VIEW,
             )
 
         if self.config.include_materialized_views:
@@ -655,9 +666,11 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             )
 
     def get_lineage_mcp(
-        self, dataset_urn: str
+        self,
+        dataset_urn: str,
     ) -> Tuple[
-        Optional[MetadataChangeProposalWrapper], Optional[DatasetPropertiesClass]
+        Optional[MetadataChangeProposalWrapper],
+        Optional[DatasetPropertiesClass],
     ]:
         dataset_key = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:

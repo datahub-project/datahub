@@ -45,12 +45,14 @@ class KafkaConnectSourceConfig(
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
     connect_uri: str = Field(
-        default="http://localhost:8083/", description="URI to connect to."
+        default="http://localhost:8083/",
+        description="URI to connect to.",
     )
     username: Optional[str] = Field(default=None, description="Kafka Connect username.")
     password: Optional[str] = Field(default=None, description="Kafka Connect password.")
     cluster_name: Optional[str] = Field(
-        default="connect-cluster", description="Cluster to ingest from."
+        default="connect-cluster",
+        description="Cluster to ingest from.",
     )
     # convert lineage dataset's urns to lowercase
     convert_lineage_urns_to_lowercase: bool = Field(
@@ -62,7 +64,8 @@ class KafkaConnectSourceConfig(
         description="regex patterns for connectors to filter for ingestion.",
     )
     provided_configs: Optional[List[ProvidedConfig]] = Field(
-        default=None, description="Provided Configurations"
+        default=None,
+        description="Provided Configurations",
     )
     connect_to_platform_map: Optional[Dict[str, Dict[str, str]]] = Field(
         default=None,
@@ -125,7 +128,9 @@ def remove_prefix(text: str, prefix: str) -> str:
 
 
 def unquote(
-    string: str, leading_quote: str = '"', trailing_quote: Optional[str] = None
+    string: str,
+    leading_quote: str = '"',
+    trailing_quote: Optional[str] = None,
 ) -> str:
     """
     If string starts and ends with a quote, unquote it
@@ -149,7 +154,9 @@ def get_dataset_name(
 
 
 def get_platform_instance(
-    config: KafkaConnectSourceConfig, connector_name: str, platform: str
+    config: KafkaConnectSourceConfig,
+    connector_name: str,
+    platform: str,
 ) -> Optional[str]:
     instance_name = None
     if (
@@ -161,18 +168,19 @@ def get_platform_instance(
         if config.platform_instance_map and config.platform_instance_map.get(platform):
             logger.warning(
                 f"Same source platform {platform} configured in both platform_instance_map and connect_to_platform_map."
-                "Will prefer connector specific platform instance from connect_to_platform_map."
+                "Will prefer connector specific platform instance from connect_to_platform_map.",
             )
     elif config.platform_instance_map and config.platform_instance_map.get(platform):
         instance_name = config.platform_instance_map[platform]
     logger.info(
-        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and platform {platform}"
+        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and platform {platform}",
     )
     return instance_name
 
 
 def transform_connector_config(
-    connector_config: Dict, provided_configs: List[ProvidedConfig]
+    connector_config: Dict,
+    provided_configs: List[ProvidedConfig],
 ) -> None:
     """This method will update provided configs in connector config values, if any"""
     lookupsByProvider = {}

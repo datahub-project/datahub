@@ -40,7 +40,9 @@ class DremioProfiler:
         )  # 5 minutes timeout for each query
 
     def get_workunits(
-        self, dataset: DremioDataset, dataset_urn: str
+        self,
+        dataset: DremioDataset,
+        dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         if not dataset.columns:
             self.report.warning(
@@ -70,7 +72,8 @@ class DremioProfiler:
         if profile_aspect:
             self.report.report_entity_profiled(dataset.resource_name)
             mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=profile_aspect
+                entityUrn=dataset_urn,
+                aspect=profile_aspect,
             )
             yield mcp.as_workunit()
 
@@ -87,7 +90,9 @@ class DremioProfiler:
         )
 
     def _create_field_profile(
-        self, field_name: str, field_stats: Dict
+        self,
+        field_name: str,
+        field_stats: Dict,
     ) -> DatasetFieldProfileClass:
         quantiles = field_stats.get("quantiles")
         return DatasetFieldProfileClass(
@@ -137,7 +142,8 @@ class DremioProfiler:
             raise e
 
     def _chunk_columns(
-        self, columns: List[Tuple[str, str]]
+        self,
+        columns: List[Tuple[str, str]],
     ) -> List[List[Tuple[str, str]]]:
         return [
             columns[i : i + self.MAX_COLUMNS_PER_QUERY]
@@ -145,7 +151,9 @@ class DremioProfiler:
         ]
 
     def _build_profile_sql(
-        self, table_name: str, columns: List[Tuple[str, str]]
+        self,
+        table_name: str,
+        columns: List[Tuple[str, str]],
     ) -> str:
         metrics = []
 
@@ -158,7 +166,7 @@ class DremioProfiler:
                     metrics.extend(self._get_column_metrics(column_name, data_type))
                 except Exception as e:
                     logger.warning(
-                        f"Error building metrics for column {column_name}: {str(e)}"
+                        f"Error building metrics for column {column_name}: {str(e)}",
                     )
                     # Skip this column and continue with others
 
@@ -183,12 +191,12 @@ class DremioProfiler:
 
         if self.config.profiling.include_field_distinct_count:
             metrics.append(
-                f"COUNT(DISTINCT {quoted_column_name}) AS {safe_column_name}_distinct_count"
+                f"COUNT(DISTINCT {quoted_column_name}) AS {safe_column_name}_distinct_count",
             )
 
         if self.config.profiling.include_field_null_count:
             metrics.append(
-                f"SUM(CASE WHEN {quoted_column_name} IS NULL THEN 1 ELSE 0 END) AS {safe_column_name}_null_count"
+                f"SUM(CASE WHEN {quoted_column_name} IS NULL THEN 1 ELSE 0 END) AS {safe_column_name}_null_count",
             )
 
         if self.config.profiling.include_field_min_value:
@@ -207,31 +215,33 @@ class DremioProfiler:
         ]:
             if self.config.profiling.include_field_mean_value:
                 metrics.append(
-                    f"AVG(CAST({quoted_column_name} AS DOUBLE)) AS {safe_column_name}_mean"
+                    f"AVG(CAST({quoted_column_name} AS DOUBLE)) AS {safe_column_name}_mean",
                 )
 
             if self.config.profiling.include_field_stddev_value:
                 metrics.append(
-                    f"STDDEV(CAST({quoted_column_name} AS DOUBLE)) AS {safe_column_name}_stdev"
+                    f"STDDEV(CAST({quoted_column_name} AS DOUBLE)) AS {safe_column_name}_stdev",
                 )
 
             if self.config.profiling.include_field_median_value:
                 metrics.append(
-                    f"MEDIAN({quoted_column_name}) AS {safe_column_name}_median"
+                    f"MEDIAN({quoted_column_name}) AS {safe_column_name}_median",
                 )
 
             if self.config.profiling.include_field_quantiles:
                 metrics.append(
-                    f"PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {quoted_column_name}) AS {safe_column_name}_25th_percentile"
+                    f"PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {quoted_column_name}) AS {safe_column_name}_25th_percentile",
                 )
                 metrics.append(
-                    f"PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {quoted_column_name}) AS {safe_column_name}_75th_percentile"
+                    f"PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {quoted_column_name}) AS {safe_column_name}_75th_percentile",
                 )
 
         return metrics
 
     def _parse_profile_results(
-        self, results: List[Dict], columns: List[Tuple[str, str]]
+        self,
+        results: List[Dict],
+        columns: List[Tuple[str, str]],
     ) -> Dict:
         profile: Dict[str, Any] = {"column_stats": {}}
         result = results[0] if results else {}  # We expect only one row of results

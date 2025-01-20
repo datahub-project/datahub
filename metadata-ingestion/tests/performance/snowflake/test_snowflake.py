@@ -57,7 +57,7 @@ def run_test():
             logging.info(source.get_report().as_string())
 
         logging.info(
-            f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
+            f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}",
         )
         logging.info(source.report.aspects)
 

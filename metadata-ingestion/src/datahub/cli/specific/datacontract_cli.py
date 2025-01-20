@@ -31,7 +31,7 @@ def upsert(file: str) -> None:
     with get_default_graph() as graph:
         if not graph.exists(data_contract.entity):
             raise ValueError(
-                f"Cannot define a data contract for non-existent entity {data_contract.entity}"
+                f"Cannot define a data contract for non-existent entity {data_contract.entity}",
             )
 
         try:
@@ -48,7 +48,10 @@ def upsert(file: str) -> None:
 
 @datacontract.command()
 @click.option(
-    "--urn", required=False, type=str, help="The urn for the data contract to delete"
+    "--urn",
+    required=False,
+    type=str,
+    help="The urn for the data contract to delete",
 )
 @click.option(
     "-f",
@@ -66,7 +69,7 @@ def delete(urn: Optional[str], file: Optional[str], hard: bool) -> None:
     if not urn:
         if not file:
             raise click.UsageError(
-                "Must provide either an urn or a file to delete a data contract"
+                "Must provide either an urn or a file to delete a data contract",
             )
 
         data_contract = DataContract.from_yaml(file)

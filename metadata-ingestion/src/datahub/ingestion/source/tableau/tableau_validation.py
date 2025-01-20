@@ -14,7 +14,7 @@ def check_user_role(
     capability_dict: Dict[Union[SourceCapability, str], CapabilityReport] = {
         c.SITE_PERMISSION: CapabilityReport(
             capable=True,
-        )
+        ),
     }
 
     failure_reason: str = (

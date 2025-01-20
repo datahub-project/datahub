@@ -37,7 +37,7 @@ def test_partitioned_executor():
         saw_keys_in_parallel = False
         while executing_tasks or not done_tasks:
             keys_executing = [key for key, _ in executing_tasks]
-            assert list(sorted(keys_executing)) == list(sorted(set(keys_executing))), (
+            assert sorted(keys_executing) == sorted(set(keys_executing)), (
                 "partitioning not working"
             )
 
@@ -64,7 +64,8 @@ def test_partitioned_executor_bounding():
         return id
 
     with PartitionExecutor(
-        max_workers=5, max_pending=10
+        max_workers=5,
+        max_pending=10,
     ) as executor, PerfTimer() as timer:
         # The first 15 submits should be non-blocking.
         for i in range(15):
@@ -193,6 +194,9 @@ def test_batch_partition_executor_deadlock():
 def test_empty_batch_partition_executor():
     # We want to test that even if no submit() calls are made, cleanup works fine.
     with BatchPartitionExecutor(
-        max_workers=5, max_pending=20, process_batch=lambda batch: None, max_per_batch=2
+        max_workers=5,
+        max_pending=20,
+        process_batch=lambda batch: None,
+        max_per_batch=2,
     ) as executor:
         assert executor is not None

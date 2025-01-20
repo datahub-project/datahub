@@ -50,7 +50,9 @@ def _is_keyword_at_position(sql: str, pos: int, keyword: str) -> bool:
 
 
 def _look_ahead_for_keywords(
-    sql: str, pos: int, keywords: List[str]
+    sql: str,
+    pos: int,
+    keywords: List[str],
 ) -> Tuple[bool, str, int]:
     """
     Look ahead for SQL keywords at the current position.
@@ -105,7 +107,9 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                     prev_real_char = c
 
                 is_control_keyword, keyword, keyword_len = _look_ahead_for_keywords(
-                    sql, i, keywords=CONTROL_FLOW_KEYWORDS
+                    sql,
+                    i,
+                    keywords=CONTROL_FLOW_KEYWORDS,
                 )
                 if is_control_keyword:
                     # Yield current statement if any
@@ -120,7 +124,9 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                     keyword,
                     keyword_len,
                 ) = _look_ahead_for_keywords(
-                    sql, i, keywords=FORCE_NEW_STATEMENT_KEYWORDS
+                    sql,
+                    i,
+                    keywords=FORCE_NEW_STATEMENT_KEYWORDS,
                 )
                 if (
                     is_force_new_statement_keyword and most_recent_real_char != ")"

@@ -99,7 +99,7 @@ class ContainerWUCreator:
             return protocol
         else:
             raise ValueError(
-                f"Unable to get protocol or invalid protocol from path: {path}"
+                f"Unable to get protocol or invalid protocol from path: {path}",
             )
 
     @staticmethod
@@ -129,7 +129,9 @@ class ContainerWUCreator:
         raise ValueError(f"Unable to get base full path from path: {path}")
 
     def create_container_hierarchy(
-        self, path: str, dataset_urn: str
+        self,
+        path: str,
+        dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Creating containers for {dataset_urn}")
         base_full_path = path
@@ -156,7 +158,7 @@ class ContainerWUCreator:
         # Dataset is in the root folder
         if not parent_folder_path and parent_key is None:
             logger.warning(
-                f"Failed to associate Dataset ({dataset_urn}) with container"
+                f"Failed to associate Dataset ({dataset_urn}) with container",
             )
             return
 

@@ -39,7 +39,8 @@ class RedshiftProfiler(GenericProfiler):
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.is_profiling_enabled():
             self.config.options.setdefault(
-                "max_overflow", self.config.profiling.max_workers
+                "max_overflow",
+                self.config.profiling.max_workers,
             )
 
         for db in tables.keys():
@@ -53,7 +54,7 @@ class RedshiftProfiler(GenericProfiler):
                             # Case 1: If user did not tell us to profile external tables, simply log this.
                             self.report.profiling_skipped_other[schema] += 1
                             logger.info(
-                                f"Skipping profiling of external table {db}.{schema}.{table.name}"
+                                f"Skipping profiling of external table {db}.{schema}.{table.name}",
                             )
                             # Continue, since we should not profile this table.
                             continue

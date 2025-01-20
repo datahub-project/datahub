@@ -20,7 +20,8 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_config(self, mock_producer, mock_context):
         kafka_sink = DatahubKafkaSink.create(
-            {"connection": {"bootstrap": "foobar:9092"}}, mock_context
+            {"connection": {"bootstrap": "foobar:9092"}},
+            mock_context,
         )
         kafka_sink.close()
         assert (
@@ -51,7 +52,8 @@ class KafkaSinkTest(unittest.TestCase):
             PipelineContext(run_id="test"),
         )
         kafka_sink.write_record_async(
-            RecordEnvelope(record=mcp, metadata={}), mock_callback
+            RecordEnvelope(record=mcp, metadata={}),
+            mock_callback,
         )
         kafka_sink.close()
         assert mock_producer.call_count == 2  # constructor should be called
@@ -63,7 +65,8 @@ class KafkaSinkTest(unittest.TestCase):
         mock_k_callback_instance = mock_k_callback.return_value
         callback = MagicMock(spec=WriteCallback)
         kafka_sink = DatahubKafkaSink.create(
-            {"connection": {"bootstrap": "foobar:9092"}}, mock_context
+            {"connection": {"bootstrap": "foobar:9092"}},
+            mock_context,
         )
         mock_producer_instance = kafka_sink.emitter.producers[MCE_KEY]
 
@@ -86,7 +89,9 @@ class KafkaSinkTest(unittest.TestCase):
 
         mock_producer_instance.poll.assert_called_once()  # producer should call poll() first
         self.validate_kafka_callback(
-            mock_k_callback, re, callback
+            mock_k_callback,
+            re,
+            callback,
         )  # validate kafka callback was constructed appropriately
 
         # validate that confluent_kafka.Producer.produce was called with the right arguments
@@ -111,7 +116,9 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("datahub.ingestion.sink.datahub_kafka.WriteCallback", autospec=True)
     def test_kafka_callback_class(self, mock_w_callback, mock_re):
         callback = _KafkaCallback(
-            SinkReport(), record_envelope=mock_re, write_callback=mock_w_callback
+            SinkReport(),
+            record_envelope=mock_re,
+            write_callback=mock_w_callback,
         )
         mock_error = MagicMock()
         mock_message = MagicMock()

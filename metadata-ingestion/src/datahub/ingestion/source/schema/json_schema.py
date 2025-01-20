@@ -75,10 +75,10 @@ class URIReplacePattern(ConfigModel):
 
 class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path: Union[FilePath, DirectoryPath, AnyHttpUrl] = Field(
-        description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json"
+        description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json",
     )
     platform: str = Field(
-        description="Set this to a platform that you want all schemas to live under. e.g. schemaregistry / schemarepo etc."
+        description="Set this to a platform that you want all schemas to live under. e.g. schemaregistry / schemarepo etc.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
     use_id_as_base_uri: bool = Field(
@@ -99,14 +99,15 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
                     if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
                         schema_dict["$id"] = str(v)
                     with tempfile.NamedTemporaryFile(
-                        mode="w", delete=False
+                        mode="w",
+                        delete=False,
                     ) as tmp_file:
                         tmp_file.write(json.dumps(schema_dict))
                         tmp_file.flush()
                         return tmp_file.name
             except Exception as e:
                 logger.error(
-                    f"Failed to localize url {v} due to {e}. Run with --debug to get full stacktrace"
+                    f"Failed to localize url {v} due to {e}. Run with --debug to get full stacktrace",
                 )
                 logger.debug(f"Failed to localize url {v} due to {e}", exc_info=e)
                 raise
@@ -248,7 +249,11 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         self.report = StaleEntityRemovalSourceReport()
 
     def _load_one_file(
-        self, ref_loader: Any, browse_prefix: str, root_dir: Path, file_name: str
+        self,
+        ref_loader: Any,
+        browse_prefix: str,
+        root_dir: Path,
+        file_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         with unittest.mock.patch("jsonref.JsonRef.callback", title_swapping_callback):
             (schema_dict, schema_string) = self._load_json_schema(
@@ -285,11 +290,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=meta
+                entityUrn=dataset_urn,
+                aspect=meta,
             ).as_workunit()
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
+                entityUrn=dataset_urn,
+                aspect=models.StatusClass(removed=False),
             ).as_workunit()
 
             external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
@@ -302,7 +309,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     externalUrl=external_url,
                     name=dataset_simple_name,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
-                        schema_dict
+                        schema_dict,
                     ),
                 ),
             ).as_workunit()
@@ -323,7 +330,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     entityUrn=dataset_urn,
                     aspect=models.DataPlatformInstanceClass(
                         platform=str(
-                            DataPlatformUrn.create_from_id(self.config.platform)
+                            DataPlatformUrn.create_from_id(self.config.platform),
                         ),
                         instance=make_dataplatform_instance_urn(
                             platform=self.config.platform,
@@ -336,7 +343,9 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -365,10 +374,12 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                         )
                     except Exception as e:
                         self.report.report_failure(
-                            f"{root}/{file_name}", f"Failed to process due to {e}"
+                            f"{root}/{file_name}",
+                            f"Failed to process due to {e}",
                         )
                         logger.error(
-                            f"Failed to process file {root}/{file_name}", exc_info=e
+                            f"Failed to process file {root}/{file_name}",
+                            exc_info=e,
                         )
 
         else:
@@ -381,7 +392,8 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 )
             except Exception as e:
                 self.report.report_failure(
-                    str(self.config.path), f"Failed to process due to {e}"
+                    str(self.config.path),
+                    f"Failed to process due to {e}",
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)
 

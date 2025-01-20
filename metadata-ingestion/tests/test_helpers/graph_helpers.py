@@ -22,7 +22,8 @@ from datahub.metadata.schema_classes import (
 
 class MockDataHubGraph(DataHubGraph):
     def __init__(
-        self, entity_graph: Optional[Dict[str, Dict[str, Any]]] = None
+        self,
+        entity_graph: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         self.emitted: List[
             Union[
@@ -38,7 +39,8 @@ class MockDataHubGraph(DataHubGraph):
         This function can be called repeatedly on the same
         Mock instance to load up metadata from multiple files."""
         file_source: GenericFileSource = GenericFileSource(
-            ctx=PipelineContext(run_id="test"), config=FileSourceConfig(path=str(file))
+            ctx=PipelineContext(run_id="test"),
+            config=FileSourceConfig(path=str(file)),
         )
         for wu in file_source.get_workunits():
             if isinstance(wu, MetadataWorkUnit):
@@ -52,12 +54,13 @@ class MockDataHubGraph(DataHubGraph):
                 if isinstance(metadata, MetadataChangeEvent):
                     mcps = mcps_from_mce(metadata)
                 elif isinstance(
-                    metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+                    metadata,
+                    (MetadataChangeProposal, MetadataChangeProposalWrapper),
                 ):
                     mcps = [metadata]
                 else:
                     raise Exception(
-                        f"Unexpected metadata type {type(metadata)}. Was expecting MCE, MCP or MCPW"
+                        f"Unexpected metadata type {type(metadata)}. Was expecting MCE, MCP or MCPW",
                     )
 
                 for mcp in mcps:
@@ -69,7 +72,10 @@ class MockDataHubGraph(DataHubGraph):
                     self.entity_graph[mcp.entityUrn][mcp.aspectName] = mcp.aspect
 
     def get_aspect(
-        self, entity_urn: str, aspect_type: Type[Aspect], version: int = 0
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        version: int = 0,
     ) -> Optional[Aspect]:
         aspect_name = [v for v in ASPECT_NAME_MAP if ASPECT_NAME_MAP[v] == aspect_type][
             0
@@ -129,7 +135,9 @@ class MockDataHubGraph(DataHubGraph):
         self,
     ) -> List[
         Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
         ]
     ]:
         return self.emitted

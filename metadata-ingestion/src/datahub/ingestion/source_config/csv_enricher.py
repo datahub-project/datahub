@@ -7,14 +7,15 @@ from datahub.configuration.common import ConfigModel
 
 class CSVEnricherConfig(ConfigModel):
     filename: str = pydantic.Field(
-        description="File path or URL of CSV file to ingest."
+        description="File path or URL of CSV file to ingest.",
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",
         description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE". NOTE: this will apply to all metadata for the entity, not just a single aspect.',
     )
     delimiter: str = pydantic.Field(
-        default=",", description="Delimiter to use when parsing CSV"
+        default=",",
+        description="Delimiter to use when parsing CSV",
     )
     array_delimiter: str = pydantic.Field(
         default="|",
@@ -27,7 +28,7 @@ class CSVEnricherConfig(ConfigModel):
             raise ValueError(
                 "write_semantics cannot be any other value than PATCH or OVERRIDE. Default value is PATCH. "
                 "For PATCH semantics consider using the datahub-rest sink or "
-                "provide a datahub_api: configuration on your ingestion recipe"
+                "provide a datahub_api: configuration on your ingestion recipe",
             )
         return write_semantics
 
@@ -35,6 +36,6 @@ class CSVEnricherConfig(ConfigModel):
     def validator_diff(cls, array_delimiter: str, values: Dict[str, Any]) -> str:
         if array_delimiter == values["delimiter"]:
             raise ValueError(
-                "array_delimiter and delimiter are the same. Please choose different delimiters."
+                "array_delimiter and delimiter are the same. Please choose different delimiters.",
             )
         return array_delimiter

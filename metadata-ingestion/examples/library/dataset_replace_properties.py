@@ -23,9 +23,10 @@ def get_emitter() -> Union[DataHubRestEmitter, DatahubKafkaEmitter]:
         return DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
-                    bootstrap=kafka_server, schema_registry_url=schema_registry_url
-                )
-            )
+                    bootstrap=kafka_server,
+                    schema_registry_url=schema_registry_url,
+                ),
+            ),
         )
 
 
@@ -46,5 +47,5 @@ with get_emitter() as emitter:
 
 
 log.info(
-    f"Replaced custom properties on dataset {dataset_urn} as {property_map_to_set}"
+    f"Replaced custom properties on dataset {dataset_urn} as {property_map_to_set}",
 )

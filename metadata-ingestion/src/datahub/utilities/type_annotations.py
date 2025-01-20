@@ -7,7 +7,9 @@ TargetClass = TypeVar("TargetClass")
 
 
 def get_class_from_annotation(
-    derived_cls: Type, super_class: Type, target_class: Type[TargetClass]
+    derived_cls: Type,
+    super_class: Type,
+    target_class: Type[TargetClass],
 ) -> Optional[Type[TargetClass]]:
     """
     Attempts to find an instance of target_class in the type annotations of derived_class.

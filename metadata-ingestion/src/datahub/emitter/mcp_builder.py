@@ -45,7 +45,8 @@ from datahub.metadata.urns import StructuredPropertyUrn
 # TODO: Once the model change has been deployed for a while, we can remove this.
 #       Probably can do it at the beginning of 2025.
 _INCLUDE_ENV_IN_CONTAINER_PROPERTIES = get_boolean_env_variable(
-    "DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES", default=True
+    "DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES",
+    default=True,
 )
 
 
@@ -146,7 +147,9 @@ class NotebookKey(DatahubKey):
 
     def as_urn(self) -> str:
         return make_dataset_urn_with_platform_instance(
-            platform=self.platform, platform_instance=self.instance, name=self.guid()
+            platform=self.platform,
+            platform_instance=self.instance,
+            name=self.guid(),
         )
 
 
@@ -154,7 +157,8 @@ KeyType = TypeVar("KeyType", bound=ContainerKey)
 
 
 def add_domain_to_entity_wu(
-    entity_urn: str, domain_urn: str
+    entity_urn: str,
+    domain_urn: str,
 ) -> Iterable[MetadataWorkUnit]:
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
@@ -163,7 +167,9 @@ def add_domain_to_entity_wu(
 
 
 def add_owner_to_entity_wu(
-    entity_type: str, entity_urn: str, owner_urn: str
+    entity_type: str,
+    entity_urn: str,
+    owner_urn: str,
 ) -> Iterable[MetadataWorkUnit]:
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
@@ -172,26 +178,29 @@ def add_owner_to_entity_wu(
                 OwnerClass(
                     owner=owner_urn,
                     type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
+                ),
+            ],
         ),
     ).as_workunit()
 
 
 def add_tags_to_entity_wu(
-    entity_type: str, entity_urn: str, tags: List[str]
+    entity_type: str,
+    entity_urn: str,
+    tags: List[str],
 ) -> Iterable[MetadataWorkUnit]:
     yield MetadataChangeProposalWrapper(
         entityType=entity_type,
         entityUrn=f"{entity_urn}",
         aspect=GlobalTagsClass(
-            tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+            tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags],
         ),
     ).as_workunit()
 
 
 def add_structured_properties_to_entity_wu(
-    entity_urn: str, structured_properties: Dict[StructuredPropertyUrn, str]
+    entity_urn: str,
+    structured_properties: Dict[StructuredPropertyUrn, str],
 ) -> Iterable[MetadataWorkUnit]:
     aspect = StructuredPropertiesClass(
         properties=[
@@ -200,7 +209,7 @@ def add_structured_properties_to_entity_wu(
                 values=[value],
             )
             for urn, value in structured_properties.items()
-        ]
+        ],
     )
     yield MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
@@ -306,12 +315,14 @@ def gen_containers(
 
     if structured_properties:
         yield from add_structured_properties_to_entity_wu(
-            entity_urn=container_urn, structured_properties=structured_properties
+            entity_urn=container_urn,
+            structured_properties=structured_properties,
         )
 
 
 def add_dataset_to_container(
-    container_key: KeyType, dataset_urn: str
+    container_key: KeyType,
+    dataset_urn: str,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
@@ -324,7 +335,9 @@ def add_dataset_to_container(
 
 
 def add_entity_to_container(
-    container_key: KeyType, entity_type: str, entity_urn: str
+    container_key: KeyType,
+    entity_type: str,
+    entity_urn: str,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),

@@ -74,7 +74,8 @@ def test_api_key():
 
     # Step 1: Create the service account
     service_account = grafana_client.create_service_account(
-        name="example-service-account", role="Viewer"
+        name="example-service-account",
+        role="Viewer",
     )
     if service_account:
         print(f"Service Account Created: {service_account}")
@@ -97,7 +98,8 @@ def test_api_key():
 @pytest.fixture(scope="module")
 def loaded_grafana(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "grafana"
+        test_resources_dir / "docker-compose.yml",
+        "grafana",
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -144,7 +146,11 @@ def test_grafana_dashboard(loaded_grafana, pytestconfig, tmp_path, test_resource
 
 @freeze_time(FROZEN_TIME)
 def test_grafana_ingest(
-    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
+    loaded_grafana,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    test_api_key,
 ):
     # Wait for Grafana to be up and running
     url = "http://localhost:3000/api/health"
@@ -175,7 +181,7 @@ def test_grafana_ingest(
                     "type": "file",
                     "config": {"filename": "./grafana_mcps.json"},
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

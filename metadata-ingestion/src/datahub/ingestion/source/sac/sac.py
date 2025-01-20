@@ -89,7 +89,8 @@ logger = logging.getLogger(__name__)
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
-        default=None, description="The platform that this connection mapping belongs to"
+        default=None,
+        description="The platform that this connection mapping belongs to",
     )
 
     platform_instance: Optional[str] = Field(
@@ -104,7 +105,9 @@ class ConnectionMappingConfig(EnvConfigMixin):
 
 
 class SACSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -113,11 +116,11 @@ class SACSourceConfig(
 
     tenant_url: str = Field(description="URL of the SAP Analytics Cloud tenant")
     token_url: str = Field(
-        description="URL of the OAuth token endpoint of the SAP Analytics Cloud tenant"
+        description="URL of the OAuth token endpoint of the SAP Analytics Cloud tenant",
     )
     client_id: str = Field(description="Client ID for the OAuth authentication")
     client_secret: SecretStr = Field(
-        description="Client secret for the OAuth authentication"
+        description="Client secret for the OAuth authentication",
     )
 
     ingest_stories: bool = Field(
@@ -151,7 +154,8 @@ class SACSourceConfig(
     )
 
     connection_mapping: Dict[str, ConnectionMappingConfig] = Field(
-        default={}, description="Custom mappings for connections"
+        default={},
+        description="Custom mappings for connections",
     )
 
     query_name_template: Optional[str] = Field(
@@ -229,7 +233,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=f"{e}"
+                capable=False,
+                failure_reason=f"{e}",
             )
 
         return test_report
@@ -242,7 +247,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.incremental_lineage,
             ),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -277,7 +284,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def get_resource_workunits(
-        self, resource: Resource, datasets: List[str]
+        self,
+        resource: Resource,
+        datasets: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
@@ -315,7 +324,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.platform,
+                        self.config.platform_instance,
                     ),
                 ),
             )
@@ -377,7 +387,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             yield mcp.as_workunit()
 
     def get_model_workunits(
-        self, dataset_urn: str, model: ResourceModel
+        self,
+        dataset_urn: str,
+        model: ResourceModel,
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -433,12 +445,12 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             upstream_dataset_name: Optional[str] = None
 
             if model.system_type == "BW" and model.external_id.startswith(
-                "query:"
+                "query:",
             ):  # query:[][][query]
                 query = model.external_id[11:-1]
                 upstream_dataset_name = self.get_query_name(query)
             elif model.system_type == "HANA" and model.external_id.startswith(
-                "view:"
+                "view:",
             ):  # view:[schema][schema.namespace][view]
                 schema, namespace_with_schema, view = model.external_id.split("][", 2)
                 schema = schema[6:]
@@ -464,7 +476,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     env = DEFAULT_ENV
 
                     logger.info(
-                        f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance"
+                        f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance",
                     )
 
                 upstream_dataset_urn = make_dataset_urn_with_platform_instance(
@@ -579,7 +591,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         session.mount("https://", adapter)
 
         session.register_compliance_hook(
-            "protected_request", _add_sap_sac_custom_auth_header
+            "protected_request",
+            _add_sap_sac_custom_auth_header,
         )
         session.fetch_token()
 
@@ -621,7 +634,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             if not self.config.resource_id_pattern.allowed(
-                resource_id
+                resource_id,
             ) or not self.config.resource_name_pattern.allowed(name):
                 continue
 
@@ -672,7 +685,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                         connection_id=nav_entity.connectionId,
                         external_id=nav_entity.externalId,  # query:[][][query] or view:[schema][schema.namespace][view]
                         is_import=model_id in import_data_model_ids,
-                    )
+                    ),
                 )
 
             created_by: Optional[str] = entity.createdBy
@@ -704,7 +717,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_import_data_model_ids(self) -> Set[str]:
         response = self.session.get(
-            url=f"{self.config.tenant_url}/api/v1/dataimport/models"
+            url=f"{self.config.tenant_url}/api/v1/dataimport/models",
         )
         response.raise_for_status()
 
@@ -714,10 +727,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return import_data_model_ids
 
     def get_import_data_model_columns(
-        self, model_id: str
+        self,
+        model_id: str,
     ) -> List[ImportDataModelColumn]:
         response = self.session.get(
-            url=f"{self.config.tenant_url}/api/v1/dataimport/models/{model_id}/metadata"
+            url=f"{self.config.tenant_url}/api/v1/dataimport/models/{model_id}/metadata",
         )
         response.raise_for_status()
 
@@ -739,7 +753,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     precision=column.get("precision"),
                     scale=column.get("scale"),
                     is_key=column["isKey"],
-                )
+                ),
             )
 
         return columns
@@ -760,7 +774,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return f"{schema}.{view}"
 
     def get_schema_field_data_type(
-        self, column: ImportDataModelColumn
+        self,
+        column: ImportDataModelColumn,
     ) -> SchemaFieldDataTypeClass:
         if column.property_type == "DATE":
             return SchemaFieldDataTypeClass(type=DateTypeClass())
@@ -790,7 +805,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
 
 def _add_sap_sac_custom_auth_header(
-    url: str, headers: Dict[str, str], body: Any
+    url: str,
+    headers: Dict[str, str],
+    body: Any,
 ) -> Tuple[str, Dict[str, str], Any]:
     headers["x-sap-sac-custom-auth"] = "true"
     return url, headers, body

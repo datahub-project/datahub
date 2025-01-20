@@ -12,7 +12,10 @@ def _format_header(name: str, value: Union[str, bytes]) -> str:
 
 
 def make_curl_command(
-    session: requests.Session, method: str, url: str, payload: str
+    session: requests.Session,
+    method: str,
+    url: str,
+    payload: str,
 ) -> str:
     fragments: List[str] = [
         "curl",
@@ -21,7 +24,7 @@ def make_curl_command(
                 ("-X", method),
                 *[("-H", _format_header(k, v)) for (k, v) in session.headers.items()],
                 ("--data", payload),
-            ]
+            ],
         ),
         url,
     ]

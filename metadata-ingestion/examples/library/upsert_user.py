@@ -21,7 +21,7 @@ user: CorpUser = CorpUser(
 # Create graph client
 datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
 for event in user.generate_mcp(
-    generation_config=CorpUserGenerationConfig(override_editable=False)
+    generation_config=CorpUserGenerationConfig(override_editable=False),
 ):
     datahub_graph.emit(event)
 log.info(f"Upserted user {user.urn}")

@@ -67,7 +67,8 @@ def is_field_nullable(doc: Dict[str, Any], field_path: Tuple[str, ...]) -> bool:
 
 
 def is_nullable_collection(
-    collection: Sequence[Dict[str, Any]], field_path: Tuple
+    collection: Sequence[Dict[str, Any]],
+    field_path: Tuple,
 ) -> bool:
     """
     Check if a nested field is nullable in a collection.
@@ -84,7 +85,8 @@ def is_nullable_collection(
 
 
 def construct_schema(
-    collection: Sequence[Dict[str, Any]], delimiter: str
+    collection: Sequence[Dict[str, Any]],
+    delimiter: str,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
     Construct (infer) a schema from a collection of documents.

@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def merge_parent_and_child_fields(
-    child_fields: List[dict], parent_fields: List[dict]
+    child_fields: List[dict],
+    parent_fields: List[dict],
 ) -> List[Dict]:
     # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
     # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
@@ -281,7 +282,7 @@ class LookerViewContext:
             return self.looker_refinement_resolver.apply_view_refinement(view[1])
         else:
             logger.warning(
-                f"failed to resolve view {target_view_name} included from {self.view_file.absolute_file_path}"
+                f"failed to resolve view {target_view_name} included from {self.view_file.absolute_file_path}",
             )
             return None
 
@@ -294,8 +295,8 @@ class LookerViewContext:
         """
         extends = list(
             itertools.chain.from_iterable(
-                self.raw_view.get("extends", self.raw_view.get("extends__all", []))
-            )
+                self.raw_view.get("extends", self.raw_view.get("extends__all", [])),
+            ),
         )
 
         # Following Looker's precedence rules.
@@ -308,7 +309,7 @@ class LookerViewContext:
             if not extend_view:
                 raise NameError(
                     f"failed to resolve extends view {extend} in view {self.raw_view[NAME]} of"
-                    f" file {self.view_file.absolute_file_path}"
+                    f" file {self.view_file.absolute_file_path}",
                 )
             if attribute_name in extend_view:
                 return extend_view[attribute_name]
@@ -364,7 +365,7 @@ class LookerViewContext:
     def datahub_transformed_sql_table_name(self) -> str:
         # This field might be present in parent view of current view
         table_name: Optional[str] = self.get_including_extends(
-            field="datahub_transformed_sql_table_name"
+            field="datahub_transformed_sql_table_name",
         )
 
         if not table_name:
@@ -419,12 +420,13 @@ class LookerViewContext:
 
     def view_file_name(self) -> str:
         splits: List[str] = self.view_file.absolute_file_path.split(
-            self.base_folder_path, 1
+            self.base_folder_path,
+            1,
         )
         if len(splits) != 2:
             logger.debug(
                 f"base_folder_path({self.base_folder_path}) and absolute_file_path({self.view_file.absolute_file_path})"
-                f" not matching"
+                f" not matching",
             )
             return ViewFieldValue.NOT_AVAILABLE.value
 
@@ -432,7 +434,7 @@ class LookerViewContext:
         logger.debug(f"file_path={file_name}")
 
         return file_name.strip(
-            "/"
+            "/",
         )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
     def _get_list_dict(self, attribute_name: str) -> List[Dict]:

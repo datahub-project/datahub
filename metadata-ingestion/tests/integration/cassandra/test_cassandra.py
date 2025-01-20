@@ -15,7 +15,8 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/cassandra"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "cassandra"
+        test_resources_dir / "docker-compose.yml",
+        "cassandra",
     ) as docker_services:
         wait_for_port(docker_services, "test-cassandra", 9042)
 
@@ -39,7 +40,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/cassandra_mcps.json",
                     },
                 },
-            }
+            },
         )
         pipeline_default_platform_instance.run()
         pipeline_default_platform_instance.raise_from_status()

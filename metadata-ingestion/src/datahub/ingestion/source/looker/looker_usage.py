@@ -196,7 +196,8 @@ class BaseStatGenerator(ABC):
 
     @abstractmethod
     def to_entity_absolute_stat_aspect(
-        self, looker_object: ModelForUsage
+        self,
+        looker_object: ModelForUsage,
     ) -> AspectAbstract:
         pass
 
@@ -214,7 +215,10 @@ class BaseStatGenerator(ABC):
 
     @abstractmethod
     def append_user_stat(
-        self, entity_stat_aspect: Aspect, user: LookerUser, row: Dict
+        self,
+        entity_stat_aspect: Aspect,
+        user: LookerUser,
+        row: Dict,
     ) -> None:
         pass
 
@@ -231,7 +235,9 @@ class BaseStatGenerator(ABC):
         pass
 
     def create_mcp(
-        self, model: ModelForUsage, aspect: Aspect
+        self,
+        model: ModelForUsage,
+        aspect: Aspect,
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
             entityUrn=self._get_urn(model=model),
@@ -243,14 +249,15 @@ class BaseStatGenerator(ABC):
             datetime.datetime.strptime(date_time, "%Y-%m-%d")
             .replace(tzinfo=datetime.timezone.utc)
             .timestamp()
-            * 1000
+            * 1000,
         )
 
     def _get_user_identifier(self, row: Dict) -> str:
         return row[UserViewField.USER_ID]
 
     def _process_entity_timeseries_rows(
-        self, rows: List[Dict]
+        self,
+        rows: List[Dict],
     ) -> Dict[Tuple[str, str], AspectAbstract]:
         # Convert Looker entity stat i.e. rows to DataHub stat aspect
         entity_stat_aspect: Dict[Tuple[str, str], AspectAbstract] = {}
@@ -274,11 +281,12 @@ class BaseStatGenerator(ABC):
         user_ids = {self._get_user_identifier(row) for row in user_wise_rows}
         start_time = datetime.datetime.now()
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.config.max_threads
+            max_workers=self.config.max_threads,
         ) as async_executor:
             user_futures = {
                 async_executor.submit(
-                    self.config.looker_user_registry.get_by_id, user_id
+                    self.config.looker_user_registry.get_by_id,
+                    user_id,
                 ): 1
                 for user_id in user_ids
             }
@@ -288,10 +296,11 @@ class BaseStatGenerator(ABC):
 
         user_resolution_latency = datetime.datetime.now() - start_time
         logger.debug(
-            f"Resolved {len(user_ids)} in {user_resolution_latency.total_seconds()} seconds"
+            f"Resolved {len(user_ids)} in {user_resolution_latency.total_seconds()} seconds",
         )
         self.report.report_user_resolution_latency(
-            self.get_stats_generator_name(), user_resolution_latency
+            self.get_stats_generator_name(),
+            user_resolution_latency,
         )
 
         for row in user_wise_rows:
@@ -300,33 +309,33 @@ class BaseStatGenerator(ABC):
             if looker_object is None:
                 logger.warning(
                     "Looker object with id({}) was not register with stat generator".format(
-                        self.get_id_from_row(row)
-                    )
+                        self.get_id_from_row(row),
+                    ),
                 )
                 continue
 
             # Confirm we do have user with user id
             user: Optional[LookerUser] = self.config.looker_user_registry.get_by_id(
-                self._get_user_identifier(row)
+                self._get_user_identifier(row),
             )
             if user is None:
                 logger.warning(
-                    f"Unable to resolve user with id {self._get_user_identifier(row)}, skipping"
+                    f"Unable to resolve user with id {self._get_user_identifier(row)}, skipping",
                 )
                 continue
 
             # Confirm for the user row (entity + time) the entity stat is present for the same time
             entity_stat_aspect: Optional[Aspect] = entity_usage_stat.get(
-                self.get_entity_stat_key(row)
+                self.get_entity_stat_key(row),
             )
             if entity_stat_aspect is None:
                 logger.warning(
-                    f"entity stat is not found for the row = {row}, in entity_stat = {entity_usage_stat}"
+                    f"entity stat is not found for the row = {row}, in entity_stat = {entity_usage_stat}",
                 )
                 logger.warning(
                     "entity stat is not found for the user stat key = {}".format(
-                        self.get_entity_stat_key(row)
-                    )
+                        self.get_entity_stat_key(row),
+                    ),
                 )
                 continue
             self.append_user_stat(entity_stat_aspect, user, row)
@@ -341,15 +350,16 @@ class BaseStatGenerator(ABC):
         try:
             start_time = datetime.datetime.now()
             rows = self.config.looker_api_wrapper.execute_query(
-                write_query=query.to_write_query()
+                write_query=query.to_write_query(),
             )
             end_time = datetime.datetime.now()
 
             logger.debug(
-                f"{self.get_stats_generator_name()}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds"
+                f"{self.get_stats_generator_name()}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds",
             )
             self.report.report_query_latency(
-                f"{self.get_stats_generator_name()}:{query_name}", end_time - start_time
+                f"{self.get_stats_generator_name()}:{query_name}",
+                end_time - start_time,
             )
             if self.post_filter:
                 logger.debug("post filtering")
@@ -362,7 +372,7 @@ class BaseStatGenerator(ABC):
 
     def _append_filters(self, query: LookerQuery) -> LookerQuery:
         query.filters.update(
-            {HistoryViewField.HISTORY_CREATED_DATE: self.config.interval}
+            {HistoryViewField.HISTORY_CREATED_DATE: self.config.interval},
         )
         if not self.post_filter:
             query.filters.update(self.get_filter())
@@ -380,22 +390,24 @@ class BaseStatGenerator(ABC):
 
         # Execute query and process the raw json which contains stat information
         entity_query_with_filters: LookerQuery = self._append_filters(
-            self.get_entity_timeseries_query()
+            self.get_entity_timeseries_query(),
         )
         entity_rows: List[Dict] = self._execute_query(
-            entity_query_with_filters, "entity_query"
+            entity_query_with_filters,
+            "entity_query",
         )
         entity_usage_stat: Dict[Tuple[str, str], Any] = (
             self._process_entity_timeseries_rows(entity_rows)
         )  # Any type to pass mypy unbound Aspect type error
 
         user_wise_query_with_filters: LookerQuery = self._append_filters(
-            self.get_entity_user_timeseries_query()
+            self.get_entity_user_timeseries_query(),
         )
         user_wise_rows = self._execute_query(user_wise_query_with_filters, "user_query")
         # yield absolute stat for entity
         for object_id, aspect in self._fill_user_stat_aspect(
-            entity_usage_stat, user_wise_rows
+            entity_usage_stat,
+            user_wise_rows,
         ):
             if object_id in self.id_to_model:
                 yield self.create_mcp(self.id_to_model[object_id], aspect)
@@ -433,8 +445,8 @@ class DashboardStatGenerator(BaseStatGenerator):
                     looker_dashboard.id
                     for looker_dashboard in self.looker_models
                     if looker_dashboard.id is not None
-                ]
-            )
+                ],
+            ),
         }
 
     def get_id(self, looker_object: ModelForUsage) -> str:
@@ -447,7 +459,7 @@ class DashboardStatGenerator(BaseStatGenerator):
 
     def get_entity_stat_key(self, row: Dict) -> Tuple[str, str]:
         self.report.dashboards_with_activity.add(
-            row[HistoryViewField.HISTORY_DASHBOARD_ID]
+            row[HistoryViewField.HISTORY_DASHBOARD_ID],
         )
         return (
             row[HistoryViewField.HISTORY_DASHBOARD_ID],
@@ -461,10 +473,12 @@ class DashboardStatGenerator(BaseStatGenerator):
         return self.urn_builder(looker_common.get_urn_looker_dashboard_id(model.id))
 
     def to_entity_absolute_stat_aspect(
-        self, looker_object: ModelForUsage
+        self,
+        looker_object: ModelForUsage,
     ) -> DashboardUsageStatisticsClass:
         looker_dashboard: LookerDashboardForUsage = cast(
-            LookerDashboardForUsage, looker_object
+            LookerDashboardForUsage,
+            looker_object,
         )
         if looker_dashboard.view_count:
             self.report.dashboards_with_activity.add(str(looker_dashboard.id))
@@ -482,14 +496,15 @@ class DashboardStatGenerator(BaseStatGenerator):
         return query_collection[QueryId.DASHBOARD_PER_USER_PER_DAY_USAGE_STAT]
 
     def to_entity_timeseries_stat_aspect(
-        self, row: dict
+        self,
+        row: dict,
     ) -> DashboardUsageStatisticsClass:
         self.report.dashboards_with_activity.add(
-            row[HistoryViewField.HISTORY_DASHBOARD_ID]
+            row[HistoryViewField.HISTORY_DASHBOARD_ID],
         )
         return DashboardUsageStatisticsClass(
             timestampMillis=self._round_time(
-                row[HistoryViewField.HISTORY_CREATED_DATE]
+                row[HistoryViewField.HISTORY_CREATED_DATE],
             ),
             eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
             uniqueUserCount=row[HistoryViewField.HISTORY_DASHBOARD_USER],
@@ -497,10 +512,14 @@ class DashboardStatGenerator(BaseStatGenerator):
         )
 
     def append_user_stat(
-        self, entity_stat_aspect: Aspect, user: LookerUser, row: Dict
+        self,
+        entity_stat_aspect: Aspect,
+        user: LookerUser,
+        row: Dict,
     ) -> None:
         dashboard_stat_aspect: DashboardUsageStatisticsClass = cast(
-            DashboardUsageStatisticsClass, entity_stat_aspect
+            DashboardUsageStatisticsClass,
+            entity_stat_aspect,
         )
 
         if dashboard_stat_aspect.userCounts is None:
@@ -518,7 +537,7 @@ class DashboardStatGenerator(BaseStatGenerator):
                 executionsCount=row[HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT],
                 usageCount=row[HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT],
                 userEmail=user.email,
-            )
+            ),
         )
 
 
@@ -548,8 +567,8 @@ class LookStatGenerator(BaseStatGenerator):
     def get_filter(self) -> Dict[ViewField, str]:
         return {
             LookViewField.LOOK_ID: ",".join(
-                [look.id for look in self.looker_models if look.id is not None]
-            )
+                [look.id for look in self.looker_models if look.id is not None],
+            ),
         }
 
     def get_id(self, looker_object: ModelForUsage) -> str:
@@ -576,7 +595,8 @@ class LookStatGenerator(BaseStatGenerator):
         return self.urn_builder(looker_common.get_urn_looker_element_id(str(model.id)))
 
     def to_entity_absolute_stat_aspect(
-        self, looker_object: ModelForUsage
+        self,
+        looker_object: ModelForUsage,
     ) -> ChartUsageStatisticsClass:
         looker_look: LookerChartForUsage = cast(LookerChartForUsage, looker_object)
         assert looker_look.id
@@ -599,17 +619,21 @@ class LookStatGenerator(BaseStatGenerator):
 
         return ChartUsageStatisticsClass(
             timestampMillis=self._round_time(
-                row[HistoryViewField.HISTORY_CREATED_DATE]
+                row[HistoryViewField.HISTORY_CREATED_DATE],
             ),
             eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
             viewsCount=row[HistoryViewField.HISTORY_COUNT],
         )
 
     def append_user_stat(
-        self, entity_stat_aspect: Aspect, user: LookerUser, row: Dict
+        self,
+        entity_stat_aspect: Aspect,
+        user: LookerUser,
+        row: Dict,
     ) -> None:
         chart_stat_aspect: ChartUsageStatisticsClass = cast(
-            ChartUsageStatisticsClass, entity_stat_aspect
+            ChartUsageStatisticsClass,
+            entity_stat_aspect,
         )
 
         if chart_stat_aspect.userCounts is None:
@@ -625,7 +649,7 @@ class LookStatGenerator(BaseStatGenerator):
             ChartUserUsageCountsClass(
                 user=user_urn,
                 viewsCount=row[HistoryViewField.HISTORY_COUNT],
-            )
+            ),
         )
 
 
@@ -637,8 +661,8 @@ def create_dashboard_stat_generator(
 ) -> DashboardStatGenerator:
     logger.debug(
         "Number of dashboard received for stat processing = {}".format(
-            len(looker_dashboards)
-        )
+            len(looker_dashboards),
+        ),
     )
     return DashboardStatGenerator(
         config=config,
@@ -655,8 +679,11 @@ def create_chart_stat_generator(
     looker_looks: Sequence[LookerChartForUsage],
 ) -> LookStatGenerator:
     logger.debug(
-        "Number of looks received for stat processing = {}".format(len(looker_looks))
+        "Number of looks received for stat processing = {}".format(len(looker_looks)),
     )
     return LookStatGenerator(
-        config=config, looker_looks=looker_looks, report=report, urn_builder=urn_builder
+        config=config,
+        looker_looks=looker_looks,
+        report=report,
+        urn_builder=urn_builder,
     )

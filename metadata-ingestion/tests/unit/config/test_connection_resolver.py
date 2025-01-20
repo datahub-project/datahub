@@ -18,7 +18,7 @@ class MyConnectionType(ConfigModel):
 def test_auto_connection_resolver():
     # Test a normal config.
     config = MyConnectionType.parse_obj(
-        {"username": "test_user", "password": "test_password"}
+        {"username": "test_user", "password": "test_password"},
     )
     assert config.username == "test_user"
     assert config.password == "test_password"
@@ -28,7 +28,7 @@ def test_auto_connection_resolver():
         config = MyConnectionType.parse_obj(
             {
                 "connection": "test_connection",
-            }
+            },
         )
 
     # Missing connection -> should raise an error.
@@ -39,7 +39,7 @@ def test_auto_connection_resolver():
             config = MyConnectionType.parse_obj(
                 {
                     "connection": "urn:li:dataHubConnection:missing-connection",
-                }
+                },
             )
 
     # Bad connection config -> should raise an error.
@@ -49,7 +49,7 @@ def test_auto_connection_resolver():
             config = MyConnectionType.parse_obj(
                 {
                     "connection": "urn:li:dataHubConnection:bad-connection",
-                }
+                },
             )
 
     # Good connection config.
@@ -62,7 +62,7 @@ def test_auto_connection_resolver():
             {
                 "connection": "urn:li:dataHubConnection:good-connection",
                 "username": "override_user",
-            }
+            },
         )
         assert config.username == "override_user"
         assert config.password == "test_password"

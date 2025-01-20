@@ -43,7 +43,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         :return: The latest version.
         """
         response = requests.get(
-            "https://api.github.com/repos/datahub-project/datahub/releases/latest"
+            "https://api.github.com/repos/datahub-project/datahub/releases/latest",
         )
         response.raise_for_status()
         return json.loads(response.text)["tag_name"]
@@ -52,7 +52,7 @@ class QuickstartVersionMappingConfig(BaseModel):
     def fetch_quickstart_config(cls) -> "QuickstartVersionMappingConfig":
         if LOCAL_QUICKSTART_MAPPING_FILE:
             logger.info(
-                "LOCAL_QUICKSTART_MAPPING_FILE is set, will try to read from local file."
+                "LOCAL_QUICKSTART_MAPPING_FILE is set, will try to read from local file.",
             )
             path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
             with open(path) as f:
@@ -66,7 +66,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             config_raw = yaml.safe_load(response.text)
         except Exception as e:
             logger.debug(
-                f"Couldn't connect to github: {e}, will try to read from local file."
+                f"Couldn't connect to github: {e}, will try to read from local file.",
             )
             try:
                 path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
@@ -77,14 +77,16 @@ class QuickstartVersionMappingConfig(BaseModel):
 
         if config_raw is None:
             logger.info(
-                "Unable to connect to GitHub, using default quickstart version mapping config."
+                "Unable to connect to GitHub, using default quickstart version mapping config.",
             )
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head", mysql_tag="8.2"
+                        composefile_git_ref="master",
+                        docker_tag="head",
+                        mysql_tag="8.2",
                     ),
-                }
+                },
             )
 
         config = cls.parse_obj(config_raw)
@@ -94,11 +96,13 @@ class QuickstartVersionMappingConfig(BaseModel):
             try:
                 release = cls._fetch_latest_version()
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
-                    composefile_git_ref=release, docker_tag=release, mysql_tag="8.2"
+                    composefile_git_ref=release,
+                    docker_tag=release,
+                    mysql_tag="8.2",
                 )
             except Exception:
                 click.echo(
-                    "Couldn't connect to github. --version stable will not work."
+                    "Couldn't connect to github. --version stable will not work.",
                 )
         save_quickstart_config(config)
         return config
@@ -140,7 +144,8 @@ class QuickstartVersionMappingConfig(BaseModel):
 
 
 def save_quickstart_config(
-    config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH
+    config: QuickstartVersionMappingConfig,
+    path: str = DEFAULT_LOCAL_CONFIG_PATH,
 ) -> None:
     # create directory if it doesn't exist
     path = os.path.expanduser(path)

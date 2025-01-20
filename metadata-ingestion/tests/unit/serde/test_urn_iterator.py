@@ -116,14 +116,16 @@ def test_upstream_lineage_urn_iterator():
 
 
 def _make_test_lineage_obj(
-    table: str, upstream: str, downstream: str
+    table: str,
+    upstream: str,
+    downstream: str,
 ) -> MetadataChangeProposalWrapper:
     lineage = UpstreamLineage(
         upstreams=[
             Upstream(
                 dataset=_datasetUrn(upstream),
                 type=DatasetLineageTypeClass.TRANSFORMED,
-            )
+            ),
         ],
         fineGrainedLineages=[
             FineGrainedLineage(
@@ -140,11 +142,15 @@ def _make_test_lineage_obj(
 
 def test_dataset_urn_lowercase_transformer():
     original = _make_test_lineage_obj(
-        "mainTableName", "upstreamTable", "downstreamTable"
+        "mainTableName",
+        "upstreamTable",
+        "downstreamTable",
     )
 
     expected = _make_test_lineage_obj(
-        "maintablename", "upstreamtable", "downstreamtable"
+        "maintablename",
+        "upstreamtable",
+        "downstreamtable",
     )
 
     assert original != expected  # sanity check

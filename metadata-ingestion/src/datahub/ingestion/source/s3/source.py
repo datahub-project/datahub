@@ -189,7 +189,8 @@ class TableData:
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
-    SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
+    SourceCapability.SCHEMA_METADATA,
+    "Can infer schema from supported file types",
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 class S3Source(StatefulIngestionSourceBase):
@@ -244,7 +245,7 @@ class S3Source(StatefulIngestionSourceBase):
                     # Spark's avro version needs to be matched with the Spark version
                     f"org.apache.spark:spark-avro_2.12:{spark_version}{'.0' if spark_version.count('.') == 1 else ''}",
                     pydeequ.deequ_maven_coord,
-                ]
+                ],
             ),
         )
 
@@ -296,11 +297,13 @@ class S3Source(StatefulIngestionSourceBase):
 
             if self.source_config.aws_config.aws_endpoint_url is not None:
                 conf.set(
-                    "fs.s3a.endpoint", self.source_config.aws_config.aws_endpoint_url
+                    "fs.s3a.endpoint",
+                    self.source_config.aws_config.aws_endpoint_url,
                 )
             if self.source_config.aws_config.aws_region is not None:
                 conf.set(
-                    "fs.s3a.endpoint.region", self.source_config.aws_config.aws_region
+                    "fs.s3a.endpoint.region",
+                    self.source_config.aws_config.aws_region,
                 )
 
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
@@ -373,11 +376,13 @@ class S3Source(StatefulIngestionSourceBase):
                 raise ValueError("AWS config is required for S3 file sources")
 
             s3_client = self.source_config.aws_config.get_s3_client(
-                self.source_config.verify_ssl
+                self.source_config.verify_ssl,
             )
 
             file = smart_open(
-                table_data.full_path, "rb", transport_params={"client": s3_client}
+                table_data.full_path,
+                "rb",
+                transport_params={"client": s3_client},
             )
         else:
             # We still use smart_open here to take advantage of the compression
@@ -418,13 +423,17 @@ class S3Source(StatefulIngestionSourceBase):
 
         if self.source_config.add_partition_columns_to_schema and table_data.partitions:
             self.add_partition_columns_to_schema(
-                fields=fields, path_spec=path_spec, full_path=table_data.full_path
+                fields=fields,
+                path_spec=path_spec,
+                full_path=table_data.full_path,
             )
 
         return fields
 
     def _get_inferrer(
-        self, extension: str, content_type: Optional[str]
+        self,
+        extension: str,
+        content_type: Optional[str],
     ) -> Optional[SchemaInferenceBase]:
         if content_type == "application/vnd.apache.parquet":
             return parquet.ParquetInferrer()
@@ -444,7 +453,8 @@ class S3Source(StatefulIngestionSourceBase):
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".jsonl":
             return json.JsonInferrer(
-                max_rows=self.source_config.max_rows, format="jsonl"
+                max_rows=self.source_config.max_rows,
+                format="jsonl",
             )
         elif extension == ".json":
             return json.JsonInferrer()
@@ -454,7 +464,10 @@ class S3Source(StatefulIngestionSourceBase):
             return None
 
     def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
+        self,
+        path_spec: PathSpec,
+        full_path: str,
+        fields: List[SchemaField],
     ) -> None:
         is_fieldpath_v2 = False
         for field in fields:
@@ -478,11 +491,13 @@ class S3Source(StatefulIngestionSourceBase):
                     isPartitioningKey=True,
                     nullable=True,
                     recursive=False,
-                )
+                ),
             )
 
     def get_table_profile(
-        self, table_data: TableData, dataset_urn: str
+        self,
+        table_data: TableData,
+        dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         # Importing here to avoid Deequ dependency for non profiling use cases
         # Deequ fails if Spark is not available which is not needed for non profiling use cases
@@ -495,11 +510,13 @@ class S3Source(StatefulIngestionSourceBase):
         try:
             if table_data.partitions:
                 table = self.read_file_spark(
-                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
+                    table_data.table_path,
+                    os.path.splitext(table_data.full_path)[1],
                 )
             else:
                 table = self.read_file_spark(
-                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
+                    table_data.full_path,
+                    os.path.splitext(table_data.full_path)[1],
                 )
         except Exception as e:
             logger.error(e)
@@ -515,7 +532,7 @@ class S3Source(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             # init PySpark analysis object
             logger.debug(
-                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             )
             table_profiler = _SingleTableProfiler(
                 table,
@@ -526,7 +543,7 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
             logger.debug(
-                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             )
             # instead of computing each profile individually, we run them all in a single analyzer.run() call
             # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
@@ -535,22 +552,23 @@ class S3Source(StatefulIngestionSourceBase):
 
             # compute the profiles
             logger.debug(
-                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             )
             analysis_result = table_profiler.analyzer.run()
             analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-                self.spark, analysis_result
+                self.spark,
+                analysis_result,
             )
 
             logger.debug(
-                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             )
             table_profiler.extract_table_profiles(analysis_metrics)
 
             time_taken = timer.elapsed_seconds()
 
             logger.info(
-                f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds"
+                f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds",
             )
 
             self.profiling_times_taken.append(time_taken)
@@ -573,7 +591,8 @@ class S3Source(StatefulIngestionSourceBase):
         return operation
 
     def __create_partition_summary_aspect(
-        self, partitions: List[Folder]
+        self,
+        partitions: List[Folder],
     ) -> Optional[PartitionsSummaryClass]:
         min_partition = min(partitions, key=lambda x: x.creation_time)
         max_partition = max(partitions, key=lambda x: x.creation_time)
@@ -586,7 +605,7 @@ class S3Source(StatefulIngestionSourceBase):
                 partition=max_partition_id,
                 createdTime=int(max_partition.creation_time.timestamp() * 1000),
                 lastModifiedTime=int(
-                    max_partition.modification_time.timestamp() * 1000
+                    max_partition.modification_time.timestamp() * 1000,
                 ),
             )
 
@@ -597,16 +616,19 @@ class S3Source(StatefulIngestionSourceBase):
                 partition=min_partition_id,
                 createdTime=int(min_partition.creation_time.timestamp() * 1000),
                 lastModifiedTime=int(
-                    min_partition.modification_time.timestamp() * 1000
+                    min_partition.modification_time.timestamp() * 1000,
                 ),
             )
 
         return PartitionsSummaryClass(
-            maxPartition=max_partition_summary, minPartition=min_partition_summary
+            maxPartition=max_partition_summary,
+            minPartition=min_partition_summary,
         )
 
     def ingest_table(
-        self, table_data: TableData, path_spec: PathSpec
+        self,
+        table_data: TableData,
+        path_spec: PathSpec,
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
@@ -630,7 +652,8 @@ class S3Source(StatefulIngestionSourceBase):
             data_platform_instance = DataPlatformInstanceClass(
                 platform=data_platform_urn,
                 instance=make_dataplatform_instance_urn(
-                    self.source_config.platform, self.source_config.platform_instance
+                    self.source_config.platform,
+                    self.source_config.platform_instance,
                 ),
             )
             aspects.append(data_platform_instance)
@@ -648,16 +671,16 @@ class S3Source(StatefulIngestionSourceBase):
                 {
                     "number_of_files": str(table_data.number_of_files),
                     "size_in_bytes": str(table_data.size_in_bytes),
-                }
+                },
             )
         else:
             if table_data.partitions:
                 customProperties.update(
                     {
                         "number_of_partitions": str(
-                            len(table_data.partitions) if table_data.partitions else 0
+                            len(table_data.partitions) if table_data.partitions else 0,
                         ),
-                    }
+                    },
                 )
 
         dataset_properties = DatasetPropertiesClass(
@@ -690,11 +713,11 @@ class S3Source(StatefulIngestionSourceBase):
                 aspects.append(schema_metadata)
             except Exception as e:
                 logger.error(
-                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}",
                 )
         else:
             logger.info(
-                f"Skipping schema extraction for empty file {table_data.full_path}"
+                f"Skipping schema extraction for empty file {table_data.full_path}",
             )
 
         if (
@@ -725,7 +748,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         if table_data.partitions and self.source_config.generate_partition_aspects:
             aspects.append(
-                self.__create_partition_summary_aspect(table_data.partitions)
+                self.__create_partition_summary_aspect(table_data.partitions),
             )
 
         for mcp in MetadataChangeProposalWrapper.construct_many(
@@ -735,7 +758,8 @@ class S3Source(StatefulIngestionSourceBase):
             yield mcp.as_workunit()
 
         yield from self.container_WU_creator.create_container_hierarchy(
-            table_data.table_path, dataset_urn
+            table_data.table_path,
+            dataset_urn,
         )
 
         if self.source_config.is_profiling_enabled():
@@ -779,7 +803,7 @@ class S3Source(StatefulIngestionSourceBase):
                     [
                         partition.size if partition.size else 0
                         for partition in partitions
-                    ]
+                    ],
                 )
             ),
             content_type=browse_path.content_type,
@@ -793,11 +817,14 @@ class S3Source(StatefulIngestionSourceBase):
             return
 
         folders: Iterable[str] = list_folders(
-            bucket_name, folder_split[0], self.source_config.aws_config
+            bucket_name,
+            folder_split[0],
+            self.source_config.aws_config,
         )
         for folder in folders:
             yield from self.resolve_templated_folders(
-                bucket_name, f"{folder}{folder_split[1]}"
+                bucket_name,
+                f"{folder}{folder_split[1]}",
             )
 
     def get_dir_to_process(
@@ -887,12 +914,12 @@ class S3Source(StatefulIngestionSourceBase):
 
             if modification_time is None:
                 logger.warning(
-                    f"Unable to find any files in the folder {key}. Skipping..."
+                    f"Unable to find any files in the folder {key}. Skipping...",
                 )
                 continue
 
             id = path_spec.get_partition_from_path(
-                self.create_s3_path(max_file.bucket_name, max_file.key)
+                self.create_s3_path(max_file.bucket_name, max_file.key),
             )
 
             # If id is None, it means the folder is not a partition
@@ -904,7 +931,7 @@ class S3Source(StatefulIngestionSourceBase):
                     modification_time=modification_time,
                     sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
                     size=file_size,
-                )
+                ),
             )
 
         return partitions
@@ -913,7 +940,7 @@ class S3Source(StatefulIngestionSourceBase):
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource(
-            self.source_config.verify_ssl
+            self.source_config.verify_ssl,
         )
         bucket_name = get_bucket_name(path_spec.include)
         logger.debug(f"Scanning bucket: {bucket_name}")
@@ -947,11 +974,14 @@ class S3Source(StatefulIngestionSourceBase):
 
             table_index = include.find(max_match)
             for folder in self.resolve_templated_folders(
-                bucket_name, get_bucket_relative_path(include[:table_index])
+                bucket_name,
+                get_bucket_relative_path(include[:table_index]),
             ):
                 try:
                     for f in list_folders(
-                        bucket_name, f"{folder}", self.source_config.aws_config
+                        bucket_name,
+                        f"{folder}",
+                        self.source_config.aws_config,
                     ):
                         dirs_to_process = []
                         logger.info(f"Processing folder: {f}")
@@ -965,7 +995,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 == FolderTraversalMethod.MAX
                             ):
                                 protocol = ContainerWUCreator.get_protocol(
-                                    path_spec.include
+                                    path_spec.include,
                                 )
                                 dirs_to_process_max = self.get_dir_to_process(
                                     bucket_name=bucket_name,
@@ -994,15 +1024,17 @@ class S3Source(StatefulIngestionSourceBase):
 
                             folders.extend(
                                 self.get_folder_info(
-                                    path_spec, bucket, prefix_to_process
-                                )
+                                    path_spec,
+                                    bucket,
+                                    prefix_to_process,
+                                ),
                             )
                         max_folder = None
                         if folders:
                             max_folder = max(folders, key=lambda x: x.modification_time)
                         if not max_folder:
                             logger.warning(
-                                f"Unable to find any files in the folder {dir}. Skipping..."
+                                f"Unable to find any files in the folder {dir}. Skipping...",
                             )
                             continue
 
@@ -1021,13 +1053,14 @@ class S3Source(StatefulIngestionSourceBase):
                     if "NoSuchBucket" in repr(e):
                         logger.debug(f"Got NoSuchBucket exception for {bucket_name}", e)
                         self.get_report().report_warning(
-                            "Missing bucket", f"No bucket found {bucket_name}"
+                            "Missing bucket",
+                            f"No bucket found {bucket_name}",
                         )
                     else:
                         raise e
         else:
             logger.debug(
-                "No template in the pathspec can't do sampling, fallbacking to do full scan"
+                "No template in the pathspec can't do sampling, fallbacking to do full scan",
             )
             path_spec.sample_files = False
             for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
@@ -1067,12 +1100,12 @@ class S3Source(StatefulIngestionSourceBase):
                 for file in sorted(files):
                     # We need to make sure the path is in posix style which is not true on windows
                     full_path = PurePath(
-                        os.path.normpath(os.path.join(root, file))
+                        os.path.normpath(os.path.join(root, file)),
                     ).as_posix()
                     yield BrowsePath(
                         file=full_path,
                         timestamp=datetime.utcfromtimestamp(
-                            os.path.getmtime(full_path)
+                            os.path.getmtime(full_path),
                         ),
                         size=os.path.getsize(full_path),
                         partitions=[],
@@ -1089,7 +1122,8 @@ class S3Source(StatefulIngestionSourceBase):
             for path_spec in self.source_config.path_specs:
                 file_browser = (
                     self.s3_browser(
-                        path_spec, self.source_config.number_of_files_to_sample
+                        path_spec,
+                        self.source_config.number_of_files_to_sample,
                     )
                     if self.is_s3_platform()
                     else self.local_browser(path_spec)
@@ -1133,7 +1167,7 @@ class S3Source(StatefulIngestionSourceBase):
             total_time_taken = timer.elapsed_seconds()
 
             logger.info(
-                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
+                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds",
             )
 
             time_percentiles: Dict[str, float] = {}
@@ -1141,12 +1175,13 @@ class S3Source(StatefulIngestionSourceBase):
             if len(self.profiling_times_taken) > 0:
                 percentiles = [50, 75, 95, 99]
                 percentile_values = stats.calculate_percentiles(
-                    self.profiling_times_taken, percentiles
+                    self.profiling_times_taken,
+                    percentiles,
                 )
 
                 time_percentiles = {
                     f"table_time_taken_p{percentile}": stats.discretize(
-                        percentile_values[percentile]
+                        percentile_values[percentile],
                     )
                     for percentile in percentiles
                 }
@@ -1166,7 +1201,9 @@ class S3Source(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 

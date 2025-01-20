@@ -160,7 +160,8 @@ def _get_container_filter(container: str) -> SearchFilterRule:
 
 
 def _get_platform_instance_filter(
-    platform: Optional[str], platform_instance: str
+    platform: Optional[str],
+    platform_instance: str,
 ) -> SearchFilterRule:
     if platform:
         # Massage the platform instance into a fully qualified urn, if necessary.

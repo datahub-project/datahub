@@ -43,7 +43,10 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         return cls(config, ctx)
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         return None
 
@@ -59,7 +62,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
             if data_product_urn:
                 if data_product_urn not in data_products:
                     data_products[data_product_urn] = DataProductPatchBuilder(
-                        data_product_urn
+                        data_product_urn,
                     ).add_asset(entity_urn)
                 else:
                     data_products[data_product_urn] = data_products[
@@ -69,20 +72,21 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
                 if is_container:
                     assert self.ctx.graph
                     container_aspect = self.ctx.graph.get_aspect(
-                        entity_urn, aspect_type=ContainerClass
+                        entity_urn,
+                        aspect_type=ContainerClass,
                     )
                     if not container_aspect:
                         continue
                     container_urn = container_aspect.container
                     if data_product_urn not in data_products_container:
                         container_product = DataProductPatchBuilder(
-                            data_product_urn
+                            data_product_urn,
                         ).add_asset(container_urn)
                         data_products_container[data_product_urn] = container_product
                     else:
                         data_products_container[data_product_urn] = (
                             data_products_container[data_product_urn].add_asset(
-                                container_urn
+                                container_urn,
                             )
                         )
 
@@ -107,14 +111,16 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
     def __init__(self, config: SimpleDatasetDataProductConfig, ctx: PipelineContext):
         generic_config = AddDatasetDataProductConfig(
             get_data_product_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
-                dataset_urn
+                dataset_urn,
             ),
         )
         super().__init__(generic_config, ctx)
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SimpleAddDatasetDataProduct":
         config = SimpleDatasetDataProductConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -130,7 +136,7 @@ class PatternDatasetDataProductConfig(ConfigModel):
         for key, value in rules.items():
             if isinstance(value, list) and len(value) > 1:
                 raise ValueError(
-                    "Same dataset cannot be an asset of two different data product."
+                    "Same dataset cannot be an asset of two different data product.",
                 )
             elif isinstance(value, str):
                 rules[key] = [rules[key]]
@@ -154,7 +160,9 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetDataProduct":
         config = PatternDatasetDataProductConfig.parse_obj(config_dict)
         return cls(config, ctx)

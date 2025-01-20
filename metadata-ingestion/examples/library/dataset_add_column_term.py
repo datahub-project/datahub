@@ -33,7 +33,8 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
 current_editable_schema_metadata = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=EditableSchemaMetadataClass
+    entity_urn=dataset_urn,
+    aspect_type=EditableSchemaMetadataClass,
 )
 
 
@@ -43,10 +44,12 @@ current_timestamp = AuditStampClass(time=now, actor="urn:li:corpuser:ingestion")
 
 term_association_to_add = GlossaryTermAssociationClass(urn=term_to_add)
 term_aspect_to_set = GlossaryTermsClass(
-    terms=[term_association_to_add], auditStamp=current_timestamp
+    terms=[term_association_to_add],
+    auditStamp=current_timestamp,
 )
 field_info_to_set = EditableSchemaFieldInfoClass(
-    fieldPath=column, glossaryTerms=term_aspect_to_set
+    fieldPath=column,
+    glossaryTerms=term_aspect_to_set,
 )
 
 need_write = False

@@ -135,13 +135,15 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
         else:
             return self.config.start_time, self.config.end_time
 
     def get_usage_workunits(
-        self, discovered_datasets: List[str]
+        self,
+        discovered_datasets: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_usage():
             return
@@ -149,7 +151,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
             if self.report.edition == SnowflakeEdition.STANDARD.value:
                 logger.info(
-                    "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
+                    "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported.",
                 )
                 return
 
@@ -187,7 +189,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 access_events = self._get_snowflake_history()
                 for event in access_events:
                     yield from self._get_operation_aspect_work_unit(
-                        event, discovered_datasets
+                        event,
+                        discovered_datasets,
                     )
 
             if self.redundant_run_skip_handler:
@@ -199,7 +202,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 )
 
     def _get_workunits_internal(
-        self, discovered_datasets: List[str]
+        self,
+        discovered_datasets: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
@@ -241,36 +245,40 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         row["OBJECT_DOMAIN"],
                     ):
                         logger.debug(
-                            f"Skipping usage for {row['OBJECT_DOMAIN']} {row['OBJECT_NAME']}, as table is not allowed by recipe."
+                            f"Skipping usage for {row['OBJECT_DOMAIN']} {row['OBJECT_NAME']}, as table is not allowed by recipe.",
                         )
                         continue
 
                     dataset_identifier = (
                         self.identifiers.get_dataset_identifier_from_qualified_name(
-                            row["OBJECT_NAME"]
+                            row["OBJECT_NAME"],
                         )
                     )
                     if dataset_identifier not in discovered_datasets:
                         logger.debug(
-                            f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
+                            f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible.",
                         )
                         continue
                     with skip_timer.pause(), self.report.usage_aggregation.result_map_timer as map_timer:
                         wu = self.build_usage_statistics_for_dataset(
-                            dataset_identifier, row
+                            dataset_identifier,
+                            row,
                         )
                         if wu:
                             with map_timer.pause():
                                 yield wu
 
     def build_usage_statistics_for_dataset(
-        self, dataset_identifier: str, row: dict
+        self,
+        dataset_identifier: str,
+        row: dict,
     ) -> Optional[MetadataWorkUnit]:
         try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
                 eventGranularity=TimeWindowSize(
-                    unit=self.config.bucket_duration, multiple=1
+                    unit=self.config.bucket_duration,
+                    multiple=1,
                 ),
                 totalSqlQueries=row["TOTAL_QUERIES"],
                 uniqueUserCount=row["TOTAL_USERS"],
@@ -292,7 +300,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 exc_info=e,
             )
             self.report.warning(
-                "Failed to parse usage statistics for dataset", dataset_identifier
+                "Failed to parse usage statistics for dataset",
+                dataset_identifier,
             )
 
         return None
@@ -301,19 +310,20 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         with self.report.usage_aggregation.queries_map_timer:
             top_sql_queries = json.loads(top_sql_queries_str)
             budget_per_query: int = int(
-                self.config.queries_character_limit / self.config.top_n_queries
+                self.config.queries_character_limit / self.config.top_n_queries,
             )
             return sorted(
                 [
                     (
                         trim_query(
-                            try_format_query(query, self.platform), budget_per_query
+                            try_format_query(query, self.platform),
+                            budget_per_query,
                         )
                         if self.config.format_sql_queries
                         else trim_query(query, budget_per_query)
                     )
                     for query in top_sql_queries
-                ]
+                ],
             )
 
     def _map_user_counts(
@@ -331,10 +341,11 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     and user_count["user_name"]
                 ):
                     user_email = "{}@{}".format(
-                        user_count["user_name"], self.config.email_domain
+                        user_count["user_name"],
+                        self.config.email_domain,
                     ).lower()
                 if not user_email or not self.config.user_email_pattern.allowed(
-                    user_email
+                    user_email,
                 ):
                     continue
 
@@ -344,13 +355,13 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                             self.identifiers.get_user_identifier(
                                 user_count["user_name"],
                                 user_email,
-                            )
+                            ),
                         ),
                         count=user_count["total"],
                         # NOTE: Generated emails may be incorrect, as email may be different than
                         # username@email_domain
                         userEmail=user_email,
-                    )
+                    ),
                 )
             return sorted(filtered_user_counts, key=lambda v: v.user)
 
@@ -361,7 +372,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 [
                     DatasetFieldUsageCounts(
                         fieldPath=self.identifiers.snowflake_identifier(
-                            field_count["col"]
+                            field_count["col"],
                         ),
                         count=field_count["total"],
                     )
@@ -400,13 +411,14 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             try:
                 assert self.connection is not None
                 results = self.connection.query(
-                    SnowflakeQuery.get_access_history_date_range()
+                    SnowflakeQuery.get_access_history_date_range(),
                 )
             except Exception as e:
                 if isinstance(e, SnowflakePermissionError):
                     error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
                     self.warn_if_stateful_else_error(
-                        "usage-permission-error", error_msg
+                        "usage-permission-error",
+                        error_msg,
                     )
                 else:
                     logger.debug(e, exc_info=e)
@@ -428,17 +440,19 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         )
                         break
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
-                        tz=timezone.utc
+                        tz=timezone.utc,
                     )
                     self.report.max_access_history_time = db_row["MAX_TIME"].astimezone(
-                        tz=timezone.utc
+                        tz=timezone.utc,
                     )
                     self.report.access_history_range_query_secs = timer.elapsed_seconds(
-                        digits=2
+                        digits=2,
                     )
 
     def _get_operation_aspect_work_unit(
-        self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
+        self,
+        event: SnowflakeJoinedAccessEvent,
+        discovered_datasets: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         if event.query_start_time and event.query_type:
             start_time = event.query_start_time
@@ -446,12 +460,13 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             user_email = event.email
             user_name = event.user_name
             operation_type = OPERATION_STATEMENT_TYPES.get(
-                query_type, OperationTypeClass.CUSTOM
+                query_type,
+                OperationTypeClass.CUSTOM,
             )
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
-                self.identifiers.get_user_identifier(user_name, user_email)
+                self.identifiers.get_user_identifier(user_name, user_email),
             )
 
             # NOTE: In earlier `snowflake-usage` connector this was base_objects_accessed, which is incorrect
@@ -460,13 +475,13 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
 
                 dataset_identifier = (
                     self.identifiers.get_dataset_identifier_from_qualified_name(
-                        resource
+                        resource,
                     )
                 )
 
                 if dataset_identifier not in discovered_datasets:
                     logger.debug(
-                        f"Skipping operations for table {dataset_identifier}, as table schema is not accessible"
+                        f"Skipping operations for table {dataset_identifier}, as table schema is not accessible",
                     )
                     continue
 
@@ -492,7 +507,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 yield wu
 
     def _process_snowflake_history_row(
-        self, event_dict: dict
+        self,
+        event_dict: dict,
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
         try:  # big hammer try block to ensure we don't fail on parsing events
             self.report.rows_processed += 1
@@ -503,7 +519,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 return
             self.parse_event_objects(event_dict)
             event = SnowflakeJoinedAccessEvent(
-                **{k.lower(): v for k, v in event_dict.items()}
+                **{k.lower(): v for k, v in event_dict.items()},
             )
             yield event
         except Exception as e:
@@ -539,7 +555,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             self.report.rows_zero_objects_modified += 1
 
         event_dict["QUERY_START_TIME"] = (event_dict["QUERY_START_TIME"]).astimezone(
-            tz=timezone.utc
+            tz=timezone.utc,
         )
 
         if (
@@ -566,9 +582,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
 
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
         if self._is_unsupported_object_accessed(
-            obj
+            obj,
         ) or not self.filter.is_dataset_pattern_allowed(
-            obj.get("objectName"), obj.get("objectDomain")
+            obj.get("objectName"),
+            obj.get("objectDomain"),
         ):
             return False
         return True

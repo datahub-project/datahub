@@ -92,23 +92,24 @@ class SalesforceConfig(DatasetSourceConfigMixin):
     username: Optional[str] = Field(description="Salesforce username")
     password: Optional[str] = Field(description="Password for Salesforce user")
     consumer_key: Optional[str] = Field(
-        description="Consumer key for Salesforce JSON web token access"
+        description="Consumer key for Salesforce JSON web token access",
     )
     private_key: Optional[str] = Field(
-        description="Private key as a string for Salesforce JSON web token access"
+        description="Private key as a string for Salesforce JSON web token access",
     )
     security_token: Optional[str] = Field(
-        description="Security token for Salesforce username"
+        description="Security token for Salesforce username",
     )
     # client_id, client_secret not required
 
     # Direct - Instance URL, Access Token Auth
     instance_url: Optional[str] = Field(
-        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com"
+        description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com",
     )
     # Flag to indicate whether the instance is production or sandbox
     is_sandbox: bool = Field(
-        default=False, description="Connect to Sandbox instance of your Salesforce"
+        default=False,
+        description="Connect to Sandbox instance of your Salesforce",
     )
     access_token: Optional[str] = Field(description="Access token for instance url")
 
@@ -126,7 +127,7 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
     api_version: Optional[str] = Field(
-        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'",
     )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
@@ -138,7 +139,7 @@ class SalesforceConfig(DatasetSourceConfigMixin):
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @validator("instance_url")
@@ -316,13 +317,14 @@ class SalesforceSource(Source):
             self.sf.sf_version = version
 
         self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
-            instance=self.sf.sf_instance, sf_version=self.sf.sf_version
+            instance=self.sf.sf_instance,
+            sf_version=self.sf.sf_version,
         )
 
         logger.debug(
             "Using Salesforce REST API version: {version}".format(
-                version=self.sf.sf_version
-            )
+                version=self.sf.sf_version,
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -333,7 +335,7 @@ class SalesforceSource(Source):
                 # https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/tooling_api_objects_entitydefinition.htm
                 raise ConfigurationError(
                     "Salesforce EntityDefinition query failed. "
-                    "Please verify if user has 'View Setup and Configuration' permission."
+                    "Please verify if user has 'View Setup and Configuration' permission.",
                 ) from e
             raise e
         else:
@@ -341,7 +343,8 @@ class SalesforceSource(Source):
                 yield from self.get_salesforce_object_workunits(sObject)
 
     def get_salesforce_object_workunits(
-        self, sObject: dict
+        self,
+        sObject: dict,
     ) -> Iterable[MetadataWorkUnit]:
         sObjectName = sObject["QualifiedApiName"]
 
@@ -349,8 +352,8 @@ class SalesforceSource(Source):
             self.report.report_dropped(sObjectName)
             logger.debug(
                 "Skipping {sObject}, as it is not allowed by object_pattern".format(
-                    sObject=sObjectName
-                )
+                    sObject=sObjectName,
+                ),
             )
             return
 
@@ -371,7 +374,10 @@ class SalesforceSource(Source):
         yield self.get_properties_workunit(sObject, customObject, datasetUrn)
 
         yield from self.get_schema_metadata_workunit(
-            sObjectName, sObject, customObject, datasetUrn
+            sObjectName,
+            sObject,
+            customObject,
+            datasetUrn,
         )
 
         yield self.get_subtypes_workunit(sObjectName, datasetUrn)
@@ -383,7 +389,7 @@ class SalesforceSource(Source):
             yield from self.get_domain_workunit(sObjectName, datasetUrn)
 
         if self.config.is_profiling_enabled() and self.config.profile_pattern.allowed(
-            sObjectName
+            sObjectName,
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
 
@@ -416,13 +422,15 @@ class SalesforceSource(Source):
         entities_response = self.sf._call_salesforce("GET", query_url).json()
         logger.debug(
             "Salesforce EntityDefinition query returned {count} sObjects".format(
-                count=len(entities_response["records"])
-            )
+                count=len(entities_response["records"]),
+            ),
         )
         return entities_response["records"]
 
     def get_domain_workunit(
-        self, dataset_name: str, datasetUrn: str
+        self,
+        dataset_name: str,
+        datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn: Optional[str] = None
 
@@ -432,7 +440,8 @@ class SalesforceSource(Source):
 
         if domain_urn:
             yield from add_domain_to_entity_wu(
-                domain_urn=domain_urn, entity_urn=datasetUrn
+                domain_urn=domain_urn,
+                entity_urn=datasetUrn,
             )
 
     def get_platform_instance_workunit(self, datasetUrn: str) -> MetadataWorkUnit:
@@ -445,17 +454,20 @@ class SalesforceSource(Source):
         )
 
         return MetadataChangeProposalWrapper(
-            entityUrn=datasetUrn, aspect=dataPlatformInstance
+            entityUrn=datasetUrn,
+            aspect=dataPlatformInstance,
         ).as_workunit()
 
     def get_operation_workunit(
-        self, customObject: dict, datasetUrn: str
+        self,
+        customObject: dict,
+        datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
         reported_time: int = int(time.time() * 1000)
 
         if customObject.get("CreatedBy") and customObject.get("CreatedDate"):
             timestamp = self.get_time_from_salesforce_timestamp(
-                customObject["CreatedDate"]
+                customObject["CreatedDate"],
             )
             operation = OperationClass(
                 timestampMillis=reported_time,
@@ -465,7 +477,8 @@ class SalesforceSource(Source):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=datasetUrn, aspect=operation
+                entityUrn=datasetUrn,
+                aspect=operation,
             ).as_workunit()
 
             # Note - Object Level LastModified captures changes at table level metadata e.g. table
@@ -473,30 +486,34 @@ class SalesforceSource(Source):
             # field updated
 
             if customObject.get("LastModifiedBy") and customObject.get(
-                "LastModifiedDate"
+                "LastModifiedDate",
             ):
                 timestamp = self.get_time_from_salesforce_timestamp(
-                    customObject["LastModifiedDate"]
+                    customObject["LastModifiedDate"],
                 )
                 operation = OperationClass(
                     timestampMillis=reported_time,
                     operationType=OperationTypeClass.ALTER,
                     lastUpdatedTimestamp=timestamp,
                     actor=builder.make_user_urn(
-                        customObject["LastModifiedBy"]["Username"]
+                        customObject["LastModifiedBy"]["Username"],
                     ),
                 )
                 yield MetadataChangeProposalWrapper(
-                    entityUrn=datasetUrn, aspect=operation
+                    entityUrn=datasetUrn,
+                    aspect=operation,
                 ).as_workunit()
 
     def get_time_from_salesforce_timestamp(self, date: str) -> int:
         return round(
-            datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp() * 1000
+            datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp() * 1000,
         )
 
     def get_properties_workunit(
-        self, sObject: dict, customObject: Dict[str, str], datasetUrn: str
+        self,
+        sObject: dict,
+        customObject: Dict[str, str],
+        datasetUrn: str,
     ) -> MetadataWorkUnit:
         propertyLabels = {
             # from EntityDefinition
@@ -522,7 +539,7 @@ class SalesforceSource(Source):
                 propertyLabels[k]: str(v)
                 for k, v in customObject.items()
                 if k in propertyLabels and v is not None
-            }
+            },
         )
 
         datasetProperties = DatasetPropertiesClass(
@@ -531,11 +548,14 @@ class SalesforceSource(Source):
             customProperties=sObjectProperties,
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=datasetUrn, aspect=datasetProperties
+            entityUrn=datasetUrn,
+            aspect=datasetProperties,
         ).as_workunit()
 
     def get_subtypes_workunit(
-        self, sObjectName: str, datasetUrn: str
+        self,
+        sObjectName: str,
+        datasetUrn: str,
     ) -> MetadataWorkUnit:
         subtypes: List[str] = []
         if sObjectName.endswith("__c"):
@@ -544,11 +564,14 @@ class SalesforceSource(Source):
             subtypes.append(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT)
 
         return MetadataChangeProposalWrapper(
-            entityUrn=datasetUrn, aspect=SubTypesClass(typeNames=subtypes)
+            entityUrn=datasetUrn,
+            aspect=SubTypesClass(typeNames=subtypes),
         ).as_workunit()
 
     def get_profile_workunit(
-        self, sObjectName: str, datasetUrn: str
+        self,
+        sObjectName: str,
+        datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
         # Here approximate record counts as returned by recordCount API are used as rowCount
         # In future, count() SOQL query may be used instead, if required, might be more expensive
@@ -557,13 +580,14 @@ class SalesforceSource(Source):
         )
 
         sObject_record_count_response = self.sf._call_salesforce(
-            "GET", sObject_records_count_url
+            "GET",
+            sObject_records_count_url,
         ).json()
 
         logger.debug(
             "Received Salesforce {sObject} record count response".format(
-                sObject=sObjectName
-            )
+                sObject=sObjectName,
+            ),
         )
 
         for entry in sObject_record_count_response.get("sObjects", []):
@@ -573,7 +597,8 @@ class SalesforceSource(Source):
                 columnCount=self.fieldCounts[sObjectName],
             )
             yield MetadataChangeProposalWrapper(
-                entityUrn=datasetUrn, aspect=datasetProfile
+                entityUrn=datasetUrn,
+                aspect=datasetProfile,
             ).as_workunit()
 
     # Here field description is created from label, description and inlineHelpText
@@ -643,7 +668,8 @@ class SalesforceSource(Source):
         # Created and LastModified Date and Actor are available for Custom Fields only
         if customField.get("CreatedDate") and customField.get("CreatedBy"):
             schemaField.created = self.get_audit_stamp(
-                customField["CreatedDate"], customField["CreatedBy"]["Username"]
+                customField["CreatedDate"],
+                customField["CreatedBy"]["Username"],
             )
         if customField.get("LastModifiedDate") and customField.get("LastModifiedBy"):
             schemaField.lastModified = self.get_audit_stamp(
@@ -676,7 +702,7 @@ class SalesforceSource(Source):
         if field["FieldDefinition"]["ComplianceGroup"] is not None:
             # CCPA, COPPA, GDPR, HIPAA, PCI, PersonalInfo, PII
             fieldTags.extend(
-                iter(field["FieldDefinition"]["ComplianceGroup"].split(";"))
+                iter(field["FieldDefinition"]["ComplianceGroup"].split(";")),
             )
         return fieldTags
 
@@ -687,7 +713,11 @@ class SalesforceSource(Source):
         )
 
     def get_schema_metadata_workunit(
-        self, sObjectName: str, sObject: dict, customObject: dict, datasetUrn: str
+        self,
+        sObjectName: str,
+        sObject: dict,
+        customObject: dict,
+        datasetUrn: str,
     ) -> Iterable[MetadataWorkUnit]:
         sObject_fields_query_url = (
             self.base_url
@@ -698,12 +728,13 @@ class SalesforceSource(Source):
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
             + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
-                sObject["DurableId"]
+                sObject["DurableId"],
             )
         )
 
         sObject_fields_response = self.sf._call_salesforce(
-            "GET", sObject_fields_query_url
+            "GET",
+            sObject_fields_query_url,
         ).json()
 
         logger.debug(f"Received Salesforce {sObjectName} fields response")
@@ -714,20 +745,21 @@ class SalesforceSource(Source):
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
             + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
-                sObject["DurableId"]
+                sObject["DurableId"],
             )
         )
 
         customFields: Dict[str, Dict] = {}
         try:
             sObject_custom_fields_response = self.sf._call_salesforce(
-                "GET", sObject_custom_fields_query_url
+                "GET",
+                sObject_custom_fields_query_url,
             ).json()
 
             logger.debug(
                 "Received Salesforce {sObject} custom fields response".format(
-                    sObject=sObjectName
-                )
+                    sObject=sObjectName,
+                ),
             )
 
         except Exception as e:
@@ -758,7 +790,11 @@ class SalesforceSource(Source):
                 continue
 
             schemaField: SchemaFieldClass = self._get_schema_field(
-                sObjectName, fieldName, fieldType, field, customField
+                sObjectName,
+                fieldName,
+                fieldType,
+                field,
+                customField,
             )
             fields.append(schemaField)
 
@@ -770,7 +806,9 @@ class SalesforceSource(Source):
                 and field["ReferenceTo"]["referenceTo"] is not None
             ):
                 foreignKeys.extend(
-                    list(self.get_foreign_keys_from_field(fieldName, field, datasetUrn))
+                    list(
+                        self.get_foreign_keys_from_field(fieldName, field, datasetUrn),
+                    ),
                 )
 
         schemaMetadata = SchemaMetadataClass(
@@ -787,16 +825,21 @@ class SalesforceSource(Source):
         # Created Date and Actor are available for Custom Object only
         if customObject.get("CreatedDate") and customObject.get("CreatedBy"):
             schemaMetadata.created = self.get_audit_stamp(
-                customObject["CreatedDate"], customObject["CreatedBy"]["Username"]
+                customObject["CreatedDate"],
+                customObject["CreatedBy"]["Username"],
             )
         self.fieldCounts[sObjectName] = len(fields)
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=datasetUrn, aspect=schemaMetadata
+            entityUrn=datasetUrn,
+            aspect=schemaMetadata,
         ).as_workunit()
 
     def get_foreign_keys_from_field(
-        self, fieldName: str, field: dict, datasetUrn: str
+        self,
+        fieldName: str,
+        field: dict,
+        datasetUrn: str,
     ) -> Iterable[ForeignKeyConstraintClass]:
         # https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/field_types.htm#i1435823
         foreignDatasets = [

@@ -151,16 +151,18 @@ def create_and_run_test_pipeline(
     path: str,
 ) -> str:
     with mock.patch(
-        "tests.unit.test_source.FakeSource.get_workunits"
+        "tests.unit.test_source.FakeSource.get_workunits",
     ) as mock_getworkunits:
         mock_getworkunits.return_value = [
             (
                 workunit.MetadataWorkUnit(
-                    id=f"test-workunit-mce-{e.proposedSnapshot.urn}", mce=e
+                    id=f"test-workunit-mce-{e.proposedSnapshot.urn}",
+                    mce=e,
                 )
                 if isinstance(e, MetadataChangeEventClass)
                 else workunit.MetadataWorkUnit(
-                    id=f"test-workunit-mcp-{e.entityUrn}-{e.aspectName}", mcp=e
+                    id=f"test-workunit-mcp-{e.entityUrn}-{e.aspectName}",
+                    mcp=e,
                 )
             )
             for e in events
@@ -174,7 +176,7 @@ def create_and_run_test_pipeline(
                 },
                 "transformers": transformers,
                 "sink": {"type": "file", "config": {"filename": events_file}},
-            }
+            },
         )
 
         pipeline.run()
@@ -195,9 +197,10 @@ def make_dataset_with_owner() -> models.MetadataChangeEventClass:
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=1625266033123, actor="urn:li:corpuser:datahub"
+                        time=1625266033123,
+                        actor="urn:li:corpuser:datahub",
                     ),
-                )
+                ),
             ],
         ),
     )
@@ -213,7 +216,7 @@ def make_dataset_with_properties() -> models.MetadataChangeEventClass:
             aspects=[
                 models.StatusClass(removed=False),
                 models.DatasetPropertiesClass(
-                    customProperties=EXISTING_PROPERTIES.copy()
+                    customProperties=EXISTING_PROPERTIES.copy(),
                 ),
             ],
         ),
@@ -233,9 +236,9 @@ def test_dataset_ownership_transformation(mock_time):
                     name="User Deletions",
                     description="Constructs the fct_users_deleted from logging_events",
                     type=models.AzkabanJobTypeClass.SQL,
-                )
+                ),
             ],
-        )
+        ),
     )
 
     inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
@@ -245,20 +248,21 @@ def test_dataset_ownership_transformation(mock_time):
             "owner_urns": [
                 builder.make_user_urn("person1"),
                 builder.make_user_urn("person2"),
-            ]
+            ],
         },
         PipelineContext(run_id="test"),
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert len(outputs) == len(inputs) + 2
 
     # Check the first entry.
     first_ownership_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.OwnershipClass
+        outputs[0].record,
+        models.OwnershipClass,
     )
     assert first_ownership_aspect is None
 
@@ -271,12 +275,13 @@ def test_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
             for owner in last_event.aspect.owners
-        ]
+        ],
     )
 
     # Check the second entry.
     second_ownership_aspect = builder.get_aspect_if_available(
-        outputs[1].record, models.OwnershipClass
+        outputs[1].record,
+        models.OwnershipClass,
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 3
@@ -284,7 +289,7 @@ def test_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
             for owner in second_ownership_aspect.owners
-        ]
+        ],
     )
 
     third_ownership_aspect = outputs[4].record.aspect
@@ -294,7 +299,7 @@ def test_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
             for owner in second_ownership_aspect.owners
-        ]
+        ],
     )
 
     # Verify that the third entry is unchanged.
@@ -322,8 +327,8 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(output) == 3
@@ -356,8 +361,8 @@ def test_simple_dataset_ownership_with_type_urn_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(output) == 3
@@ -391,8 +396,8 @@ def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
             [
                 RecordEnvelope(input, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(output) == 3
@@ -447,11 +452,12 @@ def test_simple_remove_dataset_ownership():
         PipelineContext(run_id="test"),
     )
     outputs = list(
-        transformer.transform([RecordEnvelope(with_owner_aspect, metadata={})])
+        transformer.transform([RecordEnvelope(with_owner_aspect, metadata={})]),
     )
 
     ownership_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.OwnershipClass
+        outputs[0].record,
+        models.OwnershipClass,
     )
     assert ownership_aspect
     assert len(ownership_aspect.owners) == 0
@@ -468,12 +474,13 @@ def test_mark_status_dataset(tmp_path):
         transformer.transform(
             [
                 RecordEnvelope(dataset, metadata={}),
-            ]
-        )
+            ],
+        ),
     )
     assert len(removed) == 1
     status_aspect = builder.get_aspect_if_available(
-        removed[0].record, models.StatusClass
+        removed[0].record,
+        models.StatusClass,
     )
     assert status_aspect
     assert status_aspect.removed is True
@@ -486,12 +493,13 @@ def test_mark_status_dataset(tmp_path):
         transformer.transform(
             [
                 RecordEnvelope(dataset, metadata={}),
-            ]
-        )
+            ],
+        ),
     )
     assert len(not_removed) == 1
     status_aspect = builder.get_aspect_if_available(
-        not_removed[0].record, models.StatusClass
+        not_removed[0].record,
+        models.StatusClass,
     )
     assert status_aspect
     assert status_aspect.removed is False
@@ -684,9 +692,9 @@ def test_extract_owners_from_tags():
         dataset = make_generic_dataset(
             aspects=[
                 models.GlobalTagsClass(
-                    tags=[TagAssociationClass(tag=builder.make_tag_urn(tag))]
-                )
-            ]
+                    tags=[TagAssociationClass(tag=builder.make_tag_urn(tag))],
+                ),
+            ],
         )
 
         transformer = ExtractOwnersFromTagsTransformer.create(
@@ -699,8 +707,8 @@ def test_extract_owners_from_tags():
                 [
                     RecordEnvelope(dataset, metadata={}),
                     RecordEnvelope(record=EndOfStream(), metadata={}),
-                ]
-            )
+                ],
+            ),
         )
 
         assert len(record_envelops) == 3
@@ -807,8 +815,8 @@ def test_add_dataset_browse_paths():
             [
                 RecordEnvelope(dataset, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
     browse_path_aspect = transformed[1].record.aspect
     assert browse_path_aspect
@@ -816,7 +824,7 @@ def test_add_dataset_browse_paths():
 
     # use an mce with a pre-existing browse path
     dataset_mce = make_generic_dataset(
-        aspects=[StatusClass(removed=False), browse_path_aspect]
+        aspects=[StatusClass(removed=False), browse_path_aspect],
     )
 
     transformer = AddDatasetBrowsePathTransformer.create(
@@ -824,7 +832,7 @@ def test_add_dataset_browse_paths():
             "path_templates": [
                 "/PLATFORM/foo/DATASET_PARTS/ENV",
                 "/ENV/PLATFORM/bar/DATASET_PARTS/",
-            ]
+            ],
         },
         PipelineContext(run_id="test"),
     )
@@ -833,12 +841,13 @@ def test_add_dataset_browse_paths():
             [
                 RecordEnvelope(dataset_mce, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
     assert len(transformed) == 2
     browse_path_aspect = builder.get_aspect_if_available(
-        transformed[0].record, BrowsePathsClass
+        transformed[0].record,
+        BrowsePathsClass,
     )
     assert browse_path_aspect
     assert browse_path_aspect.paths == [
@@ -861,12 +870,13 @@ def test_add_dataset_browse_paths():
             [
                 RecordEnvelope(dataset_mce, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
     assert len(transformed) == 2
     browse_path_aspect = builder.get_aspect_if_available(
-        transformed[0].record, BrowsePathsClass
+        transformed[0].record,
+        BrowsePathsClass,
     )
     assert browse_path_aspect
     assert browse_path_aspect.paths == [
@@ -882,7 +892,7 @@ def test_simple_dataset_tags_transformation(mock_time):
             "tag_urns": [
                 builder.make_tag_urn("NeedsDocumentation"),
                 builder.make_tag_urn("Legacy"),
-            ]
+            ],
         },
         PipelineContext(run_id="test-tags"),
     )
@@ -892,8 +902,8 @@ def test_simple_dataset_tags_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 5
@@ -932,7 +942,7 @@ def test_pattern_dataset_tags_transformation(mock_time):
                         builder.make_tag_urn("Legacy"),
                     ],
                     ".*example2.*": [builder.make_term_urn("Needs Documentation")],
-                }
+                },
             },
         },
         PipelineContext(run_id="test-tags"),
@@ -943,8 +953,8 @@ def test_pattern_dataset_tags_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 5
@@ -958,14 +968,14 @@ def test_pattern_dataset_tags_transformation(mock_time):
 def test_add_dataset_tags_transformation():
     transformer = AddDatasetTags.create(
         {
-            "get_tags_to_add": "tests.unit.test_transform_dataset.dummy_tag_resolver_method"
+            "get_tags_to_add": "tests.unit.test_transform_dataset.dummy_tag_resolver_method",
         },
         PipelineContext(run_id="test-tags"),
     )
     output = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [make_generic_dataset()]]
-        )
+            [RecordEnvelope(input, metadata={}) for input in [make_generic_dataset()]],
+        ),
     )
     assert output
 
@@ -985,9 +995,10 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=1625266033123, actor="urn:li:corpuser:datahub"
+                        time=1625266033123,
+                        actor="urn:li:corpuser:datahub",
                     ),
-                )
+                ),
             ],
         ),
     )
@@ -1000,9 +1011,9 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                     name="User Deletions",
                     description="Constructs the fct_users_deleted from logging_events",
                     type=models.AzkabanJobTypeClass.SQL,
-                )
+                ),
             ],
-        )
+        ),
     )
 
     inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
@@ -1014,7 +1025,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
                     ".*dag_abc.*": [builder.make_user_urn("person2")],
-                }
+                },
             },
             "ownership_type": "DATAOWNER",
         },
@@ -1022,7 +1033,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert (
@@ -1039,12 +1050,13 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in first_ownership_aspect.owners
-        ]
+        ],
     )
 
     # Check the second entry.
     second_ownership_aspect = builder.get_aspect_if_available(
-        outputs[1].record, models.OwnershipClass
+        outputs[1].record,
+        models.OwnershipClass,
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 2
@@ -1052,7 +1064,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in second_ownership_aspect.owners
-        ]
+        ],
     )
 
     third_ownership_aspect = outputs[4].record.aspect
@@ -1062,7 +1074,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in third_ownership_aspect.owners
-        ]
+        ],
     )
 
     # Verify that the third entry is unchanged.
@@ -1080,7 +1092,7 @@ def test_pattern_dataset_ownership_with_type_transformation(mock_time):
             "owner_pattern": {
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
-                }
+                },
             },
             "ownership_type": "PRODUCER",
         },
@@ -1092,8 +1104,8 @@ def test_pattern_dataset_ownership_with_type_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={}),
                 RecordEnvelope(EndOfStream(), metadata={}),
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(output) == 3
@@ -1111,7 +1123,7 @@ def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
                 "owner_pattern": {
                     "rules": {
                         ".*example1.*": [builder.make_user_urn("person1")],
-                    }
+                    },
                 },
                 "ownership_type": "INVALID_TYPE",
             },
@@ -1120,7 +1132,8 @@ def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
 
 
 def test_pattern_container_and_dataset_ownership_transformation(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1130,16 +1143,18 @@ def test_pattern_container_and_dataset_ownership_transformation(
         return models.BrowsePathsV2Class(
             path=[
                 models.BrowsePathEntryClass(
-                    id="container_1", urn="urn:li:container:container_1"
+                    id="container_1",
+                    urn="urn:li:container:container_1",
                 ),
                 models.BrowsePathEntryClass(
-                    id="container_2", urn="urn:li:container:container_2"
+                    id="container_2",
+                    urn="urn:li:container:container_2",
                 ),
-            ]
+            ],
         )
 
     pipeline_context = PipelineContext(
-        run_id="test_pattern_container_and_dataset_ownership_transformation"
+        run_id="test_pattern_container_and_dataset_ownership_transformation",
     )
     pipeline_context.graph = mock_datahub_graph_instance
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
@@ -1164,9 +1179,10 @@ def test_pattern_container_and_dataset_ownership_transformation(
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=1625266033123, actor="urn:li:corpuser:datahub"
+                        time=1625266033123,
+                        actor="urn:li:corpuser:datahub",
                     ),
-                )
+                ),
             ],
         ),
     )
@@ -1179,9 +1195,9 @@ def test_pattern_container_and_dataset_ownership_transformation(
                     name="User Deletions",
                     description="Constructs the fct_users_deleted from logging_events",
                     type=models.AzkabanJobTypeClass.SQL,
-                )
+                ),
             ],
-        )
+        ),
     )
 
     inputs = [
@@ -1199,7 +1215,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
                     ".*dag_abc.*": [builder.make_user_urn("person3")],
-                }
+                },
             },
             "ownership_type": "DATAOWNER",
             "is_container": True,  # Enable container ownership handling
@@ -1208,7 +1224,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert len(outputs) == len(inputs) + 4
@@ -1224,12 +1240,13 @@ def test_pattern_container_and_dataset_ownership_transformation(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in first_ownership_aspect.owners
-        ]
+        ],
     )
 
     # Check the ownership for the second dataset (example2)
     second_ownership_aspect = builder.get_aspect_if_available(
-        outputs[1].record, models.OwnershipClass
+        outputs[1].record,
+        models.OwnershipClass,
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 2  # One existing + one new
@@ -1237,7 +1254,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in second_ownership_aspect.owners
-        ]
+        ],
     )
 
     third_ownership_aspect = outputs[4].record.aspect
@@ -1258,7 +1275,8 @@ def test_pattern_container_and_dataset_ownership_transformation(
 
 
 def test_pattern_container_and_dataset_ownership_with_no_container(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1268,7 +1286,7 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
         return None
 
     pipeline_context = PipelineContext(
-        run_id="test_pattern_container_and_dataset_ownership_with_no_container"
+        run_id="test_pattern_container_and_dataset_ownership_with_no_container",
     )
     pipeline_context.graph = mock_datahub_graph_instance
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
@@ -1282,12 +1300,14 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
                 models.BrowsePathsV2Class(
                     path=[
                         models.BrowsePathEntryClass(
-                            id="container_1", urn="urn:li:container:container_1"
+                            id="container_1",
+                            urn="urn:li:container:container_1",
                         ),
                         models.BrowsePathEntryClass(
-                            id="container_2", urn="urn:li:container:container_2"
+                            id="container_2",
+                            urn="urn:li:container:container_2",
                         ),
-                    ]
+                    ],
                 ),
             ],
         ),
@@ -1305,18 +1325,21 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=1625266033123, actor="urn:li:corpuser:datahub"
+                        time=1625266033123,
+                        actor="urn:li:corpuser:datahub",
                     ),
                 ),
                 models.BrowsePathsV2Class(
                     path=[
                         models.BrowsePathEntryClass(
-                            id="container_1", urn="urn:li:container:container_1"
+                            id="container_1",
+                            urn="urn:li:container:container_1",
                         ),
                         models.BrowsePathEntryClass(
-                            id="container_2", urn="urn:li:container:container_2"
+                            id="container_2",
+                            urn="urn:li:container:container_2",
                         ),
-                    ]
+                    ],
                 ),
             ],
         ),
@@ -1335,7 +1358,7 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
-                }
+                },
             },
             "ownership_type": "DATAOWNER",
             "is_container": True,  # Enable container ownership handling
@@ -1344,7 +1367,7 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert len(outputs) == len(inputs) + 1
@@ -1357,12 +1380,13 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in first_ownership_aspect.owners
-        ]
+        ],
     )
 
     # Check the ownership for the second dataset (example2)
     second_ownership_aspect = builder.get_aspect_if_available(
-        outputs[1].record, models.OwnershipClass
+        outputs[1].record,
+        models.OwnershipClass,
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 2  # One existing + one new
@@ -1370,12 +1394,13 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in second_ownership_aspect.owners
-        ]
+        ],
     )
 
 
 def test_pattern_container_and_dataset_ownership_with_no_match(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1385,13 +1410,14 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
         return models.BrowsePathsV2Class(
             path=[
                 models.BrowsePathEntryClass(
-                    id="container_1", urn="urn:li:container:container_1"
-                )
-            ]
+                    id="container_1",
+                    urn="urn:li:container:container_1",
+                ),
+            ],
         )
 
     pipeline_context = PipelineContext(
-        run_id="test_pattern_container_and_dataset_ownership_with_no_match"
+        run_id="test_pattern_container_and_dataset_ownership_with_no_match",
     )
     pipeline_context.graph = mock_datahub_graph_instance
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
@@ -1418,9 +1444,10 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=1625266033123, actor="urn:li:corpuser:datahub"
+                        time=1625266033123,
+                        actor="urn:li:corpuser:datahub",
                     ),
-                )
+                ),
             ],
         ),
     )
@@ -1438,7 +1465,7 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
                 "rules": {
                     ".*example3.*": [builder.make_user_urn("person1")],
                     ".*example4.*": [builder.make_user_urn("person2")],
-                }
+                },
             },
             "ownership_type": "DATAOWNER",
             "is_container": True,  # Enable container ownership handling
@@ -1447,7 +1474,7 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert len(outputs) == len(inputs) + 1
@@ -1460,7 +1487,8 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
 
     # Check the ownership for the second dataset (example2)
     second_ownership_aspect = builder.get_aspect_if_available(
-        outputs[1].record, models.OwnershipClass
+        outputs[1].record,
+        models.OwnershipClass,
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 1
@@ -1474,11 +1502,14 @@ def test_pattern_container_and_dataset_ownership_with_no_match(
 def gen_owners(
     owners: List[str],
     ownership_type: Union[
-        str, models.OwnershipTypeClass
+        str,
+        models.OwnershipTypeClass,
     ] = models.OwnershipTypeClass.DATAOWNER,
 ) -> models.OwnershipClass:
     return models.OwnershipClass(
-        owners=[models.OwnerClass(owner=owner, type=ownership_type) for owner in owners]
+        owners=[
+            models.OwnerClass(owner=owner, type=ownership_type) for owner in owners
+        ],
     )
 
 
@@ -1489,7 +1520,9 @@ def test_ownership_patching_intersect(mock_time):
     mock_graph.get_ownership.return_value = server_ownership
 
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     assert test_ownership and test_ownership.owners
     assert "foo" in [o.owner for o in test_ownership.owners]
@@ -1502,7 +1535,9 @@ def test_ownership_patching_with_nones(mock_time):
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = None
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     assert test_ownership and test_ownership.owners
     assert "foo" in [o.owner for o in test_ownership.owners]
@@ -1511,7 +1546,9 @@ def test_ownership_patching_with_nones(mock_time):
     server_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", None
+        mock_graph,
+        "test_urn",
+        None,
     )
     assert not test_ownership
 
@@ -1521,7 +1558,9 @@ def test_ownership_patching_with_empty_mce_none_server(mock_time):
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = None
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     # nothing to add, so we omit writing
     assert test_ownership is None
@@ -1533,7 +1572,9 @@ def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = server_ownership
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     # nothing to add, so we omit writing
     assert test_ownership is None
@@ -1545,7 +1586,9 @@ def test_ownership_patching_with_different_types_1(mock_time):
     mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     assert test_ownership and test_ownership.owners
     # nothing to add, so we omit writing
@@ -1563,7 +1606,9 @@ def test_ownership_patching_with_different_types_2(mock_time):
     mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
     test_ownership = AddDatasetOwnership._merge_with_server_ownership(
-        mock_graph, "test_urn", mce_ownership
+        mock_graph,
+        "test_urn",
+        mce_ownership,
     )
     assert test_ownership and test_ownership.owners
     assert len(test_ownership.owners) == 2
@@ -1589,20 +1634,21 @@ def test_add_dataset_properties(mock_time):
 
     transformer = AddDatasetProperties.create(
         {
-            "add_properties_resolver_class": "tests.unit.test_transform_dataset.DummyPropertiesResolverClass"
+            "add_properties_resolver_class": "tests.unit.test_transform_dataset.DummyPropertiesResolverClass",
         },
         PipelineContext(run_id="test-properties"),
     )
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
-        )
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]],
+        ),
     )
     assert len(outputs) == 1
 
     custom_properties = builder.get_aspect_if_available(
-        outputs[0].record, models.DatasetPropertiesClass
+        outputs[0].record,
+        models.DatasetPropertiesClass,
     )
 
     assert custom_properties is not None
@@ -1631,7 +1677,7 @@ def run_simple_add_dataset_properties_transformer_semantics(
         transformer_type=SimpleAddDatasetProperties,
         pipeline_context=pipeline_context,
         aspect=models.DatasetPropertiesClass(
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
         config={
             "semantics": semantics,
@@ -1657,7 +1703,8 @@ def test_simple_add_dataset_properties_overwrite(mock_datahub_graph_instance):
     assert output[0].record
     assert output[0].record.aspect
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
-        models.DatasetPropertiesClass, output[0].record.aspect
+        models.DatasetPropertiesClass,
+        output[0].record.aspect,
     )
 
     assert custom_properties_aspect.customProperties == {
@@ -1681,7 +1728,8 @@ def test_simple_add_dataset_properties_patch(mock_datahub_graph_instance):
     assert output[0].record
     assert output[0].record.aspect
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
-        models.DatasetPropertiesClass, output[0].record.aspect
+        models.DatasetPropertiesClass,
+        output[0].record.aspect,
     )
     assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
@@ -1695,7 +1743,7 @@ def test_simple_add_dataset_properties(mock_time):
     outputs = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetProperties,
         aspect=models.DatasetPropertiesClass(
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
         config={
             "properties": new_properties,
@@ -1706,7 +1754,8 @@ def test_simple_add_dataset_properties(mock_time):
     assert outputs[0].record
     assert outputs[0].record.aspect
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
-        models.DatasetPropertiesClass, outputs[0].record.aspect
+        models.DatasetPropertiesClass,
+        outputs[0].record.aspect,
     )
     assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
@@ -1719,7 +1768,7 @@ def test_simple_add_dataset_properties_replace_existing(mock_time):
     outputs = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetProperties,
         aspect=models.DatasetPropertiesClass(
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
         config={
             "replace_existing": True,
@@ -1731,7 +1780,8 @@ def test_simple_add_dataset_properties_replace_existing(mock_time):
     assert outputs[0].record
     assert outputs[0].record.aspect
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
-        models.DatasetPropertiesClass, outputs[0].record.aspect
+        models.DatasetPropertiesClass,
+        outputs[0].record.aspect,
     )
 
     assert custom_properties_aspect.customProperties == {
@@ -1747,7 +1797,7 @@ def test_simple_dataset_terms_transformation(mock_time):
             "term_urns": [
                 builder.make_term_urn("Test"),
                 builder.make_term_urn("Needs Review"),
-            ]
+            ],
         },
         PipelineContext(run_id="test-terms"),
     )
@@ -1757,8 +1807,8 @@ def test_simple_dataset_terms_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
     assert len(outputs) == 3
 
@@ -1781,7 +1831,7 @@ def test_pattern_dataset_terms_transformation(mock_time):
                         builder.make_term_urn("Email"),
                     ],
                     ".*example2.*": [builder.make_term_urn("Address")],
-                }
+                },
             },
         },
         PipelineContext(run_id="test-terms"),
@@ -1792,8 +1842,8 @@ def test_pattern_dataset_terms_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 3
@@ -1813,7 +1863,7 @@ def test_mcp_add_tags_missing(mock_time):
             "tag_urns": [
                 builder.make_tag_urn("NeedsDocumentation"),
                 builder.make_tag_urn("Legacy"),
-            ]
+            ],
         },
         PipelineContext(run_id="test-tags"),
     )
@@ -1836,7 +1886,7 @@ def test_mcp_add_tags_existing(mock_time):
     dataset_mcp = make_generic_dataset_mcp(
         aspect_name="globalTags",
         aspect=GlobalTagsClass(
-            tags=[TagAssociationClass(tag=builder.make_tag_urn("Test"))]
+            tags=[TagAssociationClass(tag=builder.make_tag_urn("Test"))],
         ),
     )
 
@@ -1845,7 +1895,7 @@ def test_mcp_add_tags_existing(mock_time):
             "tag_urns": [
                 builder.make_tag_urn("NeedsDocumentation"),
                 builder.make_tag_urn("Legacy"),
-            ]
+            ],
         },
         PipelineContext(run_id="test-tags"),
     )
@@ -1887,7 +1937,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
                 {
                     "type": "set_dataset_browse_path",
                     "config": {
-                        "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"]
+                        "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"],
                     },
                 },
                 {
@@ -1896,14 +1946,14 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
                 },
             ],
             "sink": {"type": "file", "config": {"filename": events_file}},
-        }
+        },
     )
 
     pipeline.run()
     pipeline.raise_from_status()
 
     urn_pattern = "^" + re.escape(
-        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooIndex,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooIndex,PROD)",
     )
     assert (
         tests.test_helpers.mce_helpers.assert_mcp_entity_urn(
@@ -1959,7 +2009,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                     platform_id="elasticsearch",
                     table_name=f"fooBarIndex{i}",
                     env="PROD",
-                )
+                ),
             ),
             aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:Test")]),
         )
@@ -1973,12 +2023,12 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                         platform_id="elasticsearch",
                         table_name=f"fooBarIndex{i}",
                         env="PROD",
-                    )
+                    ),
                 ),
                 aspect=DatasetPropertiesClass(description="test dataset"),
             )
             for i in range(0, 10)
-        ]
+        ],
     )
 
     # shuffle the mcps
@@ -1992,7 +2042,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
             {
                 "type": "set_dataset_browse_path",
                 "config": {
-                    "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"]
+                    "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"],
                 },
             },
             {
@@ -2004,7 +2054,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
     )
 
     urn_pattern = "^" + re.escape(
-        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooBarIndex"
+        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooBarIndex",
     )
 
     # there should be 30 MCP-s
@@ -2024,7 +2074,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
             entity_type="dataset",
             aspect_name="globalTags",
             aspect_field_matcher={
-                "tags": [{"tag": "urn:li:tag:Test"}, {"tag": "urn:li:tag:EsComments"}]
+                "tags": [{"tag": "urn:li:tag:Test"}, {"tag": "urn:li:tag:EsComments"}],
             },
             file=events_file,
         )
@@ -2040,11 +2090,11 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                         platform_id="elasticsearch",
                         table_name=f"fooBarIndex{i}",
                         env="PROD",
-                    )
+                    ),
                 ),
                 aspect_name="browsePaths",
                 aspect_field_matcher={
-                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"],
                 },
                 file=events_file,
             )
@@ -2055,7 +2105,9 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SuppressingTransformer":
         return SuppressingTransformer()
 
@@ -2066,7 +2118,10 @@ class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
         return "datasetProperties"
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[builder.Aspect],
     ) -> Optional[builder.Aspect]:
         return None
 
@@ -2087,8 +2142,8 @@ def test_supression_works():
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, dataset_mcp, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 2  # MCP will be dropped
@@ -2100,20 +2155,20 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
             models.SchemaMetadataClass(
                 schemaName="customer",  # not used
                 platform=builder.make_data_platform_urn(
-                    "hive"
+                    "hive",
                 ),  # important <- platform must be an urn
                 version=0,
                 # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
                 hash="",
                 # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
                 platformSchema=models.OtherSchemaClass(
-                    rawSchema="__insert raw schema here__"
+                    rawSchema="__insert raw schema here__",
                 ),
                 fields=[
                     models.SchemaFieldClass(
                         fieldPath="address",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
@@ -2121,7 +2176,7 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
                     models.SchemaFieldClass(
                         fieldPath="first_name",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
@@ -2129,14 +2184,14 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
                     models.SchemaFieldClass(
                         fieldPath="last_name",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
                     ),
                 ],
-            )
-        ]
+            ),
+        ],
     )
 
     transformer = PatternAddDatasetSchemaTerms.create(
@@ -2151,7 +2206,7 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
                         builder.make_term_urn("Name"),
                         builder.make_term_urn("LastName"),
                     ],
-                }
+                },
             },
         },
         PipelineContext(run_id="test-schema-terms"),
@@ -2162,8 +2217,8 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 2
@@ -2174,17 +2229,17 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
     assert schema_aspect.fields[0].glossaryTerms is None
     assert schema_aspect.fields[1].fieldPath == "first_name"
     assert schema_aspect.fields[1].glossaryTerms.terms[0].urn == builder.make_term_urn(
-        "Name"
+        "Name",
     )
     assert schema_aspect.fields[1].glossaryTerms.terms[1].urn == builder.make_term_urn(
-        "FirstName"
+        "FirstName",
     )
     assert schema_aspect.fields[2].fieldPath == "last_name"
     assert schema_aspect.fields[2].glossaryTerms.terms[0].urn == builder.make_term_urn(
-        "Name"
+        "Name",
     )
     assert schema_aspect.fields[2].glossaryTerms.terms[1].urn == builder.make_term_urn(
-        "LastName"
+        "LastName",
     )
 
 
@@ -2194,20 +2249,20 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
             models.SchemaMetadataClass(
                 schemaName="customer",  # not used
                 platform=builder.make_data_platform_urn(
-                    "hive"
+                    "hive",
                 ),  # important <- platform must be an urn
                 version=0,
                 # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
                 hash="",
                 # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
                 platformSchema=models.OtherSchemaClass(
-                    rawSchema="__insert raw schema here__"
+                    rawSchema="__insert raw schema here__",
                 ),
                 fields=[
                     models.SchemaFieldClass(
                         fieldPath="address",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
@@ -2215,7 +2270,7 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
                     models.SchemaFieldClass(
                         fieldPath="first_name",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
@@ -2223,14 +2278,14 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
                     models.SchemaFieldClass(
                         fieldPath="last_name",
                         type=models.SchemaFieldDataTypeClass(
-                            type=models.StringTypeClass()
+                            type=models.StringTypeClass(),
                         ),
                         nativeDataType="VARCHAR(100)",
                         # use this to provide the type of the field in the source system's vernacular
                     ),
                 ],
-            )
-        ]
+            ),
+        ],
     )
 
     transformer = PatternAddDatasetSchemaTags.create(
@@ -2245,7 +2300,7 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
                         builder.make_tag_urn("Name"),
                         builder.make_tag_urn("LastName"),
                     ],
-                }
+                },
             },
         },
         PipelineContext(run_id="test-schema-tags"),
@@ -2256,8 +2311,8 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
             [
                 RecordEnvelope(input, metadata={})
                 for input in [dataset_mce, EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 2
@@ -2268,17 +2323,17 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
     assert schema_aspect.fields[0].globalTags is None
     assert schema_aspect.fields[1].fieldPath == "first_name"
     assert schema_aspect.fields[1].globalTags.tags[0].tag == builder.make_tag_urn(
-        "Name"
+        "Name",
     )
     assert schema_aspect.fields[1].globalTags.tags[1].tag == builder.make_tag_urn(
-        "FirstName"
+        "FirstName",
     )
     assert schema_aspect.fields[2].fieldPath == "last_name"
     assert schema_aspect.fields[2].globalTags.tags[0].tag == builder.make_tag_urn(
-        "Name"
+        "Name",
     )
     assert schema_aspect.fields[2].globalTags.tags[1].tag == builder.make_tag_urn(
-        "LastName"
+        "LastName",
     )
 
 
@@ -2292,7 +2347,8 @@ def run_dataset_transformer_pipeline(
     if pipeline_context is None:
         pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     transformer: DatasetTransformer = cast(
-        DatasetTransformer, transformer_type.create(config, pipeline_context)
+        DatasetTransformer,
+        transformer_type.create(config, pipeline_context),
     )
 
     dataset: Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
@@ -2301,18 +2357,19 @@ def run_dataset_transformer_pipeline(
             proposedSnapshot=models.DatasetSnapshotClass(
                 urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
                 aspects=[],
-            )
+            ),
         )
     else:
         assert aspect
         dataset = make_generic_dataset_mcp(
-            aspect=aspect, aspect_name=transformer.aspect_name()
+            aspect=aspect,
+            aspect_name=transformer.aspect_name(),
         )
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset, EndOfStream()]]
-        )
+            [RecordEnvelope(input, metadata={}) for input in [dataset, EndOfStream()]],
+        ),
     )
     return outputs
 
@@ -2327,7 +2384,8 @@ def run_container_transformer_pipeline(
     if pipeline_context is None:
         pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     transformer: ContainerTransformer = cast(
-        ContainerTransformer, transformer_type.create(config, pipeline_context)
+        ContainerTransformer,
+        transformer_type.create(config, pipeline_context),
     )
 
     container: Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
@@ -2336,25 +2394,29 @@ def run_container_transformer_pipeline(
             proposedSnapshot=models.DatasetSnapshotClass(
                 urn="urn:li:container:6338f55439c7ae58243a62c4d6fbffde",
                 aspects=[],
-            )
+            ),
         )
     else:
         assert aspect
         container = make_generic_container_mcp(
-            aspect=aspect, aspect_name=transformer.aspect_name()
+            aspect=aspect,
+            aspect_name=transformer.aspect_name(),
         )
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [container, EndOfStream()]]
-        )
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [container, EndOfStream()]
+            ],
+        ),
     )
     return outputs
 
 
 def test_simple_add_dataset_domain_aspect_name(mock_datahub_graph_instance):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2367,7 +2429,7 @@ def test_simple_add_dataset_domain(mock_datahub_graph_instance):
     datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2395,7 +2457,7 @@ def test_simple_add_dataset_domain_mce_support(mock_datahub_graph_instance):
     datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2426,7 +2488,7 @@ def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph_instance)
     datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2487,7 +2549,10 @@ def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph_instan
 
 
 def test_simple_add_dataset_domain_semantics_patch(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2527,7 +2592,10 @@ def test_simple_add_dataset_domain_semantics_patch(
 
 
 def test_simple_add_dataset_domain_on_conflict_do_nothing(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2561,7 +2629,10 @@ def test_simple_add_dataset_domain_on_conflict_do_nothing(
 
 
 def test_simple_add_dataset_domain_on_conflict_do_nothing_no_conflict(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2603,12 +2674,13 @@ def test_simple_add_dataset_domain_on_conflict_do_nothing_no_conflict(
 
 def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph_instance):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
     transformer = PatternAddDatasetDomain.create(
-        {"domain_pattern": {"rules": {}}}, pipeline_context
+        {"domain_pattern": {"rules": {}}},
+        pipeline_context,
     )
     assert transformer.aspect_name() == models.DomainsClass.ASPECT_NAME
 
@@ -2619,7 +2691,7 @@ def test_pattern_add_dataset_domain_match(mock_datahub_graph_instance):
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2650,7 +2722,7 @@ def test_pattern_add_dataset_domain_no_match(mock_datahub_graph_instance):
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2681,7 +2753,7 @@ def test_pattern_add_dataset_domain_replace_existing_match(mock_datahub_graph_in
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2715,7 +2787,7 @@ def test_pattern_add_dataset_domain_replace_existing_no_match(
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -2778,7 +2850,10 @@ def test_pattern_add_dataset_domain_semantics_overwrite(mock_datahub_graph_insta
 
 
 def test_pattern_add_dataset_domain_semantics_patch(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2825,13 +2900,16 @@ def test_simple_dataset_ownership_transformer_semantics_patch(
     pipeline_context.graph = mock_datahub_graph_instance
 
     server_owner: str = builder.make_owner_urn(
-        "mohd@acryl.io", owner_type=builder.OwnerType.USER
+        "mohd@acryl.io",
+        owner_type=builder.OwnerType.USER,
     )
     owner1: str = builder.make_owner_urn(
-        "john@acryl.io", owner_type=builder.OwnerType.USER
+        "john@acryl.io",
+        owner_type=builder.OwnerType.USER,
     )
     owner2: str = builder.make_owner_urn(
-        "pedro@acryl.io", owner_type=builder.OwnerType.USER
+        "pedro@acryl.io",
+        owner_type=builder.OwnerType.USER,
     )
 
     # Return fake aspect to simulate server behaviour
@@ -2839,9 +2917,10 @@ def test_simple_dataset_ownership_transformer_semantics_patch(
         return models.OwnershipClass(
             owners=[
                 models.OwnerClass(
-                    owner=server_owner, type=models.OwnershipTypeClass.DATAOWNER
-                )
-            ]
+                    owner=server_owner,
+                    type=models.OwnershipTypeClass.DATAOWNER,
+                ),
+            ],
         )
 
     pipeline_context.graph.get_ownership = fake_ownership_class  # type: ignore
@@ -2850,8 +2929,11 @@ def test_simple_dataset_ownership_transformer_semantics_patch(
         transformer_type=SimpleAddDatasetOwnership,
         aspect=models.OwnershipClass(
             owners=[
-                models.OwnerClass(owner=owner1, type=models.OwnershipTypeClass.PRODUCER)
-            ]
+                models.OwnerClass(
+                    owner=owner1,
+                    type=models.OwnershipTypeClass.PRODUCER,
+                ),
+            ],
         ),
         config={
             "replace_existing": False,
@@ -2869,7 +2951,8 @@ def test_simple_dataset_ownership_transformer_semantics_patch(
     assert output[0].record.aspect is not None
     assert isinstance(output[0].record.aspect, models.OwnershipClass)
     transformed_aspect: models.OwnershipClass = cast(
-        models.OwnershipClass, output[0].record.aspect
+        models.OwnershipClass,
+        output[0].record.aspect,
     )
     assert len(transformed_aspect.owners) == 3
     owner_urns: List[str] = [
@@ -2895,25 +2978,28 @@ def test_pattern_container_and_dataset_domain_transformation(
         return models.BrowsePathsV2Class(
             path=[
                 models.BrowsePathEntryClass(
-                    id="container_1", urn="urn:li:container:container_1"
+                    id="container_1",
+                    urn="urn:li:container:container_1",
                 ),
                 models.BrowsePathEntryClass(
-                    id="container_2", urn="urn:li:container:container_2"
+                    id="container_2",
+                    urn="urn:li:container:container_2",
                 ),
-            ]
+            ],
         )
 
     pipeline_context = PipelineContext(
-        run_id="test_pattern_container_and_dataset_domain_transformation"
+        run_id="test_pattern_container_and_dataset_domain_transformation",
     )
     pipeline_context.graph = mock_datahub_graph_instance
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     with_domain_aspect = make_generic_dataset_mcp(
-        aspect=models.DomainsClass(domains=[datahub_domain]), aspect_name="domains"
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        aspect_name="domains",
     )
     no_domain_aspect = make_generic_dataset_mcp(
-        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
     )
 
     # Not a dataset, should be ignored
@@ -2925,9 +3011,9 @@ def test_pattern_container_and_dataset_domain_transformation(
                     name="User Deletions",
                     description="Constructs the fct_users_deleted from logging_events",
                     type=models.AzkabanJobTypeClass.SQL,
-                )
+                ),
             ],
-        )
+        ),
     )
 
     inputs = [
@@ -2944,7 +3030,7 @@ def test_pattern_container_and_dataset_domain_transformation(
                 "rules": {
                     ".*example1.*": [acryl_domain, server_domain],
                     ".*example2.*": [server_domain],
-                }
+                },
             },
             "is_container": True,  # Enable container domain handling
         },
@@ -2952,7 +3038,7 @@ def test_pattern_container_and_dataset_domain_transformation(
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert (
@@ -3002,16 +3088,17 @@ def test_pattern_container_and_dataset_domain_transformation_with_no_container(
         return None
 
     pipeline_context = PipelineContext(
-        run_id="test_pattern_container_and_dataset_domain_transformation_with_no_container"
+        run_id="test_pattern_container_and_dataset_domain_transformation_with_no_container",
     )
     pipeline_context.graph = mock_datahub_graph_instance
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     with_domain_aspect = make_generic_dataset_mcp(
-        aspect=models.DomainsClass(domains=[datahub_domain]), aspect_name="domains"
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        aspect_name="domains",
     )
     no_domain_aspect = make_generic_dataset_mcp(
-        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)"
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
     )
 
     inputs = [
@@ -3027,7 +3114,7 @@ def test_pattern_container_and_dataset_domain_transformation_with_no_container(
                 "rules": {
                     ".*example1.*": [acryl_domain, server_domain],
                     ".*example2.*": [server_domain],
-                }
+                },
             },
             "is_container": True,  # Enable container domain handling
         },
@@ -3035,7 +3122,7 @@ def test_pattern_container_and_dataset_domain_transformation_with_no_container(
     )
 
     outputs = list(
-        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
+        transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs]),
     )
 
     assert len(outputs) == len(inputs) + 1
@@ -3060,7 +3147,7 @@ def test_pattern_add_container_dataset_domain_no_match(mock_datahub_graph_instan
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_simple_add_dataset_domain"
+        run_id="test_simple_add_dataset_domain",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -3072,9 +3159,10 @@ def test_pattern_add_container_dataset_domain_no_match(mock_datahub_graph_instan
         return models.BrowsePathsV2Class(
             path=[
                 models.BrowsePathEntryClass(
-                    id="container_1", urn="urn:li:container:container_1"
-                )
-            ]
+                    id="container_1",
+                    urn="urn:li:container:container_1",
+                ),
+            ],
         )
 
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
@@ -3112,14 +3200,14 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
         return models.SchemaMetadataClass(
             schemaName="customer",  # not used
             platform=builder.make_data_platform_urn(
-                "hive"
+                "hive",
             ),  # important <- platform must be an urn
             version=0,
             # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
             hash="",
             # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -3127,8 +3215,8 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                     glossaryTerms=models.GlossaryTermsClass(
                         terms=[
                             models.GlossaryTermAssociationClass(
-                                urn=builder.make_term_urn("pii")
-                            )
+                                urn=builder.make_term_urn("pii"),
+                            ),
                         ],
                         auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
@@ -3141,8 +3229,8 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                     glossaryTerms=models.GlossaryTermsClass(
                         terms=[
                             models.GlossaryTermAssociationClass(
-                                urn=builder.make_term_urn("pii")
-                            )
+                                urn=builder.make_term_urn("pii"),
+                            ),
                         ],
                         auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
@@ -3170,20 +3258,20 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                         builder.make_term_urn("Name"),
                         builder.make_term_urn("LastName"),
                     ],
-                }
+                },
             },
         },
         aspect=models.SchemaMetadataClass(
             schemaName="customer",  # not used
             platform=builder.make_data_platform_urn(
-                "hive"
+                "hive",
             ),  # important <- platform must be an urn
             version=0,
             # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
             hash="",
             # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -3212,10 +3300,12 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
 
 
 def test_pattern_dataset_schema_terms_transformation_patch(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
-        TransformerSemantics.PATCH, mock_datahub_graph_instance
+        TransformerSemantics.PATCH,
+        mock_datahub_graph_instance,
     )
     assert len(output) == 2
     # Check that glossary terms were added.
@@ -3245,10 +3335,12 @@ def test_pattern_dataset_schema_terms_transformation_patch(
 
 
 def test_pattern_dataset_schema_terms_transformation_overwrite(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
-        TransformerSemantics.OVERWRITE, mock_datahub_graph_instance
+        TransformerSemantics.OVERWRITE,
+        mock_datahub_graph_instance,
     )
 
     assert len(output) == 2
@@ -3290,21 +3382,21 @@ def run_pattern_dataset_schema_tags_transformation_semantics(
         return models.SchemaMetadataClass(
             schemaName="customer",  # not used
             platform=builder.make_data_platform_urn(
-                "hive"
+                "hive",
             ),  # important <- platform must be an urn
             version=0,
             # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
             hash="",
             # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
                     fieldPath="first_name",
                     globalTags=models.GlobalTagsClass(
                         tags=[
-                            models.TagAssociationClass(tag=builder.make_tag_urn("pii"))
+                            models.TagAssociationClass(tag=builder.make_tag_urn("pii")),
                         ],
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
@@ -3315,7 +3407,7 @@ def run_pattern_dataset_schema_tags_transformation_semantics(
                     fieldPath="mobile_number",
                     globalTags=models.GlobalTagsClass(
                         tags=[
-                            models.TagAssociationClass(tag=builder.make_tag_urn("pii"))
+                            models.TagAssociationClass(tag=builder.make_tag_urn("pii")),
                         ],
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
@@ -3342,20 +3434,20 @@ def run_pattern_dataset_schema_tags_transformation_semantics(
                         builder.make_tag_urn("Name"),
                         builder.make_tag_urn("LastName"),
                     ],
-                }
+                },
             },
         },
         aspect=models.SchemaMetadataClass(
             schemaName="customer",  # not used
             platform=builder.make_data_platform_urn(
-                "hive"
+                "hive",
             ),  # important <- platform must be an urn
             version=0,
             # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
             hash="",
             # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -3383,10 +3475,12 @@ def run_pattern_dataset_schema_tags_transformation_semantics(
 
 
 def test_pattern_dataset_schema_tags_transformation_overwrite(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
-        TransformerSemantics.OVERWRITE, mock_datahub_graph_instance
+        TransformerSemantics.OVERWRITE,
+        mock_datahub_graph_instance,
     )
 
     assert len(output) == 2
@@ -3417,10 +3511,12 @@ def test_pattern_dataset_schema_tags_transformation_overwrite(
 
 
 def test_pattern_dataset_schema_tags_transformation_patch(
-    mock_time, mock_datahub_graph_instance
+    mock_time,
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
-        TransformerSemantics.PATCH, mock_datahub_graph_instance
+        TransformerSemantics.PATCH,
+        mock_datahub_graph_instance,
     )
 
     assert len(output) == 2
@@ -3455,15 +3551,18 @@ def test_simple_dataset_data_product_transformation(mock_time):
         {
             "dataset_to_data_product_urns": {
                 builder.make_dataset_urn(
-                    "bigquery", "example1"
+                    "bigquery",
+                    "example1",
                 ): "urn:li:dataProduct:first",
                 builder.make_dataset_urn(
-                    "bigquery", "example2"
+                    "bigquery",
+                    "example2",
                 ): "urn:li:dataProduct:second",
                 builder.make_dataset_urn(
-                    "bigquery", "example3"
+                    "bigquery",
+                    "example3",
                 ): "urn:li:dataProduct:first",
-            }
+            },
         },
         PipelineContext(run_id="test-dataproduct"),
     )
@@ -3474,18 +3573,18 @@ def test_simple_dataset_data_product_transformation(mock_time):
                 RecordEnvelope(input, metadata={})
                 for input in [
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example1")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example1"),
                     ),
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example2")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example2"),
                     ),
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example3")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example3"),
                     ),
                     EndOfStream(),
                 ]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 6
@@ -3495,7 +3594,7 @@ def test_simple_dataset_data_product_transformation(mock_time):
     assert outputs[3].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
-        outputs[3].record.aspect.value.decode("utf-8")
+        outputs[3].record.aspect.value.decode("utf-8"),
     )
     assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
         builder.make_dataset_urn("bigquery", "example1"),
@@ -3503,10 +3602,10 @@ def test_simple_dataset_data_product_transformation(mock_time):
     ]
 
     second_data_product_aspect = json.loads(
-        outputs[4].record.aspect.value.decode("utf-8")
+        outputs[4].record.aspect.value.decode("utf-8"),
     )
     assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
-        builder.make_dataset_urn("bigquery", "example2")
+        builder.make_dataset_urn("bigquery", "example2"),
     ]
 
     assert isinstance(outputs[5].record, EndOfStream)
@@ -3519,7 +3618,7 @@ def test_pattern_dataset_data_product_transformation(mock_time):
                 "rules": {
                     ".*example1.*": "urn:li:dataProduct:first",
                     ".*": "urn:li:dataProduct:second",
-                }
+                },
             },
         },
         PipelineContext(run_id="test-dataproducts"),
@@ -3531,18 +3630,18 @@ def test_pattern_dataset_data_product_transformation(mock_time):
                 RecordEnvelope(input, metadata={})
                 for input in [
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example1")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example1"),
                     ),
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example2")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example2"),
                     ),
                     make_generic_dataset(
-                        entity_urn=builder.make_dataset_urn("bigquery", "example3")
+                        entity_urn=builder.make_dataset_urn("bigquery", "example3"),
                     ),
                     EndOfStream(),
                 ]
-            ]
-        )
+            ],
+        ),
     )
 
     assert len(outputs) == 6
@@ -3552,14 +3651,14 @@ def test_pattern_dataset_data_product_transformation(mock_time):
     assert outputs[3].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
-        outputs[3].record.aspect.value.decode("utf-8")
+        outputs[3].record.aspect.value.decode("utf-8"),
     )
     assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
-        builder.make_dataset_urn("bigquery", "example1")
+        builder.make_dataset_urn("bigquery", "example1"),
     ]
 
     second_data_product_aspect = json.loads(
-        outputs[4].record.aspect.value.decode("utf-8")
+        outputs[4].record.aspect.value.decode("utf-8"),
     )
     assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
         builder.make_dataset_urn("bigquery", "example2"),
@@ -3571,7 +3670,7 @@ def test_pattern_dataset_data_product_transformation(mock_time):
 
 def dummy_data_product_resolver_method(dataset_urn):
     dataset_to_data_product_map = {
-        builder.make_dataset_urn("bigquery", "example1"): "urn:li:dataProduct:first"
+        builder.make_dataset_urn("bigquery", "example1"): "urn:li:dataProduct:first",
     }
     return dataset_to_data_product_map.get(dataset_urn)
 
@@ -3579,7 +3678,7 @@ def dummy_data_product_resolver_method(dataset_urn):
 def test_add_dataset_data_product_transformation():
     transformer = AddDatasetDataProduct.create(
         {
-            "get_data_product_to_add": "tests.unit.test_transform_dataset.dummy_data_product_resolver_method"
+            "get_data_product_to_add": "tests.unit.test_transform_dataset.dummy_data_product_resolver_method",
         },
         PipelineContext(run_id="test-dataproduct"),
     )
@@ -3588,18 +3687,18 @@ def test_add_dataset_data_product_transformation():
             [
                 RecordEnvelope(input, metadata={})
                 for input in [make_generic_dataset(), EndOfStream()]
-            ]
-        )
+            ],
+        ),
     )
     # Check new dataproduct entity should be there
     assert outputs[1].record.entityUrn == "urn:li:dataProduct:first"
     assert outputs[1].record.aspectName == "dataProductProperties"
 
     first_data_product_aspect = json.loads(
-        outputs[1].record.aspect.value.decode("utf-8")
+        outputs[1].record.aspect.value.decode("utf-8"),
     )
     assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
-        builder.make_dataset_urn("bigquery", "example1")
+        builder.make_dataset_urn("bigquery", "example1"),
     ]
 
 
@@ -3615,7 +3714,7 @@ def _test_clean_owner_urns(
             owners=[
                 models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
                 for owner in in_owners
-            ]
+            ],
         )
 
     in_pipeline_context.graph.get_ownership = fake_ownership_class  # type: ignore
@@ -3626,7 +3725,7 @@ def _test_clean_owner_urns(
             owners=[
                 models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
                 for owner in in_owners
-            ]
+            ],
         ),
         config={"pattern_for_cleanup": config},
         pipeline_context=in_pipeline_context,
@@ -3660,7 +3759,7 @@ def test_clean_owner_urn_transformation_remove_fixed_string(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove 'ABCDEF:'
@@ -3677,7 +3776,7 @@ def test_clean_owner_urn_transformation_remove_fixed_string(
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3701,7 +3800,7 @@ def test_clean_owner_urn_transformation_remove_multiple_values(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove multiple values
@@ -3718,7 +3817,7 @@ def test_clean_owner_urn_transformation_remove_multiple_values(
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3742,7 +3841,7 @@ def test_clean_owner_urn_transformation_remove_values_using_regex(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove words after `_` using RegEx i.e. `id`, `test`
@@ -3759,7 +3858,7 @@ def test_clean_owner_urn_transformation_remove_values_using_regex(
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3781,7 +3880,7 @@ def test_clean_owner_urn_transformation_remove_digits(mock_datahub_graph_instanc
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove digits
@@ -3798,7 +3897,7 @@ def test_clean_owner_urn_transformation_remove_digits(mock_datahub_graph_instanc
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3820,7 +3919,7 @@ def test_clean_owner_urn_transformation_remove_pattern(mock_datahub_graph_instan
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove `example.*`
@@ -3837,7 +3936,7 @@ def test_clean_owner_urn_transformation_remove_pattern(mock_datahub_graph_instan
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3862,7 +3961,7 @@ def test_clean_owner_urn_transformation_remove_word_in_capital_letters(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # if string between `:` and `@` is in CAPITAL then remove it
@@ -3880,7 +3979,7 @@ def test_clean_owner_urn_transformation_remove_word_in_capital_letters(
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3904,7 +4003,7 @@ def test_clean_owner_urn_transformation_remove_pattern_with_alphanumeric_value(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # remove any pattern having `id` followed by any digits
@@ -3921,7 +4020,7 @@ def test_clean_owner_urn_transformation_remove_pattern_with_alphanumeric_value(
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
@@ -3945,7 +4044,7 @@ def test_clean_owner_urn_transformation_should_not_remove_system_identifier(
     in_owner_urns: List[str] = []
     for user in user_emails:
         in_owner_urns.append(
-            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER),
         )
 
     # should not remove system identifier
@@ -3958,7 +4057,7 @@ def test_replace_external_url_word_replace(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url"
+        run_id="test_replace_external_url",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -3985,7 +4084,7 @@ def test_replace_external_regex_replace_1(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url"
+        run_id="test_replace_external_url",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4012,7 +4111,7 @@ def test_replace_external_regex_replace_2(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url"
+        run_id="test_replace_external_url",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4039,7 +4138,7 @@ def test_pattern_cleanup_usage_statistics_user_1(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_pattern_cleanup_usage_statistics_user"
+        run_id="test_pattern_cleanup_usage_statistics_user",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4093,7 +4192,7 @@ def test_pattern_cleanup_usage_statistics_user_2(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_pattern_cleanup_usage_statistics_user"
+        run_id="test_pattern_cleanup_usage_statistics_user",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4147,7 +4246,7 @@ def test_pattern_cleanup_usage_statistics_user_3(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_pattern_cleanup_usage_statistics_user"
+        run_id="test_pattern_cleanup_usage_statistics_user",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4303,7 +4402,7 @@ def test_domain_mapping_based__r_on_tags_with_multiple_tags(
     # Return fake aspect to simulate server behaviour
     def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
         return models.GlobalTagsClass(
-            tags=[TagAssociationClass(tag=tag_one), TagAssociationClass(tag=tag_two)]
+            tags=[TagAssociationClass(tag=tag_one), TagAssociationClass(tag=tag_two)],
         )
 
     # Return fake aspect to simulate server behaviour
@@ -4401,7 +4500,7 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
             tags=[
                 TagAssociationClass(tag=builder.make_tag_urn("example1")),
                 TagAssociationClass(tag=builder.make_tag_urn("example2")),
-            ]
+            ],
         )
 
     # fake the server response
@@ -4409,14 +4508,14 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
         return models.SchemaMetadataClass(
             schemaName="customer",  # not used
             platform=builder.make_data_platform_urn(
-                "hive"
+                "hive",
             ),  # important <- platform must be an urn
             version=0,
             # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
             hash="",
             # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
             platformSchema=models.OtherSchemaClass(
-                rawSchema="__insert raw schema here__"
+                rawSchema="__insert raw schema here__",
             ),
             fields=[
                 models.SchemaFieldClass(
@@ -4424,15 +4523,15 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
                     globalTags=models.GlobalTagsClass(
                         tags=[
                             models.TagAssociationClass(
-                                tag=builder.make_tag_urn("example2")
-                            )
+                                tag=builder.make_tag_urn("example2"),
+                            ),
                         ],
                     ),
                     glossaryTerms=models.GlossaryTermsClass(
                         terms=[
                             models.GlossaryTermAssociationClass(
-                                urn=builder.make_term_urn("pii")
-                            )
+                                urn=builder.make_term_urn("pii"),
+                            ),
                         ],
                         auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
@@ -4445,8 +4544,8 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
                     glossaryTerms=models.GlossaryTermsClass(
                         terms=[
                             models.GlossaryTermAssociationClass(
-                                urn=builder.make_term_urn("pii")
-                            )
+                                urn=builder.make_term_urn("pii"),
+                            ),
                         ],
                         auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
@@ -4470,7 +4569,7 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
         transformer_type=TagsToTermMapper,
         aspect=models.GlossaryTermsClass(
             terms=[
-                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii")),
             ],
             auditStamp=models.AuditStampClass._construct_with_defaults(),
         ),
@@ -4499,7 +4598,7 @@ def test_tags_to_terms_with_no_matching_terms(mock_datahub_graph_instance):
             tags=[
                 TagAssociationClass(tag=builder.make_tag_urn("nonMatchingTag1")),
                 TagAssociationClass(tag=builder.make_tag_urn("nonMatchingTag2")),
-            ]
+            ],
         )
 
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
@@ -4514,7 +4613,7 @@ def test_tags_to_terms_with_no_matching_terms(mock_datahub_graph_instance):
         transformer_type=TagsToTermMapper,
         aspect=models.GlossaryTermsClass(
             terms=[
-                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii")),
             ],
             auditStamp=models.AuditStampClass._construct_with_defaults(),
         ),
@@ -4545,7 +4644,7 @@ def test_tags_to_terms_with_missing_tags(mock_datahub_graph_instance):
         transformer_type=TagsToTermMapper,
         aspect=models.GlossaryTermsClass(
             terms=[
-                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii")),
             ],
             auditStamp=models.AuditStampClass._construct_with_defaults(),
         ),
@@ -4566,12 +4665,12 @@ def test_tags_to_terms_with_partial_match(mock_datahub_graph_instance):
         return models.GlobalTagsClass(
             tags=[
                 TagAssociationClass(
-                    tag=builder.make_tag_urn("example1")
+                    tag=builder.make_tag_urn("example1"),
                 ),  # Should match
                 TagAssociationClass(
-                    tag=builder.make_tag_urn("nonMatchingTag")
+                    tag=builder.make_tag_urn("nonMatchingTag"),
                 ),  # No match
-            ]
+            ],
         )
 
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
@@ -4585,7 +4684,7 @@ def test_tags_to_terms_with_partial_match(mock_datahub_graph_instance):
         transformer_type=TagsToTermMapper,
         aspect=models.GlossaryTermsClass(
             terms=[
-                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii")),
             ],
             auditStamp=models.AuditStampClass._construct_with_defaults(),
         ),
@@ -4605,7 +4704,7 @@ def test_replace_external_url_container_word_replace(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url_container"
+        run_id="test_replace_external_url_container",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4633,7 +4732,7 @@ def test_replace_external_regex_container_replace_1(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url_container"
+        run_id="test_replace_external_url_container",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -4661,7 +4760,7 @@ def test_replace_external_regex_container_replace_2(
     mock_datahub_graph_instance,
 ):
     pipeline_context: PipelineContext = PipelineContext(
-        run_id="test_replace_external_url_container"
+        run_id="test_replace_external_url_container",
     )
     pipeline_context.graph = mock_datahub_graph_instance
 

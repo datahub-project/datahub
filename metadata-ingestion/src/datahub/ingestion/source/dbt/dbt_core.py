@@ -43,11 +43,11 @@ logger = logging.getLogger(__name__)
 class DBTCoreConfig(DBTCommonConfig):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note "
-        "this can be a local file or a URI."
+        "this can be a local file or a URI.",
     )
     catalog_path: str = Field(
         description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this "
-        "can be a local file or a URI."
+        "can be a local file or a URI.",
     )
     sources_path: Optional[str] = Field(
         default=None,
@@ -70,10 +70,14 @@ class DBTCoreConfig(DBTCommonConfig):
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
     _convert_test_results_path = pydantic_renamed_field(
-        "test_results_path", "run_results_paths", transform=lambda x: [x] if x else []
+        "test_results_path",
+        "run_results_paths",
+        transform=lambda x: [x] if x else [],
     )
     _convert_run_result_path_singular = pydantic_renamed_field(
-        "run_results_path", "run_results_paths", transform=lambda x: [x] if x else []
+        "run_results_path",
+        "run_results_paths",
+        transform=lambda x: [x] if x else [],
     )
 
     aws_connection: Optional[AwsConnectionConfig] = Field(
@@ -90,7 +94,10 @@ class DBTCoreConfig(DBTCommonConfig):
 
     @validator("aws_connection", always=True)
     def aws_connection_needed_if_s3_uris_present(
-        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
+        cls,
+        aws_connection: Optional[AwsConnectionConfig],
+        values: Dict,
+        **kwargs: Any,
     ) -> Optional[AwsConnectionConfig]:
         # first check if there are fields that contain s3 uris
         uris = [
@@ -105,7 +112,7 @@ class DBTCoreConfig(DBTCommonConfig):
 
         if s3_uris and aws_connection is None:
             raise ValueError(
-                f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
+                f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}",
             )
         return aws_connection
 
@@ -138,7 +145,8 @@ def get_columns(
     columns = []
     for key, catalog_column in catalog_columns.items():
         manifest_column = manifest_columns.get(
-            key, manifest_columns_lower.get(key.lower(), {})
+            key,
+            manifest_columns_lower.get(key.lower(), {}),
         )
 
         meta = manifest_column.get("meta", {})
@@ -190,7 +198,7 @@ def extract_dbt_entities(
         comment = ""
 
         if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
-            "comment"
+            "comment",
         ):
             comment = all_catalog_entities[key]["metadata"]["comment"]
 
@@ -277,10 +285,12 @@ def extract_dbt_entities(
             comment=comment,
             description=manifest_node.get("description", ""),
             raw_code=manifest_node.get(
-                "raw_code", manifest_node.get("raw_sql")
+                "raw_code",
+                manifest_node.get("raw_sql"),
             ),  # Backward compatibility dbt <=v1.2
             language=manifest_node.get(
-                "language", "sql"
+                "language",
+                "sql",
             ),  # Backward compatibility dbt <=v1.2
             upstream_nodes=upstream_nodes,
             materialization=materialization,
@@ -291,7 +301,8 @@ def extract_dbt_entities(
             tags=tags,
             owner=owner,
             compiled_code=manifest_node.get(
-                "compiled_code", manifest_node.get("compiled_sql")
+                "compiled_code",
+                manifest_node.get("compiled_sql"),
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
         )
@@ -410,7 +421,7 @@ def load_run_results(
     if test_results_json.get("args", {}).get("which") == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
-            "instead of a build/run/test command. Skipping this file."
+            "instead of a build/run/test command. Skipping this file.",
         )
         return all_nodes
 
@@ -470,21 +481,25 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path, source_config.aws_connection
+                source_config.manifest_path,
+                source_config.aws_connection,
             )
             DBTCoreSource.load_file_as_json(
-                source_config.catalog_path, source_config.aws_connection
+                source_config.catalog_path,
+                source_config.aws_connection,
             )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
     @staticmethod
     def load_file_as_json(
-        uri: str, aws_connection: Optional[AwsConnectionConfig]
+        uri: str,
+        aws_connection: Optional[AwsConnectionConfig],
     ) -> Dict:
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
@@ -492,7 +507,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             u = urlparse(uri)
             assert aws_connection
             response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
+                Bucket=u.netloc,
+                Key=u.path.lstrip("/"),
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
@@ -510,16 +526,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Optional[str],
     ]:
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path, self.config.aws_connection
+            self.config.manifest_path,
+            self.config.aws_connection,
         )
 
         dbt_catalog_json = self.load_file_as_json(
-            self.config.catalog_path, self.config.aws_connection
+            self.config.catalog_path,
+            self.config.aws_connection,
         )
 
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path, self.config.aws_connection
+                self.config.sources_path,
+                self.config.aws_connection,
             )
             sources_results = dbt_sources_json["results"]
         else:

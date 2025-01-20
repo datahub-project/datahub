@@ -18,17 +18,17 @@ def test_sql_common_state() -> None:
     state2 = BaseSQLAlchemyCheckpointState()
 
     dataset_urns_diff = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
     )
     assert len(dataset_urns_diff) == 2 and sorted(dataset_urns_diff) == sorted(
         [
             test_table_urn,
             test_view_urn,
-        ]
+        ],
     )
 
     container_urns_diff = list(
-        state1.get_urns_not_in(type="container", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="container", other_checkpoint_state=state2),
     )
     assert (
         len(container_urns_diff) == 1 and container_urns_diff[0] == test_container_urn
@@ -42,7 +42,7 @@ def test_state_backward_compat() -> None:
             encoded_view_urns=["mysql||db1.v1||PROD"],
             encoded_container_urns=["1154d1da73a95376c9f33f47694cf1de"],
             encoded_assertion_urns=["815963e1332b46a203504ba46ebfab24"],
-        )
+        ),
     )
     assert state == BaseSQLAlchemyCheckpointState(
         urns=[
@@ -50,7 +50,7 @@ def test_state_backward_compat() -> None:
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",
             "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
             "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-        ]
+        ],
     )
 
 
@@ -62,7 +62,7 @@ def test_deduplication_and_order_preservation() -> None:
             "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
             "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",  # duplicate
-        ]
+        ],
     )
     assert len(state.urns) == 4
 

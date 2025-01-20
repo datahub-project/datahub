@@ -47,7 +47,8 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
     # TODO: Support cluster compute as well, for ge profiling
     warehouse_id: Optional[str] = Field(
-        default=None, description="SQL Warehouse id, for running profiling queries."
+        default=None,
+        description="SQL Warehouse id, for running profiling queries.",
     )
 
     pattern: AllowDenyPattern = Field(
@@ -62,7 +63,8 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None,
+        description="Delta-lake paltform instance name",
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -72,7 +74,8 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
 
     # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
     enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
+        default=False,
+        description="Whether profiling should be done.",
     )
     operation_config: OperationConfig = Field(
         default_factory=OperationConfig,
@@ -126,7 +129,7 @@ class UnityCatalogSourceConfig(
 ):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
-        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
+        description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com",
     )
     warehouse_id: Optional[str] = pydantic.Field(
         default=None,
@@ -163,7 +166,7 @@ class UnityCatalogSourceConfig(
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
-        "only_ingest_assigned_metastore"
+        "only_ingest_assigned_metastore",
     )
 
     _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
@@ -229,7 +232,8 @@ class UnityCatalogSourceConfig(
     )
 
     _rename_table_ownership = pydantic_renamed_field(
-        "include_table_ownership", "include_ownership"
+        "include_table_ownership",
+        "include_ownership",
     )
 
     include_column_lineage: bool = pydantic.Field(
@@ -255,7 +259,8 @@ class UnityCatalogSourceConfig(
 
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
-        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+        UnityCatalogGEProfilerConfig,
+        UnityCatalogAnalyzeProfilerConfig,
     ] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
@@ -289,14 +294,15 @@ class UnityCatalogSourceConfig(
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Unity Catalog Stateful Ingestion Config."
+        default=None,
+        description="Unity Catalog Stateful Ingestion Config.",
     )
 
     @pydantic.validator("start_time")
@@ -309,7 +315,7 @@ class UnityCatalogSourceConfig(
     def workspace_url_should_start_with_http_scheme(cls, workspace_url: str) -> str:
         if not workspace_url.lower().startswith(("http://", "https://")):
             raise ValueError(
-                "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
+                "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com",
             )
         return workspace_url
 
@@ -340,12 +346,12 @@ class UnityCatalogSourceConfig(
             and values["warehouse_id"] != profiling.warehouse_id
         ):
             raise ValueError(
-                "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
+                "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`.",
             )
 
         if values.get("include_hive_metastore") and not values.get("warehouse_id"):
             raise ValueError(
-                "When `include_hive_metastore` is set, `warehouse_id` must be set."
+                "When `include_hive_metastore` is set, `warehouse_id` must be set.",
             )
 
         if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
@@ -358,7 +364,8 @@ class UnityCatalogSourceConfig(
 
     @pydantic.validator("schema_pattern", always=True)
     def schema_pattern_should__always_deny_information_schema(
-        cls, v: AllowDenyPattern
+        cls,
+        v: AllowDenyPattern,
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
         return v

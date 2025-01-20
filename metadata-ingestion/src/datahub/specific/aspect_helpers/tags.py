@@ -23,7 +23,10 @@ class HasTagsPatch(MetadataPatchProposal):
 
         # TODO: Make this support raw strings, in addition to Tag objects.
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
+            GlobalTags.ASPECT_NAME,
+            "add",
+            path=("tags", tag.tag),
+            value=tag,
         )
         return self
 

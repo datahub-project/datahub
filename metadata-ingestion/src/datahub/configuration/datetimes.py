@@ -89,7 +89,10 @@ class ClickDatetime(click.ParamType):
     name = "datetime"
 
     def convert(
-        self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]
+        self,
+        value: Any,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
     ) -> datetime:
         if isinstance(value, datetime):
             return value

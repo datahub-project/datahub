@@ -48,7 +48,8 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         Setup monkey-patched graph client.
         """
         self.patcher = patch(
-            "datahub.ingestion.graph.client.DataHubGraph", autospec=True
+            "datahub.ingestion.graph.client.DataHubGraph",
+            autospec=True,
         )
         self.addCleanup(self.patcher.stop)
         self.mock_graph = self.patcher.start()
@@ -56,18 +57,21 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         self.mock_graph.get_config.return_value = {"statefulIngestionCapable": True}
         # Bind mock_graph's emit_mcp to testcase's monkey_patch_emit_mcp so that we can emulate emits.
         self.mock_graph.emit_mcp = types.MethodType(
-            self.monkey_patch_emit_mcp, self.mock_graph
+            self.monkey_patch_emit_mcp,
+            self.mock_graph,
         )
         # Bind mock_graph's get_latest_timeseries_value to monkey_patch_get_latest_timeseries_value
         self.mock_graph.get_latest_timeseries_value = types.MethodType(
-            self.monkey_patch_get_latest_timeseries_value, self.mock_graph
+            self.monkey_patch_get_latest_timeseries_value,
+            self.mock_graph,
         )
         # Tracking for emitted mcps.
         self.mcps_emitted: Dict[str, MetadataChangeProposalWrapper] = {}
 
     def _create_providers(self) -> None:
         ctx: PipelineContext = PipelineContext(
-            run_id=self.run_id, pipeline_name=self.pipeline_name
+            run_id=self.run_id,
+            pipeline_name=self.pipeline_name,
         )
         ctx.graph = self.mock_graph
         self.providers: List[IngestionCheckpointingProviderBase] = [
@@ -79,7 +83,9 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         ]
 
     def monkey_patch_emit_mcp(
-        self, graph_ref: MagicMock, mcpw: MetadataChangeProposalWrapper
+        self,
+        graph_ref: MagicMock,
+        mcpw: MetadataChangeProposalWrapper,
     ) -> None:
         """
         Mockey patched implementation of DatahubGraph.emit_mcp that caches the mcp locally in memory.
@@ -132,7 +138,8 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
             )
             # Job2 - Checkpoint with a BaseTimeWindowCheckpointState state
             job2_state_obj = BaseTimeWindowCheckpointState(
-                begin_timestamp_millis=10, end_timestamp_millis=100
+                begin_timestamp_millis=10,
+                end_timestamp_millis=100,
             )
             job2_checkpoint = Checkpoint(
                 job_name=self.job_names[1],
@@ -145,10 +152,10 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
             provider.state_to_commit = {
                 # NOTE: state_to_commit accepts only the aspect version of the checkpoint.
                 self.job_names[0]: assert_not_null(
-                    job1_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
+                    job1_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20),
                 ),
                 self.job_names[1]: assert_not_null(
-                    job2_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
+                    job2_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20),
                 ),
             }
 
@@ -162,10 +169,12 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
             # 4. Get last committed state. This must match what has been committed earlier.
             # NOTE: This will retrieve the state form where it is committed.
             job1_last_state = provider.get_latest_checkpoint(
-                self.pipeline_name, self.job_names[0]
+                self.pipeline_name,
+                self.job_names[0],
             )
             job2_last_state = provider.get_latest_checkpoint(
-                self.pipeline_name, self.job_names[1]
+                self.pipeline_name,
+                self.job_names[1],
             )
 
             # 5. Validate individual job checkpoint state values that have been committed and retrieved
@@ -191,7 +200,8 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
         ctx.graph = self.mock_graph
         state_provider = StateProviderWrapper(
-            StatefulIngestionConfig(enabled=True), ctx
+            StatefulIngestionConfig(enabled=True),
+            ctx,
         )
         assert state_provider.stateful_ingestion_config
         assert state_provider.ingestion_checkpointing_state_provider
@@ -199,7 +209,8 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
         ctx.graph = self.mock_graph
         state_provider = StateProviderWrapper(
-            StatefulIngestionConfig(enabled=False), ctx
+            StatefulIngestionConfig(enabled=False),
+            ctx,
         )
         assert state_provider.stateful_ingestion_config
         assert not state_provider.ingestion_checkpointing_state_provider

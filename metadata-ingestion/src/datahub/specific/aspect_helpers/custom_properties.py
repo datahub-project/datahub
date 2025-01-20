@@ -31,7 +31,8 @@ class HasCustomPropertiesPatch(MetadataPatchProposal):
         return self
 
     def add_custom_properties(
-        self, custom_properties: Optional[Dict[str, str]] = None
+        self,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> Self:
         if custom_properties is not None:
             for key, value in custom_properties.items():

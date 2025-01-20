@@ -23,7 +23,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 
 def validate_all_providers_have_committed_successfully(
-    pipeline: Pipeline, expected_providers: int
+    pipeline: Pipeline,
+    expected_providers: int,
 ) -> None:
     """
     makes sure the pipeline includes the desired number of providers
@@ -62,17 +63,21 @@ def mock_datahub_graph():
             self.mock_graph.get_config.return_value = {"statefulIngestionCapable": True}
             # Bind mock_graph's emit_mcp to testcase's monkey_patch_emit_mcp so that we can emulate emits.
             self.mock_graph.emit_mcp = types.MethodType(
-                self.monkey_patch_emit_mcp, self.mock_graph
+                self.monkey_patch_emit_mcp,
+                self.mock_graph,
             )
             # Bind mock_graph's get_latest_timeseries_value to monkey_patch_get_latest_timeseries_value
             self.mock_graph.get_latest_timeseries_value = types.MethodType(
-                self.monkey_patch_get_latest_timeseries_value, self.mock_graph
+                self.monkey_patch_get_latest_timeseries_value,
+                self.mock_graph,
             )
             # Tracking for emitted mcps.
             self.mcps_emitted: Dict[str, MetadataChangeProposalWrapper] = {}
 
         def monkey_patch_emit_mcp(
-            self, graph_ref: MagicMock, mcpw: MetadataChangeProposalWrapper
+            self,
+            graph_ref: MagicMock,
+            mcpw: MetadataChangeProposalWrapper,
         ) -> None:
             """
             Mockey patched implementation of DatahubGraph.emit_mcp that caches the mcp locally in memory.
@@ -117,6 +122,6 @@ def get_current_checkpoint_from_pipeline(
     stateful_source = cast(StatefulIngestionSourceBase, pipeline.source)
     return stateful_source.state_provider.get_current_checkpoint(
         StaleEntityRemovalHandler.compute_job_id(
-            getattr(stateful_source, "platform", "default")
-        )
+            getattr(stateful_source, "platform", "default"),
+        ),
     )

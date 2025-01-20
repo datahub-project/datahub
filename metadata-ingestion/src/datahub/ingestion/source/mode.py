@@ -125,10 +125,12 @@ class ModeAPIConfig(ConfigModel):
         description="Multiplier for exponential backoff when waiting to retry",
     )
     max_retry_interval: Union[int, float] = Field(
-        default=10, description="Maximum interval to wait when retrying"
+        default=10,
+        description="Maximum interval to wait when retrying",
     )
     max_attempts: int = Field(
-        default=5, description="Maximum number of attempts to retry before failing"
+        default=5,
+        description="Maximum number of attempts to retry before failing",
     )
     timeout: int = Field(
         default=40,
@@ -140,20 +142,22 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
     connect_uri: str = Field(
-        default="https://app.mode.com", description="Mode host URL."
+        default="https://app.mode.com",
+        description="Mode host URL.",
     )
     token: str = Field(
-        description="When creating workspace API key this is the 'Key ID'."
+        description="When creating workspace API key this is the 'Key ID'.",
     )
     password: pydantic.SecretStr = Field(
-        description="When creating workspace API key this is the 'Secret'."
+        description="When creating workspace API key this is the 'Secret'.",
     )
     exclude_restricted: bool = Field(
-        default=False, description="Exclude restricted collections"
+        default=False,
+        description="Exclude restricted collections",
     )
 
     workspace: str = Field(
-        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+        description="The Mode workspace name. Find it in Settings > Workspace > Details.",
     )
     default_schema: str = Field(
         default="public",
@@ -168,7 +172,8 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     )
 
     owner_username_instead_of_email: Optional[bool] = Field(
-        default=True, description="Use username for owner URN instead of Email"
+        default=True,
+        description="Use username for owner URN instead of Email",
     )
     api_options: ModeAPIConfig = Field(
         default=ModeAPIConfig(),
@@ -176,13 +181,15 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     )
 
     ingest_embed_url: bool = Field(
-        default=True, description="Whether to Ingest embed URL for Reports"
+        default=True,
+        description="Whether to Ingest embed URL for Reports",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     tag_measures_and_dimensions: Optional[bool] = Field(
-        default=True, description="Tag measures and dimensions in the schema"
+        default=True,
+        description="Tag measures and dimensions in the schema",
     )
 
     @validator("connect_uri")
@@ -326,7 +333,7 @@ class ModeSource(StatefulIngestionSourceBase):
             {
                 "Content-Type": "application/json",
                 "Accept": "application/hal+json",
-            }
+            },
         )
 
         # Test the connection
@@ -356,7 +363,9 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_query(
-        self, space_token: str, report_info: dict
+        self,
+        space_token: str,
+        report_info: dict,
     ) -> List[BrowsePathEntryClass]:
         dashboard_urn = self._dashboard_urn(report_info)
         return [
@@ -365,7 +374,10 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_chart(
-        self, space_token: str, report_info: dict, query_info: dict
+        self,
+        space_token: str,
+        report_info: dict,
+        query_info: dict,
     ) -> List[BrowsePathEntryClass]:
         query_urn = self.get_dataset_urn_from_query(query_info)
         return [
@@ -388,7 +400,9 @@ class ModeSource(StatefulIngestionSourceBase):
         return last_refreshed_ts
 
     def construct_dashboard(
-        self, space_token: str, report_info: dict
+        self,
+        space_token: str,
+        report_info: dict,
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
         report_token = report_info.get("token", "")
         # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
@@ -419,12 +433,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Creator + created ts.
         creator = self._get_creator(
-            report_info.get("_links", {}).get("creator", {}).get("href", "")
+            report_info.get("_links", {}).get("creator", {}).get("href", ""),
         )
         if creator:
             creator_actor = builder.make_user_urn(creator)
             created_ts = int(
-                dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
+                dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000,
             )
             last_modified.created = AuditStamp(time=created_ts, actor=creator_actor)
 
@@ -437,7 +451,8 @@ class ModeSource(StatefulIngestionSourceBase):
         if last_modified_ts_str:
             modified_ts = int(dp.parse(last_modified_ts_str).timestamp() * 1000)
             last_modified.lastModified = AuditStamp(
-                time=modified_ts, actor="urn:li:corpuser:unknown"
+                time=modified_ts,
+                actor="urn:li:corpuser:unknown",
             )
 
         # Last refreshed ts.
@@ -447,7 +462,7 @@ class ModeSource(StatefulIngestionSourceBase):
         datasets = []
         for imported_dataset_name in report_info.get("imported_datasets", {}):
             mode_dataset = self._get_request_json(
-                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}",
             )
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -475,13 +490,13 @@ class ModeSource(StatefulIngestionSourceBase):
             paths=[
                 f"/mode/{self.config.workspace}/"
                 f"{space_name}/"
-                f"{title if title else report_info.get('id', '')}"
-            ]
+                f"{title if title else report_info.get('id', '')}",
+            ],
         )
         dashboard_snapshot.aspects.append(browse_path)
 
         browse_path_v2 = BrowsePathsV2Class(
-            path=self._browse_path_dashboard(space_token)
+            path=self._browse_path_dashboard(space_token),
         )
         browse_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
@@ -491,8 +506,8 @@ class ModeSource(StatefulIngestionSourceBase):
         # Ownership
         ownership = self._get_ownership(
             self._get_creator(
-                report_info.get("_links", {}).get("creator", {}).get("href", "")
-            )
+                report_info.get("_links", {}).get("creator", {}).get("href", ""),
+            ),
         )
         if ownership is not None:
             dashboard_snapshot.aspects.append(ownership)
@@ -508,8 +523,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     OwnerClass(
                         owner=owner_urn,
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
+                    ),
+                ],
             )
             return ownership
 
@@ -542,7 +557,8 @@ class ModeSource(StatefulIngestionSourceBase):
             for chart in charts:
                 logger.debug(f"Chart: {chart.get('token')}")
                 chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
+                    self.platform,
+                    chart.get("token", ""),
                 )
                 chart_urns.append(chart_urn)
 
@@ -555,7 +571,7 @@ class ModeSource(StatefulIngestionSourceBase):
             payload = self._get_request_json(f"{self.workspace_uri}/spaces?filter=all")
             spaces = payload.get("_embedded", {}).get("spaces", {})
             logger.debug(
-                f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
+                f"Got {len(spaces)} spaces from workspace {self.workspace_uri}",
             )
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
@@ -567,7 +583,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     s.get("restricted") or s.get("default_access_level") == "restricted"
                 ):
                     logging.debug(
-                        f"Skipping space {space_name} due to exclude restricted"
+                        f"Skipping space {space_name} due to exclude restricted",
                     )
                     continue
                 if not self.config.space_pattern.allowed(space_name):
@@ -627,7 +643,9 @@ class ModeSource(StatefulIngestionSourceBase):
         return chart_type
 
     def construct_chart_custom_properties(
-        self, chart_detail: dict, chart_type: str
+        self,
+        chart_detail: dict,
+        chart_type: str,
     ) -> Dict:
         custom_properties = {
             "ChartType": chart_type,
@@ -643,7 +661,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 {
                     "Columns": str_columns,
                     "Filters": filters[1:-1] if len(filters) else "",
-                }
+                },
             )
 
         elif chart_type == "pivotTable":
@@ -659,12 +677,12 @@ class ModeSource(StatefulIngestionSourceBase):
                     "Rows": ", ".join(rows) if len(rows) else "",
                     "Metrics": ", ".join(values) if len(values) else "",
                     "Filters": ", ".join(filters) if len(filters) else "",
-                }
+                },
             )
             # list filters in their own row
             for filter in filters:
                 custom_properties[f"Filter: {filter}"] = ", ".join(
-                    pivot_table.get("filterValues", {}).get(filter, "")
+                    pivot_table.get("filterValues", {}).get(filter, ""),
                 )
         # Chart
         else:
@@ -683,7 +701,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     "Y2": y2[0].get("formula", "") if len(y2) else "",
                     "Metrics": value[0].get("formula", "") if len(value) else "",
                     "Filters": filters[0].get("formula", "") if len(filters) else "",
-                }
+                },
             )
 
         return custom_properties
@@ -736,7 +754,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_platform_and_dbname(
-        self, data_source_id: int
+        self,
+        data_source_id: int,
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
         data_sources = self._get_data_sources()
 
@@ -751,7 +770,8 @@ class ModeSource(StatefulIngestionSourceBase):
         for data_source in data_sources:
             if data_source.get("id", -1) == data_source_id:
                 platform = self._get_datahub_friendly_platform(
-                    data_source.get("adapter", ""), data_source.get("name", "")
+                    data_source.get("adapter", ""),
+                    data_source.get("name", ""),
                 )
                 database = data_source.get("database", "")
                 # This is hacky but on bigquery we want to change the database if its default
@@ -772,17 +792,19 @@ class ModeSource(StatefulIngestionSourceBase):
         definitions = re.findall(r"({{(?:\s+)?@[^}{]+}})", raw_query)
         for definition_variable in definitions:
             definition_name, definition_alias = self._parse_definition_name(
-                definition_variable
+                definition_variable,
             )
             definition_query = self._get_definition(definition_name)
             # if unable to retrieve definition, then replace the {{}} so that it doesn't get picked up again in recursive call
             if definition_query is not None:
                 query = query.replace(
-                    definition_variable, f"({definition_query}) as {definition_alias}"
+                    definition_variable,
+                    f"({definition_query}) as {definition_alias}",
                 )
             else:
                 query = query.replace(
-                    definition_variable, f"{definition_name} as {definition_alias}"
+                    definition_variable,
+                    f"{definition_name} as {definition_alias}",
                 )
             query = self._replace_definitions(query)
             query = query.replace("\\n", "\n")
@@ -797,7 +819,8 @@ class ModeSource(StatefulIngestionSourceBase):
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
-            r"as\s+\S+\w+", definition_variable
+            r"as\s+\S+\w+",
+            definition_variable,
         )  # i.e ['as    alias_name']
         if len(alias_match):
             alias_match = alias_match[0].split(" ")
@@ -809,7 +832,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_definition(self, definition_name):
         try:
             definition_json = self._get_request_json(
-                f"{self.workspace_uri}/definitions"
+                f"{self.workspace_uri}/definitions",
             )
             definitions = definition_json.get("_embedded", {}).get("definitions", [])
             for definition in definitions:
@@ -980,9 +1003,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 [
                     BIAssetSubTypes.MODE_DATASET
                     if is_mode_dataset
-                    else BIAssetSubTypes.MODE_QUERY
+                    else BIAssetSubTypes.MODE_QUERY,
                 ]
-            )
+            ),
         )
         yield (
             MetadataChangeProposalWrapper(
@@ -996,7 +1019,7 @@ class ModeSource(StatefulIngestionSourceBase):
             aspect=BrowsePathsV2Class(
                 path=self._browse_path_dashboard(space_token)
                 if is_mode_dataset
-                else self._browse_path_query(space_token, report_info)
+                else self._browse_path_query(space_token, report_info),
             ),
         ).as_workunit()
 
@@ -1053,13 +1076,13 @@ class ModeSource(StatefulIngestionSourceBase):
             self.report.num_sql_parser_table_error += 1
             self.report.num_sql_parser_failures += 1
             logger.info(
-                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
+                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]",
             )
         elif parsed_query_object.debug_info.column_error:
             self.report.num_sql_parser_column_error += 1
             self.report.num_sql_parser_failures += 1
             logger.info(
-                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
+                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]",
             )
         else:
             self.report.num_sql_parser_success += 1
@@ -1085,13 +1108,15 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
         yield from self.get_upstream_lineage_for_parsed_sql(
-            query_urn, query_data, parsed_query_object
+            query_urn,
+            query_data,
+            parsed_query_object,
         )
 
         operation = OperationClass(
             operationType=OperationTypeClass.UPDATE,
             lastUpdatedTimestamp=int(
-                dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
+                dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000,
             ),
             timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         )
@@ -1102,17 +1127,17 @@ class ModeSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
         creator = self._get_creator(
-            query_data.get("_links", {}).get("creator", {}).get("href", "")
+            query_data.get("_links", {}).get("creator", {}).get("href", ""),
         )
         modified_actor = builder.make_user_urn(
-            creator if creator is not None else "unknown"
+            creator if creator is not None else "unknown",
         )
 
         created_ts = int(
-            dp.parse(query_data.get("created_at", "now")).timestamp() * 1000
+            dp.parse(query_data.get("created_at", "now")).timestamp() * 1000,
         )
         modified_ts = int(
-            dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
+            dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000,
         )
 
         query_instance_urn = self.get_query_instance_urn_from_query(query_data)
@@ -1134,18 +1159,21 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_upstream_lineage_for_parsed_sql(
-        self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
+        self,
+        query_urn: str,
+        query_data: dict,
+        parsed_query_object: SqlParsingResult,
     ) -> List[MetadataWorkUnit]:
         wu = []
 
         if parsed_query_object is None:
             logger.info(
-                f"Failed to extract column level lineage from datasource {query_urn}"
+                f"Failed to extract column level lineage from datasource {query_urn}",
             )
             return []
         if parsed_query_object.debug_info.error:
             logger.info(
-                f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.error}"
+                f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.error}",
             )
             return []
 
@@ -1181,7 +1209,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     downstreams=downstream,
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     upstreams=upstreams,
-                )
+                ),
             )
 
         upstream_lineage = UpstreamLineageClass(
@@ -1200,13 +1228,15 @@ class ModeSource(StatefulIngestionSourceBase):
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
                 aspect=upstream_lineage,
-            ).as_workunit()
+            ).as_workunit(),
         )
 
         return wu
 
     def get_formula_columns(
-        self, node: Dict, columns: Optional[Set[str]] = None
+        self,
+        node: Dict,
+        columns: Optional[Set[str]] = None,
     ) -> Set[str]:
         columns = columns if columns is not None else set()
         if isinstance(node, dict):
@@ -1273,15 +1303,15 @@ class ModeSource(StatefulIngestionSourceBase):
 
         last_modified = ChangeAuditStamps()
         creator = self._get_creator(
-            chart_data.get("_links", {}).get("creator", {}).get("href", "")
+            chart_data.get("_links", {}).get("creator", {}).get("href", ""),
         )
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
             created_ts = int(
-                dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
+                dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000,
             )
             modified_ts = int(
-                dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
+                dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000,
             )
             last_modified = ChangeAuditStamps(
                 created=AuditStamp(time=created_ts, actor=modified_actor),
@@ -1298,7 +1328,8 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         mode_chart_type = chart_detail.get("chartType", "") or chart_detail.get(
-            "selectedChart", ""
+            "selectedChart",
+            "",
         )
         chart_type = self._get_chart_type(chart_data.get("token", ""), mode_chart_type)
         description = (
@@ -1315,7 +1346,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # create datasource urn
         custom_properties = self.construct_chart_custom_properties(
-            chart_detail, mode_chart_type
+            chart_detail,
+            mode_chart_type,
         )
 
         query_urn = self.get_dataset_urn_from_query(query)
@@ -1369,8 +1401,8 @@ class ModeSource(StatefulIngestionSourceBase):
         # Ownership
         ownership = self._get_ownership(
             self._get_creator(
-                chart_data.get("_links", {}).get("creator", {}).get("href", "")
-            )
+                chart_data.get("_links", {}).get("creator", {}).get("href", ""),
+            ),
         )
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
@@ -1383,7 +1415,7 @@ class ModeSource(StatefulIngestionSourceBase):
         reports = []
         try:
             reports_json = self._get_request_json(
-                f"{self.workspace_uri}/spaces/{space_token}/reports"
+                f"{self.workspace_uri}/spaces/{space_token}/reports",
             )
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except ModeRequestError as e:
@@ -1417,7 +1449,7 @@ class ModeSource(StatefulIngestionSourceBase):
         queries = []
         try:
             queries_json = self._get_request_json(
-                f"{self.workspace_uri}/reports/{report_token}/queries"
+                f"{self.workspace_uri}/reports/{report_token}/queries",
             )
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except ModeRequestError as e:
@@ -1430,11 +1462,14 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_last_query_run(
-        self, report_token: str, report_run_id: str, query_run_id: str
+        self,
+        report_token: str,
+        report_run_id: str,
+        query_run_id: str,
     ) -> Dict:
         try:
             queries_json = self._get_request_json(
-                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs{query_run_id}"
+                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs{query_run_id}",
             )
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except ModeRequestError as e:
@@ -1452,7 +1487,7 @@ class ModeSource(StatefulIngestionSourceBase):
         try:
             charts_json = self._get_request_json(
                 f"{self.workspace_uri}/reports/{report_token}"
-                f"/queries/{query_token}/charts"
+                f"/queries/{query_token}/charts",
             )
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except ModeRequestError as e:
@@ -1479,7 +1514,8 @@ class ModeSource(StatefulIngestionSourceBase):
         def get_request():
             try:
                 response = self.session.get(
-                    url, timeout=self.config.api_options.timeout
+                    url,
+                    timeout=self.config.api_options.timeout,
                 )
                 if response.status_code == 204:  # No content, don't parse json
                     return {}
@@ -1499,7 +1535,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def create_embed_aspect_mcp(
-        entity_urn: str, embed_url: str
+        entity_urn: str,
+        embed_url: str,
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -1510,7 +1547,9 @@ class ModeSource(StatefulIngestionSourceBase):
         return SpaceKey(platform=self.platform, space_token=space_token)
 
     def construct_space_container(
-        self, space_token: str, space_name: str
+        self,
+        space_token: str,
+        space_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         key = self.gen_space_key(space_token)
         yield from gen_containers(
@@ -1535,10 +1574,11 @@ class ModeSource(StatefulIngestionSourceBase):
             reports = self._get_reports(space_token)
             for report in reports:
                 logger.debug(
-                    f"Report: name: {report.get('name')} token: {report.get('token')}"
+                    f"Report: name: {report.get('name')} token: {report.get('token')}",
                 )
                 dashboard_tuple_from_report = self.construct_dashboard(
-                    space_token=space_token, report_info=report
+                    space_token=space_token,
+                    report_info=report,
                 )
 
                 if dashboard_tuple_from_report is None:
@@ -1549,7 +1589,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 ) = dashboard_tuple_from_report
 
                 mce = MetadataChangeEvent(
-                    proposedSnapshot=dashboard_snapshot_from_report
+                    proposedSnapshot=dashboard_snapshot_from_report,
                 )
 
                 mcpw = MetadataChangeProposalWrapper(
@@ -1600,7 +1640,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
                         if isinstance(
-                            wu.metadata, MetadataChangeProposalWrapper
+                            wu.metadata,
+                            MetadataChangeProposalWrapper,
                         ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
                             schema_metadata = wu.metadata.aspect
                             for field in schema_metadata.fields:
@@ -1651,7 +1692,9 @@ class ModeSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 

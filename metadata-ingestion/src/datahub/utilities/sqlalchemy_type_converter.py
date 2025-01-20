@@ -46,11 +46,14 @@ class SqlAlchemyColumnToAvroConverter:
 
     @classmethod
     def get_avro_type(
-        cls, column_type: Union[types.TypeEngine, STRUCT, MapType], nullable: bool
+        cls,
+        column_type: Union[types.TypeEngine, STRUCT, MapType],
+        nullable: bool,
     ) -> Dict[str, Any]:
         """Determines the concrete AVRO schema type for a SQLalchemy-typed column"""
         if isinstance(
-            column_type, tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys())
+            column_type,
+            tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys()),
         ):
             return {
                 "type": cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE[type(column_type)],
@@ -95,17 +98,19 @@ class SqlAlchemyColumnToAvroConverter:
                 return {
                     "type": "map",
                     "values": cls.get_avro_type(
-                        column_type=value_type, nullable=nullable
+                        column_type=value_type,
+                        nullable=nullable,
                     ),
                     "native_data_type": str(column_type),
                     "key_type": cls.get_avro_type(
-                        column_type=key_type, nullable=nullable
+                        column_type=key_type,
+                        nullable=nullable,
                     ),
                     "key_native_data_type": str(key_type),
                 }
             except Exception as e:
                 logger.warning(
-                    f"Unable to parse MapType {column_type} the error was: {e}"
+                    f"Unable to parse MapType {column_type} the error was: {e}",
                 )
                 return {
                     "type": "map",
@@ -122,9 +127,10 @@ class SqlAlchemyColumnToAvroConverter:
                     {
                         "name": field_name,
                         "type": cls.get_avro_type(
-                            column_type=field_type, nullable=nullable
+                            column_type=field_type,
+                            nullable=nullable,
                         ),
-                    }
+                    },
                 )
             struct_name = f"__struct_{str(uuid.uuid4()).replace('-', '')}"
             try:
@@ -167,9 +173,10 @@ class SqlAlchemyColumnToAvroConverter:
                     {
                         "name": column_name,
                         "type": cls.get_avro_type(
-                            column_type=column_type, nullable=nullable
+                            column_type=column_type,
+                            nullable=nullable,
                         ),
-                    }
+                    },
                 ],
             }
         return cls.get_avro_type(column_type=column_type, nullable=nullable)
@@ -211,7 +218,7 @@ def get_schema_fields_for_sqlalchemy_column(
         )
     except Exception as e:
         logger.warning(
-            f"Unable to parse column {column_name} and type {column_type} the error was: {e} Traceback: {traceback.format_exc()}"
+            f"Unable to parse column {column_name} and type {column_type} the error was: {e} Traceback: {traceback.format_exc()}",
         )
 
         # fallback description in case any exception occurred
@@ -223,7 +230,7 @@ def get_schema_fields_for_sqlalchemy_column(
                     column_type,
                     inspector,
                 ),
-            )
+            ),
         ]
 
     # for all non-nested data types an additional modification of the `fieldPath` property is required
@@ -249,7 +256,8 @@ def get_schema_fields_for_sqlalchemy_column(
 
 
 def get_native_data_type_for_sqlalchemy_type(
-    column_type: types.TypeEngine, inspector: Inspector
+    column_type: types.TypeEngine,
+    inspector: Inspector,
 ) -> str:
     if isinstance(column_type, types.NullType):
         return column_type.__visit_name__
@@ -258,7 +266,7 @@ def get_native_data_type_for_sqlalchemy_type(
         return column_type.compile(dialect=inspector.dialect)
     except Exception as e:
         logger.debug(
-            f"Unable to compile sqlalchemy type {column_type} the error was: {e}"
+            f"Unable to compile sqlalchemy type {column_type} the error was: {e}",
         )
 
         if (

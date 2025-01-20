@@ -17,7 +17,8 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
     test_resources_dir = pytestconfig.rootpath / "tests/integration/remote"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "remote"
+        test_resources_dir / "docker-compose.yml",
+        "remote",
     ) as docker_services:
         wait_for_port(
             docker_services=docker_services,
@@ -45,7 +46,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
                         "filename": f"{tmp_path}/parsed_enriched_file.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -72,7 +73,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
                         "filename": f"{tmp_path}/remote_file_output.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -100,7 +101,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
                         "filename": f"{tmp_path}/parsed_lineage_output.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -127,7 +128,7 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
                         "filename": f"{tmp_path}/remote_glossary_output.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

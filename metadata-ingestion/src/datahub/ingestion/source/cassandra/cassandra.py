@@ -126,7 +126,9 @@ class CassandraSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -171,10 +173,11 @@ class CassandraSource(StatefulIngestionSourceBase):
             yield from self.profiler.get_workunits(self.cassandra_data)
 
     def _generate_keyspace_container(
-        self, keyspace: CassandraKeyspace
+        self,
+        keyspace: CassandraKeyspace,
     ) -> Iterable[MetadataWorkUnit]:
         keyspace_container_key = self._generate_keyspace_container_key(
-            keyspace.keyspace_name
+            keyspace.keyspace_name,
         )
         yield from gen_containers(
             container_key=keyspace_container_key,
@@ -197,7 +200,8 @@ class CassandraSource(StatefulIngestionSourceBase):
 
     # get all tables for a given keyspace, iterate over them to extract column metadata
     def _extract_tables_from_keyspace(
-        self, keyspace_name: str
+        self,
+        keyspace_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.cassandra_data.keyspaces.append(keyspace_name)
         tables: List[CassandraTable] = self.cassandra_api.get_tables(keyspace_name)
@@ -223,7 +227,9 @@ class CassandraSource(StatefulIngestionSourceBase):
             # 1. Extract columns from table, then construct and emit the schemaMetadata aspect.
             try:
                 yield from self._extract_columns_from_table(
-                    keyspace_name, table_name, dataset_urn
+                    keyspace_name,
+                    table_name,
+                    dataset_urn,
                 )
             except Exception as e:
                 self.report.failure(
@@ -242,7 +248,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(
                     typeNames=[
                         DatasetSubTypes.TABLE,
-                    ]
+                    ],
                 ),
             ).as_workunit()
 
@@ -259,7 +265,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         "compression": json.dumps(table.compression),
                         "crc_check_chance": str(table.crc_check_chance),
                         "dclocal_read_repair_chance": str(
-                            table.dclocal_read_repair_chance
+                            table.dclocal_read_repair_chance,
                         ),
                         "default_time_to_live": str(table.default_time_to_live),
                         "extensions": json.dumps(table.extensions),
@@ -267,7 +273,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         "max_index_interval": str(table.max_index_interval),
                         "min_index_interval": str(table.min_index_interval),
                         "memtable_flush_period_in_ms": str(
-                            table.memtable_flush_period_in_ms
+                            table.memtable_flush_period_in_ms,
                         ),
                         "read_repair_chance": str(table.read_repair_chance),
                         "speculative_retry": str(table.speculative_retry),
@@ -286,24 +292,30 @@ class CassandraSource(StatefulIngestionSourceBase):
                     aspect=DataPlatformInstanceClass(
                         platform=make_data_platform_urn(self.platform),
                         instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
+                            self.platform,
+                            self.config.platform_instance,
                         ),
                     ),
                 ).as_workunit()
 
     # get all columns for a given table, iterate over them to extract column metadata
     def _extract_columns_from_table(
-        self, keyspace_name: str, table_name: str, dataset_urn: str
+        self,
+        keyspace_name: str,
+        table_name: str,
+        dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         column_infos: List[CassandraColumn] = self.cassandra_api.get_columns(
-            keyspace_name, table_name
+            keyspace_name,
+            table_name,
         )
         schema_fields: List[SchemaField] = list(
-            CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
+            CassandraToSchemaFieldConverter.get_schema_fields(column_infos),
         )
         if not schema_fields:
             self.report.report_warning(
-                message="Table has no columns, skipping", context=table_name
+                message="Table has no columns, skipping",
+                context=table_name,
             )
             return
 
@@ -318,7 +330,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             version=0,
             hash="",
             platformSchema=OtherSchemaClass(
-                rawSchema=json.dumps(jsonable_column_infos)
+                rawSchema=json.dumps(jsonable_column_infos),
             ),
             fields=schema_fields,
         )
@@ -329,7 +341,8 @@ class CassandraSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def _extract_views_from_keyspace(
-        self, keyspace_name: str
+        self,
+        keyspace_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         views: List[CassandraView] = self.cassandra_api.get_views(keyspace_name)
         for view in views:
@@ -353,7 +366,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(
                     typeNames=[
                         DatasetSubTypes.VIEW,
-                    ]
+                    ],
                 ),
             ).as_workunit()
 
@@ -380,7 +393,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         "crc_check_chance": str(view.crc_check_chance),
                         "include_all_columns": str(view.include_all_columns),
                         "dclocal_read_repair_chance": str(
-                            view.dclocal_read_repair_chance
+                            view.dclocal_read_repair_chance,
                         ),
                         "default_time_to_live": str(view.default_time_to_live),
                         "extensions": json.dumps(view.extensions),
@@ -388,7 +401,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         "max_index_interval": str(view.max_index_interval),
                         "min_index_interval": str(view.min_index_interval),
                         "memtable_flush_period_in_ms": str(
-                            view.memtable_flush_period_in_ms
+                            view.memtable_flush_period_in_ms,
                         ),
                         "read_repair_chance": str(view.read_repair_chance),
                         "speculative_retry": str(view.speculative_retry),
@@ -398,7 +411,9 @@ class CassandraSource(StatefulIngestionSourceBase):
 
             try:
                 yield from self._extract_columns_from_table(
-                    keyspace_name, view_name, dataset_urn
+                    keyspace_name,
+                    view_name,
+                    dataset_urn,
                 )
             except Exception as e:
                 self.report.failure(
@@ -416,7 +431,9 @@ class CassandraSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
             fineGrainedLineages = self.get_upstream_fields_of_field_in_datasource(
-                view_name, dataset_urn, upstream_urn
+                view_name,
+                dataset_urn,
+                upstream_urn,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -425,7 +442,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         UpstreamClass(
                             dataset=upstream_urn,
                             type=DatasetLineageTypeClass.VIEW,
-                        )
+                        ),
                     ],
                     fineGrainedLineages=fineGrainedLineages,
                 ),
@@ -442,13 +459,17 @@ class CassandraSource(StatefulIngestionSourceBase):
                     aspect=DataPlatformInstanceClass(
                         platform=make_data_platform_urn(self.platform),
                         instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
+                            self.platform,
+                            self.config.platform_instance,
                         ),
                     ),
                 ).as_workunit()
 
     def get_upstream_fields_of_field_in_datasource(
-        self, table_name: str, dataset_urn: str, upstream_urn: str
+        self,
+        table_name: str,
+        dataset_urn: str,
+        upstream_urn: str,
     ) -> List[FineGrainedLineageClass]:
         column_infos = self.cassandra_data.columns.get(table_name, [])
         # Collect column-level lineage
@@ -462,7 +483,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                         downstreams=[make_schema_field_urn(dataset_urn, source_column)],
                         upstreams=[make_schema_field_urn(upstream_urn, source_column)],
-                    )
+                    ),
                 )
         return fine_grained_lineages
 

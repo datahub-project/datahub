@@ -18,7 +18,9 @@ def test_datahub_rest_emitter_construction() -> None:
 
 def test_datahub_rest_emitter_timeout_construction() -> None:
     emitter = DatahubRestEmitter(
-        MOCK_GMS_ENDPOINT, connect_timeout_sec=2, read_timeout_sec=4
+        MOCK_GMS_ENDPOINT,
+        connect_timeout_sec=2,
+        read_timeout_sec=4,
     )
     assert emitter._session_config.timeout == (2, 4)
 
@@ -40,7 +42,8 @@ def test_datahub_rest_emitter_retry_construction() -> None:
 
 def test_datahub_rest_emitter_extra_params() -> None:
     emitter = DatahubRestEmitter(
-        MOCK_GMS_ENDPOINT, extra_headers={"key1": "value1", "key2": "value2"}
+        MOCK_GMS_ENDPOINT,
+        extra_headers={"key1": "value1", "key2": "value2"},
     )
     assert emitter._session.headers.get("key1") == "value1"
     assert emitter._session.headers.get("key2") == "value2"

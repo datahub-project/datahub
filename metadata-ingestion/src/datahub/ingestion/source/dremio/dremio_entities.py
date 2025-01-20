@@ -173,7 +173,7 @@ class DremioQuery:
 
     def _get_queried_datasets(self, queried_datasets: str) -> List[str]:
         return list(
-            {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
+            {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")},
         )
 
     def _get_affected_tables(self) -> str:
@@ -237,7 +237,7 @@ class DremioDataset:
         if self.sql_definition:
             self.dataset_type = DremioDatasetType.VIEW
             self.default_schema = api_operations.get_context_for_vds(
-                resource_id=self.resource_id
+                resource_id=self.resource_id,
             )
         else:
             self.dataset_type = DremioDatasetType.TABLE
@@ -253,16 +253,16 @@ class DremioDataset:
             self.format_type = dataset_details.get("FORMAT_TYPE")
 
         self.description = api_operations.get_description_for_resource(
-            resource_id=self.resource_id
+            resource_id=self.resource_id,
         )
 
         glossary_terms = api_operations.get_tags_for_resource(
-            resource_id=self.resource_id
+            resource_id=self.resource_id,
         )
         if glossary_terms is not None:
             for glossary_term in glossary_terms:
                 self.glossary_terms.append(
-                    DremioGlossaryTerm(glossary_term=glossary_term)
+                    DremioGlossaryTerm(glossary_term=glossary_term),
                 )
 
         if self.sql_definition and api_operations.edition == DremioEdition.ENTERPRISE:
@@ -356,7 +356,7 @@ class DremioCatalog:
             containers.extend(self.sources)  # Add DremioSource elements
 
             for dataset_details in self.dremio_api.get_all_tables_and_columns(
-                containers=containers
+                containers=containers,
             ):
                 dremio_dataset = DremioDataset(
                     dataset_details=dataset_details,
@@ -388,7 +388,7 @@ class DremioCatalog:
                             dremio_source_type=container.get("source_type"),
                             root_path=container.get("root_path"),
                             database_name=container.get("database_name"),
-                        )
+                        ),
                     )
                 elif container_type == DremioEntityContainerType.SPACE:
                     self.spaces.append(
@@ -397,7 +397,7 @@ class DremioCatalog:
                             location_id=container.get("id"),
                             path=[],
                             api_operations=self.dremio_api,
-                        )
+                        ),
                     )
                 elif container_type == DremioEntityContainerType.FOLDER:
                     self.folders.append(
@@ -406,7 +406,7 @@ class DremioCatalog:
                             location_id=container.get("id"),
                             path=container.get("path"),
                             api_operations=self.dremio_api,
-                        )
+                        ),
                     )
                 else:
                     self.spaces.append(
@@ -415,7 +415,7 @@ class DremioCatalog:
                             location_id=container.get("id"),
                             path=[],
                             api_operations=self.dremio_api,
-                        )
+                        ),
                     )
 
         logging.info("Containers retrieved from source")
@@ -456,7 +456,7 @@ class DremioCatalog:
                     submitted_ts=query["submitted_ts"],
                     query=query["query"],
                     queried_datasets=query["queried_datasets"],
-                )
+                ),
             )
         self.queries_populated = True
         return self.queries

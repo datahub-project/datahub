@@ -30,7 +30,7 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = {
         "my.field": {
             "type": ["string", "null"],
             "description": "some.doc",
-        }
+        },
     },
 }
 
@@ -53,7 +53,8 @@ def assert_fields_are_valid(fields: Iterable[SchemaField]) -> None:
 
 
 def assert_field_paths_match(
-    fields: Iterable[SchemaField], expected_field_paths: Union[List[str], List[Dict]]
+    fields: Iterable[SchemaField],
+    expected_field_paths: Union[List[str], List[Dict]],
 ) -> None:
     log_field_paths(fields)
     assert len([f for f in fields]) == len(expected_field_paths)
@@ -94,7 +95,7 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
             "a_map_of_longs_field": {
                 "type": "object",
                 "additionalProperties": {"type": "integer"},
-            }
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
@@ -102,7 +103,7 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
         {
             "path": "[version=2.0].[type=R].[type=map].[type=integer].a_map_of_longs_field",
             "type": MapTypeClass,
-        }
+        },
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert_fields_are_valid(fields)
@@ -137,7 +138,7 @@ def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
     schema = {"type": "string"}
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths = [
-        {"path": "[version=2.0].[type=string]", "type": StringTypeClass}
+        {"path": "[version=2.0].[type=string]", "type": StringTypeClass},
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert_fields_are_valid(fields)
@@ -237,7 +238,7 @@ def test_json_schema_to_schema_fields_with_nesting_across_records():
                     "streetAddress": {"type": "string"},
                     "city": {"type": "string"},
                 },
-            }
+            },
         },
         "oneOf": [
             {"$ref": "#/definitions/Address"},
@@ -297,11 +298,11 @@ def test_simple_nested_record_with_a_string_field_for_key_schema():
                 "type": "object",
                 "title": "InnerRcd",
                 "properties": {"aStringField": {"type": "string"}},
-            }
+            },
         },
     }
     fields = list(
-        JsonSchemaTranslator.get_fields_from_schema(schema, is_key_schema=True)
+        JsonSchemaTranslator.get_fields_from_schema(schema, is_key_schema=True),
     )
     expected_field_paths: List[str] = [
         "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd].nestedRcd",
@@ -324,8 +325,8 @@ def test_union_with_nested_record_of_union():
                         "title": "Rcd",
                         "properties": {"aNullableStringField": {"type": "string"}},
                     },
-                ]
-            }
+                ],
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
@@ -371,7 +372,7 @@ def test_nested_arrays():
                         "properties": {"a": {"type": "integer"}},
                     },
                 },
-            }
+            },
         },
     }
 
@@ -402,13 +403,13 @@ def test_map_of_union_of_int_and_record_of_union():
                             "title": "Rcd",
                             "properties": {
                                 "aUnion": {
-                                    "oneOf": [{"type": "string"}, {"type": "integer"}]
-                                }
+                                    "oneOf": [{"type": "string"}, {"type": "integer"}],
+                                },
                             },
                         },
-                    ]
+                    ],
                 },
-            }
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
@@ -454,7 +455,7 @@ def test_recursive_json():
                     "anIntegerField": {"type": "integer"},
                     "aRecursiveField": {"$ref": "#/properties/r"},
                 },
-            }
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
@@ -498,8 +499,8 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
                             },
                         },
                     },
-                ]
-            }
+                ],
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
@@ -522,7 +523,7 @@ def test_datahub_json_schemas_parses_okay(tmp_path):
     """This is more like an integration test that helps us exercise the complexity in parsing and catch unexpected regressions."""
 
     json_path: Path = Path(os.path.dirname(__file__)) / Path(
-        "../../../../metadata-models/src/generatedJsonSchema/json/"
+        "../../../../metadata-models/src/generatedJsonSchema/json/",
     )
     pipeline = Pipeline.create(
         config_dict={
@@ -539,7 +540,7 @@ def test_datahub_json_schemas_parses_okay(tmp_path):
                     "filename": f"{tmp_path}/json_schema_test.json",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -575,12 +576,12 @@ def test_key_schema_handling():
                             },
                         },
                     },
-                ]
-            }
+                ],
+            },
         },
     }
     fields: List[SchemaField] = list(
-        JsonSchemaTranslator.get_fields_from_schema(schema, is_key_schema=True)
+        JsonSchemaTranslator.get_fields_from_schema(schema, is_key_schema=True),
     )
     expected_field_paths: List[str] = [
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].a",
@@ -606,7 +607,7 @@ def test_ignore_exceptions():
         "tags": ["business-timestamp"],
     }
     fields: List[SchemaField] = list(
-        JsonSchemaTranslator.get_fields_from_schema(malformed_schema)
+        JsonSchemaTranslator.get_fields_from_schema(malformed_schema),
     )
     assert not fields
 
@@ -870,7 +871,7 @@ def test_description_extraction():
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "XYZ",
-            }
+            },
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))

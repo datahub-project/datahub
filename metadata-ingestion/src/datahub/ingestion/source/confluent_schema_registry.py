@@ -46,7 +46,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     """
 
     def __init__(
-        self, source_config: KafkaSourceConfig, report: KafkaSourceReport
+        self,
+        source_config: KafkaSourceConfig,
+        report: KafkaSourceReport,
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
@@ -54,12 +56,12 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             {
                 "url": source_config.connection.schema_registry_url,
                 **source_config.connection.schema_registry_config,
-            }
+            },
         )
         self.known_schema_registry_subjects: List[str] = []
         try:
             self.known_schema_registry_subjects.extend(
-                self.schema_registry_client.get_subjects()
+                self.schema_registry_client.get_subjects(),
             )
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
@@ -74,7 +76,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
     @classmethod
     def create(
-        cls, source_config: KafkaSourceConfig, report: KafkaSourceReport
+        cls,
+        source_config: KafkaSourceConfig,
+        report: KafkaSourceReport,
     ) -> "ConfluentSchemaRegistry":
         return cls(source_config, report)
 
@@ -117,7 +121,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return json.dumps(json.loads(schema_str), separators=(",", ":"))
 
     def get_schema_str_replace_confluent_ref_avro(
-        self, schema: Schema, schema_seen: Optional[set] = None
+        self,
+        schema: Schema,
+        schema_seen: Optional[set] = None,
     ) -> str:
         if not schema.references:
             return self._compact_schema(schema.schema_str)
@@ -132,7 +138,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
             if ref_subject not in self.known_schema_registry_subjects:
                 logger.warning(
-                    f"{ref_subject} is not present in the list of registered subjects with schema registry!"
+                    f"{ref_subject} is not present in the list of registered subjects with schema registry!",
                 )
 
             reference_schema = self.schema_registry_client.get_latest_version(
@@ -140,7 +146,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             schema_seen.add(ref_subject)
             logger.debug(
-                f"ref for {ref_subject} is {reference_schema.schema.schema_str}"
+                f"ref for {ref_subject} is {reference_schema.schema.schema_str}",
             )
             # Replace only external type references with the reference schema recursively.
             # NOTE: The type pattern is dependent on _compact_schema.
@@ -153,11 +159,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 pattern_to_replace = f'{avro_type_kwd}:"{ref_subject}"'
                 if pattern_to_replace not in schema_str:
                     logger.warning(
-                        f"Not match for external schema type: {{name:{ref_name}, subject:{ref_subject}}} in schema:{schema_str}"
+                        f"Not match for external schema type: {{name:{ref_name}, subject:{ref_subject}}} in schema:{schema_str}",
                     )
                 else:
                     logger.debug(
-                        f"External schema matches by subject, {pattern_to_replace}"
+                        f"External schema matches by subject, {pattern_to_replace}",
                     )
             else:
                 logger.debug(f"External schema matches by name, {pattern_to_replace}")
@@ -168,7 +174,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return schema_str
 
     def get_schemas_from_confluent_ref_protobuf(
-        self, schema: Schema, schema_seen: Optional[Set[str]] = None
+        self,
+        schema: Schema,
+        schema_seen: Optional[Set[str]] = None,
     ) -> List[ProtobufSchema]:
         all_schemas: List[ProtobufSchema] = []
 
@@ -186,8 +194,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_seen.add(ref_subject)
             all_schemas.append(
                 ProtobufSchema(
-                    name=schema_ref.name, content=reference_schema.schema.schema_str
-                )
+                    name=schema_ref.name,
+                    content=reference_schema.schema.schema_str,
+                ),
             )
         return all_schemas
 
@@ -210,7 +219,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 continue
             reference_schema: RegisteredSchema = (
                 self.schema_registry_client.get_version(
-                    subject_name=ref_subject, version=schema_ref.version
+                    subject_name=ref_subject,
+                    version=schema_ref.version,
                 )
             )
             schema_seen.add(ref_subject)
@@ -220,7 +230,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     name=schema_ref.name,
                     subject=ref_subject,
                     schema_seen=schema_seen,
-                )
+                ),
             )
         all_schemas.append(
             JsonSchemaWrapper(
@@ -228,12 +238,15 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 subject=subject,
                 content=schema.schema_str,
                 references=schema.references,
-            )
+            ),
         )
         return all_schemas
 
     def _get_schema_and_fields(
-        self, topic: str, is_key_schema: bool, is_subject: bool
+        self,
+        topic: str,
+        is_key_schema: bool,
+        is_subject: bool,
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
         schema: Optional[Schema] = None
         kafka_entity = "subject" if is_subject else "topic"
@@ -244,18 +257,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         if not is_subject:
             schema_type_str = "key" if is_key_schema else "value"
             topic_subject = self._get_subject_for_topic(
-                topic=topic, is_key_schema=is_key_schema
+                topic=topic,
+                is_key_schema=is_key_schema,
             )
         else:
             topic_subject = topic
 
         if topic_subject is not None:
             logger.debug(
-                f"The {schema_type_str} schema subject:'{topic_subject}' is found for {kafka_entity}: '{topic}'."
+                f"The {schema_type_str} schema subject:'{topic_subject}' is found for {kafka_entity}: '{topic}'.",
             )
             try:
                 registered_schema = self.schema_registry_client.get_latest_version(
-                    subject_name=topic_subject
+                    subject_name=topic_subject,
                 )
                 schema = registered_schema.schema
             except Exception as e:
@@ -269,7 +283,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
         else:
             logger.debug(
-                f"For {kafka_entity}: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
+                f"For {kafka_entity}: {topic}, the schema registry subject for the {schema_type_str} schema is not found.",
             )
             if not is_key_schema:
                 # Value schema is always expected. Report a warning.
@@ -291,7 +305,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return (schema, fields)
 
     def _load_json_schema_with_resolved_references(
-        self, schema: Schema, name: str, subject: str
+        self,
+        schema: Schema,
+        name: str,
+        subject: str,
     ) -> dict:
         imported_json_schemas: List[JsonSchemaWrapper] = (
             self.get_schemas_from_confluent_ref_json(schema, name=name, subject=subject)
@@ -305,12 +322,16 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             reference_map[imported_schema.name] = reference_schema
 
         jsonref_schema = jsonref.loads(
-            json.dumps(schema_dict), loader=lambda x: reference_map.get(x)
+            json.dumps(schema_dict),
+            loader=lambda x: reference_map.get(x),
         )
         return jsonref_schema
 
     def _get_schema_fields(
-        self, topic: str, schema: Schema, is_key_schema: bool
+        self,
+        topic: str,
+        schema: Schema,
+        is_key_schema: bool,
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
@@ -360,8 +381,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             fields = list(
                 JsonSchemaTranslator.get_fields_from_schema(
-                    jsonref_schema, is_key_schema=is_key_schema
-                )
+                    jsonref_schema,
+                    is_key_schema=is_key_schema,
+                ),
             )
         elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.report_warning(
@@ -371,7 +393,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return fields
 
     def _get_schema_metadata(
-        self, topic: str, platform_urn: str, is_subject: bool
+        self,
+        topic: str,
+        platform_urn: str,
+        is_subject: bool,
     ) -> Optional[SchemaMetadata]:
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
@@ -411,7 +436,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return None
 
     def get_schema_metadata(
-        self, topic: str, platform_urn: str, is_subject: bool
+        self,
+        topic: str,
+        platform_urn: str,
+        is_subject: bool,
     ) -> Optional[SchemaMetadata]:
         logger.debug(f"Inside get_schema_metadata {topic} {platform_urn}")
 

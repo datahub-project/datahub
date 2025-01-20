@@ -42,7 +42,9 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
         return cls(config, ctx)
 
     def extend_field(
-        self, schema_field: SchemaFieldClass, server_field: Optional[SchemaFieldClass]
+        self,
+        schema_field: SchemaFieldClass,
+        server_field: Optional[SchemaFieldClass],
     ) -> SchemaFieldClass:
         all_tags = self.config.get_tags_to_add(schema_field.fieldPath)
         if len(all_tags) == 0:
@@ -79,11 +81,15 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
         return schema_field
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[builder.Aspect],
     ) -> Optional[builder.Aspect]:
         schema_metadata_aspect: SchemaMetadataClass = cast(SchemaMetadataClass, aspect)
         assert schema_metadata_aspect is None or isinstance(
-            schema_metadata_aspect, SchemaMetadataClass
+            schema_metadata_aspect,
+            SchemaMetadataClass,
         )
 
         server_field_map: dict = {}
@@ -140,7 +146,9 @@ class PatternAddDatasetSchemaTags(AddDatasetSchemaTags):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetSchemaTags":
         config = PatternDatasetTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)

@@ -21,7 +21,7 @@ pet_profiles_operation_sensor = DataHubOperationCircuitBreakerSensor(
     task_id="pet_profiles_operation_sensor",
     datahub_rest_conn_id="datahub_longtail",
     urn=[
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pet_profiles,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pet_profiles,PROD)",
     ],
     time_delta=datetime.timedelta(minutes=10),
 )

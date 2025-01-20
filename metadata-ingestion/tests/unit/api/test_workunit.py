@@ -18,7 +18,8 @@ from datahub.metadata.schema_classes import (
 def test_get_aspects_of_type_mcp():
     aspect = StatusClass(False)
     wu = MetadataChangeProposalWrapper(
-        entityUrn="urn:li:container:asdf", aspect=aspect
+        entityUrn="urn:li:container:asdf",
+        aspect=aspect,
     ).as_workunit()
     assert wu.get_aspect_of_type(StatusClass) == aspect
     assert wu.get_aspect_of_type(ContainerClass) is None
@@ -32,7 +33,7 @@ def test_get_aspects_of_type_mce():
         proposedSnapshot=DatasetSnapshotClass(
             urn="urn:li:dataset:asdf",
             aspects=[status_aspect, lineage_aspect, status_aspect_2],
-        )
+        ),
     )
     wu = MetadataWorkUnit(id="id", mce=mce)
     assert wu.get_aspect_of_type(StatusClass) == status_aspect_2

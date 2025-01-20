@@ -14,7 +14,7 @@ def test_source_close_cleans_tmp(snowflake_connect, tmp_path):
                     "account_id": "ABC12345.ap-south-1.aws",
                     "username": "TST_USR",
                     "password": "TST_PWD",
-                }
+                },
             },
             PipelineContext("run-id"),
         )

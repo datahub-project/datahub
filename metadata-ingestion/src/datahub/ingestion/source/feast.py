@@ -93,7 +93,8 @@ class FeastRepositorySourceConfig(ConfigModel):
         description="Path to the `feature_store.yaml` file used to configure the feature store",
     )
     environment: str = Field(
-        default=DEFAULT_ENV, description="Environment to use when constructing URNs"
+        default=DEFAULT_ENV,
+        description="Environment to use when constructing URNs",
     )
     # owner_mappings example:
     # This must be added to the recipe in order to extract owners, otherwise NO owners will be extracted
@@ -102,7 +103,8 @@ class FeastRepositorySourceConfig(ConfigModel):
     #     datahub_owner_urn: "urn:li:corpGroup:<owner>"
     #     datahub_ownership_type: "BUSINESS_OWNER"
     owner_mappings: Optional[List[Dict[str, str]]] = Field(
-        default=None, description="Mapping of owner names to owner types"
+        default=None,
+        description="Mapping of owner names to owner types",
     )
     enable_owner_extraction: bool = Field(
         default=False,
@@ -148,7 +150,9 @@ class FeastRepositorySource(Source):
         )
 
     def _get_field_type(
-        self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
+        self,
+        field_type: Union[ValueType, feast.types.FeastType],
+        parent_name: str,
     ) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
@@ -158,7 +162,8 @@ class FeastRepositorySource(Source):
 
         if ml_feature_data_type is None:
             self.report.report_warning(
-                parent_name, f"unable to map type {field_type} to metadata schema"
+                parent_name,
+                f"unable to map type {field_type} to metadata schema",
             )
 
             ml_feature_data_type = MLFeatureDataType.UNKNOWN
@@ -205,32 +210,34 @@ class FeastRepositorySource(Source):
 
         if feature_view.batch_source is not None:
             batch_source_platform, batch_source_name = self._get_data_source_details(
-                feature_view.batch_source
+                feature_view.batch_source,
             )
             sources.append(
                 builder.make_dataset_urn(
                     batch_source_platform,
                     batch_source_name,
                     self.source_config.environment,
-                )
+                ),
             )
 
         if feature_view.stream_source is not None:
             stream_source_platform, stream_source_name = self._get_data_source_details(
-                feature_view.stream_source
+                feature_view.stream_source,
             )
             sources.append(
                 builder.make_dataset_urn(
                     stream_source_platform,
                     stream_source_name,
                     self.source_config.environment,
-                )
+                ),
             )
 
         return sources
 
     def _get_entity_workunit(
-        self, feature_view: FeatureView, entity: Entity
+        self,
+        feature_view: FeatureView,
+        entity: Entity,
     ) -> MetadataWorkUnit:
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
@@ -253,7 +260,7 @@ class FeastRepositorySource(Source):
                 description=entity.description,
                 dataType=self._get_field_type(entity.value_type, entity.name),
                 sources=self._get_data_sources(feature_view),
-            )
+            ),
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
@@ -284,7 +291,7 @@ class FeastRepositorySource(Source):
             if feature_view.source_request_sources is not None:
                 for request_source in feature_view.source_request_sources.values():
                     source_platform, source_name = self._get_data_source_details(
-                        request_source
+                        request_source,
                     )
 
                     feature_sources.append(
@@ -292,7 +299,7 @@ class FeastRepositorySource(Source):
                             source_platform,
                             source_name,
                             self.source_config.environment,
-                        )
+                        ),
                     )
 
             if feature_view.source_feature_view_projections is not None:
@@ -300,7 +307,7 @@ class FeastRepositorySource(Source):
                     feature_view_projection
                 ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
-                        feature_view_projection.name
+                        feature_view_projection.name,
                     )
 
                     feature_sources.extend(self._get_data_sources(feature_view_source))
@@ -310,7 +317,7 @@ class FeastRepositorySource(Source):
                 description=field.tags.get("description"),
                 dataType=self._get_field_type(field.dtype, field.name),
                 sources=feature_sources,
-            )
+            ),
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
@@ -350,7 +357,7 @@ class FeastRepositorySource(Source):
                     builder.make_ml_primary_key_urn(feature_view_name, entity_name)
                     for entity_name in feature_view.entities
                 ],
-            )
+            ),
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_view_snapshot)
@@ -358,7 +365,8 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
-        self, on_demand_feature_view: OnDemandFeatureView
+        self,
+        on_demand_feature_view: OnDemandFeatureView,
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast on-demand feature view.
@@ -386,7 +394,7 @@ class FeastRepositorySource(Source):
                     for feature in on_demand_feature_view.features
                 ],
                 mlPrimaryKeys=[],
-            )
+            ),
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=on_demand_feature_view_snapshot)
@@ -406,7 +414,7 @@ class FeastRepositorySource(Source):
             if obj.tags.get("name"):
                 tag_name: str = obj.tags["name"]
                 tag_association = TagAssociationClass(
-                    tag=builder.make_tag_urn(tag_name)
+                    tag=builder.make_tag_urn(tag_name),
                 )
                 global_tags_aspect = GlobalTagsClass(tags=[tag_association])
                 aspects.append(global_tags_aspect)
@@ -441,7 +449,8 @@ class FeastRepositorySource(Source):
             for mapping in self.source_config.owner_mappings:
                 if mapping["feast_owner_name"] == owner:
                     ownership_type_class: str = mapping.get(
-                        "datahub_ownership_type", "TECHNICAL_OWNER"
+                        "datahub_ownership_type",
+                        "TECHNICAL_OWNER",
                     )
                     datahub_owner_urn = mapping.get("datahub_owner_urn")
                     if datahub_owner_urn:

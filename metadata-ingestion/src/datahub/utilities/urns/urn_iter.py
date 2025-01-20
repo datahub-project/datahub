@@ -15,7 +15,8 @@ _Path = List[Union[str, int]]
 
 
 def _add_prefix_to_paths(
-    prefix: _Path, items: List[Tuple[str, _Path]]
+    prefix: _Path,
+    items: List[Tuple[str, _Path]],
 ) -> List[Tuple[str, _Path]]:
     return [(urn, [*prefix, *path]) for urn, path in items]
 
@@ -40,12 +41,13 @@ def list_urns_with_path(
         if model.entityKeyAspect:
             urns.extend(
                 _add_prefix_to_paths(
-                    ["entityKeyAspect"], list_urns_with_path(model.entityKeyAspect)
-                )
+                    ["entityKeyAspect"],
+                    list_urns_with_path(model.entityKeyAspect),
+                ),
             )
         if model.aspect:
             urns.extend(
-                _add_prefix_to_paths(["aspect"], list_urns_with_path(model.aspect))
+                _add_prefix_to_paths(["aspect"], list_urns_with_path(model.aspect)),
             )
 
         return urns
@@ -65,7 +67,7 @@ def list_urns_with_path(
             for i, item in enumerate(value):
                 if isinstance(item, DictWrapper):
                     urns.extend(
-                        _add_prefix_to_paths([key, i], list_urns_with_path(item))
+                        _add_prefix_to_paths([key, i], list_urns_with_path(item)),
                     )
                 elif is_urn:
                     urns.append((item, [key, i]))
@@ -134,7 +136,9 @@ def _modify_at_path(
 def lowercase_dataset_urn(dataset_urn: str) -> str:
     cur_urn = DatasetUrn.from_string(dataset_urn)
     new_urn = DatasetUrn(
-        platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
+        platform=cur_urn.platform,
+        name=cur_urn.name.lower(),
+        env=cur_urn.env,
     )
     return str(new_urn)
 

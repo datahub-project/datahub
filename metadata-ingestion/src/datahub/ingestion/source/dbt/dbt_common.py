@@ -133,7 +133,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
-        default_factory=LossyList
+        default_factory=LossyList,
     )
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
@@ -188,7 +188,7 @@ class DBTEntitiesEnabled(ConfigModel):
         only_values = [k for k in values if values.get(k) == EmitDirective.ONLY]
         if len(only_values) > 1:
             raise ValueError(
-                f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}"
+                f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}",
             )
 
         if len(only_values) == 1:
@@ -255,7 +255,8 @@ class DBTCommonConfig(
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
     _deprecate_use_identifiers = pydantic_field_deprecated(
-        "use_identifiers", warn_if_value_is_not=False
+        "use_identifiers",
+        warn_if_value_is_not=False,
     )
 
     entities_enabled: DBTEntitiesEnabled = Field(
@@ -275,7 +276,8 @@ class DBTCommonConfig(
         "This is mainly useful when you have multiple, interdependent dbt projects. ",
     )
     tag_prefix: str = Field(
-        default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
+        default=f"{DBT_PLATFORM}:",
+        description="Prefix added to tags during ingestion.",
     )
     node_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -325,7 +327,8 @@ class DBTCommonConfig(
         "that are only distinguished by env, then you should set this flag to True.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="DBT Stateful Ingestion Config."
+        default=None,
+        description="DBT Stateful Ingestion Config.",
     )
     convert_column_urns_to_lowercase: bool = Field(
         default=False,
@@ -363,13 +366,14 @@ class DBTCommonConfig(
         if target_platform.lower() == DBT_PLATFORM:
             raise ValueError(
                 "target_platform cannot be dbt. It should be the platform which dbt is operating on top of. For e.g "
-                "postgres."
+                "postgres.",
             )
         return target_platform
 
     @root_validator(pre=True)
     def set_convert_column_urns_to_lowercase_default_for_snowflake(
-        cls, values: dict
+        cls,
+        values: dict,
     ) -> dict:
         if values.get("target_platform", "").lower() == "snowflake":
             values.setdefault("convert_column_urns_to_lowercase", True)
@@ -381,22 +385,25 @@ class DBTCommonConfig(
             raise ValueError(
                 "write_semantics cannot be any other value than PATCH or OVERRIDE. Default value is PATCH. "
                 "For PATCH semantics consider using the datahub-rest sink or "
-                "provide a datahub_api: configuration on your ingestion recipe"
+                "provide a datahub_api: configuration on your ingestion recipe",
             )
         return write_semantics
 
     @validator("meta_mapping")
     def meta_mapping_validator(
-        cls, meta_mapping: Dict[str, Any], values: Dict, **kwargs: Any
+        cls,
+        meta_mapping: Dict[str, Any],
+        values: Dict,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         for k, v in meta_mapping.items():
             if "match" not in v:
                 raise ValueError(
-                    f"meta_mapping section {k} doesn't have a match clause."
+                    f"meta_mapping section {k} doesn't have a match clause.",
                 )
             if "operation" not in v:
                 raise ValueError(
-                    f"meta_mapping section {k} doesn't have an operation clause."
+                    f"meta_mapping section {k} doesn't have an operation clause.",
                 )
             if v["operation"] == "add_owner":
                 owner_category = v["config"].get("owner_category")
@@ -406,27 +413,31 @@ class DBTCommonConfig(
 
     @validator("include_column_lineage")
     def validate_include_column_lineage(
-        cls, include_column_lineage: bool, values: Dict
+        cls,
+        include_column_lineage: bool,
+        values: Dict,
     ) -> bool:
         if include_column_lineage and not values.get("infer_dbt_schemas"):
             raise ValueError(
-                "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
+                "`infer_dbt_schemas` must be enabled to use `include_column_lineage`",
             )
 
         return include_column_lineage
 
     @validator("skip_sources_in_lineage", always=True)
     def validate_skip_sources_in_lineage(
-        cls, skip_sources_in_lineage: bool, values: Dict
+        cls,
+        skip_sources_in_lineage: bool,
+        values: Dict,
     ) -> bool:
         entities_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
         prefer_sql_parser_lineage: Optional[bool] = values.get(
-            "prefer_sql_parser_lineage"
+            "prefer_sql_parser_lineage",
         )
 
         if prefer_sql_parser_lineage and not skip_sources_in_lineage:
             raise ValueError(
-                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled.",
             )
 
         if (
@@ -438,7 +449,7 @@ class DBTCommonConfig(
             and not prefer_sql_parser_lineage
         ):
             raise ValueError(
-                "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
+                "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO.",
             )
 
         return skip_sources_in_lineage
@@ -568,7 +579,7 @@ class DBTNode:
 
         # Similar to get_db_fqn.
         db_fqn = self._join_parts(
-            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
+            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"],
         )
         db_fqn = db_fqn.lower()
         return db_fqn.replace('"', "")
@@ -699,7 +710,7 @@ def get_upstreams(
     for upstream in sorted(upstreams):
         if upstream not in all_nodes:
             logger.debug(
-                f"Upstream node - {upstream} not found in all manifest entities."
+                f"Upstream node - {upstream} not found in all manifest entities.",
             )
             continue
 
@@ -713,7 +724,7 @@ def get_upstreams(
                 target_platform_instance=target_platform_instance,
                 env=environment,
                 skip_sources_in_lineage=skip_sources_in_lineage,
-            )
+            ),
         )
     return upstream_urns
 
@@ -729,7 +740,7 @@ def get_upstreams_for_test(
     for upstream in test_node.upstream_nodes:
         if upstream not in all_nodes_map:
             logger.debug(
-                f"Upstream node of test {upstream} not found in all manifest entities."
+                f"Upstream node of test {upstream} not found in all manifest entities.",
             )
             continue
 
@@ -765,13 +776,13 @@ def make_mapping_upstream_lineage(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
-                        mce_builder.make_schema_field_urn(upstream_urn, field_name)
+                        mce_builder.make_schema_field_urn(upstream_urn, field_name),
                     ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
-                        mce_builder.make_schema_field_urn(downstream_urn, field_name)
+                        mce_builder.make_schema_field_urn(downstream_urn, field_name),
                     ],
-                )
+                ),
             )
 
     return UpstreamLineageClass(
@@ -780,9 +791,10 @@ def make_mapping_upstream_lineage(
                 dataset=upstream_urn,
                 type=DatasetLineageTypeClass.COPY,
                 auditStamp=AuditStamp(
-                    time=mce_builder.get_sys_time(), actor=_DEFAULT_ACTOR
+                    time=mce_builder.get_sys_time(),
+                    actor=_DEFAULT_ACTOR,
                 ),
-            )
+            ),
         ],
         fineGrainedLineages=cll or None,
     )
@@ -832,11 +844,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.compiled_owner_extraction_pattern: Optional[Any] = None
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(
-                self.config.owner_extraction_pattern
+                self.config.owner_extraction_pattern,
             )
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
+            self,
+            self.config,
+            ctx,
         )
 
     def create_test_entity_mcps(
@@ -883,8 +897,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 **guid_upstream_part,
                             }.items()
                             if v is not None
-                        }
-                    )
+                        },
+                    ),
                 )
 
                 custom_props = {
@@ -917,7 +931,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         )
                     else:
                         logger.debug(
-                            f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
+                            f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off.",
                         )
 
     @abstractmethod
@@ -1005,7 +1019,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
 
     def _determine_cll_required_nodes(
-        self, all_nodes_map: Dict[str, DBTNode]
+        self,
+        all_nodes_map: Dict[str, DBTNode],
     ) -> Tuple[Set[str], Set[str]]:
         # Based on the filter patterns, we only need to do schema inference and CLL
         # for a subset of nodes.
@@ -1035,7 +1050,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return schema_nodes, cll_nodes
 
     def _infer_schemas_and_update_cll(  # noqa: C901
-        self, all_nodes_map: Dict[str, DBTNode]
+        self,
+        all_nodes_map: Dict[str, DBTNode],
     ) -> None:
         """Annotate the DBTNode objects with schema information and column-level lineage.
 
@@ -1056,7 +1072,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
                 raise ConfigurationError(
-                    "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
+                    "`infer_dbt_schemas` must be enabled to use `include_column_lineage`",
                 )
             return
 
@@ -1082,13 +1098,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         )
         schema_required_nodes, cll_required_nodes = self._determine_cll_required_nodes(
-            all_nodes_map
+            all_nodes_map,
         )
 
         for dbt_name in all_node_order:
             if dbt_name not in schema_required_nodes:
                 logger.debug(
-                    f"Skipping {dbt_name} because it is filtered out by patterns"
+                    f"Skipping {dbt_name} because it is filtered out by patterns",
                 )
                 continue
 
@@ -1155,7 +1171,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             added_to_schema_resolver = False
             if target_node_urn and schema_fields:
                 schema_resolver.add_raw_schema_info(
-                    target_node_urn, self._to_schema_info(schema_fields)
+                    target_node_urn,
+                    self._to_schema_info(schema_fields),
                 )
                 added_to_schema_resolver = True
 
@@ -1168,7 +1185,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 pass
             elif node.dbt_name not in cll_required_nodes:
                 logger.debug(
-                    f"Not generating CLL for {node.dbt_name} because we don't need it."
+                    f"Not generating CLL for {node.dbt_name} because we don't need it.",
                 )
             elif node.compiled_code:
                 # Add CTE stops based on the upstreams list.
@@ -1181,7 +1198,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ]
                     if upstream_node.is_ephemeral_model()
                     for cte_name in _get_dbt_cte_names(
-                        upstream_node.name, schema_resolver.platform
+                        upstream_node.name,
+                        schema_resolver.platform,
                     )
                 }
                 if cte_mapping:
@@ -1230,7 +1248,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 and inferred_schema_fields
             ):
                 schema_resolver.add_raw_schema_info(
-                    target_node_urn, self._to_schema_info(inferred_schema_fields)
+                    target_node_urn,
+                    self._to_schema_info(inferred_schema_fields),
                 )
 
             # Save the inferred schema fields into the dbt node.
@@ -1252,7 +1271,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
         except Exception as e:
             logger.debug(
-                f"Failed to parse compiled code. {node.dbt_name} will not have column lineage."
+                f"Failed to parse compiled code. {node.dbt_name} will not have column lineage.",
             )
             self.report.sql_parser_parse_failures += 1
             self.report.sql_parser_parse_failures_list.append(node.dbt_name)
@@ -1268,7 +1287,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.sql_parser_detach_ctes_failures += 1
             self.report.sql_parser_detach_ctes_failures_list.append(node.dbt_name)
             logger.debug(
-                f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
+                f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage.",
             )
             return SqlParsingResult.make_from_error(e)
 
@@ -1276,12 +1295,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
-                f"Failed to generate any CLL lineage for {node.dbt_name}: {sql_result.debug_info.error}"
+                f"Failed to generate any CLL lineage for {node.dbt_name}: {sql_result.debug_info.error}",
             )
         elif sql_result.debug_info.column_error:
             self.report.sql_parser_column_errors += 1
             logger.info(
-                f"Failed to generate CLL for {node.dbt_name}: {sql_result.debug_info.column_error}"
+                f"Failed to generate CLL for {node.dbt_name}: {sql_result.debug_info.column_error}",
             )
         else:
             self.report.sql_parser_successes += 1
@@ -1321,16 +1340,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             if self.config.enable_query_tag_mapping and node.query_tag:
                 self.extract_query_tag_aspects(
-                    action_processor_tag, meta_aspects, node
+                    action_processor_tag,
+                    meta_aspects,
+                    node,
                 )  # mutates meta_aspects
 
             aspects = self._generate_base_dbt_aspects(
-                node, additional_custom_props_filtered, DBT_PLATFORM, meta_aspects
+                node,
+                additional_custom_props_filtered,
+                DBT_PLATFORM,
+                meta_aspects,
             )
 
             # Upstream lineage.
             upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
-                node, all_nodes_map
+                node,
+                all_nodes_map,
             )
             if upstream_lineage_class:
                 aspects.append(upstream_lineage_class)
@@ -1356,7 +1381,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 standalone_aspects, snapshot_aspects = more_itertools.partition(
                     (
                         lambda aspect: mce_builder.can_add_aspect_to_snapshot(
-                            DatasetSnapshot, type(aspect)
+                            DatasetSnapshot,
+                            type(aspect),
                         )
                     ),
                     aspects,
@@ -1369,7 +1395,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ).as_workunit()
 
                 dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=list(snapshot_aspects)
+                    urn=node_datahub_urn,
+                    aspects=list(snapshot_aspects),
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
@@ -1377,13 +1404,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
-                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled",
                 )
 
             # Model performance.
             if self.config.entities_enabled.can_emit_model_performance:
                 yield from auto_workunit(
-                    self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
+                    self._create_dataprocess_instance_mcps(
+                        node,
+                        upstream_lineage_class,
+                    ),
                 )
 
     def _create_dataprocess_instance_mcps(
@@ -1433,13 +1463,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             yield from data_process_instance.start_event_mcp(
                 start_timestamp_millis=datetime_to_ts_millis(
-                    model_performance.start_time
+                    model_performance.start_time,
                 ),
             )
             yield from data_process_instance.end_event_mcp(
                 end_timestamp_millis=datetime_to_ts_millis(model_performance.end_time),
                 start_timestamp_millis=datetime_to_ts_millis(
-                    model_performance.start_time
+                    model_performance.start_time,
                 ),
                 result=(
                     InstanceRunResult.SUCCESS
@@ -1466,7 +1496,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 logger.debug(
-                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled",
                 )
                 continue
 
@@ -1519,7 +1549,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
-        self, dataset_snapshot: DatasetSnapshot, aspect_type: type
+        self,
+        dataset_snapshot: DatasetSnapshot,
+        aspect_type: type,
     ) -> Any:
         for aspect in dataset_snapshot.aspects:
             if isinstance(aspect, aspect_type):
@@ -1528,7 +1560,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def get_patched_mce(self, mce):
         owner_aspect = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, OwnershipClass
+            mce.proposedSnapshot,
+            OwnershipClass,
         )
         if owner_aspect:
             transformed_owner_list = self.get_transformed_owners_by_source_type(
@@ -1548,17 +1581,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             tag_aspect.tags = transformed_tag_list
 
         term_aspect: GlossaryTermsClass = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, GlossaryTermsClass
+            mce.proposedSnapshot,
+            GlossaryTermsClass,
         )
         if term_aspect:
             transformed_terms = self.get_transformed_terms(
-                term_aspect.terms, mce.proposedSnapshot.urn
+                term_aspect.terms,
+                mce.proposedSnapshot.urn,
             )
             term_aspect.terms = transformed_terms
         return mce
 
     def _create_dataset_properties_aspect(
-        self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
+        self,
+        node: DBTNode,
+        additional_custom_props_filtered: Dict[str, str],
     ) -> DatasetPropertiesClass:
         description = node.description
 
@@ -1581,7 +1618,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         pass
 
     def _create_view_properties_aspect(
-        self, node: DBTNode
+        self,
+        node: DBTNode,
     ) -> Optional[ViewPropertiesClass]:
         if node.language != "sql" or not node.raw_code:
             return None
@@ -1589,7 +1627,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         compiled_code = None
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
-                node.compiled_code, platform=self.config.target_platform
+                node.compiled_code,
+                platform=self.config.target_platform,
             )
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
@@ -1618,7 +1657,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # add dataset properties aspect
         dbt_properties = self._create_dataset_properties_aspect(
-            node, additional_custom_props_filtered
+            node,
+            additional_custom_props_filtered,
         )
         aspects.append(dbt_properties)
 
@@ -1638,7 +1678,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         aggregated_tags = self._aggregate_tags(node, meta_tags_aspect)
         if aggregated_tags:
             aspects.append(
-                mce_builder.make_global_tag_aspect_with_tag_list(aggregated_tags)
+                mce_builder.make_global_tag_aspect_with_tag_list(aggregated_tags),
             )
 
         # add meta term aspects
@@ -1664,7 +1704,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return aspects
 
     def get_schema_metadata(
-        self, report: DBTSourceReport, node: DBTNode, platform: str
+        self,
+        report: DBTSourceReport,
+        node: DBTNode,
+        platform: str,
     ) -> SchemaMetadata:
         action_processor = OperationProcessor(
             self.config.column_meta_mapping,
@@ -1696,7 +1739,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 logger.warning("The add_owner operation is not supported for columns.")
 
             meta_tags: Optional[GlobalTagsClass] = meta_aspects.get(
-                Constants.ADD_TAG_OPERATION
+                Constants.ADD_TAG_OPERATION,
             )
             globalTags = None
             if meta_tags or column.tags:
@@ -1706,7 +1749,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     + [
                         TagAssociationClass(mce_builder.make_tag_urn(tag))
                         for tag in column.tags
-                    ]
+                    ],
                 )
 
             glossaryTerms = None
@@ -1722,7 +1765,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 nativeDataType=column.data_type,
                 type=column.datahub_data_type
                 or get_column_type(
-                    report, node.dbt_name, column.data_type, node.dbt_adapter
+                    report,
+                    node.dbt_name,
+                    column.data_type,
+                    node.dbt_adapter,
                 ),
                 description=description,
                 nullable=False,  # TODO: actually autodetect this
@@ -1752,7 +1798,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
 
     def _aggregate_owners(
-        self, node: DBTNode, meta_owner_aspects: Any
+        self,
+        node: DBTNode,
+        meta_owner_aspects: Any,
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
         if meta_owner_aspects and self.config.enable_meta_mapping:
@@ -1762,12 +1810,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             owner: str = node.owner
             if self.compiled_owner_extraction_pattern:
                 match: Optional[Any] = re.match(
-                    self.compiled_owner_extraction_pattern, owner
+                    self.compiled_owner_extraction_pattern,
+                    owner,
                 )
                 if match:
                     owner = match.group("owner")
                     logger.debug(
-                        f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
+                        f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'.",
                     )
             if isinstance(owner, list):
                 owners = owner
@@ -1782,7 +1831,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     OwnerClass(
                         owner=mce_builder.make_user_urn(owner),
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
+                    ),
                 )
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
@@ -1800,7 +1849,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return sorted(tags_list)
 
     def _create_subType_wu(
-        self, node: DBTNode, node_datahub_urn: str
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         if not node.node_type:
             return None
@@ -1883,17 +1934,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 downstreamType=FineGrainedLineageDownstreamType.FIELD,
                                 upstreams=[
                                     mce_builder.make_schema_field_urn(
-                                        upstream.table, upstream.column
+                                        upstream.table,
+                                        upstream.column,
                                     )
                                     for upstream in column_lineage.upstreams
                                 ],
                                 downstreams=[
                                     mce_builder.make_schema_field_urn(
-                                        node_urn, column_lineage.downstream.column
-                                    )
+                                        node_urn,
+                                        column_lineage.downstream.column,
+                                    ),
                                 ],
                                 confidenceScore=sql_parsing_result.debug_info.confidence,
-                            )
+                            ),
                         )
 
             else:
@@ -1914,14 +1967,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         upstreams=[
                             mce_builder.make_schema_field_urn(
                                 _translate_dbt_name_to_upstream_urn(
-                                    upstream_column.upstream_dbt_name
+                                    upstream_column.upstream_dbt_name,
                                 ),
                                 upstream_column.upstream_col,
                             )
                             for upstream_column in upstreams
                         ],
                         downstreams=[
-                            mce_builder.make_schema_field_urn(node_urn, downstream)
+                            mce_builder.make_schema_field_urn(node_urn, downstream),
                         ],
                         confidenceScore=(
                             node.cll_debug_info.confidence
@@ -1930,7 +1983,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         ),
                     )
                     for downstream, upstreams in itertools.groupby(
-                        node.upstream_cll, lambda x: x.downstream_col
+                        node.upstream_cll,
+                        lambda x: x.downstream_col,
                     )
                 ]
 
@@ -1965,7 +2019,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     # From the existing owners it will remove the owners that are of the source_type_filter and
     # then add all the new owners to that list.
     def get_transformed_owners_by_source_type(
-        self, owners: List[OwnerClass], entity_urn: str, source_type_filter: str
+        self,
+        owners: List[OwnerClass],
+        entity_urn: str,
+        source_type_filter: str,
     ) -> List[OwnerClass]:
         transformed_owners: List[OwnerClass] = []
         if owners:
@@ -2002,7 +2059,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if existing_tags_class and existing_tags_class.tags:
                 for existing_tag in existing_tags_class.tags:
                     if tag_prefix and existing_tag.tag.startswith(
-                        mce_builder.make_tag_urn(tag_prefix)
+                        mce_builder.make_tag_urn(tag_prefix),
                     ):
                         continue
                     tag_set.add(existing_tag.tag)
@@ -2011,7 +2068,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     # This method attempts to read-modify and return the glossary terms of a dataset.
     # This will combine all new and existing terms and return the final deduped list.
     def get_transformed_terms(
-        self, new_terms: List[GlossaryTermAssociation], entity_urn: str
+        self,
+        new_terms: List[GlossaryTermAssociation],
+        entity_urn: str,
     ) -> List[GlossaryTermAssociation]:
         term_id_set = {term.urn for term in new_terms}
         if self.ctx.graph:

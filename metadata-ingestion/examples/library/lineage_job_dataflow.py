@@ -6,7 +6,9 @@ from datahub.metadata.schema_classes import DataFlowInfoClass
 
 # Construct the DataJobInfo aspect with the job -> flow lineage.
 dataflow_urn = builder.make_data_flow_urn(
-    orchestrator="airflow", flow_id="flow_old_api", cluster="prod"
+    orchestrator="airflow",
+    flow_id="flow_old_api",
+    cluster="prod",
 )
 
 dataflow_info = DataFlowInfoClass(name="LowLevelApiFlow")
@@ -22,7 +24,10 @@ datajob_info = DataJobInfoClass(name="My Job 1", type="AIRFLOW", flowUrn=dataflo
 # NOTE: This will overwrite all of the existing dataJobInfo aspect information associated with this job.
 datajob_info_mcp = MetadataChangeProposalWrapper(
     entityUrn=builder.make_data_job_urn(
-        orchestrator="airflow", flow_id="flow_old_api", job_id="job1", cluster="prod"
+        orchestrator="airflow",
+        flow_id="flow_old_api",
+        job_id="job1",
+        cluster="prod",
     ),
     aspect=datajob_info,
 )

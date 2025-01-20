@@ -53,7 +53,7 @@ class SortKeyType(Enum):
 
 class SortKey(ConfigModel):
     key: str = Field(
-        description="The key to sort on. This can be a compound key based on the path_spec variables."
+        description="The key to sort on. This can be a compound key based on the path_spec variables.",
     )
     type: SortKeyType = Field(
         default=SortKeyType.STRING,
@@ -87,7 +87,7 @@ class PathSpec(ConfigModel):
         arbitrary_types_allowed = True
 
     include: str = Field(
-        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details."
+        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details.",
     )
     exclude: Optional[List[str]] = Field(
         default=[],
@@ -166,14 +166,16 @@ class PathSpec(ConfigModel):
             return False
 
         if not pathlib.PurePath(path).globmatch(
-            self.glob_include, flags=pathlib.GLOBSTAR
+            self.glob_include,
+            flags=pathlib.GLOBSTAR,
         ):
             return False
         logger.debug(f"{path} matched include ")
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
-                    exclude_path, flags=pathlib.GLOBSTAR
+                    exclude_path,
+                    flags=pathlib.GLOBSTAR,
                 ):
                     return False
         logger.debug(f"{path} is not excluded")
@@ -215,7 +217,8 @@ class PathSpec(ConfigModel):
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path.rstrip("/")).globmatch(
-                    exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
+                    exclude_path.rstrip("/"),
+                    flags=pathlib.GLOBSTAR,
                 ):
                     return False
         return True
@@ -243,7 +246,8 @@ class PathSpec(ConfigModel):
         return self.compiled_include.parse(path)
 
     def get_folder_named_vars(
-        self, path: str
+        self,
+        path: str,
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
@@ -268,7 +272,7 @@ class PathSpec(ConfigModel):
             for file_type in v:
                 if file_type not in SUPPORTED_FILE_TYPES:
                     raise ValueError(
-                        f"file type {file_type} not in supported file types. Please specify one from {SUPPORTED_FILE_TYPES}"
+                        f"file type {file_type} not in supported file types. Please specify one from {SUPPORTED_FILE_TYPES}",
                     )
             return v
 
@@ -276,7 +280,7 @@ class PathSpec(ConfigModel):
     def validate_default_extension(cls, v):
         if v is not None and v not in SUPPORTED_FILE_TYPES:
             raise ValueError(
-                f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
+                f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}",
             )
         return v
 
@@ -294,7 +298,7 @@ class PathSpec(ConfigModel):
     def no_named_fields_in_exclude(cls, v: str) -> str:
         if len(parse.compile(v).named_fields) != 0:
             raise ValueError(
-                f"path_spec.exclude {v} should not contain any named variables"
+                f"path_spec.exclude {v} should not contain any named variables",
             )
         return v
 
@@ -317,7 +321,7 @@ class PathSpec(ConfigModel):
                 for x in parse.compile(v).named_fields
             ):
                 raise ValueError(
-                    f"Not all named variables used in path_spec.table_name {v} are specified in path_spec.include {values['include']}"
+                    f"Not all named variables used in path_spec.table_name {v} are specified in path_spec.include {values['include']}",
                 )
         return v
 
@@ -344,7 +348,8 @@ class PathSpec(ConfigModel):
     @cached_property
     def compiled_folder_include(self):
         parsable_folder_include = PathSpec.get_parsable_include(self.include).rsplit(
-            "/", 1
+            "/",
+            1,
         )[0]
         logger.debug(f"parsable_folder_include: {parsable_folder_include}")
         compiled_folder_include = parse.compile(parsable_folder_include)
@@ -401,13 +406,13 @@ class PathSpec(ConfigModel):
                                         if "partition_value" in named_vars.named
                                         else named_vars.named["partition"][key]
                                     ),
-                                )
+                                ),
                             )
                     return partition_keys
                 else:
                     # TODO: Fix this message
                     logger.debug(
-                        "Partition key or value not found. Fallbacking another mechanism to get partition keys"
+                        "Partition key or value not found. Fallbacking another mechanism to get partition keys",
                     )
 
                 partition_vars = self.extract_variable_names
@@ -425,11 +430,11 @@ class PathSpec(ConfigModel):
                         if pkey in named_vars.named:
                             if index and index in named_vars.named[pkey]:
                                 partition_keys.append(
-                                    (f"{pkey}_{index}", named_vars.named[pkey][index])
+                                    (f"{pkey}_{index}", named_vars.named[pkey][index]),
                                 )
                             else:
                                 partition_keys.append(
-                                    (partition_key, named_vars.named[partition_key])
+                                    (partition_key, named_vars.named[partition_key]),
                                 )
                     return partition_keys
 
@@ -475,7 +480,7 @@ class PathSpec(ConfigModel):
         for f in required_fields:
             if f not in values:
                 logger.debug(
-                    f"Failed to validate because {f} wasn't populated correctly"
+                    f"Failed to validate because {f} wasn't populated correctly",
                 )
                 return values
 
@@ -501,7 +506,7 @@ class PathSpec(ConfigModel):
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
-                f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'
+                f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types',
             )
 
         return values
@@ -513,7 +518,9 @@ class PathSpec(ConfigModel):
 
     # TODO: Add support to sort partition folders by the defined partition key pattern. This is not implemented yet.
     def extract_datetime_partition(
-        self, path: str, is_folder: bool = False
+        self,
+        path: str,
+        is_folder: bool = False,
     ) -> Optional[datetime.datetime]:
         if self.sort_key is None:
             return None
@@ -542,12 +549,13 @@ class PathSpec(ConfigModel):
                 for key in var:
                     template_key = var_key + f"[{key}]"
                     partition_format = partition_format.replace(
-                        f"{{{template_key}}}", var[key]
+                        f"{{{template_key}}}",
+                        var[key],
                     )
             else:
                 partition_format.replace(f"{{{var_key}}}", var)
         return datetime.datetime.strptime(partition_format, datetime_format).replace(
-            tzinfo=datetime.timezone.utc
+            tzinfo=datetime.timezone.utc,
         )
 
     def extract_table_name_and_path(self, path: str) -> Tuple[str, str]:

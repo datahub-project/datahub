@@ -8,7 +8,7 @@ def test_vertica_uri_https():
             "password": "password",
             "host_port": "host:5433",
             "database": "db",
-        }
+        },
     )
     assert (
         config.get_sql_alchemy_url()

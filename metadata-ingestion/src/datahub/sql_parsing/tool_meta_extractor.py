@@ -81,18 +81,21 @@ class ToolMetaExtractor:
         if graph:
             try:
                 looker_user_mapping = cls.extract_looker_user_mapping_from_graph(
-                    graph, report
+                    graph,
+                    report,
                 )
             except Exception as e:
                 report.failures.append(
-                    f"Unexpected error during Looker user metadata extraction: {str(e)}"
+                    f"Unexpected error during Looker user metadata extraction: {str(e)}",
                 )
 
         return cls(report, looker_user_mapping)
 
     @classmethod
     def extract_looker_user_mapping_from_graph(
-        cls, graph: DataHubGraph, report: ToolMetaExtractorReport
+        cls,
+        graph: DataHubGraph,
+        report: ToolMetaExtractorReport,
     ) -> Optional[Dict[str, str]]:
         looker_user_mapping = None
         query = (
@@ -106,14 +109,14 @@ class ToolMetaExtractor:
             .end()
         )
         platform_resources = list(
-            PlatformResource.search_by_filters(query=query, graph_client=graph)
+            PlatformResource.search_by_filters(query=query, graph_client=graph),
         )
 
         if len(platform_resources) == 0:
             report.looker_user_mapping_missing = True
         elif len(platform_resources) > 1:
             report.failures.append(
-                "Looker user metadata extraction failed. Found more than one looker user id mappings."
+                "Looker user metadata extraction failed. Found more than one looker user id mappings.",
             )
         else:
             platform_resource = platform_resources[0]

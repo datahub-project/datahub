@@ -54,7 +54,7 @@ def assert_metadata_files_equal(
 
     if not update_golden and not golden_exists:
         raise FileNotFoundError(
-            "Golden file does not exist. Please run with the --update-golden-files option to create."
+            "Golden file does not exist. Please run with the --update-golden-files option to create.",
         )
 
     output = load_json_file(output_path)

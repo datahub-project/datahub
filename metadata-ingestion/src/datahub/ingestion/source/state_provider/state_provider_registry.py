@@ -7,5 +7,5 @@ ingestion_checkpoint_provider_registry = PluginRegistry[
     IngestionCheckpointingProviderBase
 ]()
 ingestion_checkpoint_provider_registry.register_from_entrypoint(
-    "datahub.ingestion.checkpointing_provider.plugins"
+    "datahub.ingestion.checkpointing_provider.plugins",
 )

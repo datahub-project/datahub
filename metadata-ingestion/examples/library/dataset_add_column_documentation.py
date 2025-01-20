@@ -27,7 +27,8 @@ documentation_to_add = (
 dataset_urn = make_dataset_urn(platform="hive", name="fct_users_deleted", env="PROD")
 column = "user_name"
 field_info_to_set = EditableSchemaFieldInfoClass(
-    fieldPath=column, description=documentation_to_add
+    fieldPath=column,
+    description=documentation_to_add,
 )
 
 
@@ -77,7 +78,8 @@ else:
 
 
 current_institutional_memory = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
+    entity_urn=dataset_urn,
+    aspect_type=InstitutionalMemoryClass,
 )
 
 need_write = False

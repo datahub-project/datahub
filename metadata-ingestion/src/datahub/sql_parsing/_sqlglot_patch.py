@@ -39,7 +39,8 @@ def _new_apply_patch(source: str, patch_text: str, forwards: bool, name: str) ->
             logger.debug(f"Subprocess result:\n{result_subprocess}")
             logger.debug(f"Our result:\n{result}")
             diff = difflib.unified_diff(
-                result_subprocess.splitlines(), result.splitlines()
+                result_subprocess.splitlines(),
+                result.splitlines(),
             )
             logger.debug("Diff:\n" + "\n".join(diff))
             raise ValueError("Results from subprocess and _apply_diff do not match")

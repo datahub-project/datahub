@@ -8,13 +8,15 @@ datahub_client = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080")
 
 # Create Dataset URN
 dataset_urn = make_dataset_urn(
-    platform="snowflake", name="fct_users_created", env="PROD"
+    platform="snowflake",
+    name="fct_users_created",
+    env="PROD",
 )
 
 # Create Dataset Patch to Add + Remove Tag for 'profile_id' column
 patch_builder = DatasetPatchBuilder(dataset_urn)
 patch_builder.for_field("profile_id").add_tag(
-    TagAssociationClass(make_tag_urn("tag-to-add-id"))
+    TagAssociationClass(make_tag_urn("tag-to-add-id")),
 )
 patch_builder.for_field("profile_id").remove_tag("urn:li:tag:tag-to-remove-id")
 patch_mcps = patch_builder.build()

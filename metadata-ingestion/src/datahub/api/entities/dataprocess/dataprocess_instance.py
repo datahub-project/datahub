@@ -69,7 +69,9 @@ class DataProcessInstance:
     outlets: List[DatasetUrn] = field(default_factory=list)
     upstream_urns: List[DataProcessInstanceUrn] = field(default_factory=list)
     _template_object: Optional[Union[DataJob, DataFlow]] = field(
-        init=False, default=None, repr=False
+        init=False,
+        default=None,
+        repr=False,
     )
 
     def __post_init__(self):
@@ -78,11 +80,13 @@ class DataProcessInstance:
                 cluster=self.cluster,
                 orchestrator=self.orchestrator,
                 id=self.id,
-            ).guid()
+            ).guid(),
         )
 
     def start_event_mcp(
-        self, start_timestamp_millis: int, attempt: Optional[int] = None
+        self,
+        start_timestamp_millis: int,
+        attempt: Optional[int] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
 
@@ -143,14 +147,14 @@ class DataProcessInstance:
                         self._emit_mcp(mcp, emitter, callback)
                 else:
                     raise Exception(
-                        f"Invalid urn type {self.template_urn.__class__.__name__}"
+                        f"Invalid urn type {self.template_urn.__class__.__name__}",
                     )
                 for upstream in self.upstream_urns:
                     input_datajob_urns.append(
                         DataJobUrn.create_from_ids(
                             job_id=upstream.get_dataprocessinstance_id(),
                             data_flow_urn=str(job_flow_urn),
-                        )
+                        ),
                     )
             else:
                 template_object = self._template_object
@@ -236,7 +240,9 @@ class DataProcessInstance:
             self._emit_mcp(mcp, emitter, callback)
 
     def generate_mcp(
-        self, created_ts_millis: Optional[int], materialize_iolets: bool
+        self,
+        created_ts_millis: Optional[int],
+        materialize_iolets: bool,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Generates mcps from the object"""
 
@@ -350,13 +356,14 @@ class DataProcessInstance:
         return dpi
 
     def generate_inlet_outlet_mcp(
-        self, materialize_iolets: bool
+        self,
+        materialize_iolets: bool,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if self.inlets:
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=DataProcessInstanceInput(
-                    inputs=[str(urn) for urn in self.inlets]
+                    inputs=[str(urn) for urn in self.inlets],
                 ),
             )
             yield mcp
@@ -365,7 +372,7 @@ class DataProcessInstance:
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=DataProcessInstanceOutput(
-                    outputs=[str(urn) for urn in self.outlets]
+                    outputs=[str(urn) for urn in self.outlets],
                 ),
             )
             yield mcp

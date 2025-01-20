@@ -50,10 +50,10 @@ class SerializedResourceValue(BaseModel):
             return object_dict
         else:
             logger.warning(
-                f"Unsupported schema type {self.schema_type} for parsing value"
+                f"Unsupported schema type {self.schema_type} for parsing value",
             )
             raise ValueError(
-                f"Unsupported schema type {self.schema_type} for parsing value"
+                f"Unsupported schema type {self.schema_type} for parsing value",
             )
 
     def as_pegasus_object(self) -> DictWrapper:
@@ -79,11 +79,13 @@ class SerializedResourceValue(BaseModel):
             return model_type.from_obj(object_dict or {})
         else:
             raise ValueError(
-                f"Could not find schema ref {self.schema_ref} for parsing value"
+                f"Could not find schema ref {self.schema_ref} for parsing value",
             )
 
     def as_pydantic_object(
-        self, model_type: Type[BaseModel], validate_schema_ref: bool = False
+        self,
+        model_type: Type[BaseModel],
+        validate_schema_ref: bool = False,
     ) -> BaseModel:
         """
         Parse the blob into a Pydantic-defined Python object based on the schema type and schema
@@ -107,7 +109,8 @@ class SerializedResourceValue(BaseModel):
 
     @classmethod
     def from_resource_value(
-        cls, resource_value: models.SerializedValueClass
+        cls,
+        resource_value: models.SerializedValueClass,
     ) -> "SerializedResourceValue":
         return cls(
             content_type=resource_value.contentType,
@@ -118,7 +121,8 @@ class SerializedResourceValue(BaseModel):
 
     @classmethod
     def create(
-        cls, object: Union[DictWrapper, BaseModel, Dict]
+        cls,
+        object: Union[DictWrapper, BaseModel, Dict],
     ) -> "SerializedResourceValue":
         if isinstance(object, DictWrapper):
             return SerializedResourceValue(

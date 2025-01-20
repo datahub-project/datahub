@@ -121,12 +121,15 @@ class SupersetDataset(BaseModel):
 
 
 class SupersetConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 ):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
-        default="http://localhost:8088", description="Superset host URL."
+        default="http://localhost:8088",
+        description="Superset host URL.",
     )
     display_uri: Optional[str] = Field(
         default=None,
@@ -140,14 +143,17 @@ class SupersetConfig(
     password: Optional[str] = Field(default=None, description="Superset password.")
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="Superset Stateful Ingestion Config."
+        default=None,
+        description="Superset Stateful Ingestion Config.",
     )
     ingest_dashboards: bool = Field(
-        default=True, description="Enable to ingest dashboards."
+        default=True,
+        description="Enable to ingest dashboards.",
     )
     ingest_charts: bool = Field(default=True, description="Enable to ingest charts.")
     ingest_datasets: bool = Field(
-        default=False, description="Enable to ingest datasets."
+        default=False,
+        description="Enable to ingest datasets.",
     )
 
     provider: str = Field(default="db", description="Superset provider.")
@@ -203,7 +209,8 @@ def get_filter_name(filter_obj):
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via stateful_ingestion",
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
@@ -253,12 +260,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
-            }
+            },
         )
 
         # Test the connection
         test_response = requests_session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/"
+            f"{self.config.connect_uri}/api/v1/dashboard/",
         )
         if test_response.status_code == 200:
             pass
@@ -290,12 +297,13 @@ class SupersetSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def get_platform_from_database_id(self, database_id):
         database_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/database/{database_id}"
+            f"{self.config.connect_uri}/api/v1/database/{database_id}",
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
             platform_name = database_response.get("result", {}).get(
-                "backend", "external"
+                "backend",
+                "external",
             )
         else:
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
@@ -318,7 +326,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dataset_response.json()
 
     def get_datasource_urn_from_id(
-        self, dataset_response: dict, platform_instance: str
+        self,
+        dataset_response: dict,
+        platform_instance: str,
     ) -> str:
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
@@ -351,7 +361,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         raise ValueError("Could not construct dataset URN")
 
     def construct_dashboard_from_api_data(
-        self, dashboard_data: dict
+        self,
+        dashboard_data: dict,
     ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
@@ -365,7 +376,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000,
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug
@@ -388,7 +399,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     platform=self.platform,
                     name=value.get("meta", {}).get("chartId", "unknown"),
                     platform_instance=self.config.platform_instance,
-                )
+                ),
             )
 
         # Build properties
@@ -399,17 +410,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                 map(
                     lambda owner: owner.get("username", "unknown"),
                     dashboard_data.get("owners", []),
-                )
+                ),
             ),
             "IsCertified": str(
-                True if dashboard_data.get("certified_by") else False
+                True if dashboard_data.get("certified_by") else False,
             ).lower(),
         }
 
         if dashboard_data.get("certified_by"):
             custom_properties["CertifiedBy"] = dashboard_data.get("certified_by", "")
             custom_properties["CertificationDetails"] = str(
-                dashboard_data.get("certification_details")
+                dashboard_data.get("certification_details"),
             )
 
         # Create DashboardInfo object
@@ -428,11 +439,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         for dashboard_data in self.paginate_entity_api_results("dashboard", PAGE_SIZE):
             try:
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_data
+                    dashboard_data,
                 )
             except Exception as e:
                 self.report.warning(
-                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
+                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}",
                 )
                 continue
             # Emit the dashboard
@@ -456,7 +467,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000,
         )
         title = chart_data.get("slice_name", "")
 
@@ -471,7 +482,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_id = chart_data.get("datasource_id")
         dataset_response = self.get_dataset_info(datasource_id)
         datasource_urn = self.get_datasource_urn_from_id(
-            dataset_response, self.platform
+            dataset_response,
+            self.platform,
         )
 
         params = json.loads(chart_data.get("params", "{}"))
@@ -531,7 +543,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
             except Exception as e:
                 self.report.warning(
-                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
+                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}",
                 )
                 continue
             # Emit the chart
@@ -584,12 +596,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def construct_dataset_from_dataset_data(
-        self, dataset_data: dict
+        self,
+        dataset_data: dict,
     ) -> DatasetSnapshot:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         dataset = SupersetDataset(**dataset_response["result"])
         datasource_urn = self.get_datasource_urn_from_id(
-            dataset_response, self.platform
+            dataset_response,
+            self.platform,
         )
 
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
@@ -607,7 +621,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             [
                 self.gen_schema_metadata(dataset_response),
                 dataset_info,
-            ]
+            ],
         )
 
         dataset_snapshot = DatasetSnapshot(
@@ -620,12 +634,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
             try:
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
-                    dataset_data
+                    dataset_data,
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             except Exception as e:
                 self.report.warning(
-                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
+                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}",
                 )
                 continue
             # Emit the dataset
@@ -647,7 +661,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -659,7 +675,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(title):
                 domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
+                    self.domain_registry.get_domain_urn(domain),
                 )
                 break
 

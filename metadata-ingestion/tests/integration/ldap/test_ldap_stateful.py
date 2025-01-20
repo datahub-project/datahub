@@ -30,7 +30,8 @@ def ldap_ingest_common(
 ):
     test_resources_dir = pathlib.Path(pytestconfig.rootpath / "tests/integration/ldap")
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "ldap"
+        test_resources_dir / "docker-compose.yml",
+        "ldap",
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
@@ -74,7 +75,7 @@ def ldap_ingest_common(
                             "filename": f"{tmp_path}/{output_file_name}",
                         },
                     },
-                }
+                },
             )
             pipeline.run()
             pipeline.raise_from_status()
@@ -91,7 +92,11 @@ def ldap_ingest_common(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_ldap_stateful(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     golden_file_name: str = "ldap_mces_golden_stateful.json"
     output_file_name: str = "ldap_mces_stateful.json"
@@ -139,17 +144,19 @@ def test_ldap_stateful(
     assert checkpoint2.state
 
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
+        pipeline=pipeline_run1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
+        pipeline=pipeline_run2,
+        expected_providers=1,
     )
 
     state1 = checkpoint1.state
     state2 = checkpoint2.state
 
     difference_dataset_urns = list(
-        state1.get_urns_not_in(type="corpuser", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="corpuser", other_checkpoint_state=state2),
     )
     assert len(difference_dataset_urns) == 1
     deleted_dataset_urns = [
@@ -189,7 +196,7 @@ def test_ldap_stateful(
     state4 = checkpoint4.state
 
     difference_dataset_urns = list(
-        state3.get_urns_not_in(type="corpGroup", other_checkpoint_state=state4)
+        state3.get_urns_not_in(type="corpGroup", other_checkpoint_state=state4),
     )
     assert len(difference_dataset_urns) == 1
     deleted_dataset_urns = [

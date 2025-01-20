@@ -42,7 +42,8 @@ current_editable_schema_metadata = graph.get_aspect(
 tag_association_to_add = TagAssociationClass(tag=tag_to_add)
 tags_aspect_to_set = GlobalTagsClass(tags=[tag_association_to_add])
 field_info_to_set = EditableSchemaFieldInfoClass(
-    fieldPath=column, globalTags=tags_aspect_to_set
+    fieldPath=column,
+    globalTags=tags_aspect_to_set,
 )
 
 

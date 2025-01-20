@@ -49,9 +49,10 @@ class BaseAssertion(v1_ConfigModel):
 
 class BaseEntityAssertion(BaseAssertion):
     entity: str = v1_Field(
-        description="The entity urn that the assertion is associated with"
+        description="The entity urn that the assertion is associated with",
     )
 
     trigger: Optional[AssertionTrigger] = v1_Field(
-        description="The trigger schedule for assertion", alias="schedule"
+        description="The trigger schedule for assertion",
+        alias="schedule",
     )

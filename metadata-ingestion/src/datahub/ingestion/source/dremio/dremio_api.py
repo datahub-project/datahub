@@ -47,7 +47,9 @@ class DremioAPIOperations:
     _timeout: int = 1800
 
     def __init__(
-        self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
+        self,
+        connection_args: "DremioSourceConfig",
+        report: "DremioSourceReport",
     ) -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
@@ -84,10 +86,10 @@ class DremioAPIOperations:
             project_id = connection_args.dremio_cloud_project_id
         else:
             self.report.failure(
-                "Project ID must be provided for Dremio Cloud environments."
+                "Project ID must be provided for Dremio Cloud environments.",
             )
             raise DremioAPIException(
-                "Project ID must be provided for Dremio Cloud environments."
+                "Project ID must be provided for Dremio Cloud environments.",
             )
 
         if connection_args.dremio_cloud_region == "US":
@@ -101,10 +103,10 @@ class DremioAPIOperations:
         protocol = "https" if connection_args.tls else "http"
         if not host:
             self.report.failure(
-                "Hostname must be provided for on-premises Dremio instances."
+                "Hostname must be provided for on-premises Dremio instances.",
             )
             raise DremioAPIException(
-                "Hostname must be provided for on-premises Dremio instances."
+                "Hostname must be provided for on-premises Dremio instances.",
             )
         return f"{protocol}://{host}:{port}/api/v3"
 
@@ -115,10 +117,10 @@ class DremioAPIOperations:
                 project_id = connection_args.dremio_cloud_project_id
             else:
                 self.report.failure(
-                    "Project ID must be provided for Dremio Cloud environments."
+                    "Project ID must be provided for Dremio Cloud environments.",
                 )
                 raise DremioAPIException(
-                    "Project ID must be provided for Dremio Cloud environments."
+                    "Project ID must be provided for Dremio Cloud environments.",
                 )
             cloud_region = connection_args.dremio_cloud_region
             if cloud_region == "US":
@@ -131,10 +133,10 @@ class DremioAPIOperations:
             protocol = "https" if connection_args.tls else "http"
             if not host:
                 self.report.failure(
-                    "Hostname must be provided for on-premises Dremio instances."
+                    "Hostname must be provided for on-premises Dremio instances.",
                 )
                 raise DremioAPIException(
-                    "Hostname must be provided for on-premises Dremio instances."
+                    "Hostname must be provided for on-premises Dremio instances.",
                 )
             return f"{protocol}://{host}:{port}"
 
@@ -170,13 +172,13 @@ class DremioAPIOperations:
         if self.is_dremio_cloud:
             if not connection_args.password:
                 self.report.failure(
-                    "Personal Access Token (PAT) is missing for cloud authentication."
+                    "Personal Access Token (PAT) is missing for cloud authentication.",
                 )
                 raise DremioAPIException(
-                    "Personal Access Token (PAT) is missing for cloud authentication."
+                    "Personal Access Token (PAT) is missing for cloud authentication.",
                 )
             self.session.headers.update(
-                {"Authorization": f"Bearer {connection_args.password}"}
+                {"Authorization": f"Bearer {connection_args.password}"},
             )
             return
 
@@ -187,7 +189,7 @@ class DremioAPIOperations:
                     self.session.headers.update(
                         {
                             "Authorization": f"Bearer {connection_args.password}",
-                        }
+                        },
                     )
                     return
                 else:
@@ -204,7 +206,7 @@ class DremioAPIOperations:
                             {
                                 "userName": connection_args.username,
                                 "password": connection_args.password,
-                            }
+                            },
                         ),
                         verify=self._verify,
                         timeout=self._timeout,
@@ -213,7 +215,7 @@ class DremioAPIOperations:
                     token = response.json().get("token")
                     if token:
                         self.session.headers.update(
-                            {"Authorization": f"_dremio{token}"}
+                            {"Authorization": f"_dremio{token}"},
                         )
 
                         return
@@ -225,10 +227,10 @@ class DremioAPIOperations:
                 sleep(1)  # Optional: exponential backoff
 
         self.report.failure(
-            "Credentials cannot be refreshed. Please check your username and password."
+            "Credentials cannot be refreshed. Please check your username and password.",
         )
         raise DremioAPIException(
-            "Credentials cannot be refreshed. Please check your username and password."
+            "Credentials cannot be refreshed. Please check your username and password.",
         )
 
     def get(self, url: str) -> Dict:
@@ -257,7 +259,8 @@ class DremioAPIOperations:
 
             if "errorMessage" in response:
                 self.report.failure(
-                    message="SQL Error", context=f"{response['errorMessage']}"
+                    message="SQL Error",
+                    context=f"{response['errorMessage']}",
                 )
                 raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
@@ -270,7 +273,7 @@ class DremioAPIOperations:
                 except concurrent.futures.TimeoutError:
                     self.cancel_query(job_id)
                     raise DremioAPIException(
-                        f"Query execution timed out after {timeout} seconds"
+                        f"Query execution timed out after {timeout} seconds",
                     )
                 except RuntimeError as e:
                     raise DremioAPIException(f"{str(e)}")
@@ -329,7 +332,10 @@ class DremioAPIOperations:
         )
 
     def get_job_result(
-        self, job_id: str, offset: int = 0, limit: int = 500
+        self,
+        job_id: str,
+        offset: int = 0,
+        limit: int = 500,
     ) -> Dict[str, Any]:
         """Get job results in batches"""
         return self.get(
@@ -363,7 +369,8 @@ class DremioAPIOperations:
         return dataset_id
 
     def community_get_formatted_tables(
-        self, tables_and_columns: List[Dict[str, Any]]
+        self,
+        tables_and_columns: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         schema_list = []
         schema_dict_lookup = []
@@ -383,12 +390,13 @@ class DremioAPIOperations:
                 {
                     "name": record["COLUMN_NAME"],
                     "ordinal_position": record.get(
-                        "ORDINAL_POSITION", ordinal_position
+                        "ORDINAL_POSITION",
+                        ordinal_position,
                     ),
                     "is_nullable": record["IS_NULLABLE"],
                     "data_type": record["DATA_TYPE"],
                     "column_size": record["COLUMN_SIZE"],
-                }
+                },
             )
 
             ordinal_position += 1
@@ -409,7 +417,7 @@ class DremioAPIOperations:
                     if key in dictionary
                 ): dictionary
                 for dictionary in tables_and_columns
-            }.values()
+            }.values(),
         )
 
         for schema in schema_list:
@@ -421,12 +429,12 @@ class DremioAPIOperations:
                     {
                         "TABLE_SCHEMA": "["
                         + ", ".join(
-                            schemas.get("formatted_path") + [table.get("TABLE_NAME")]
+                            schemas.get("formatted_path") + [table.get("TABLE_NAME")],
                         )
                         + "]",
                         "TABLE_NAME": table.get("TABLE_NAME"),
                         "COLUMNS": column_dictionary.get(
-                            table.get("FULL_TABLE_PATH", "")
+                            table.get("FULL_TABLE_PATH", ""),
                         ),
                         "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
                         "RESOURCE_ID": self.get_dataset_id(
@@ -437,13 +445,16 @@ class DremioAPIOperations:
                             schema=".".join(schemas.get("formatted_path")),
                             dataset="",
                         ),
-                    }
+                    },
                 )
 
         return dataset_list
 
     def get_pattern_condition(
-        self, patterns: Union[str, List[str]], field: str, allow: bool = True
+        self,
+        patterns: Union[str, List[str]],
+        field: str,
+        allow: bool = True,
     ) -> str:
         if not patterns:
             return ""
@@ -473,10 +484,13 @@ class DremioAPIOperations:
         schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
         schema_condition = self.get_pattern_condition(
-            self.allow_schema_pattern, schema_field
+            self.allow_schema_pattern,
+            schema_field,
         )
         deny_schema_condition = self.get_pattern_condition(
-            self.deny_schema_pattern, schema_field, allow=False
+            self.deny_schema_pattern,
+            schema_field,
+            allow=False,
         )
 
         all_tables_and_columns = []
@@ -492,7 +506,7 @@ class DremioAPIOperations:
                 all_tables_and_columns.extend(
                     self.execute_query(
                         query=formatted_query,
-                    )
+                    ),
                 )
             except DremioAPIException as e:
                 self.report.warning(
@@ -524,7 +538,7 @@ class DremioAPIOperations:
                         "is_nullable": record["IS_NULLABLE"],
                         "data_type": record["DATA_TYPE"],
                         "column_size": record["COLUMN_SIZE"],
-                    }
+                    },
                 )
 
             distinct_tables_list = list(
@@ -545,7 +559,7 @@ class DremioAPIOperations:
                         if key in dictionary
                     ): dictionary
                     for dictionary in all_tables_and_columns
-                }.values()
+                }.values(),
             )
 
             for table in distinct_tables_list:
@@ -561,7 +575,7 @@ class DremioAPIOperations:
                         "OWNER_TYPE": table.get("OWNER_TYPE"),
                         "CREATED": table.get("CREATED"),
                         "FORMAT_TYPE": table.get("FORMAT_TYPE"),
-                    }
+                    },
                 )
 
         return tables
@@ -569,7 +583,7 @@ class DremioAPIOperations:
     def validate_schema_format(self, schema):
         if "." in schema:
             schema_path = self.get(
-                url=f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
+                url=f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}",
             ).get("path")
             return {"original_path": schema, "formatted_path": schema_path}
         return {"original_path": schema, "formatted_path": [schema]}
@@ -625,7 +639,7 @@ class DremioAPIOperations:
                 "Resource ID {} has no tags: {}".format(
                     resource_id,
                     exc,
-                )
+                ),
             )
         return None
 
@@ -644,7 +658,7 @@ class DremioAPIOperations:
                 "Resource ID {} has no wiki entry: {}".format(
                     resource_id,
                     exc,
-                )
+                ),
             )
         return None
 
@@ -668,7 +682,8 @@ class DremioAPIOperations:
             # Already has start anchor
             regex_pattern = pattern.replace(".", r"\.")  # Escape dots
             regex_pattern = regex_pattern.replace(
-                r"\.*", ".*"
+                r"\.*",
+                ".*",
             )  # Convert .* to wildcard
         else:
             # Add start anchor and handle dots
@@ -771,7 +786,8 @@ class DremioAPIOperations:
 
                 source_config = source_resp.get("config", {})
                 db = source_config.get(
-                    "database", source_config.get("databaseName", "")
+                    "database",
+                    source_config.get("databaseName", ""),
                 )
 
                 if self.should_include_container([], source.get("path")[0]):
@@ -809,7 +825,7 @@ class DremioAPIOperations:
 
         # Use ThreadPoolExecutor to parallelize the processing of sources
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_workers
+            max_workers=self._max_workers,
         ) as executor:
             future_to_source = {
                 executor.submit(process_source_and_containers, source): source
@@ -842,7 +858,9 @@ class DremioAPIOperations:
             return ""
 
     def get_containers_for_location(
-        self, resource_id: str, path: List[str]
+        self,
+        resource_id: str,
+        path: List[str],
     ) -> List[Dict[str, str]]:
         containers = []
 
@@ -866,7 +884,7 @@ class DremioAPIOperations:
                                 "name": folder_name,
                                 "path": folder_path,
                                 "container_type": DremioEntityContainerType.FOLDER,
-                            }
+                            },
                         )
 
                 # Recursively process child containers
@@ -880,8 +898,8 @@ class DremioAPIOperations:
             except Exception as exc:
                 logging.info(
                     "Location {} contains no tables or views. Skipping...".format(
-                        location_id
-                    )
+                        location_id,
+                    ),
                 )
                 self.report.warning(
                     message="Failed to get tables or views",

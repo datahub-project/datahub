@@ -53,7 +53,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             assert schema_name is not None
             assert table_name is not None
             tags = self.tag_cache[db_name].get_table_tags(
-                table_name, schema_name, db_name
+                table_name,
+                schema_name,
+                db_name,
             )
         else:
             raise ValueError(f"Unknown domain {domain}")
@@ -72,7 +74,8 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         elif domain == SnowflakeObjectDomain.SCHEMA:
             assert schema_name is not None
             identifier = self.identifiers.get_quoted_identifier_for_schema(
-                db_name, schema_name
+                db_name,
+                schema_name,
             )
         elif (
             domain == SnowflakeObjectDomain.TABLE
@@ -80,7 +83,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             assert schema_name is not None
             assert table_name is not None
             identifier = self.identifiers.get_quoted_identifier_for_table(
-                db_name, schema_name, table_name
+                db_name,
+                schema_name,
+                table_name,
             )
         else:
             raise ValueError(f"Unknown domain {domain}")
@@ -88,7 +93,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         self.report.num_get_tags_for_object_queries += 1
         tags = self.data_dictionary.get_tags_for_object_with_propagation(
-            domain=domain, quoted_identifier=identifier, db_name=db_name
+            domain=domain,
+            quoted_identifier=identifier,
+            db_name=db_name,
         )
         return tags
 
@@ -132,17 +139,21 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             if db_name not in self.tag_cache:
                 self.tag_cache[db_name] = (
                     self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
+                        db_name,
                     )
                 )
             temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
-                table_name, schema_name, db_name
+                table_name,
+                schema_name,
+                db_name,
             )
         elif self.config.extract_tags == TagOption.with_lineage:
             self.report.num_get_tags_on_columns_for_table_queries += 1
             temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
                 quoted_table_name=self.identifiers.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
+                    db_name,
+                    schema_name,
+                    table_name,
                 ),
                 db_name=db_name,
             )
@@ -158,7 +169,8 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         return column_tags
 
     def _filter_tags(
-        self, tags: Optional[List[SnowflakeTag]]
+        self,
+        tags: Optional[List[SnowflakeTag]],
     ) -> Optional[List[SnowflakeTag]]:
         if tags is None:
             return tags

@@ -254,7 +254,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "source": "inode-2Fby2MBLPM5jUMfBB15On1",
                         "target": "mnJ7_k2sbt",
                         "type": "source",
-                    }
+                    },
                 ],
             },
         },
@@ -289,7 +289,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "source": "inode-49HFLTr6xytgrPly3PFsNC",
                         "target": "qrL7BEq8LR",
                         "type": "source",
-                    }
+                    },
                 ],
             },
         },
@@ -325,7 +325,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "Updated At (ADOPTIONS)",
                         ],
                         "vizualizationType": "levelTable",
-                    }
+                    },
                 ],
                 "total": 1,
                 "nextPage": None,
@@ -436,7 +436,7 @@ def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
                     "client_secret": "CLIENTSECRET",
                     "chart_sources_platform_mapping": {
                         "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
+                            "data_source_platform": "snowflake",
                         },
                     },
                 },
@@ -447,7 +447,7 @@ def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -493,7 +493,7 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -583,7 +583,7 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
                     "ingest_shared_entities": True,
                     "chart_sources_platform_mapping": {
                         "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
+                            "data_source_platform": "snowflake",
                         },
                     },
                 },
@@ -594,7 +594,7 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()

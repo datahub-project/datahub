@@ -84,25 +84,25 @@ class BigQueryV2Report(
 ):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_skipped_lineage_entries_not_allowed: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_lineage_entries_sql_parser_failure: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_skipped_lineage_entries_other: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_lineage_total_log_entries: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_lineage_parsed_log_entries: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_lineage_log_parse_failures: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
@@ -111,10 +111,10 @@ class BigQueryV2Report(
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     num_usage_total_log_entries: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
     num_usage_parsed_log_entries: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     num_usage_resources_dropped: int = 0
@@ -136,13 +136,13 @@ class BigQueryV2Report(
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
     profiling_skipped_invalid_partition_ids: Dict[str, str] = field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     profiling_skipped_invalid_partition_type: Dict[str, str] = field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     profiling_skipped_partition_profiling_disabled: List[str] = field(
-        default_factory=LossyList
+        default_factory=LossyList,
     )
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
@@ -171,13 +171,13 @@ class BigQueryV2Report(
 
     init_schema_resolver_timer: PerfTimer = field(default_factory=PerfTimer)
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
-        default_factory=BigQuerySchemaApiPerfReport
+        default_factory=BigQuerySchemaApiPerfReport,
     )
     audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
-        default_factory=BigQueryAuditLogApiPerfReport
+        default_factory=BigQueryAuditLogApiPerfReport,
     )
     processing_perf: BigQueryProcessingPerfReport = field(
-        default_factory=BigQueryProcessingPerfReport
+        default_factory=BigQueryProcessingPerfReport,
     )
 
     lineage_start_time: Optional[datetime] = None

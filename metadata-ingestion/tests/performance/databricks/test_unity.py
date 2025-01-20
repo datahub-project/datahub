@@ -35,7 +35,9 @@ def run_test():
         num_users=1000,
     )
     proxy_mock = UnityCatalogApiProxyMock(
-        seed_metadata, queries=queries, num_service_principals=10000
+        seed_metadata,
+        queries=queries,
+        num_service_principals=10000,
     )
     print("Data generated")
 
@@ -62,7 +64,7 @@ def run_test():
         print(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
 
     print(
-        f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
+        f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}",
     )
     print(source.report.as_string())
 

@@ -87,7 +87,7 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
+    logging.WARNING,
 )
 
 
@@ -101,7 +101,9 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
-    SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
+    SourceCapability.PARTITION_SUPPORT,
+    "Currently not supported.",
+    supported=False,
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
@@ -134,14 +136,16 @@ class IcebergSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
     def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
         namespaces = catalog.list_namespaces()
         LOGGER.debug(
-            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
+            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}",
         )
         self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
@@ -149,7 +153,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             namespace_repr = ".".join(namespace)
             if not self.config.namespace_pattern.allowed(namespace_repr):
                 LOGGER.info(
-                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping",
                 )
                 self.report.report_dropped(f"{namespace_repr}.*")
                 continue
@@ -157,10 +161,11 @@ class IcebergSource(StatefulIngestionSourceBase):
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
                 LOGGER.debug(
-                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}",
                 )
                 self.report.report_listed_tables_for_namespace(
-                    ".".join(namespace), len(tables)
+                    ".".join(namespace),
+                    len(tables),
                 )
                 yield from tables
             except NoSuchNamespaceError:
@@ -177,7 +182,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     f"Couldn't list tables for namespace {namespace} due to {e}",
                 )
                 LOGGER.exception(
-                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it",
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -190,13 +195,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                 # Dataset name is rejected by pattern, report as dropped.
                 self.report.report_dropped(dataset_name)
                 LOGGER.debug(
-                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                    f"Skipping table {dataset_name} due to not being allowed by the config pattern",
                 )
                 return
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
-                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog"
+                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog",
                     )
                     thread_local.local_catalog = self.config.get_catalog()
 
@@ -204,7 +209,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
                     self.report.report_table_load_time(
-                        time_taken, dataset_name, table.metadata_location
+                        time_taken,
+                        dataset_name,
+                        table.metadata_location,
                     )
                 LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
@@ -238,7 +245,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
                 )
                 LOGGER.warning(
-                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it.",
                 )
             except ServerError as e:
                 self.report.report_warning(
@@ -246,7 +253,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
                 )
                 LOGGER.warning(
-                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it.",
                 )
             except Exception as e:
                 self.report.report_failure(
@@ -271,7 +278,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield wu
 
     def _create_iceberg_workunit(
-        self, dataset_name: str, table: Table
+        self,
+        dataset_name: str,
+        table: Table,
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
@@ -294,7 +303,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
             if table.current_snapshot():
                 custom_properties["snapshot-id"] = str(
-                    table.current_snapshot().snapshot_id
+                    table.current_snapshot().snapshot_id,
                 )
                 custom_properties["manifest-list"] = (
                     table.current_snapshot().manifest_list
@@ -309,7 +318,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             dataset_ownership = self._get_ownership_aspect(table)
             if dataset_ownership:
                 LOGGER.debug(
-                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
+                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}",
                 )
                 dataset_snapshot.aspects.append(dataset_ownership)
 
@@ -318,7 +327,9 @@ class IcebergSource(StatefulIngestionSourceBase):
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         self.report.report_table_processing_time(
-            timer.elapsed_seconds(), dataset_name, table.metadata_location
+            timer.elapsed_seconds(),
+            dataset_name,
+            table.metadata_location,
         )
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
@@ -355,16 +366,16 @@ class IcebergSource(StatefulIngestionSourceBase):
                         "name": partition.name,
                         "transform": str(partition.transform),
                         "source": str(
-                            table.schema().find_column_name(partition.source_id)
+                            table.schema().find_column_name(partition.source_id),
                         ),
                         "source-id": partition.source_id,
                         "source-type": str(
-                            table.schema().find_type(partition.source_id)
+                            table.schema().find_type(partition.source_id),
                         ),
                         "field-id": partition.field_id,
                     }
                     for partition in table.spec().fields
-                ]
+                ],
             )
         except Exception as e:
             self.report.report_warning(
@@ -385,7 +396,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                         owner=make_user_urn(user_owner),
                         type=OwnershipTypeClass.TECHNICAL_OWNER,
                         source=None,
-                    )
+                    ),
                 )
         if self.config.group_ownership_property:
             if self.config.group_ownership_property in table.metadata.properties:
@@ -397,12 +408,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                         owner=make_group_urn(group_owner),
                         type=OwnershipTypeClass.TECHNICAL_OWNER,
                         source=None,
-                    )
+                    ),
                 )
         return OwnershipClass(owners=owners) if owners else None
 
     def _get_dataplatform_instance_aspect(
-        self, dataset_urn: str
+        self,
+        dataset_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
@@ -411,7 +423,8 @@ class IcebergSource(StatefulIngestionSourceBase):
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.platform,
+                        self.config.platform_instance,
                     ),
                 ),
             ).as_workunit()
@@ -419,7 +432,9 @@ class IcebergSource(StatefulIngestionSourceBase):
         return None
 
     def _create_schema_metadata(
-        self, dataset_name: str, table: Table
+        self,
+        dataset_name: str,
+        table: Table,
     ) -> SchemaMetadata:
         schema_fields = self._get_schema_fields_for_schema(table.schema())
         schema_metadata = SchemaMetadata(
@@ -438,7 +453,8 @@ class IcebergSource(StatefulIngestionSourceBase):
     ) -> List[SchemaField]:
         avro_schema = visit(schema, ToAvroSchemaIcebergVisitor())
         schema_fields = schema_util.avro_schema_to_mce_fields(
-            json.dumps(avro_schema), default_nullable=False
+            json.dumps(avro_schema),
+            default_nullable=False,
         )
         return schema_fields
 
@@ -457,7 +473,9 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return struct_result
 
     def struct(
-        self, struct: StructType, field_results: List[Dict[str, Any]]
+        self,
+        struct: StructType,
+        field_results: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         nullable = True
         return {
@@ -477,7 +495,9 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         }
 
     def list(
-        self, list_type: ListType, element_result: Dict[str, Any]
+        self,
+        list_type: ListType,
+        element_result: Dict[str, Any],
     ) -> Dict[str, Any]:
         return {
             "type": "array",
@@ -532,7 +552,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             # "type": "bytes", # when using bytes, avro drops _nullable attribute and others.  See unit test.
             "type": "fixed",  # to fix avro bug ^ resolved by using a fixed type
             "name": self._gen_name(
-                "__fixed_"
+                "__fixed_",
             ),  # to fix avro bug ^ resolved by using a fixed type
             "size": 1,  # to fix avro bug ^ resolved by using a fixed type
             "logicalType": "decimal",

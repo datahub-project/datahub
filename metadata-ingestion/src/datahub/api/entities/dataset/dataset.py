@@ -81,12 +81,15 @@ class SchemaFieldSpecification(BaseModel):
 
     @classmethod
     def from_schema_field(
-        cls, schema_field: SchemaFieldClass, parent_urn: str
+        cls,
+        schema_field: SchemaFieldClass,
+        parent_urn: str,
     ) -> "SchemaFieldSpecification":
         return SchemaFieldSpecification(
             id=Dataset._simplify_field_path(schema_field.fieldPath),
             urn=make_schema_field_urn(
-                parent_urn, Dataset._simplify_field_path(schema_field.fieldPath)
+                parent_urn,
+                Dataset._simplify_field_path(schema_field.fieldPath),
             ),
             type=str(schema_field.type),
             nativeDataType=schema_field.nativeDataType,
@@ -259,7 +262,8 @@ class Dataset(BaseModel):
                         fields=avro_schema_to_mce_fields(schema_string),
                     )
                     mcp = MetadataChangeProposalWrapper(
-                        entityUrn=self.urn, aspect=schema_metadata
+                        entityUrn=self.urn,
+                        aspect=schema_metadata,
                     )
                     yield mcp
 
@@ -278,7 +282,7 @@ class Dataset(BaseModel):
                                 tags=[
                                     TagAssociationClass(tag=make_tag_urn(tag))
                                     for tag in field.globalTags
-                                ]
+                                ],
                             ),
                         )
                         yield mcp
@@ -289,7 +293,7 @@ class Dataset(BaseModel):
                             aspect=GlossaryTermsClass(
                                 terms=[
                                     GlossaryTermAssociationClass(
-                                        urn=make_term_urn(term)
+                                        urn=make_term_urn(term),
                                     )
                                     for term in field.glossaryTerms
                                 ],
@@ -312,7 +316,7 @@ class Dataset(BaseModel):
                                         ),
                                     )
                                     for prop_key, prop_value in field.structured_properties.items()
-                                ]
+                                ],
                             ),
                         )
                         yield mcp
@@ -321,7 +325,7 @@ class Dataset(BaseModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
                 aspect=SubTypesClass(
-                    typeNames=[s for s in [self.subtype] + (self.subtypes or []) if s]
+                    typeNames=[s for s in [self.subtype] + (self.subtypes or []) if s],
                 ),
             )
             yield mcp
@@ -332,7 +336,7 @@ class Dataset(BaseModel):
                 aspect=GlobalTagsClass(
                     tags=[
                         TagAssociationClass(tag=make_tag_urn(tag)) for tag in self.tags
-                    ]
+                    ],
                 ),
             )
             yield mcp
@@ -354,7 +358,7 @@ class Dataset(BaseModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
                 aspect=OwnershipClass(
-                    owners=[self._mint_owner(o) for o in self.owners]
+                    owners=[self._mint_owner(o) for o in self.owners],
                 ),
             )
             yield mcp
@@ -373,7 +377,7 @@ class Dataset(BaseModel):
                             ),
                         )
                         for prop_key, prop_value in self.structured_properties.items()
-                    ]
+                    ],
                 ),
             )
             yield mcp
@@ -386,7 +390,7 @@ class Dataset(BaseModel):
                     UpstreamClass(
                         dataset=self.urn,
                         type="COPY",
-                    )
+                    ),
                 )
                 yield from patch_builder.build()
 
@@ -394,7 +398,9 @@ class Dataset(BaseModel):
 
     @staticmethod
     def validate_type(
-        sp_name: str, sp_value: Union[str, float], allowed_type: str
+        sp_name: str,
+        sp_value: Union[str, float],
+        allowed_type: str,
     ) -> Tuple[str, Union[str, float]]:
         if allowed_type == AllowedTypes.NUMBER.value:
             return (sp_name, float(sp_value))
@@ -427,24 +433,27 @@ class Dataset(BaseModel):
 
     @staticmethod
     def _schema_from_schema_metadata(
-        graph: DataHubGraph, urn: str
+        graph: DataHubGraph,
+        urn: str,
     ) -> Optional[SchemaSpecification]:
         schema_metadata: Optional[SchemaMetadataClass] = graph.get_aspect(
-            urn, SchemaMetadataClass
+            urn,
+            SchemaMetadataClass,
         )
 
         if schema_metadata:
             schema_specification = SchemaSpecification(
                 fields=[
                     SchemaFieldSpecification.from_schema_field(
-                        field, urn
+                        field,
+                        urn,
                     ).with_structured_properties(
                         {
                             sp.propertyUrn: sp.values
                             for sp in structured_props.properties
                         }
                         if structured_props
-                        else None
+                        else None,
                     )
                     for field, structured_props in [
                         (
@@ -455,14 +464,15 @@ class Dataset(BaseModel):
                             )
                             or graph.get_aspect(
                                 make_schema_field_urn(
-                                    urn, Dataset._simplify_field_path(field.fieldPath)
+                                    urn,
+                                    Dataset._simplify_field_path(field.fieldPath),
                                 ),
                                 StructuredPropertiesClass,
                             ),
                         )
                         for field in schema_metadata.fields
                     ]
-                ]
+                ],
             )
             return schema_specification
         else:
@@ -487,17 +497,20 @@ class Dataset(BaseModel):
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "Dataset":
         dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
-            urn, DatasetPropertiesClass
+            urn,
+            DatasetPropertiesClass,
         )
         subtypes: Optional[SubTypesClass] = graph.get_aspect(urn, SubTypesClass)
         tags: Optional[GlobalTagsClass] = graph.get_aspect(urn, GlobalTagsClass)
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
-            urn, GlossaryTermsClass
+            urn,
+            GlossaryTermsClass,
         )
         owners: Optional[OwnershipClass] = graph.get_aspect(urn, OwnershipClass)
         yaml_owners = Dataset.extract_owners_if_exists(owners)
         structured_properties: Optional[StructuredPropertiesClass] = graph.get_aspect(
-            urn, StructuredPropertiesClass
+            urn,
+            StructuredPropertiesClass,
         )
         if structured_properties:
             structured_properties_map: Dict[str, List[Union[str, float]]] = {}

@@ -41,7 +41,7 @@ def test_parse_urn() -> None:
 
 def test_url_encode_urn() -> None:
     urn_with_slash: Urn = Urn.create_from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,prod)"
+        "urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,prod)",
     )
     assert (
         Urn.url_encode(str(urn_with_slash))

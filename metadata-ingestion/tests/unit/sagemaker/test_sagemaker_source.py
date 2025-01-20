@@ -79,14 +79,14 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "list_associations",
             list_first_endpoint_incoming_response,
             {
-                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint"
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
             },
         )
         sagemaker_stubber.add_response(
             "list_associations",
             list_first_endpoint_outgoing_response,
             {
-                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint"
+                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
             },
         )
 
@@ -94,14 +94,14 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "list_associations",
             list_second_endpoint_incoming_response,
             {
-                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint"
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
             },
         )
         sagemaker_stubber.add_response(
             "list_associations",
             list_second_endpoint_outgoing_response,
             {
-                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint"
+                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
             },
         )
 
@@ -109,21 +109,21 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "list_associations",
             get_model_group_incoming_response,
             {
-                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context"
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
             },
         )
         sagemaker_stubber.add_response(
             "list_associations",
             get_first_model_package_incoming_response,
             {
-                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact"
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
             },
         )
         sagemaker_stubber.add_response(
             "list_associations",
             get_second_model_package_incoming_response,
             {
-                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact"
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
             },
         )
 

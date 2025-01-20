@@ -54,7 +54,8 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
 
 
 def is_dialect_instance(
-    dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
+    dialect: sqlglot.Dialect,
+    platforms: Union[str, Iterable[str]],
 ) -> bool:
     if isinstance(platforms, str):
         platforms = [platforms]
@@ -70,16 +71,20 @@ def is_dialect_instance(
 
 @functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
 def _parse_statement(
-    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+    sql: sqlglot.exp.ExpOrStr,
+    dialect: sqlglot.Dialect,
 ) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
-        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
+        sql,
+        dialect=dialect,
+        error_level=sqlglot.ErrorLevel.IMMEDIATE,
     )
     return statement
 
 
 def parse_statement(
-    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+    sql: sqlglot.exp.ExpOrStr,
+    dialect: sqlglot.Dialect,
 ) -> sqlglot.Expression:
     # Parsing is significantly more expensive than copying the expression.
     # Because the expressions are mutable, we don't want to allow the caller
@@ -104,13 +109,15 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expre
         # Usually the prior queries are going to be things like `CREATE FUNCTION`
         # or `GRANT ...`, which we don't care about.
         logger.debug(
-            "Found multiple statements in query, picking the last one: %s", sql
+            "Found multiple statements in query, picking the last one: %s",
+            sql,
         )
         return statements[-1]
 
 
 def _expression_to_string(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
 ) -> str:
     if isinstance(expression, str):
         return expression
@@ -154,7 +161,8 @@ _TABLE_NAME_NORMALIZATION_RULES = {
     ): "00000000_0000_0000_0000_000000000000",
     # GE temporary table names (prefix + 8 digits of a UUIDv4)
     re.compile(
-        r"\b(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}\b", re.IGNORECASE
+        r"\b(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}\b",
+        re.IGNORECASE,
     ): r"\1abcdefgh",
     # Date-suffixed table names (e.g. _20210101)
     re.compile(r"\b(\w+)(19|20)\d{4}\b"): r"\1YYYYMM",
@@ -260,7 +268,9 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
@@ -278,13 +288,15 @@ def get_query_fingerprint_debug(
     fingerprint = generate_hash(
         expression_sql
         if expression_sql is not None
-        else _expression_to_string(expression, platform=platform)
+        else _expression_to_string(expression, platform=platform),
     )
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -311,7 +323,9 @@ def get_query_fingerprint(
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
 def try_format_query(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    raises: bool = False,
 ) -> str:
     """Format a SQL query.
 
@@ -338,7 +352,9 @@ def try_format_query(
 
 
 def detach_ctes(
-    sql: sqlglot.exp.ExpOrStr, platform: str, cte_mapping: Dict[str, str]
+    sql: sqlglot.exp.ExpOrStr,
+    platform: str,
+    cte_mapping: Dict[str, str],
 ) -> sqlglot.exp.Expression:
     """Replace CTE references with table references.
 
@@ -372,7 +388,9 @@ def detach_ctes(
         ):
             full_new_name = cte_mapping[node.name]
             table_expr = sqlglot.maybe_parse(
-                full_new_name, dialect=dialect, into=sqlglot.exp.Table
+                full_new_name,
+                dialect=dialect,
+                into=sqlglot.exp.Table,
             )
 
             parent = node.parent
@@ -399,12 +417,12 @@ def detach_ctes(
     max_eliminate_calls = 5
     for iteration in range(max_eliminate_calls):
         new_statement = sqlglot.optimizer.eliminate_ctes.eliminate_ctes(
-            statement.copy()
+            statement.copy(),
         )
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs",
                 )
             break
         statement = new_statement

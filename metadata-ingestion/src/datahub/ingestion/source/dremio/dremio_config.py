@@ -97,7 +97,8 @@ class DremioConnectionConfig(ConfigModel):
 
 class ProfileConfig(GEProfilingBaseConfig):
     query_timeout: int = Field(
-        default=300, description="Time before cancelling Dremio profiling query"
+        default=300,
+        description="Time before cancelling Dremio profiling query",
     )
     include_field_median_value: bool = Field(
         default=False,
@@ -161,7 +162,7 @@ class DremioSourceConfig(
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     # Advanced Configs

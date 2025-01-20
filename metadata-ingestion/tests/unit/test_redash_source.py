@@ -118,7 +118,7 @@ mock_dashboard_response = {
                     "percentFormat": "0[.]00%",
                     "sortX": True,
                     "seriesOptions": {
-                        "value": {"zIndex": 0, "index": 0, "type": "pie", "yAxis": 0}
+                        "value": {"zIndex": 0, "index": 0, "type": "pie", "yAxis": 0},
                     },
                     "valuesOptions": {"Yes": {}, "No": {}},
                     "xAxis": {"labels": {"enabled": True}, "type": "-"},
@@ -447,7 +447,7 @@ mock_chart_response: Dict[str, Any] = {
                 "percentFormat": "0[.]00%",
                 "sortX": True,
                 "seriesOptions": {
-                    "value": {"zIndex": 0, "index": 0, "type": "pie", "yAxis": 0}
+                    "value": {"zIndex": 0, "index": 0, "type": "pie", "yAxis": 0},
                 },
                 "valuesOptions": {"Yes": {}, "No": {}},
                 "xAxis": {"labels": {"enabled": True}, "type": "-"},
@@ -491,16 +491,18 @@ def test_get_dashboard_snapshot_before_v10():
                 lastModified=ChangeAuditStamps(
                     created=None,
                     lastModified=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
+                        time=1628882055288,
+                        actor="urn:li:corpuser:unknown",
                     ),
                 ),
                 dashboardUrl="http://localhost:5000/dashboard/my-dashboard",
                 customProperties={},
-            )
+            ),
         ],
     )
     result = redash_source()._get_dashboard_snapshot(
-        mock_dashboard_response, "9.0.0-beta"
+        mock_dashboard_response,
+        "9.0.0-beta",
     )
     assert result == expected
 
@@ -521,16 +523,18 @@ def test_get_dashboard_snapshot_after_v10():
                 lastModified=ChangeAuditStamps(
                     created=None,
                     lastModified=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
+                        time=1628882055288,
+                        actor="urn:li:corpuser:unknown",
                     ),
                 ),
                 dashboardUrl="http://localhost:5000/dashboards/3",
                 customProperties={},
-            )
+            ),
         ],
     )
     result = redash_source()._get_dashboard_snapshot(
-        mock_dashboard_response, "10.0.0-beta"
+        mock_dashboard_response,
+        "10.0.0-beta",
     )
     assert result == expected
 
@@ -549,13 +553,14 @@ def test_get_known_viz_chart_snapshot(mocked_data_source):
                 lastModified=ChangeAuditStamps(
                     created=None,
                     lastModified=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
+                        time=1628882022544,
+                        actor="urn:li:corpuser:unknown",
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
                 inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
                 type="PIE",
-            )
+            ),
         ],
     )
     viz_data = mock_chart_response.get("visualizations", [])[2]
@@ -580,13 +585,14 @@ def test_get_unknown_viz_chart_snapshot(mocked_data_source):
                 lastModified=ChangeAuditStamps(
                     created=None,
                     lastModified=AuditStamp(
-                        time=1628882009571, actor="urn:li:corpuser:unknown"
+                        time=1628882009571,
+                        actor="urn:li:corpuser:unknown",
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#9",
                 inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
                 type="TABLE",
-            )
+            ),
         ],
     )
     viz_data = mock_chart_response.get("visualizations", [])[1]
@@ -673,8 +679,10 @@ def test_get_full_qualified_name():
 
         result.append(
             get_full_qualified_name(
-                platform=platform, database_name=database_name, table_name=table_name
-            )
+                platform=platform,
+                database_name=database_name,
+                table_name=table_name,
+            ),
         )
 
     assert expected == result
@@ -705,7 +713,8 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                 lastModified=ChangeAuditStamps(
                     created=None,
                     lastModified=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
+                        time=1628882022544,
+                        actor="urn:li:corpuser:unknown",
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
@@ -715,12 +724,13 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                     "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
                 ],
                 type="PIE",
-            )
+            ),
         ],
     )
     viz_data = mock_chart_response.get("visualizations", [])[2]
     result = redash_source_parse_table_names_from_sql()._get_chart_snapshot(
-        mock_chart_response, viz_data
+        mock_chart_response,
+        viz_data,
     )
 
     assert result == expected

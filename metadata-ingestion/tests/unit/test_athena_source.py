@@ -24,7 +24,7 @@ def test_athena_config_query_location_old_plus_new_value_not_allowed():
                 "s3_staging_dir": "s3://sample-staging-dir/",
                 "query_result_location": "s3://query_result_location",
                 "work_group": "test-workgroup",
-            }
+            },
         )
 
 
@@ -36,7 +36,7 @@ def test_athena_config_staging_dir_is_set_as_query_result():
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
-        }
+        },
     )
 
     expected_config = AthenaConfig.parse_obj(
@@ -44,7 +44,7 @@ def test_athena_config_staging_dir_is_set_as_query_result():
             "aws_region": "us-west-1",
             "query_result_location": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
-        }
+        },
     )
 
     assert config.json() == expected_config.json()
@@ -58,7 +58,7 @@ def test_athena_uri():
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
             "work_group": "test-workgroup",
-        }
+        },
     )
     assert config.get_sql_alchemy_url() == (
         "awsathena+rest://@athena.us-west-1.amazonaws.com:443"
@@ -81,7 +81,7 @@ def test_athena_get_table_properties():
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
-        }
+        },
     )
     schema: str = "test_schema"
     table: str = "test_table"
@@ -110,7 +110,7 @@ def test_athena_get_table_properties():
     mock_inspector = mock.MagicMock()
     mock_inspector.engine.raw_connection().cursor.return_value = mock_cursor
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
-        response=table_metadata
+        response=table_metadata,
     )
 
     # Mock partition query results
@@ -126,7 +126,9 @@ def test_athena_get_table_properties():
 
     # Test table properties
     description, custom_properties, location = source.get_table_properties(
-        inspector=mock_inspector, table=table, schema=schema
+        inspector=mock_inspector,
+        table=table,
+        schema=schema,
     )
     assert custom_properties == {
         "comment": "testComment",
@@ -143,7 +145,9 @@ def test_athena_get_table_properties():
 
     # Test partition functionality
     partitions = source.get_partitions(
-        inspector=mock_inspector, schema=schema, table=table
+        inspector=mock_inspector,
+        schema=schema,
+        table=table,
     )
     assert partitions == ["year", "month"]
 
@@ -167,19 +171,24 @@ from "test_schema"."test_table$partitions")"""
 
 def test_get_column_type_simple_types():
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="int"), types.Integer
+        CustomAthenaRestDialect()._get_column_type(type_="int"),
+        types.Integer,
     )
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="string"), types.String
+        CustomAthenaRestDialect()._get_column_type(type_="string"),
+        types.String,
     )
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="boolean"), types.BOOLEAN
+        CustomAthenaRestDialect()._get_column_type(type_="boolean"),
+        types.BOOLEAN,
     )
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="long"), types.BIGINT
+        CustomAthenaRestDialect()._get_column_type(type_="long"),
+        types.BIGINT,
     )
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="double"), types.FLOAT
+        CustomAthenaRestDialect()._get_column_type(type_="double"),
+        types.FLOAT,
     )
 
 
@@ -217,7 +226,7 @@ def test_column_type_decimal():
 
 def test_column_type_complex_combination():
     result = CustomAthenaRestDialect()._get_column_type(
-        type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>"
+        type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>",
     )
 
     assert isinstance(result, STRUCT)
@@ -239,13 +248,15 @@ def test_column_type_complex_combination():
     assert isinstance(result._STRUCT_fields[2][1].item_type._STRUCT_fields[0], tuple)
     assert result._STRUCT_fields[2][1].item_type._STRUCT_fields[0][0] == "id"
     assert isinstance(
-        result._STRUCT_fields[2][1].item_type._STRUCT_fields[0][1], types.String
+        result._STRUCT_fields[2][1].item_type._STRUCT_fields[0][1],
+        types.String,
     )
 
     assert isinstance(result._STRUCT_fields[2][1].item_type._STRUCT_fields[1], tuple)
     assert result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][0] == "label"
     assert isinstance(
-        result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][1], types.String
+        result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][1],
+        types.String,
     )
 
 

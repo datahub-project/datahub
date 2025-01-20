@@ -38,7 +38,9 @@ class DashboardPatchBuilder(
             audit_header: The Kafka audit header of the dashboard (optional).
         """
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     @classmethod
@@ -46,7 +48,8 @@ class DashboardPatchBuilder(
         return DashboardInfo.ASPECT_NAME, ("customProperties",)
 
     def add_dataset_edge(
-        self, dataset: Union[Edge, Urn, str]
+        self,
+        dataset: Union[Edge, Urn, str],
     ) -> "DashboardPatchBuilder":
         """
         Adds an dataset to the DashboardPatchBuilder.
@@ -258,7 +261,8 @@ class DashboardPatchBuilder(
         return self
 
     def add_datasets(
-        self, dataset_urns: Optional[List[str]]
+        self,
+        dataset_urns: Optional[List[str]],
     ) -> "DashboardPatchBuilder":
         if dataset_urns:
             for urn in dataset_urns:
@@ -272,7 +276,8 @@ class DashboardPatchBuilder(
         return self
 
     def set_dashboard_url(
-        self, dashboard_url: Optional[str]
+        self,
+        dashboard_url: Optional[str],
     ) -> "DashboardPatchBuilder":
         if dashboard_url:
             self._add_patch(
@@ -285,7 +290,8 @@ class DashboardPatchBuilder(
         return self
 
     def set_access(
-        self, access: Union[None, Union[str, "AccessLevelClass"]] = None
+        self,
+        access: Union[None, Union[str, "AccessLevelClass"]] = None,
     ) -> "DashboardPatchBuilder":
         if access:
             self._add_patch(
@@ -298,7 +304,8 @@ class DashboardPatchBuilder(
         return self
 
     def set_last_refreshed(
-        self, last_refreshed: Optional[int]
+        self,
+        last_refreshed: Optional[int],
     ) -> "DashboardPatchBuilder":
         if last_refreshed:
             self._add_patch(
@@ -311,7 +318,8 @@ class DashboardPatchBuilder(
         return self
 
     def set_last_modified(
-        self, last_modified: "ChangeAuditStampsClass"
+        self,
+        last_modified: "ChangeAuditStampsClass",
     ) -> "DashboardPatchBuilder":
         if last_modified:
             self._add_patch(

@@ -23,9 +23,9 @@ def test_nifi_s3_provenance_event():
     ctx = PipelineContext(run_id="test")
 
     with patch(
-        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events",
     ) as mock_provenance_events, patch(
-        "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        "datahub.ingestion.source.nifi.NifiSource.delete_provenance",
     ) as mock_delete_provenance:
         mocked_functions(mock_provenance_events, mock_delete_provenance, "puts3")
 
@@ -53,7 +53,7 @@ def test_nifi_s3_provenance_event():
                     config={},
                     target_uris=None,
                     last_event_time=None,
-                )
+                ),
             },
             remotely_accessible_ports={},
             connections=BidirectionalComponentGraph(),
@@ -89,14 +89,14 @@ def test_nifi_s3_provenance_event():
 
         ioAspect = workunits[5].metadata.aspect
         assert ioAspect.outputDatasets == [
-            "urn:li:dataset:(urn:li:dataPlatform:s3,foo-nifi/tropical_data,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,foo-nifi/tropical_data,PROD)",
         ]
         assert ioAspect.inputDatasets == []
 
     with patch(
-        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events",
     ) as mock_provenance_events, patch(
-        "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        "datahub.ingestion.source.nifi.NifiSource.delete_provenance",
     ) as mock_delete_provenance:
         mocked_functions(mock_provenance_events, mock_delete_provenance, "fetchs3")
 
@@ -124,7 +124,7 @@ def test_nifi_s3_provenance_event():
                     config={},
                     target_uris=None,
                     last_event_time=None,
-                )
+                ),
             },
             remotely_accessible_ports={},
             connections=BidirectionalComponentGraph(),
@@ -161,7 +161,7 @@ def test_nifi_s3_provenance_event():
         ioAspect = workunits[5].metadata.aspect
         assert ioAspect.outputDatasets == []
         assert ioAspect.inputDatasets == [
-            "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
         ]
 
 
@@ -282,39 +282,42 @@ def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_
 @pytest.mark.parametrize("auth", ["SINGLE_USER", "BASIC_AUTH"])
 def test_auth_without_password(auth):
     with pytest.raises(
-        ValueError, match=f"`username` and `password` is required for {auth} auth"
+        ValueError,
+        match=f"`username` and `password` is required for {auth} auth",
     ):
         NifiSourceConfig.parse_obj(
             {
                 "site_url": "https://localhost:8443",
                 "auth": auth,
                 "username": "someuser",
-            }
+            },
         )
 
 
 @pytest.mark.parametrize("auth", ["SINGLE_USER", "BASIC_AUTH"])
 def test_auth_without_username_and_password(auth):
     with pytest.raises(
-        ValueError, match=f"`username` and `password` is required for {auth} auth"
+        ValueError,
+        match=f"`username` and `password` is required for {auth} auth",
     ):
         NifiSourceConfig.parse_obj(
             {
                 "site_url": "https://localhost:8443",
                 "auth": auth,
-            }
+            },
         )
 
 
 def test_client_cert_auth_without_client_cert_file():
     with pytest.raises(
-        ValueError, match="`client_cert_file` is required for CLIENT_CERT auth"
+        ValueError,
+        match="`client_cert_file` is required for CLIENT_CERT auth",
     ):
         NifiSourceConfig.parse_obj(
             {
                 "site_url": "https://localhost:8443",
                 "auth": "CLIENT_CERT",
-            }
+            },
         )
 
 

@@ -99,7 +99,8 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
 
 class DataProcessCleanupConfig(ConfigModel):
     enabled: bool = Field(
-        default=True, description="Whether to do data process cleanup."
+        default=True,
+        description="Whether to do data process cleanup.",
     )
     retention_days: Optional[int] = Field(
         10,
@@ -117,11 +118,13 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        False, description="Whether to delete Data Jobs without runs"
+        False,
+        description="Whether to delete Data Jobs without runs",
     )
 
     delete_empty_data_flows: bool = Field(
-        False, description="Whether to delete Data Flows without runs"
+        False,
+        description="Whether to delete Data Flows without runs",
     )
 
     hard_delete_entities: bool = Field(
@@ -168,7 +171,7 @@ class DataProcessCleanupReport(SourceReport):
     num_aspects_removed: int = 0
     num_aspect_removed_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
     sample_soft_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     num_data_flows_found: int = 0
     num_data_jobs_found: int = 0
@@ -238,13 +241,17 @@ class DataProcessCleanup:
                     break
             except Exception as e:
                 self.report.failure(
-                    f"Exception while fetching DPIs for job {job_urn}:", exc=e
+                    f"Exception while fetching DPIs for job {job_urn}:",
+                    exc=e,
                 )
                 break
         return dpis
 
     def keep_last_n_dpi(
-        self, dpis: List[Dict], job: DataJobEntity, executor: ThreadPoolExecutor
+        self,
+        dpis: List[Dict],
+        job: DataJobEntity,
+        executor: ThreadPoolExecutor,
     ) -> None:
         if not self.config.keep_last_n:
             return
@@ -254,7 +261,9 @@ class DataProcessCleanup:
             futures = {}
             for dpi in dpis[self.config.keep_last_n :]:
                 future = executor.submit(
-                    self.delete_entity, dpi["urn"], "dataprocessInstance"
+                    self.delete_entity,
+                    dpi["urn"],
+                    "dataprocessInstance",
                 )
                 futures[future] = dpi
 
@@ -265,7 +274,8 @@ class DataProcessCleanup:
                     futures[future]["deleted"] = True
                 except Exception as e:
                     self.report.report_failure(
-                        f"Exception while deleting DPI: {e}", exc=e
+                        f"Exception while deleting DPI: {e}",
+                        exc=e,
                     )
             if (
                 deleted_count_last_n % self.config.batch_size == 0
@@ -292,7 +302,7 @@ class DataProcessCleanup:
 
         if self.dry_run:
             logger.info(
-                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is {self.config.hard_delete_entities}"
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is {self.config.hard_delete_entities}",
             )
             return
 
@@ -318,12 +328,18 @@ class DataProcessCleanup:
 
         job.total_runs = len(
             list(
-                filter(lambda dpi: "deleted" not in dpi or not dpi.get("deleted"), dpis)
-            )
+                filter(
+                    lambda dpi: "deleted" not in dpi or not dpi.get("deleted"),
+                    dpis,
+                ),
+            ),
         )
 
     def remove_old_dpis(
-        self, dpis: List[Dict], job: DataJobEntity, executor: ThreadPoolExecutor
+        self,
+        dpis: List[Dict],
+        job: DataJobEntity,
+        executor: ThreadPoolExecutor,
     ) -> None:
         if self.config.retention_days is None:
             return
@@ -345,7 +361,9 @@ class DataProcessCleanup:
                 or dpi["created"]["time"] < retention_time * 1000
             ):
                 future = executor.submit(
-                    self.delete_entity, dpi["urn"], "dataprocessInstance"
+                    self.delete_entity,
+                    dpi["urn"],
+                    "dataprocessInstance",
                 )
                 futures[future] = dpi
 
@@ -362,7 +380,7 @@ class DataProcessCleanup:
                 and deleted_count_retention > 0
             ):
                 logger.info(
-                    f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+                    f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention",
                 )
 
                 if self.config.delay:
@@ -371,7 +389,7 @@ class DataProcessCleanup:
 
         if deleted_count_retention > 0:
             logger.info(
-                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention",
             )
         else:
             logger.debug(f"No DPIs to delete from {job.urn} due to retention")
@@ -395,7 +413,8 @@ class DataProcessCleanup:
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get dataflows with {scroll_id}", exc=e
+                    f"While trying to get dataflows with {scroll_id}",
+                    exc=e,
                 )
                 break
 
@@ -447,7 +466,8 @@ class DataProcessCleanup:
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get data jobs with {scroll_id}", exc=e
+                    f"While trying to get data jobs with {scroll_id}",
+                    exc=e,
                 )
                 break
             scrollAcrossEntities = result.get("scrollAcrossEntities")
@@ -472,14 +492,15 @@ class DataProcessCleanup:
                         self.delete_dpi_from_datajobs(datajob_entity)
                     except Exception as e:
                         self.report.failure(
-                            f"While trying to delete {datajob_entity} ", exc=e
+                            f"While trying to delete {datajob_entity} ",
+                            exc=e,
                         )
                 if (
                     datajob_entity.total_runs == 0
                     and self.config.delete_empty_data_jobs
                 ):
                     logger.info(
-                        f"Deleting datajob {datajob_entity.urn} because there are no runs"
+                        f"Deleting datajob {datajob_entity.urn} because there are no runs",
                     )
                     self.delete_entity(datajob_entity.urn, "dataJob")
                     deleted_jobs += 1
@@ -501,7 +522,7 @@ class DataProcessCleanup:
             for key in dataFlows.keys():
                 if not dataJobs.get(key) or len(dataJobs[key]) == 0:
                     logger.info(
-                        f"Deleting dataflow {key} because there are not datajobs"
+                        f"Deleting dataflow {key} because there are not datajobs",
                     )
                     self.delete_entity(key, "dataFlow")
                     deleted_data_flows += 1

@@ -34,7 +34,8 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
 current_owners: Optional[OwnershipClass] = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=OwnershipClass
+    entity_urn=dataset_urn,
+    aspect_type=OwnershipClass,
 )
 
 
@@ -58,7 +59,7 @@ if need_write:
     )
     graph.emit(event)
     log.info(
-        f"Owner {owner_to_add}, type {ownership_type} added to dataset {dataset_urn}"
+        f"Owner {owner_to_add}, type {ownership_type} added to dataset {dataset_urn}",
     )
 
 else:

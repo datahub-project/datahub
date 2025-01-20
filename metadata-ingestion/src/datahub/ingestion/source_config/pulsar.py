@@ -33,10 +33,13 @@ def _is_valid_hostname(hostname: str) -> bool:
 
 
 class PulsarSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
 ):
     web_service_url: str = Field(
-        default="http://localhost:8080", description="The web URL for the cluster."
+        default="http://localhost:8080",
+        description="The web URL for the cluster.",
     )
     timeout: int = Field(
         default=5,
@@ -48,10 +51,12 @@ class PulsarSourceConfig(
         description="The complete URL for a Custom Authorization Server. Mandatory for OAuth based authentication.",
     )
     client_id: Optional[str] = Field(
-        default=None, description="The application's client ID"
+        default=None,
+        description="The application's client ID",
     )
     client_secret: Optional[str] = Field(
-        default=None, description="The application's client secret"
+        default=None,
+        description="The application's client secret",
     )
     # Mandatory for token authentication
     token: Optional[str] = Field(
@@ -86,36 +91,43 @@ class PulsarSourceConfig(
     )
 
     domain: Dict[str, AllowDenyPattern] = Field(
-        default_factory=dict, description="Domain patterns"
+        default_factory=dict,
+        description="Domain patterns",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="see Stateful Ingestion"
+        default=None,
+        description="see Stateful Ingestion",
     )
 
     oid_config: dict = Field(
-        default_factory=dict, description="Placeholder for OpenId discovery document"
+        default_factory=dict,
+        description="Placeholder for OpenId discovery document",
     )
 
     @validator("token")
     def ensure_only_issuer_or_token(
-        cls, token: Optional[str], values: Dict[str, Optional[str]]
+        cls,
+        token: Optional[str],
+        values: Dict[str, Optional[str]],
     ) -> Optional[str]:
         if token is not None and values.get("issuer_url") is not None:
             raise ValueError(
-                "Expected only one authentication method, either issuer_url or token."
+                "Expected only one authentication method, either issuer_url or token.",
             )
         return token
 
     @validator("client_secret", always=True)
     def ensure_client_id_and_secret_for_issuer_url(
-        cls, client_secret: Optional[str], values: Dict[str, Optional[str]]
+        cls,
+        client_secret: Optional[str],
+        values: Dict[str, Optional[str]],
     ) -> Optional[str]:
         if values.get("issuer_url") is not None and (
             client_secret is None or values.get("client_id") is None
         ):
             raise ValueError(
-                "Missing configuration: client_id and client_secret are mandatory when issuer_url is set."
+                "Missing configuration: client_id and client_secret are mandatory when issuer_url is set.",
             )
         return client_secret
 
@@ -129,7 +141,7 @@ class PulsarSourceConfig(
 
         if not _is_valid_hostname(url.hostname.__str__()):
             raise ValueError(
-                f"Not a valid hostname, hostname contains invalid characters, found {url.hostname}"
+                f"Not a valid hostname, hostname contains invalid characters, found {url.hostname}",
             )
 
         return config_clean.remove_trailing_slashes(val)

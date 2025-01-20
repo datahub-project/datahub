@@ -91,7 +91,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return
         with inspector.engine.connect() as conn:
             for row in conn.execute(
-                "SELECT table_schema, table_name, data_length from information_schema.tables"
+                "SELECT table_schema, table_name, data_length from information_schema.tables",
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
                     f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"

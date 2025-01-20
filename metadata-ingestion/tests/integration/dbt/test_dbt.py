@@ -104,7 +104,7 @@ class DbtTestConfig:
                         "match": ".*",
                         "operation": "add_tag",
                         "config": {"tag": "{{ $match }}"},
-                    }
+                    },
                 },
             },
             **self.source_config_modifiers,
@@ -138,7 +138,7 @@ class DbtTestConfig:
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "node_name_pattern": {
-                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"],
                 },
                 "owner_extraction_pattern": "(.*)(?P<owner>(?<=\\().*?(?=\\)))",
                 "strip_user_ids_from_email": True,
@@ -263,7 +263,7 @@ def test_dbt_ingest(
                 "type": "file",
                 "config": config.sink_config,
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -299,17 +299,18 @@ def test_dbt_ingest(
 @freeze_time(FROZEN_TIME)
 def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
     config_dict["manifest_path"] = str(
-        (test_resources_dir / config_dict["manifest_path"]).resolve()
+        (test_resources_dir / config_dict["manifest_path"]).resolve(),
     )
     config_dict["catalog_path"] = str(
-        (test_resources_dir / config_dict["catalog_path"]).resolve()
+        (test_resources_dir / config_dict["catalog_path"]).resolve(),
     )
     report = test_connection_helpers.run_test_connection(DBTCoreSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)
     else:
         test_connection_helpers.assert_basic_connectivity_failure(
-            report, "No such file or directory"
+            report,
+            "No such file or directory",
         )
 
 
@@ -327,23 +328,23 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                 config=DBTCoreConfig(
                     **_default_dbt_source_args,
                     manifest_path=str(
-                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve(),
                     ),
                     catalog_path=str(
-                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve(),
                     ),
                     target_platform="postgres",
                     run_results_paths=[
                         str(
                             (
                                 test_resources_dir / "jaffle_shop_test_results.json"
-                            ).resolve()
-                        )
+                            ).resolve(),
+                        ),
                     ],
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
-        )
+        ),
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -359,7 +360,11 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_tests_only_assertions(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    **kwargs,
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_assertions.json"
@@ -371,26 +376,26 @@ def test_dbt_tests_only_assertions(
                 config=DBTCoreConfig(
                     **_default_dbt_source_args,
                     manifest_path=str(
-                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve(),
                     ),
                     catalog_path=str(
-                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve(),
                     ),
                     target_platform="postgres",
                     run_results_paths=[
                         str(
                             (
                                 test_resources_dir / "jaffle_shop_test_results.json"
-                            ).resolve()
-                        )
+                            ).resolve(),
+                        ),
                     ],
                     entities_enabled=DBTEntitiesEnabled(
-                        test_results=EmitDirective.ONLY
+                        test_results=EmitDirective.ONLY,
                     ),
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
-        )
+        ),
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -407,14 +412,17 @@ def test_dbt_tests_only_assertions(
     number_of_valid_assertions_in_test_results = 24
     assert (
         mce_helpers.assert_entity_urn_like(
-            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+            entity_type="assertion",
+            regex_pattern="urn:li:assertion:",
+            file=output_file,
         )
         == number_of_valid_assertions_in_test_results
     )
 
     # no assertionInfo should be emitted
     with pytest.raises(
-        AssertionError, match="Failed to find aspect_name assertionInfo for urns"
+        AssertionError,
+        match="Failed to find aspect_name assertionInfo for urns",
     ):
         mce_helpers.assert_for_each_entity(
             entity_type="assertion",
@@ -439,7 +447,11 @@ def test_dbt_tests_only_assertions(
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_only_test_definitions_and_results(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    **kwargs,
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_definitions_and_assertions.json"
@@ -451,18 +463,18 @@ def test_dbt_only_test_definitions_and_results(
                 config=DBTCoreConfig(
                     **_default_dbt_source_args,
                     manifest_path=str(
-                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve(),
                     ),
                     catalog_path=str(
-                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve(),
                     ),
                     target_platform="postgres",
                     run_results_paths=[
                         str(
                             (
                                 test_resources_dir / "jaffle_shop_test_results.json"
-                            ).resolve()
-                        )
+                            ).resolve(),
+                        ),
                     ],
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
@@ -472,7 +484,7 @@ def test_dbt_only_test_definitions_and_results(
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
-        )
+        ),
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -488,7 +500,9 @@ def test_dbt_only_test_definitions_and_results(
     number_of_assertions = 25
     assert (
         mce_helpers.assert_entity_urn_like(
-            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+            entity_type="assertion",
+            regex_pattern="urn:li:assertion:",
+            file=output_file,
         )
         == number_of_assertions
     )

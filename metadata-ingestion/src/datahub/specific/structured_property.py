@@ -19,12 +19,15 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     # can only be used when creating a new structured property
     def set_qualified_name(
-        self, qualified_name: str
+        self,
+        qualified_name: str,
     ) -> "StructuredPropertyPatchBuilder":
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
@@ -35,7 +38,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_display_name(
-        self, display_name: Optional[str] = None
+        self,
+        display_name: Optional[str] = None,
     ) -> "StructuredPropertyPatchBuilder":
         if display_name is not None:
             self._add_patch(
@@ -48,7 +52,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
 
     # can only be used when creating a new structured property
     def set_value_type(
-        self, value_type: Union[str, Urn]
+        self,
+        value_type: Union[str, Urn],
     ) -> "StructuredPropertyPatchBuilder":
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
@@ -60,7 +65,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
 
     # can only be used when creating a new structured property
     def set_type_qualifier(
-        self, type_qualifier: Optional[Dict[str, List[str]]] = None
+        self,
+        type_qualifier: Optional[Dict[str, List[str]]] = None,
     ) -> "StructuredPropertyPatchBuilder":
         if type_qualifier is not None:
             self._add_patch(
@@ -73,7 +79,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
 
     # can only be used when creating a new structured property
     def add_allowed_value(
-        self, allowed_value: PropertyValueClass
+        self,
+        allowed_value: PropertyValueClass,
     ) -> "StructuredPropertyPatchBuilder":
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
@@ -93,7 +100,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         return self
 
     def add_entity_type(
-        self, entity_type: Union[str, Urn]
+        self,
+        entity_type: Union[str, Urn],
     ) -> "StructuredPropertyPatchBuilder":
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
@@ -104,7 +112,8 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         return self
 
     def set_description(
-        self, description: Optional[str] = None
+        self,
+        description: Optional[str] = None,
     ) -> "StructuredPropertyPatchBuilder":
         if description is not None:
             self._add_patch(

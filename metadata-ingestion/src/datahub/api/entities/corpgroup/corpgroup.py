@@ -84,7 +84,8 @@ class CorpGroup(BaseModel):
         return bool(self.picture_link)
 
     def generate_mcp(
-        self, generation_config: CorpGroupGenerationConfig = CorpGroupGenerationConfig()
+        self,
+        generation_config: CorpGroupGenerationConfig = CorpGroupGenerationConfig(),
     ) -> Iterable[MetadataChangeProposalWrapper]:
         urns_created = set()  # dedup member creation on the way out
         members_to_create: List[CorpUser] = (
@@ -109,13 +110,13 @@ class CorpGroup(BaseModel):
             if m.urn not in urns_created:
                 yield from m.generate_mcp(
                     generation_config=CorpUserGenerationConfig(
-                        override_editable=generation_config.override_editable
-                    )
+                        override_editable=generation_config.override_editable,
+                    ),
                 )
                 urns_created.add(m.urn)
             else:
                 logger.warning(
-                    f"Suppressing emission of member {m.urn} before we already emitted metadata for it"
+                    f"Suppressing emission of member {m.urn} before we already emitted metadata for it",
                 )
 
         aspects: List[_Aspect] = [StatusClass(removed=False)]
@@ -126,7 +127,7 @@ class CorpGroup(BaseModel):
                     pictureLink=self.picture_link,
                     slack=self.slack,
                     email=self.email,
-                )
+                ),
             )
         else:
             aspects.append(
@@ -138,7 +139,7 @@ class CorpGroup(BaseModel):
                     email=self.email,
                     description=self.description,
                     slack=self.slack,
-                )
+                ),
             )
             # picture link is only available in the editable aspect, so we have to use it if it is provided
             if self._needs_editable_aspect():
@@ -148,7 +149,7 @@ class CorpGroup(BaseModel):
                         pictureLink=self.picture_link,
                         slack=self.slack,
                         email=self.email,
-                    )
+                    ),
                 )
         for aspect in aspects:
             yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=aspect)
@@ -158,7 +159,7 @@ class CorpGroup(BaseModel):
             ownership = OwnershipClass(owners=[])
             for urn in owner_urns:
                 ownership.owners.append(
-                    OwnerClass(owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
+                    OwnerClass(owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER),
                 )
             yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=ownership)
 
@@ -171,25 +172,28 @@ class CorpGroup(BaseModel):
             # Add group membership to each user.
             for urn in member_urns:
                 group_membership = datahub_graph.get_aspect(
-                    urn, GroupMembershipClass
+                    urn,
+                    GroupMembershipClass,
                 ) or GroupMembershipClass(groups=[])
                 if self.urn not in group_membership.groups:
                     group_membership.groups = sorted(
-                        set(group_membership.groups + [self.urn])
+                        set(group_membership.groups + [self.urn]),
                     )
                     yield MetadataChangeProposalWrapper(
-                        entityUrn=urn, aspect=group_membership
+                        entityUrn=urn,
+                        aspect=group_membership,
                     )
         else:
             if member_urns:
                 raise ConfigurationError(
-                    "Unable to emit group membership because members is non-empty, and a DataHubGraph instance was not provided."
+                    "Unable to emit group membership because members is non-empty, and a DataHubGraph instance was not provided.",
                 )
 
         # emit status aspects for all user urns referenced (to ensure they get created)
         for urn in set(owner_urns).union(set(member_urns)):
             yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=StatusClass(removed=False)
+                entityUrn=urn,
+                aspect=StatusClass(removed=False),
             )
 
     def emit(
@@ -215,7 +219,8 @@ class CorpGroup(BaseModel):
                 datahub_graph = emitter.to_graph()
         for mcp in self.generate_mcp(
             generation_config=CorpGroupGenerationConfig(
-                override_editable=self.overrideEditable, datahub_graph=datahub_graph
-            )
+                override_editable=self.overrideEditable,
+                datahub_graph=datahub_graph,
+            ),
         ):
             emitter.emit(mcp, callback)

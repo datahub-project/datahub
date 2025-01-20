@@ -71,7 +71,8 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
     )
     username: Optional[str] = Field(default=None, description="Metabase username.")
     password: Optional[pydantic.SecretStr] = Field(
-        default=None, description="Metabase password."
+        default=None,
+        description="Metabase password.",
     )
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -200,13 +201,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 "X-Metabase-Session": f"{self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
-            }
+            },
         )
 
         # Test the connection
         try:
             test_response = self.session.get(
-                f"{self.config.connect_uri}/api/user/current"
+                f"{self.config.connect_uri}/api/user/current",
             )
             test_response.raise_for_status()
         except HTTPError as e:
@@ -232,14 +233,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
-                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}",
             )
             collections_response.raise_for_status()
             collections = collections_response.json()
 
             for collection in collections:
                 collection_dashboards_response = self.session.get(
-                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
+                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard",
                 )
                 collection_dashboards_response.raise_for_status()
                 collection_dashboards = collection_dashboards_response.json()
@@ -249,7 +250,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
                 for dashboard_info in collection_dashboards.get("data"):
                     dashboard_snapshot = self.construct_dashboard_from_api_data(
-                        dashboard_info
+                        dashboard_info,
                     )
                     if dashboard_snapshot is not None:
                         mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
@@ -274,7 +275,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return int(datetime.now(timezone.utc).timestamp() * 1000)
 
     def construct_dashboard_from_api_data(
-        self, dashboard_info: dict
+        self,
+        dashboard_info: dict,
     ) -> Optional[DashboardSnapshot]:
         dashboard_id = dashboard_info.get("id", "")
         dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
@@ -291,7 +293,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, dashboard_details.get("id", "")
+            self.platform,
+            dashboard_details.get("id", ""),
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -300,7 +303,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         last_edit_by = dashboard_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
         modified_ts = self.get_timestamp_millis_from_ts_string(
-            f"{last_edit_by.get('timestamp')}"
+            f"{last_edit_by.get('timestamp')}",
         )
         title = dashboard_details.get("name", "") or ""
         description = dashboard_details.get("description", "") or ""
@@ -368,8 +371,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     OwnerClass(
                         owner=owner_urn,
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
+                    ),
+                ],
             )
             return ownership
 
@@ -446,7 +449,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         last_edit_by = card_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
         modified_ts = self.get_timestamp_millis_from_ts_string(
-            f"{last_edit_by.get('timestamp')}"
+            f"{last_edit_by.get('timestamp')}",
         )
         last_modified = ChangeAuditStamps(
             created=None,
@@ -537,7 +540,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
         filters = (card_details.get("dataset_query", {}).get("query", {})).get(
-            "filter", []
+            "filter",
+            [],
         )
 
         custom_properties = {
@@ -549,7 +553,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return custom_properties
 
     def get_datasource_urn(
-        self, card_details: dict, recursion_depth: int = 0
+        self,
+        card_details: dict,
+        recursion_depth: int = 0,
     ) -> Optional[List]:
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
             self.report.report_warning(
@@ -588,7 +594,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 # trying to get source table from source question. Recursion depth is limited
                 return self.get_datasource_urn(
                     card_details=self.get_card_details_by_id(
-                        source_table_id.replace("card__", "")
+                        source_table_id.replace("card__", ""),
                     ),
                     recursion_depth=recursion_depth + 1,
                 )
@@ -603,11 +609,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                             name=".".join([v for v in name_components if v]),
                             platform_instance=platform_instance,
                             env=self.config.env,
-                        )
+                        ),
                     ]
         else:
             raw_query_stripped = self.strip_template_expressions(
-                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+                card_details.get("dataset_query", {})
+                .get("native", {})
+                .get("query", ""),
             )
 
             result = create_lineage_sql_parsed_result(
@@ -622,7 +630,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if result.debug_info.table_error:
                 logger.info(
                     f"Failed to parse lineage from query {raw_query_stripped}: "
-                    f"{result.debug_info.table_error}"
+                    f"{result.debug_info.table_error}",
                 )
                 self.report.report_warning(
                     title="Failed to Extract Lineage",
@@ -653,11 +661,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(
-        self, table_id: Union[int, str]
+        self,
+        table_id: Union[int, str],
     ) -> Tuple[Optional[str], Optional[str]]:
         try:
             dataset_response = self.session.get(
-                f"{self.config.connect_uri}/api/table/{table_id}"
+                f"{self.config.connect_uri}/api/table/{table_id}",
             )
             dataset_response.raise_for_status()
             dataset_json = dataset_response.json()
@@ -676,7 +685,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_platform_instance(
-        self, platform: Optional[str] = None, datasource_id: Optional[int] = None
+        self,
+        platform: Optional[str] = None,
+        datasource_id: Optional[int] = None,
     ) -> Optional[str]:
         """
         Method will attempt to detect `platform_instance` by checking
@@ -694,7 +705,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
         if datasource_id is not None and self.config.database_id_to_instance_map:
             platform_instance = self.config.database_id_to_instance_map.get(
-                str(datasource_id)
+                str(datasource_id),
             )
 
         # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
@@ -706,11 +717,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_datasource_from_id(
-        self, datasource_id: Union[int, str]
+        self,
+        datasource_id: Union[int, str],
     ) -> Tuple[str, Optional[str], Optional[str], Optional[str]]:
         try:
             dataset_response = self.session.get(
-                f"{self.config.connect_uri}/api/database/{datasource_id}"
+                f"{self.config.connect_uri}/api/database/{datasource_id}",
             )
             dataset_response.raise_for_status()
             dataset_json = dataset_response.json()
@@ -751,7 +763,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
         platform_instance = self.get_platform_instance(
-            platform, dataset_json.get("id", None)
+            platform,
+            dataset_json.get("id", None),
         )
 
         field_for_dbname_mapping = {
@@ -793,7 +806,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 

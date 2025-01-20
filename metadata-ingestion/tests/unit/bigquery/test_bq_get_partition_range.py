@@ -6,13 +6,16 @@ from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 def test_get_partition_range_from_partition_id():
     # yearly partition check
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022", datetime.datetime(2022, 1, 1)
+        "2022",
+        datetime.datetime(2022, 1, 1),
     ) == (datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022", datetime.datetime(2022, 3, 12)
+        "2022",
+        datetime.datetime(2022, 3, 12),
     ) == (datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022", datetime.datetime(2021, 5, 2)
+        "2022",
+        datetime.datetime(2021, 5, 2),
     ) == (datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id("2022", None) == (
         datetime.datetime(2022, 1, 1),
@@ -20,13 +23,16 @@ def test_get_partition_range_from_partition_id():
     )
     # monthly partition check
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "202202", datetime.datetime(2022, 2, 1)
+        "202202",
+        datetime.datetime(2022, 2, 1),
     ) == (datetime.datetime(2022, 2, 1), datetime.datetime(2022, 3, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "202202", datetime.datetime(2022, 2, 3)
+        "202202",
+        datetime.datetime(2022, 2, 3),
     ) == (datetime.datetime(2022, 2, 1), datetime.datetime(2022, 3, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "202202", datetime.datetime(2021, 12, 13)
+        "202202",
+        datetime.datetime(2021, 12, 13),
     ) == (datetime.datetime(2021, 12, 1), datetime.datetime(2022, 1, 1))
     assert BigqueryProfiler.get_partition_range_from_partition_id("202202", None) == (
         datetime.datetime(2022, 2, 1),
@@ -34,10 +40,12 @@ def test_get_partition_range_from_partition_id():
     )
     # daily partition check
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "20220205", datetime.datetime(2022, 2, 5)
+        "20220205",
+        datetime.datetime(2022, 2, 5),
     ) == (datetime.datetime(2022, 2, 5), datetime.datetime(2022, 2, 6))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "20220205", datetime.datetime(2022, 2, 3)
+        "20220205",
+        datetime.datetime(2022, 2, 3),
     ) == (datetime.datetime(2022, 2, 3), datetime.datetime(2022, 2, 4))
     assert BigqueryProfiler.get_partition_range_from_partition_id("20220205", None) == (
         datetime.datetime(2022, 2, 5),
@@ -45,13 +53,16 @@ def test_get_partition_range_from_partition_id():
     )
     # hourly partition check
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022020509", datetime.datetime(2022, 2, 5, 9)
+        "2022020509",
+        datetime.datetime(2022, 2, 5, 9),
     ) == (datetime.datetime(2022, 2, 5, 9), datetime.datetime(2022, 2, 5, 10))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022020509", datetime.datetime(2022, 2, 3, 1)
+        "2022020509",
+        datetime.datetime(2022, 2, 3, 1),
     ) == (datetime.datetime(2022, 2, 3, 1), datetime.datetime(2022, 2, 3, 2))
     assert BigqueryProfiler.get_partition_range_from_partition_id(
-        "2022020509", None
+        "2022020509",
+        None,
     ) == (
         datetime.datetime(2022, 2, 5, 9),
         datetime.datetime(2022, 2, 5, 10),

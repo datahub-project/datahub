@@ -260,7 +260,8 @@ class TableauConnectionConfig(ConfigModel):
         return config_clean.remove_trailing_slashes(v)
 
     def get_tableau_auth(
-        self, site: str
+        self,
+        site: str,
     ) -> Union[TableauAuth, PersonalAccessTokenAuth]:
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
         authentication: Union[TableauAuth, PersonalAccessTokenAuth]
@@ -272,11 +273,13 @@ class TableauConnectionConfig(ConfigModel):
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, site
+                self.token_name,
+                self.token_value,
+                site,
             )
         else:
             raise ConfigurationError(
-                "Tableau Source: Either username/password or token_name/token_value must be set"
+                "Tableau Source: Either username/password or token_name/token_value must be set",
             )
         return authentication
 
@@ -307,7 +310,7 @@ class TableauConnectionConfig(ConfigModel):
                     total=self.max_retries,
                     backoff_factor=1,
                     status_forcelist=RETRIABLE_ERROR_CODES,
-                )
+                ),
             )
             server._session.mount("http://", adapter)
             server._session.mount("https://", adapter)
@@ -323,7 +326,7 @@ class TableauConnectionConfig(ConfigModel):
             raise ValueError(message) from e
         except Exception as e:
             raise ValueError(
-                f"Unable to login (check your Tableau connection and credentials): {str(e)}"
+                f"Unable to login (check your Tableau connection and credentials): {str(e)}",
             ) from e
 
 
@@ -512,7 +515,8 @@ class TableauConfig(
     )
 
     default_schema_map: Dict[str, str] = Field(
-        default={}, description="Default schema to use when schema is not found."
+        default={},
+        description="Default schema to use when schema is not found.",
     )
     ingest_tags: Optional[bool] = Field(
         default=False,
@@ -548,7 +552,8 @@ class TableauConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
+        default=None,
+        description="",
     )
 
     ingest_embed_url: Optional[bool] = Field(
@@ -635,19 +640,19 @@ class TableauConfig(
         project_path_pattern = values.get("project_path_pattern")
         if project_pattern is None and project_path_pattern is None and projects:
             logger.warning(
-                "projects is deprecated, please use project_path_pattern instead."
+                "projects is deprecated, please use project_path_pattern instead.",
             )
             logger.info("Initializing project_pattern from projects")
             values["project_pattern"] = AllowDenyPattern(
-                allow=[f"^{prj}$" for prj in projects]
+                allow=[f"^{prj}$" for prj in projects],
             )
         elif (project_pattern or project_path_pattern) and projects:
             raise ValueError(
-                "projects is deprecated. Please use project_path_pattern only."
+                "projects is deprecated. Please use project_path_pattern only.",
             )
         elif project_path_pattern and project_pattern:
             raise ValueError(
-                "project_pattern is deprecated. Please use project_path_pattern only."
+                "project_pattern is deprecated. Please use project_path_pattern only.",
             )
 
         return values
@@ -662,7 +667,7 @@ class TableauConfig(
             and len(tags_for_hidden_assets) > 0
         ):
             raise ValueError(
-                "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
+                "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI.",
             )
         return values
 
@@ -764,29 +769,29 @@ class TableauSourceReport(
     num_table_field_skipped_no_name: int = 0
     # timers
     extract_usage_stats_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     fetch_groups_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
     populate_database_server_hostname_map_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     populate_projects_registry_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     emit_workbooks_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
     emit_sheets_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
     emit_dashboards_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
     emit_embedded_datasources_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     emit_published_datasources_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     emit_custom_sql_datasources_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     # lineage
     num_tables_with_upstream_lineage: int = 0
@@ -805,7 +810,7 @@ class TableauSourceReport(
     num_expected_tableau_metadata_queries: int = 0
     num_actual_tableau_metadata_queries: int = 0
     tableau_server_error_stats: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+        default_factory=(lambda: defaultdict(int)),
     )
 
     # Counters for tracking the number of queries made to get_connection_objects method
@@ -816,13 +821,13 @@ class TableauSourceReport(
     # These counters are useful to understand the impact of changing the page size.
 
     num_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+        default_factory=(lambda: defaultdict(int)),
     )
     num_filter_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+        default_factory=(lambda: defaultdict(int)),
     )
     num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+        default_factory=(lambda: defaultdict(int)),
     )
 
 
@@ -915,13 +920,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
 
             test_report.capability_report = check_user_role(
-                logged_in_user=UserInfo.from_server(server=server)
+                logged_in_user=UserInfo.from_server(server=server),
             )
 
         except Exception as e:
             logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
@@ -932,7 +938,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -947,7 +955,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         or not self.config.site_name_pattern.allowed(site.name)
                     ):
                         logger.info(
-                            f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive."
+                            f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive.",
                         )
                         continue
                     self.server.auth.switch_site(site)
@@ -1186,7 +1194,7 @@ class TableauSiteSource:
         ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
-                f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
+                f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern",
             )
         return is_allowed
 
@@ -1219,7 +1227,7 @@ class TableauSiteSource:
         # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
 
         return self.config.project_pattern.denied(
-            project.name
+            project.name,
         ) or self.config.project_path_pattern.denied(self._get_project_path(project))
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
@@ -1238,11 +1246,11 @@ class TableauSiteSource:
         if self.config.extract_project_hierarchy is False:
             logger.debug(
                 "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
-                "disabled"
+                "disabled",
             )
         else:
             logger.debug(
-                "Reevaluating projects as extract_project_hierarchy is enabled"
+                "Reevaluating projects as extract_project_hierarchy is enabled",
             )
 
             for project in list_of_skip_projects:
@@ -1251,14 +1259,14 @@ class TableauSiteSource:
                     and not self._is_denied_project(project)
                 ):
                     logger.debug(
-                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
+                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list",
                     )
                     projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
         # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
         self.tableau_project_registry = OrderedDict(
-            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
+            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path)),
         )
 
     def _init_datasource_registry(self) -> None:
@@ -1270,7 +1278,7 @@ class TableauSiteSource:
                 if ds.project_id not in self.tableau_project_registry:
                     logger.debug(
                         f"project id ({ds.project_id}) of datasource {ds.name} is not present in project "
-                        f"registry"
+                        f"registry",
                     )
                     continue
                 self.datasource_project_map[ds.id] = ds.project_id
@@ -1290,7 +1298,7 @@ class TableauSiteSource:
             if wb.project_id not in self.tableau_project_registry:
                 logger.debug(
                     f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
-                    f"registry"
+                    f"registry",
                 )
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
@@ -1322,7 +1330,8 @@ class TableauSiteSource:
             platform=builder.make_data_platform_urn(self.platform),
             instance=(
                 builder.make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
+                    self.platform,
+                    self.config.platform_instance,
                 )
                 if self.config.platform_instance
                 else None
@@ -1359,7 +1368,7 @@ class TableauSiteSource:
 
         logger.debug(
             f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
-            f" and filter {query_filter}"
+            f" and filter {query_filter}",
         )
         try:
             assert self.server is not None
@@ -1512,11 +1521,12 @@ class TableauSiteSource:
 
                     # This is a pretty dumb backoff mechanism, but it's good enough for now.
                     backoff_time = min(
-                        (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                        (self.config.max_retries - retries_remaining + 1) ** 2,
+                        60,
                     )
                     logger.info(
                         f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
-                        f"Retries remaining: {retries_remaining}"
+                        f"Retries remaining: {retries_remaining}",
                     )
                     time.sleep(backoff_time)
                     return self.get_connection_object_page(
@@ -1533,7 +1543,8 @@ class TableauSiteSource:
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
 
         has_next_page = connection_object.get(c.PAGE_INFO, {}).get(
-            c.HAS_NEXT_PAGE, False
+            c.HAS_NEXT_PAGE,
+            False,
         )
 
         next_cursor = connection_object.get(c.PAGE_INFO, {}).get(
@@ -1558,7 +1569,7 @@ class TableauSiteSource:
         filter_pages = get_filter_pages(query_filter, page_size)
         self.report.num_queries_by_connection_type[connection_type] += 1
         self.report.num_filter_queries_by_connection_type[connection_type] += len(
-            filter_pages
+            filter_pages,
         )
 
         for filter_page in filter_pages:
@@ -1664,7 +1675,7 @@ class TableauSiteSource:
             logger.debug(
                 f"Embedded datasource {datasource.get(c.ID)} has upstreamDatasources.\
                 Setting only upstreamDatasources lineage. The upstreamTables lineage \
-                    will be set via upstream published datasource."
+                    will be set via upstream published datasource.",
             )
         else:
             # This adds an edge to upstream DatabaseTables using `upstreamTables`
@@ -1685,7 +1696,7 @@ class TableauSiteSource:
             table_id_to_urn.update(csql_id_to_urn)
 
         logger.debug(
-            f"A total of {len(upstream_tables)} upstream table edges found for datasource {datasource[c.ID]}"
+            f"A total of {len(upstream_tables)} upstream table edges found for datasource {datasource[c.ID]}",
         )
 
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -1712,7 +1723,9 @@ class TableauSiteSource:
                 and column.get(c.TABLE, {}).get(c.ID)
             }
             fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
-                datasource, datasource_urn, table_id_to_urn
+                datasource,
+                datasource_urn,
+                table_id_to_urn,
             )
             upstream_tables = [
                 Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
@@ -1724,7 +1737,8 @@ class TableauSiteSource:
                 # Find fine grained lineage for datasource column to datasource column edge,
                 # upstream columns may be from same datasource
                 upstream_fields = self.get_upstream_fields_of_field_in_datasource(
-                    datasource, datasource_urn
+                    datasource,
+                    datasource_urn,
                 )
                 fine_grained_lineages.extend(upstream_fields)
 
@@ -1737,7 +1751,7 @@ class TableauSiteSource:
                 fine_grained_lineages.extend(upstream_columns)
 
                 logger.debug(
-                    f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[c.ID]}"
+                    f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[c.ID]}",
                 )
 
         return upstream_tables, fine_grained_lineages
@@ -1762,7 +1776,8 @@ class TableauSiteSource:
         return upstream_tables
 
     def get_upstream_csql_tables(
-        self, fields: List[dict]
+        self,
+        fields: List[dict],
     ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_csql_urns = set()
         csql_id_to_urn = {}
@@ -1812,19 +1827,20 @@ class TableauSiteSource:
             if not is_custom_sql and not num_tbl_cols:
                 self.report.num_upstream_table_skipped_no_columns += 1
                 logger.warning(
-                    f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
+                    f"Skipping upstream table with id {table[c.ID]}, no columns: {table}",
                 )
                 continue
             elif table[c.NAME] is None:
                 self.report.num_upstream_table_skipped_no_name += 1
                 logger.warning(
-                    f"Skipping upstream table {table[c.ID]} from lineage since its name is none: {table}"
+                    f"Skipping upstream table {table[c.ID]} from lineage since its name is none: {table}",
                 )
                 continue
 
             try:
                 ref = TableauUpstreamReference.create(
-                    table, default_schema_map=self.config.default_schema_map
+                    table,
+                    default_schema_map=self.config.default_schema_map,
                 )
             except Exception as e:
                 self.report.num_upstream_table_failed_generate_reference += 1
@@ -1864,7 +1880,9 @@ class TableauSiteSource:
                 )
             else:
                 self.database_tables[table_urn].update_table(
-                    table[c.ID], num_tbl_cols, table_path
+                    table[c.ID],
+                    num_tbl_cols,
+                    table_path,
                 )
 
         return upstream_tables, table_id_to_urn
@@ -1917,7 +1935,7 @@ class TableauSiteSource:
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
                             field_path=name,
-                        )
+                        ),
                     )
 
             if input_columns:
@@ -1925,11 +1943,11 @@ class TableauSiteSource:
                     FineGrainedLineage(
                         downstreamType=FineGrainedLineageDownstreamType.FIELD,
                         downstreams=sorted(
-                            [builder.make_schema_field_urn(datasource_urn, field_name)]
+                            [builder.make_schema_field_urn(datasource_urn, field_name)],
                         ),
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                         upstreams=sorted(input_columns),
-                    )
+                    ),
                 )
 
         return fine_grained_lineages
@@ -1941,7 +1959,9 @@ class TableauSiteSource:
         )
 
     def get_upstream_fields_of_field_in_datasource(
-        self, datasource: dict, datasource_urn: str
+        self,
+        datasource: dict,
+        datasource_urn: str,
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
         for field in datasource.get(c.FIELDS) or []:
@@ -1971,24 +1991,26 @@ class TableauSiteSource:
                                 self.config.env,
                             ),
                             field_path=name,
-                        )
+                        ),
                     )
             if input_fields:
                 fine_grained_lineages.append(
                     FineGrainedLineage(
                         downstreamType=FineGrainedLineageDownstreamType.FIELD,
                         downstreams=[
-                            builder.make_schema_field_urn(datasource_urn, field_name)
+                            builder.make_schema_field_urn(datasource_urn, field_name),
                         ],
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                         upstreams=input_fields,
                         transformOperation=self.get_transform_operation(field),
-                    )
+                    ),
                 )
         return fine_grained_lineages
 
     def get_upstream_fields_from_custom_sql(
-        self, datasource: dict, datasource_urn: str
+        self,
+        datasource: dict,
+        datasource_urn: str,
     ) -> List[FineGrainedLineage]:
         parsed_result = self.parse_custom_sql(
             datasource=datasource,
@@ -2013,8 +2035,9 @@ class TableauSiteSource:
             downstream = (
                 [
                     builder.make_schema_field_urn(
-                        datasource_urn, cll_info.downstream.column
-                    )
+                        datasource_urn,
+                        cll_info.downstream.column,
+                    ),
                 ]
                 if cll_info.downstream is not None
                 and cll_info.downstream.column is not None
@@ -2030,7 +2053,7 @@ class TableauSiteSource:
                     downstreams=downstream,
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=upstreams,
-                )
+                ),
             )
 
         return fine_grained_lineages
@@ -2060,7 +2083,7 @@ class TableauSiteSource:
                 connection_type=c.CUSTOM_SQL_TABLE_CONNECTION,
                 query_filter=custom_sql_filter,
                 page_size=self.config.effective_custom_sql_table_page_size,
-            )
+            ),
         )
 
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
@@ -2086,13 +2109,13 @@ class TableauSiteSource:
             if len(csql[c.DATA_SOURCES]) > 0:
                 # CustomSQLTable id owned by exactly one tableau data source
                 logger.debug(
-                    f"Number of datasources referencing CustomSQLTable: {len(csql[c.DATA_SOURCES])}"
+                    f"Number of datasources referencing CustomSQLTable: {len(csql[c.DATA_SOURCES])}",
                 )
 
                 datasource = csql[c.DATA_SOURCES][0]
                 datasource_name = datasource.get(c.NAME)
                 if datasource.get(
-                    c.TYPE_NAME
+                    c.TYPE_NAME,
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
                     workbook = datasource.get(c.WORKBOOK)
                     datasource_name = (
@@ -2101,7 +2124,7 @@ class TableauSiteSource:
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
+                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container",
                     )
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
@@ -2112,7 +2135,7 @@ class TableauSiteSource:
                     project_luid = self._get_datasource_project_luid(datasource)
                     if project_luid:
                         logger.debug(
-                            f"Adding datasource {datasource_name}({datasource.get('id')}) to project {project_luid} container"
+                            f"Adding datasource {datasource_name}({datasource.get('id')}) to project {project_luid} container",
                         )
                         # TODO: Technically, we should have another layer of hierarchy with the datasource name here.
                         # Same with the workbook name above. However, in practice most projects/workbooks have a single
@@ -2124,7 +2147,7 @@ class TableauSiteSource:
                         )
                     else:
                         logger.debug(
-                            f"Datasource {datasource_name}({datasource.get('id')}) project_luid not found"
+                            f"Datasource {datasource_name}({datasource.get('id')}) project_luid not found",
                         )
 
                 project = self._get_project_browse_path_name(datasource)
@@ -2143,7 +2166,9 @@ class TableauSiteSource:
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
                     logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
-                        csql_urn, csql, columns
+                        csql_urn,
+                        csql,
+                        columns,
                     )
                 else:
                     tables = csql.get(c.TABLES, [])
@@ -2151,7 +2176,9 @@ class TableauSiteSource:
                     if tables:
                         # lineage from custom sql -> datasets/tables #
                         yield from self._create_lineage_to_upstream_tables(
-                            csql_urn, tables, datasource
+                            csql_urn,
+                            tables,
+                            datasource,
                         )
                     elif (
                         self.config.extract_lineage_from_unsupported_custom_sql_queries
@@ -2160,7 +2187,9 @@ class TableauSiteSource:
                         # custom sql tables may contain unsupported sql, causing incomplete lineage
                         # we extract the lineage from the raw queries
                         yield from self._create_lineage_from_unsupported_csql(
-                            csql_urn, csql, columns
+                            csql_urn,
+                            csql,
+                            columns,
                         )
 
             #  Schema Metadata
@@ -2171,7 +2200,7 @@ class TableauSiteSource:
             # Browse path
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
-                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
+                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"],
                 )
                 dataset_snapshot.aspects.append(browse_paths)
             else:
@@ -2200,7 +2229,8 @@ class TableauSiteSource:
             )
 
     def get_schema_metadata_for_custom_sql(
-        self, columns: List[dict]
+        self,
+        columns: List[dict],
     ) -> Optional[SchemaMetadata]:
         fields = []
         schema_metadata = None
@@ -2210,7 +2240,7 @@ class TableauSiteSource:
             if field.get(c.NAME) is None:
                 self.report.num_csql_field_skipped_no_name += 1
                 logger.warning(
-                    f"Skipping field {field[c.ID]} from schema since its name is none"
+                    f"Skipping field {field[c.ID]} from schema since its name is none",
                 )
                 continue
             nativeDataType = field.get(c.REMOTE_TYPE, c.UNKNOWN)
@@ -2243,7 +2273,7 @@ class TableauSiteSource:
         ):
             logger.debug(
                 f"published datasource {ds.get(c.NAME)} project_luid not found."
-                f" Running get datasource query for {ds[c.LUID]}"
+                f" Running get datasource query for {ds[c.LUID]}",
             )
             # Query and update self.datasource_project_map with luid
             self._query_published_datasource_for_project_luid(ds[c.LUID])
@@ -2268,7 +2298,7 @@ class TableauSiteSource:
             if ds_result.project_id not in self.tableau_project_registry:
                 logger.debug(
                     f"project id ({ds_result.project_id}) of datasource {ds_result.name} is not present in project "
-                    f"registry"
+                    f"registry",
                 )
             else:
                 self.datasource_project_map[ds_result.id] = ds_result.project_id
@@ -2292,7 +2322,7 @@ class TableauSiteSource:
     def _get_embedded_datasource_project_luid(self, ds: dict) -> Optional[str]:
         if ds.get(c.WORKBOOK):
             project_luid: Optional[str] = self._get_workbook_project_luid(
-                ds[c.WORKBOOK]
+                ds[c.WORKBOOK],
             )
 
             if project_luid and project_luid in self.tableau_project_registry:
@@ -2310,7 +2340,7 @@ class TableauSiteSource:
             c.EMBEDDED_DATA_SOURCE,
         ):
             logger.debug(
-                f"datasource {ds.get(c.NAME)} type {ds.get(c.TYPE_NAME)} is unsupported"
+                f"datasource {ds.get(c.NAME)} type {ds.get(c.TYPE_NAME)} is unsupported",
             )
             return None
 
@@ -2338,7 +2368,7 @@ class TableauSiteSource:
         project_luid = self._get_datasource_project_luid(ds)
         if project_luid is None:
             logger.warning(
-                f"Could not load project hierarchy for datasource {ds.get(c.NAME)}. Please check permissions."
+                f"Could not load project hierarchy for datasource {ds.get(c.NAME)}. Please check permissions.",
             )
             logger.debug(f"datasource = {ds}")
             return None
@@ -2346,7 +2376,10 @@ class TableauSiteSource:
         return self._project_luid_to_browse_path_name(project_luid=project_luid)
 
     def _create_lineage_to_upstream_tables(
-        self, csql_urn: str, tables: List[dict], datasource: dict
+        self,
+        csql_urn: str,
+        tables: List[dict],
+        datasource: dict,
     ) -> Iterable[MetadataWorkUnit]:
         # This adds an edge to upstream DatabaseTables using `upstreamTables`
         upstream_tables, _ = self.get_upstream_tables(
@@ -2432,14 +2465,14 @@ class TableauSiteSource:
             or database_info.get(c.CONNECTION_TYPE) is None
         ):
             logger.debug(
-                f"database information is missing from datasource {datasource_urn}"
+                f"database information is missing from datasource {datasource_urn}",
             )
             return None
 
         query = datasource.get(c.QUERY)
         if query is None:
             logger.debug(
-                f"raw sql query is not available for datasource {datasource_urn}"
+                f"raw sql query is not available for datasource {datasource_urn}",
             )
             return None
         query = self._clean_tableau_query_parameters(query)
@@ -2461,7 +2494,7 @@ class TableauSiteSource:
             )
 
         logger.debug(
-            f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
+            f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}",
         )
 
         parsed_result = create_lineage_sql_parsed_result(
@@ -2478,19 +2511,20 @@ class TableauSiteSource:
 
         if parsed_result.debug_info.table_error:
             logger.warning(
-                f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}"
+                f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}",
             )
             self.report.num_upstream_table_lineage_failed_parse_sql += 1
         elif parsed_result.debug_info.column_error:
             logger.warning(
-                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}"
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}",
             )
             self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
 
         return parsed_result
 
     def _enrich_database_tables_with_parsed_schemas(
-        self, parsing_result: SqlParsingResult
+        self,
+        parsing_result: SqlParsingResult,
     ) -> None:
         in_tables_schemas: Dict[str, Set[str]] = (
             transform_parsing_result_to_in_tables_schemas(parsing_result)
@@ -2503,15 +2537,20 @@ class TableauSiteSource:
         for table_urn, columns in in_tables_schemas.items():
             if table_urn in self.database_tables:
                 self.database_tables[table_urn].update_table(
-                    table_urn, parsed_columns=columns
+                    table_urn,
+                    parsed_columns=columns,
                 )
             else:
                 self.database_tables[table_urn] = DatabaseTable(
-                    urn=table_urn, parsed_columns=columns
+                    urn=table_urn,
+                    parsed_columns=columns,
                 )
 
     def _create_lineage_from_unsupported_csql(
-        self, csql_urn: str, csql: dict, out_columns: List[Dict[Any, Any]]
+        self,
+        csql_urn: str,
+        csql: dict,
+        out_columns: List[Dict[Any, Any]],
     ) -> Iterable[MetadataWorkUnit]:
         parsed_result = self.parse_custom_sql(
             datasource=csql,
@@ -2535,7 +2574,9 @@ class TableauSiteSource:
         if self.config.extract_column_level_lineage:
             logger.debug("Extracting CLL from custom sql")
             fine_grained_lineages = make_fine_grained_lineage_class(
-                parsed_result, csql_urn, out_columns
+                parsed_result,
+                csql_urn,
+                out_columns,
             )
 
         upstream_lineage = UpstreamLineage(
@@ -2552,7 +2593,8 @@ class TableauSiteSource:
         self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
-        self, datasource_fields: List[dict]
+        self,
+        datasource_fields: List[dict],
     ) -> Optional[SchemaMetadata]:
         fields = []
         for field in datasource_fields:
@@ -2561,7 +2603,7 @@ class TableauSiteSource:
             if field.get(c.NAME) is None:
                 self.report.num_upstream_table_skipped_no_name += 1
                 logger.warning(
-                    f"Skipping field {field[c.ID]} from schema since its name is none"
+                    f"Skipping field {field[c.ID]} from schema since its name is none",
                 )
                 continue
 
@@ -2582,7 +2624,8 @@ class TableauSiteSource:
         )
 
     def get_metadata_change_event(
-        self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
+        self,
+        snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"],
     ) -> MetadataWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=snap_shot)
         return MetadataWorkUnit(id=snap_shot.urn, mce=mce)
@@ -2615,7 +2658,10 @@ class TableauSiteSource:
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform, datasource_id, self.config.platform_instance, self.config.env
+            self.platform,
+            datasource_id,
+            self.config.platform_instance,
+            self.config.env,
         )
         if datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
@@ -2629,7 +2675,7 @@ class TableauSiteSource:
         if datasource_info and self.config.ingest_tags:
             tags = self.get_tags(datasource_info)
             dataset_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
+                builder.make_global_tag_aspect_with_tag_list(tags),
             )
 
         # Browse path
@@ -2640,7 +2686,7 @@ class TableauSiteSource:
 
         if browse_path:
             browse_paths = BrowsePathsClass(
-                paths=[f"{self.dataset_browse_prefix}/{browse_path}"]
+                paths=[f"{self.dataset_browse_prefix}/{browse_path}"],
             )
             dataset_snapshot.aspects.append(browse_paths)
 
@@ -2682,7 +2728,9 @@ class TableauSiteSource:
                 upstream_tables,
                 fine_grained_lineages,
             ) = self._create_upstream_table_lineage(
-                datasource, browse_path, is_embedded_ds=is_embedded_ds
+                datasource,
+                browse_path,
+                is_embedded_ds=is_embedded_ds,
             )
 
             if upstream_tables:
@@ -2702,12 +2750,12 @@ class TableauSiteSource:
                 self.report.num_tables_with_upstream_lineage += 1
                 self.report.num_upstream_table_lineage += len(upstream_tables)
                 self.report.num_upstream_fine_grained_lineage += len(
-                    fine_grained_lineages
+                    fine_grained_lineages,
                 )
 
         # Datasource Fields
         schema_metadata = self._get_schema_metadata_for_datasource(
-            datasource.get(c.FIELDS, [])
+            datasource.get(c.FIELDS, []),
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
@@ -2721,12 +2769,14 @@ class TableauSiteSource:
                     ["Embedded Data Source"]
                     if is_embedded_ds
                     else ["Published Data Source"]
-                )
+                ),
             ),
         )
 
         container_key = self._get_datasource_container_key(
-            datasource, workbook, is_embedded_ds
+            datasource,
+            workbook,
+            is_embedded_ds,
         )
         if container_key is not None:
             yield from add_entity_to_container(
@@ -2739,7 +2789,10 @@ class TableauSiteSource:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
 
     def _get_datasource_container_key(
-        self, datasource: dict, workbook: Optional[dict], is_embedded_ds: bool
+        self,
+        datasource: dict,
+        workbook: Optional[dict],
+        is_embedded_ds: bool,
     ) -> Optional[ContainerKey]:
         container_key: Optional[ContainerKey] = None
         if is_embedded_ds:  # It is embedded then parent is container is workbook
@@ -2747,18 +2800,18 @@ class TableauSiteSource:
                 container_key = self.gen_workbook_key(workbook[c.ID])
             else:
                 logger.warning(
-                    f"Parent container not set for embedded datasource {datasource[c.ID]}"
+                    f"Parent container not set for embedded datasource {datasource[c.ID]}",
                 )
         else:
             parent_project_luid = self._get_published_datasource_project_luid(
-                datasource
+                datasource,
             )
             # It is published datasource and hence parent container is project
             if parent_project_luid is not None:
                 container_key = self.gen_project_key(parent_project_luid)
             else:
                 logger.warning(
-                    f"Parent container not set for published datasource {datasource[c.ID]}"
+                    f"Parent container not set for published datasource {datasource[c.ID]}",
                 )
 
         return container_key
@@ -2792,7 +2845,7 @@ class TableauSiteSource:
         # update datasource's field for its upstream
         for field_dict in datasource.get(c.FIELDS, []):
             field_upstream_dict: Optional[dict] = field_vs_upstream.get(
-                field_dict.get(c.ID)
+                field_dict.get(c.ID),
             )
             if field_upstream_dict:
                 # Add upstream fields to field
@@ -2825,7 +2878,7 @@ class TableauSiteSource:
                 tableau_database_table_id_to_urn_map[tbl.id] = urn
 
         tables_filter = {
-            c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
+            c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys()),
         }
 
         # Emitting tables that came from Tableau metadata
@@ -2842,7 +2895,7 @@ class TableauSiteSource:
             is_embedded = tableau_table.get(c.IS_EMBEDDED) or False
             if not is_embedded and not self.config.ingest_tables_external:
                 logger.debug(
-                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
+                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False",
                 )
                 continue
 
@@ -2853,13 +2906,13 @@ class TableauSiteSource:
             # Only tables purely parsed from SQL queries don't have ID
             if database_table.id:
                 logger.debug(
-                    f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
+                    f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata",
                 )
                 continue
 
             if not self.config.ingest_tables_external:
                 logger.debug(
-                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
+                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False",
                 )
                 continue
 
@@ -2871,7 +2924,7 @@ class TableauSiteSource:
         tableau_columns: Optional[List[Dict[str, Any]]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
-            f"Emitting external table {database_table} tableau_columns {tableau_columns}"
+            f"Emitting external table {database_table} tableau_columns {tableau_columns}",
         )
         dataset_urn = DatasetUrn.from_string(database_table.urn)
         dataset_snapshot = DatasetSnapshot(
@@ -2884,14 +2937,15 @@ class TableauSiteSource:
                 paths=[
                     f"{self.dataset_browse_prefix}/{path}"
                     for path in sorted(database_table.paths, key=lambda p: (len(p), p))
-                ]
+                ],
             )
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
 
         schema_metadata = self.get_schema_metadata_for_table(
-            tableau_columns, database_table.parsed_columns
+            tableau_columns,
+            database_table.parsed_columns,
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
@@ -2899,7 +2953,7 @@ class TableauSiteSource:
         if not dataset_snapshot.aspects:
             # This should only happen with ingest_tables_external enabled.
             logger.warning(
-                f"Urn {database_table.urn} has no real aspects, adding a key aspect to ensure materialization"
+                f"Urn {database_table.urn} has no real aspects, adding a key aspect to ensure materialization",
             )
             dataset_snapshot.aspects.append(dataset_urn.to_key_aspect())
 
@@ -2919,7 +2973,7 @@ class TableauSiteSource:
                 if field.get(c.NAME) is None:
                     self.report.num_table_field_skipped_no_name += 1
                     logger.warning(
-                        f"Skipping field {field[c.ID]} from schema since its name is none"
+                        f"Skipping field {field[c.ID]} from schema since its name is none",
                     )
                     continue
                 nativeDataType = field.get(c.REMOTE_TYPE, c.UNKNOWN)
@@ -2986,7 +3040,9 @@ class TableauSiteSource:
         )
 
     def _get_chart_stat_wu(
-        self, sheet: dict, sheet_urn: str
+        self,
+        sheet: dict,
+        sheet_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         luid: Optional[str] = sheet.get(c.LUID)
         if luid is None:
@@ -3006,7 +3062,7 @@ class TableauSiteSource:
             return None
 
         aspect: ChartUsageStatisticsClass = self._create_datahub_chart_usage_stat(
-            usage_stat
+            usage_stat,
         )
         logger.debug(
             "stat: Chart usage stat work unit is created for %s(id:%s)",
@@ -3032,14 +3088,18 @@ class TableauSiteSource:
             else:
                 self.report.num_hidden_assets_skipped += 1
                 logger.debug(
-                    f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank)."
+                    f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank).",
                 )
 
     def emit_sheets_as_charts(
-        self, sheet: dict, workbook: Optional[Dict]
+        self,
+        sheet: dict,
+        workbook: Optional[Dict],
     ) -> Iterable[MetadataWorkUnit]:
         sheet_urn: str = builder.make_chart_urn(
-            self.platform, sheet[c.ID], self.config.platform_instance
+            self.platform,
+            sheet[c.ID],
+            self.config.platform_instance,
         )
         chart_snapshot = ChartSnapshot(
             urn=sheet_urn,
@@ -3083,7 +3143,10 @@ class TableauSiteSource:
 
         for ds_id in data_sources:
             ds_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform, ds_id, self.config.platform_instance, self.config.env
+                self.platform,
+                ds_id,
+                self.config.platform_instance,
+                self.config.env,
             )
             datasource_urn.append(ds_urn)
             if ds_id not in self.datasource_ids_being_used:
@@ -3115,7 +3178,7 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(browse_paths)
         else:
             logger.warning(
-                f"Could not set browse path for workbook {sheet[c.ID]}. Please check permissions."
+                f"Could not set browse path for workbook {sheet[c.ID]}. Please check permissions.",
             )
 
         # Ownership
@@ -3127,12 +3190,12 @@ class TableauSiteSource:
         if self.config.ingest_tags:
             tags = self.get_tags(sheet)
             if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
-                sheet
+                sheet,
             ):
                 tags.extend(self.config.tags_for_hidden_assets)
 
             chart_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
+                builder.make_global_tag_aspect_with_tag_list(tags),
             )
 
         yield self.get_metadata_change_event(chart_snapshot)
@@ -3141,18 +3204,20 @@ class TableauSiteSource:
                 self.new_embed_aspect_mcp(
                     entity_urn=sheet_urn,
                     embed_url=sheet_external_url,
-                )
+                ),
             )
         if workbook is not None:
             yield from add_entity_to_container(
-                self.gen_workbook_key(workbook[c.ID]), c.CHART, chart_snapshot.urn
+                self.gen_workbook_key(workbook[c.ID]),
+                c.CHART,
+                chart_snapshot.urn,
             )
 
         if input_fields:
             yield MetadataChangeProposalWrapper(
                 entityUrn=sheet_urn,
                 aspect=InputFields(
-                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn),
                 ),
             ).as_workunit()
 
@@ -3168,7 +3233,9 @@ class TableauSiteSource:
         return self.config.project_path_separator.join(project.path)
 
     def populate_sheet_upstream_fields(
-        self, sheet: dict, input_fields: List[InputField]
+        self,
+        sheet: dict,
+        input_fields: List[InputField],
     ) -> None:
         for field in sheet.get(c.DATA_SOURCE_FIELDS):  # type: ignore
             if not field:
@@ -3190,9 +3257,10 @@ class TableauSiteSource:
                             field_path=name,
                         ),
                         schemaField=tableau_field_to_schema_field(
-                            field, self.config.ingest_tags
+                            field,
+                            self.config.ingest_tags,
                         ),
-                    )
+                    ),
                 )
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
@@ -3226,7 +3294,7 @@ class TableauSiteSource:
             workbook_id: Optional[str] = workbook.get(c.ID)
             workbook_name: Optional[str] = workbook.get(c.NAME)
             logger.warning(
-                f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
+                f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions.",
             )
 
         custom_props = None
@@ -3238,7 +3306,7 @@ class TableauSiteSource:
             workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
             self.server.workbooks.populate_permissions(workbook_instance)
             custom_props = self._create_workbook_properties(
-                workbook_instance.permissions
+                workbook_instance.permissions,
             )
 
         yield from gen_containers(
@@ -3287,7 +3355,9 @@ class TableauSiteSource:
         )
 
     def _get_dashboard_stat_wu(
-        self, dashboard: dict, dashboard_urn: str
+        self,
+        dashboard: dict,
+        dashboard_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         luid: Optional[str] = dashboard.get(c.LUID)
         if luid is None:
@@ -3322,7 +3392,8 @@ class TableauSiteSource:
 
     @staticmethod
     def new_embed_aspect_mcp(
-        entity_urn: str, embed_url: str
+        entity_urn: str,
+        embed_url: str,
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -3353,7 +3424,7 @@ class TableauSiteSource:
             else:
                 self.report.num_hidden_assets_skipped += 1
                 logger.debug(
-                    f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
+                    f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank).",
                 )
 
     def get_tags(self, obj: dict) -> List[str]:
@@ -3367,10 +3438,14 @@ class TableauSiteSource:
         return []
 
     def emit_dashboard(
-        self, dashboard: dict, workbook: Optional[Dict]
+        self,
+        dashboard: dict,
+        workbook: Optional[Dict],
     ) -> Iterable[MetadataWorkUnit]:
         dashboard_urn: str = builder.make_dashboard_urn(
-            self.platform, dashboard[c.ID], self.config.platform_instance
+            self.platform,
+            dashboard[c.ID],
+            self.config.platform_instance,
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -3418,12 +3493,12 @@ class TableauSiteSource:
         if self.config.ingest_tags:
             tags = self.get_tags(dashboard)
             if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
-                dashboard
+                dashboard,
             ):
                 tags.extend(self.config.tags_for_hidden_assets)
 
             dashboard_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
+                builder.make_global_tag_aspect_with_tag_list(tags),
             )
 
         if self.config.extract_usage_stats:
@@ -3437,7 +3512,7 @@ class TableauSiteSource:
             dashboard_snapshot.aspects.append(browse_paths)
         else:
             logger.warning(
-                f"Could not set browse path for dashboard {dashboard[c.ID]}. Please check permissions."
+                f"Could not set browse path for dashboard {dashboard[c.ID]}. Please check permissions.",
             )
 
         # Ownership
@@ -3452,7 +3527,7 @@ class TableauSiteSource:
                 self.new_embed_aspect_mcp(
                     entity_urn=dashboard_urn,
                     embed_url=dashboard_external_url,
-                )
+                ),
             )
 
         if workbook is not None:
@@ -3463,7 +3538,8 @@ class TableauSiteSource:
             )
 
     def get_browse_paths_aspect(
-        self, workbook: Optional[Dict]
+        self,
+        workbook: Optional[Dict],
     ) -> Optional[BrowsePathsClass]:
         browse_paths: Optional[BrowsePathsClass] = None
         if workbook and workbook.get(c.NAME):
@@ -3472,8 +3548,8 @@ class TableauSiteSource:
                 browse_paths = BrowsePathsClass(
                     paths=[
                         f"{self.no_env_browse_prefix}/{self._project_luid_to_browse_path_name(project_luid)}"
-                        f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                    ]
+                        f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}",
+                    ],
                 )
 
             elif workbook.get(c.PROJECT_NAME):
@@ -3481,8 +3557,8 @@ class TableauSiteSource:
                 browse_paths = BrowsePathsClass(
                     paths=[
                         f"{self.no_env_browse_prefix}/{workbook[c.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                        f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                    ]
+                        f"/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}",
+                    ],
                 )
 
         return browse_paths
@@ -3509,7 +3585,10 @@ class TableauSiteSource:
 
     @lru_cache(maxsize=None)
     def get_last_modified(
-        self, creator: Optional[str], created_at: bytes, updated_at: bytes
+        self,
+        creator: Optional[str],
+        created_at: bytes,
+        updated_at: bytes,
     ) -> ChangeAuditStamps:
         last_modified = ChangeAuditStamps()
         if creator:
@@ -3531,8 +3610,8 @@ class TableauSiteSource:
                     OwnerClass(
                         owner=owner_urn,
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
+                    ),
+                ],
             )
             return ownership
 
@@ -3606,7 +3685,7 @@ class TableauSiteSource:
 
         for project in self.tableau_project_registry.values():
             logger.debug(
-                f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
+                f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}",
             )
             yield from emit_project_in_topological_order(project)
 
@@ -3635,7 +3714,8 @@ class TableauSiteSource:
         return allowed_capabilities
 
     def _create_workbook_properties(
-        self, permissions: List[PermissionsRule]
+        self,
+        permissions: List[PermissionsRule],
     ) -> Optional[Dict[str, str]]:
         if not self.config.permission_ingestion:
             return None
@@ -3648,10 +3728,10 @@ class TableauSiteSource:
                     logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue
                 if not self.config.permission_ingestion.group_name_pattern.allowed(
-                    group.name
+                    group.name,
                 ):
                     logger.info(
-                        f"Skip permission '{group.name}' as it's excluded in group_name_pattern."
+                        f"Skip permission '{group.name}' as it's excluded in group_name_pattern.",
                     )
                     continue
 
@@ -3662,7 +3742,7 @@ class TableauSiteSource:
 
     def ingest_tableau_site(self):
         with self.report.new_stage(
-            f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}"
+            f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}",
         ):
             # Initialise the dictionary to later look-up for chart and dashboard stat
             if self.config.extract_usage_stats:

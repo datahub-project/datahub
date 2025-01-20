@@ -35,20 +35,22 @@ def test_platform_resource_dict():
         x for x in mcps if x.aspectName == "platformResourceInfo"
     ][0]
     assert isinstance(
-        platform_resource_info_mcp.aspect, models.PlatformResourceInfoClass
+        platform_resource_info_mcp.aspect,
+        models.PlatformResourceInfoClass,
     )
     assert platform_resource_info_mcp.aspect.primaryKey == "test_primary_key"
     assert platform_resource_info_mcp.aspect.secondaryKeys == ["test_secondary_key"]
     assert platform_resource_info_mcp.aspect.resourceType == "test_resource_type"
     assert isinstance(
-        platform_resource_info_mcp.aspect.value, models.SerializedValueClass
+        platform_resource_info_mcp.aspect.value,
+        models.SerializedValueClass,
     )
     assert (
         platform_resource_info_mcp.aspect.value.contentType
         == models.SerializedValueContentTypeClass.JSON
     )
     assert platform_resource_info_mcp.aspect.value.blob == json.dumps(
-        {"test_key": "test_value"}
+        {"test_key": "test_value"},
     ).encode("utf-8")
     assert platform_resource_info_mcp.aspect.value.schemaType is None
 
@@ -63,7 +65,7 @@ def test_platform_resource_dict_removed():
             platform="test_platform",
             resource_type="test_resource_type",
             primary_key="test_primary_key",
-        )
+        ),
     )
 
     mcps = [x for x in platform_resource.to_mcps()]
@@ -104,13 +106,15 @@ def test_platform_resource_dictwrapper():
         x for x in mcps if x.aspectName == "platformResourceInfo"
     ][0]
     assert isinstance(
-        platform_resource_info_mcp.aspect, models.PlatformResourceInfoClass
+        platform_resource_info_mcp.aspect,
+        models.PlatformResourceInfoClass,
     )
     assert platform_resource_info_mcp.aspect.primaryKey == "U123456"
     assert platform_resource_info_mcp.aspect.secondaryKeys == ["a@b.com"]
     assert platform_resource_info_mcp.aspect.resourceType == "user_info"
     assert isinstance(
-        platform_resource_info_mcp.aspect.value, models.SerializedValueClass
+        platform_resource_info_mcp.aspect.value,
+        models.SerializedValueClass,
     )
     assert (
         platform_resource_info_mcp.aspect.value.contentType
@@ -121,7 +125,7 @@ def test_platform_resource_dictwrapper():
         == models.SerializedValueSchemaTypeClass.PEGASUS
     )
     assert platform_resource_info_mcp.aspect.value.blob == json.dumps(
-        user_editable_info.to_obj()
+        user_editable_info.to_obj(),
     ).encode("utf-8")
     assert (
         platform_resource_info_mcp.aspect.value.schemaRef
@@ -165,20 +169,22 @@ def test_platform_resource_base_model():
         x for x in mcps if x.aspectName == "platformResourceInfo"
     ][0]
     assert isinstance(
-        platform_resource_info_mcp.aspect, models.PlatformResourceInfoClass
+        platform_resource_info_mcp.aspect,
+        models.PlatformResourceInfoClass,
     )
     assert platform_resource_info_mcp.aspect.primaryKey == "test_primary_key"
     assert platform_resource_info_mcp.aspect.secondaryKeys == ["test_secondary_key"]
     assert platform_resource_info_mcp.aspect.resourceType == "test_resource_type"
     assert isinstance(
-        platform_resource_info_mcp.aspect.value, models.SerializedValueClass
+        platform_resource_info_mcp.aspect.value,
+        models.SerializedValueClass,
     )
     assert (
         platform_resource_info_mcp.aspect.value.contentType
         == models.SerializedValueContentTypeClass.JSON
     )
     assert platform_resource_info_mcp.aspect.value.blob == json.dumps(
-        test_model.dict()
+        test_model.dict(),
     ).encode("utf-8")
     assert platform_resource_info_mcp.aspect.value.schemaType == "JSON"
     assert platform_resource_info_mcp.aspect.value.schemaRef == TestModel.__name__

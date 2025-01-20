@@ -15,13 +15,13 @@ def auto_connection_resolver(
             graph = get_graph_context()
             if not graph:
                 raise ValueError(
-                    "Fetching connection details from the backend requires a DataHub graph client."
+                    "Fetching connection details from the backend requires a DataHub graph client.",
                 )
 
             conn = graph.get_connection_json(connection_urn)
             if conn is None:
                 raise ValueError(
-                    f"Connection {connection_urn} not found using {graph}."
+                    f"Connection {connection_urn} not found using {graph}.",
                 )
 
             # TODO: Should this do some additional validation against the config model?

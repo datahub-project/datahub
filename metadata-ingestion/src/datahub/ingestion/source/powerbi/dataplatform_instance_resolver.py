@@ -14,13 +14,15 @@ logger = logging.getLogger(__name__)
 class AbstractDataPlatformInstanceResolver(ABC):
     @abstractmethod
     def get_platform_instance(
-        self, data_platform_detail: PowerBIPlatformDetail
+        self,
+        data_platform_detail: PowerBIPlatformDetail,
     ) -> PlatformDetail:
         pass
 
 
 class BaseAbstractDataPlatformInstanceResolver(
-    AbstractDataPlatformInstanceResolver, ABC
+    AbstractDataPlatformInstanceResolver,
+    ABC,
 ):
     config: PowerBiDashboardSourceConfig
 
@@ -29,10 +31,11 @@ class BaseAbstractDataPlatformInstanceResolver(
 
 
 class ResolvePlatformInstanceFromDatasetTypeMapping(
-    BaseAbstractDataPlatformInstanceResolver
+    BaseAbstractDataPlatformInstanceResolver,
 ):
     def get_platform_instance(
-        self, data_platform_detail: PowerBIPlatformDetail
+        self,
+        data_platform_detail: PowerBIPlatformDetail,
     ) -> PlatformDetail:
         platform: Union[str, PlatformDetail] = self.config.dataset_type_mapping[
             data_platform_detail.data_platform_pair.powerbi_data_platform_name
@@ -45,10 +48,11 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
 
 
 class ResolvePlatformInstanceFromServerToPlatformInstance(
-    BaseAbstractDataPlatformInstanceResolver
+    BaseAbstractDataPlatformInstanceResolver,
 ):
     def get_platform_instance(
-        self, data_platform_detail: PowerBIPlatformDetail
+        self,
+        data_platform_detail: PowerBIPlatformDetail,
     ) -> PlatformDetail:
         return (
             self.config.server_to_platform_instance[
@@ -65,11 +69,11 @@ def create_dataplatform_instance_resolver(
 ) -> AbstractDataPlatformInstanceResolver:
     if config.server_to_platform_instance:
         logger.debug(
-            "Creating resolver to resolve platform instance from server_to_platform_instance"
+            "Creating resolver to resolve platform instance from server_to_platform_instance",
         )
         return ResolvePlatformInstanceFromServerToPlatformInstance(config)
 
     logger.debug(
-        "Creating resolver to resolve platform instance from dataset_type_mapping"
+        "Creating resolver to resolve platform instance from dataset_type_mapping",
     )
     return ResolvePlatformInstanceFromDatasetTypeMapping(config)

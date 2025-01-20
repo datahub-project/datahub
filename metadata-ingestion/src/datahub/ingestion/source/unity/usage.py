@@ -67,7 +67,8 @@ class UnityCatalogUsageExtractor:
         return self._spark_sql_parser
 
     def get_usage_workunits(
-        self, table_refs: Set[TableReference]
+        self,
+        table_refs: Set[TableReference],
     ) -> Iterable[MetadataWorkUnit]:
         try:
             yield from self._get_workunits_internal(table_refs)
@@ -76,7 +77,8 @@ class UnityCatalogUsageExtractor:
             self.report.report_warning("usage-extraction", str(e))
 
     def _get_workunits_internal(
-        self, table_refs: Set[TableReference]
+        self,
+        table_refs: Set[TableReference],
     ) -> Iterable[MetadataWorkUnit]:
         table_map = defaultdict(list)
         query_hashes = set()
@@ -92,15 +94,18 @@ class UnityCatalogUsageExtractor:
                     with self.report.usage_perf_report.query_fingerprinting_timer:
                         query_hashes.add(
                             get_query_fingerprint(
-                                query.query_text, "databricks", fast=True
-                            )
+                                query.query_text,
+                                "databricks",
+                                fast=True,
+                            ),
                         )
                         self.report.num_unique_queries = len(query_hashes)
                     table_info = self._parse_query(query, table_map)
                     if table_info is not None:
                         if self.config.include_operational_stats:
                             yield from self._generate_operation_workunit(
-                                query, table_info
+                                query,
+                                table_info,
                             )
                         for source_table in table_info.source_tables:
                             with (
@@ -133,7 +138,9 @@ class UnityCatalogUsageExtractor:
         )
 
     def _generate_operation_workunit(
-        self, query: Query, table_info: QueryTableInfo
+        self,
+        query: Query,
+        table_info: QueryTableInfo,
     ) -> Iterable[MetadataWorkUnit]:
         with self.report.usage_perf_report.gen_operation_timer:
             if (
@@ -167,14 +174,17 @@ class UnityCatalogUsageExtractor:
     def _get_queries(self) -> Iterable[Query]:
         try:
             yield from self.proxy.query_history(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
         except Exception as e:
             logger.warning("Error getting queries", exc_info=True)
             self.report.report_warning("get-queries", str(e))
 
     def _parse_query(
-        self, query: Query, table_map: TableMap
+        self,
+        query: Query,
+        table_map: TableMap,
     ) -> Optional[QueryTableInfo]:
         with self.report.usage_perf_report.sql_parsing_timer:
             table_info = self._parse_query_via_sqlglot(query.query_text)
@@ -188,10 +198,12 @@ class UnityCatalogUsageExtractor:
             else:
                 return QueryTableInfo(
                     source_tables=self._resolve_tables(
-                        table_info.source_tables, table_map
+                        table_info.source_tables,
+                        table_map,
                     ),
                     target_tables=self._resolve_tables(
-                        table_info.target_tables, table_map
+                        table_info.target_tables,
+                        table_map,
                     ),
                 )
 
@@ -237,7 +249,8 @@ class UnityCatalogUsageExtractor:
             tables = [self._parse_plan_item(item) for item in plan]
             self.report.num_queries_parsed_by_spark_plan += 1
             return GenericTableInfo(
-                source_tables=[t for t in tables if t], target_tables=[]
+                source_tables=[t for t in tables if t],
+                target_tables=[],
             )
         except Exception as e:
             logger.info(f"Could not parse query via spark plan, {query}: {e!r}")
@@ -250,7 +263,9 @@ class UnityCatalogUsageExtractor:
         return None
 
     def _resolve_tables(
-        self, tables: List[str], table_map: TableMap
+        self,
+        tables: List[str],
+        table_map: TableMap,
     ) -> List[TableReference]:
         """Resolve tables to TableReferences, filtering out unrecognized or unresolvable table names."""
 
@@ -268,7 +283,7 @@ class UnityCatalogUsageExtractor:
                     output.append(refs[0])
                 else:
                     logger.warning(
-                        f"Could not resolve table ref for {table}: {len(refs)} duplicates."
+                        f"Could not resolve table ref for {table}: {len(refs)} duplicates.",
                     )
                     duplicate_table = True
 

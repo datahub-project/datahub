@@ -40,7 +40,7 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_queries_duplicate_table: int = 0
     num_queries_parsed_by_spark_plan: int = 0
     usage_perf_report: UnityCatalogUsagePerfReport = field(
-        default_factory=UnityCatalogUsagePerfReport
+        default_factory=UnityCatalogUsagePerfReport,
     )
 
     # Distinguish from Operations emitted for created / updated timestamps
@@ -49,7 +49,7 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)
     profile_table_errors: LossyDict[str, LossyList[Tuple[str, str]]] = field(
-        default_factory=LossyDict
+        default_factory=LossyDict,
     )
     num_profile_missing_size_in_bytes: int = 0
     num_profile_failed_unsupported_column_type: int = 0

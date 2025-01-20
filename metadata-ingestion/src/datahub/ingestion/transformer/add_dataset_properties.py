@@ -77,30 +77,34 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
         custom_properties_to_add.update(dataset_properties_aspect.customProperties)
 
         patch_dataset_properties: DatasetPropertiesClass = copy.deepcopy(
-            dataset_properties_aspect
+            dataset_properties_aspect,
         )
         patch_dataset_properties.customProperties = custom_properties_to_add
 
         return patch_dataset_properties
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_dataset_properties_aspect: DatasetPropertiesClass = cast(
-            DatasetPropertiesClass, aspect
+            DatasetPropertiesClass,
+            aspect,
         )
         if not in_dataset_properties_aspect:
             in_dataset_properties_aspect = DatasetPropertiesClass()
 
         out_dataset_properties_aspect: DatasetPropertiesClass = copy.deepcopy(
-            in_dataset_properties_aspect
+            in_dataset_properties_aspect,
         )
         if self.config.replace_existing is True:
             # clean the existing properties
             out_dataset_properties_aspect.customProperties = {}
 
         properties_to_add = self.config.add_properties_resolver_class(  # type: ignore
-            **self.resolver_args
+            **self.resolver_args,
         ).get_properties_to_add(entity_urn)
 
         out_dataset_properties_aspect.customProperties.update(properties_to_add)
@@ -108,7 +112,9 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
             assert self.ctx.graph
             patch_dataset_properties_aspect = (
                 AddDatasetProperties._merge_with_server_properties(
-                    self.ctx.graph, entity_urn, out_dataset_properties_aspect
+                    self.ctx.graph,
+                    entity_urn,
+                    out_dataset_properties_aspect,
                 )
             )
             return cast(Optional[Aspect], patch_dataset_properties_aspect)
@@ -142,7 +148,9 @@ class SimpleAddDatasetProperties(AddDatasetProperties):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SimpleAddDatasetProperties":
         config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
         return cls(config, ctx)

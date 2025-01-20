@@ -53,7 +53,9 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
             return parse_ts_millis(operations[0]["lastUpdatedTimestamp"])
 
     def _check_if_assertion_failed(
-        self, assertions: List[Dict[str, Any]], last_updated: Optional[datetime] = None
+        self,
+        assertions: List[Dict[str, Any]],
+        last_updated: Optional[datetime] = None,
     ) -> bool:
         @dataclass
         class AssertionResult:
@@ -87,7 +89,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
             if last_assertion.state == "FAILURE":
                 logger.debug(f"Runevent: {last_assertion.run_event}")
                 logger.info(
-                    f"Assertion {assertion_urn} is failed on dataset. Breaking the circuit"
+                    f"Assertion {assertion_urn} is failed on dataset. Breaking the circuit",
                 )
                 return True
             elif last_assertion.state == "SUCCESS":
@@ -97,7 +99,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
                 last_run = parse_ts_millis(last_assertion.time)
                 if last_updated > last_run:
                     logger.error(
-                        f"Missing assertion run for {assertion_urn}. The dataset was updated on {last_updated} but the last assertion run was at {last_run}"
+                        f"Missing assertion run for {assertion_urn}. The dataset was updated on {last_updated} but the last assertion run was at {last_run}",
                     )
                     return True
         return result
@@ -114,13 +116,13 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         if self.config.verify_after_last_update:
             last_updated = self.get_last_updated(urn)
             logger.info(
-                f"The dataset {urn} was last updated at {last_updated}, using this as min assertion date."
+                f"The dataset {urn} was last updated at {last_updated}, using this as min assertion date.",
             )
 
         if not last_updated:
             last_updated = datetime.now(tz=timezone.utc) - self.config.time_delta
             logger.info(
-                f"Dataset {urn} doesn't have last updated or check_last_assertion_time is false, using calculated min assertion date {last_updated}"
+                f"Dataset {urn} doesn't have last updated or check_last_assertion_time is false, using calculated min assertion date {last_updated}",
             )
 
         assertions = self.assertion_api.query_assertion(

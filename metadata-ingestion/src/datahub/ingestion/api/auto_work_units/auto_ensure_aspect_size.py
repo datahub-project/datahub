@@ -19,13 +19,17 @@ logger = logging.getLogger(__name__)
 
 class EnsureAspectSizeProcessor:
     def __init__(
-        self, report: "SourceReport", payload_constraint: int = INGEST_MAX_PAYLOAD_BYTES
+        self,
+        report: "SourceReport",
+        payload_constraint: int = INGEST_MAX_PAYLOAD_BYTES,
     ):
         self.report = report
         self.payload_constraint = payload_constraint
 
     def ensure_dataset_profile_size(
-        self, dataset_urn: str, profile: DatasetProfileClass
+        self,
+        dataset_urn: str,
+        profile: DatasetProfileClass,
     ) -> None:
         """
         This is quite arbitrary approach to ensuring dataset profile aspect does not exceed allowed size, might be adjusted
@@ -41,7 +45,7 @@ class EnsureAspectSizeProcessor:
                         if value:
                             values_len += len(value)
                     logger.debug(
-                        f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}"
+                        f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}",
                     )
                     if sample_fields_size + values_len > self.payload_constraint:
                         field.sampleValues = []
@@ -56,7 +60,9 @@ class EnsureAspectSizeProcessor:
                     logger.debug(f"Field {field.fieldPath} has no sample values")
 
     def ensure_schema_metadata_size(
-        self, dataset_urn: str, schema: SchemaMetadataClass
+        self,
+        dataset_urn: str,
+        schema: SchemaMetadataClass,
     ) -> None:
         """
         This is quite arbitrary approach to ensuring schema metadata aspect does not exceed allowed size, might be adjusted

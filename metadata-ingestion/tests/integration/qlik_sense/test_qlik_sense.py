@@ -39,21 +39,21 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         },
                         "links": {
                             "self": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces/659d0e41d1b0ecce6eebc9b1"
+                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces/659d0e41d1b0ecce6eebc9b1",
                             },
                             "assignments": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces/659d0e41d1b0ecce6eebc9b1/assignments"
+                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces/659d0e41d1b0ecce6eebc9b1/assignments",
                             },
                         },
                         "createdAt": "2024-01-09T09:13:38.002Z",
                         "createdBy": "657b5abe656297cec3d8b205",
                         "updatedAt": "2024-01-09T09:13:38.002Z",
-                    }
+                    },
                 ],
                 "links": {
                     "self": {
-                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces"
-                    }
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces",
+                    },
                 },
             },
         },
@@ -102,7 +102,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "meta": {
                             "isFavorited": False,
                             "tags": [
-                                {"id": "659ce561640a2affcf0d629f", "name": "test_tag"}
+                                {"id": "659ce561640a2affcf0d629f", "name": "test_tag"},
                             ],
                             "collections": [],
                         },
@@ -191,8 +191,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 ],
                 "links": {
                     "self": {
-                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items"
-                    }
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items",
+                    },
                 },
             },
         },
@@ -223,8 +223,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "lastUpdated": "2024-01-25T06:28:22.629Z",
                 "links": {
                     "self": {
-                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/users/657b5abe656297cec3d8b205"
-                    }
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/users/657b5abe656297cec3d8b205",
+                    },
                 },
             },
         },
@@ -338,7 +338,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "qHeaderSize": 0,
                             "qRecordSize": 0,
                             "qTabSize": 0,
-                        }
+                        },
                     },
                     "effectiveDate": "2024-01-09T18:05:39.713Z",
                     "overrideSchemaAnomalies": False,
@@ -405,7 +405,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "sensitive": False,
                             "orphan": False,
                             "nullable": False,
-                        }
+                        },
                     ],
                     "loadOptions": {},
                     "effectiveDate": "2024-01-12T12:59:54.522Z",
@@ -448,7 +448,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         },
                     ],
                     "metadata": {},
-                }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/actions/expand?node=qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647%23FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc&level=FIELD": {
@@ -483,7 +483,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         },
                     ],
                     "metadata": {},
-                }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/actions/expand?node=qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647%23Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE&level=FIELD": {
@@ -499,17 +499,17 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok": {
                             "label": "name",
                             "metadata": {"type": "FIELD"},
-                        }
+                        },
                     },
                     "edges": [
                         {
                             "relation": "read",
                             "source": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok",
                             "target": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok",
-                        }
+                        },
                     ],
                     "metadata": {},
-                }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/overview": {
@@ -529,8 +529,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                         "tableLabel": "IPL_Matches_2022",
                                     },
                                 ],
-                            }
-                        ]
+                            },
+                        ],
                     },
                 },
                 {
@@ -545,10 +545,10 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                         "resourceQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q",
                                         "tableQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE",
                                         "tableLabel": "test_table",
-                                    }
+                                    },
                                 ],
-                            }
-                        ]
+                            },
+                        ],
                     },
                 },
             ],
@@ -587,7 +587,7 @@ def mock_websocket_response(*args, **kwargs):
                 "qType": "Doc",
                 "qHandle": 1,
                 "qGenericId": "f0714ca7-7093-49e4-8b58-47bb38563647",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -631,7 +631,7 @@ def mock_websocket_response(*args, **kwargs):
                     "source",
                     "exportappdata",
                 ],
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -670,7 +670,7 @@ def mock_websocket_response(*args, **kwargs):
                     },
                     "qData": {},
                 },
-            ]
+            ],
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -685,7 +685,7 @@ def mock_websocket_response(*args, **kwargs):
                 "qHandle": 2,
                 "qGenericType": "sheet",
                 "qGenericId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -732,14 +732,14 @@ def mock_websocket_response(*args, **kwargs):
                             "qInfo": {"qId": "QYUUb", "qType": "barchart"},
                             "qMeta": {"privileges": ["read", "update", "delete"]},
                             "qData": {"title": ""},
-                        }
-                    ]
+                        },
+                    ],
                 },
                 "customRowBase": 12,
                 "gridResolution": "small",
                 "layoutOptions": {"mobileLayout": "LIST", "extendable": False},
                 "gridMode": "simpleEdit",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -754,7 +754,7 @@ def mock_websocket_response(*args, **kwargs):
                 "qHandle": 3,
                 "qGenericType": "scatterplot",
                 "qGenericId": "QYUUb",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -811,7 +811,7 @@ def mock_websocket_response(*args, **kwargs):
                             "autoSort": True,
                             "cId": "FdErA",
                             "othersLabel": "Others",
-                        }
+                        },
                     ],
                     "qMeasureInfo": [
                         {
@@ -841,7 +841,7 @@ def mock_websocket_response(*args, **kwargs):
                 "showDetails": True,
                 "showDetailsExpression": False,
                 "visualization": "scatterplot",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -856,7 +856,7 @@ def mock_websocket_response(*args, **kwargs):
                 "qHandle": 4,
                 "qGenericType": "LoadModel",
                 "qGenericId": "LoadModel",
-            }
+            },
         }
     elif request == {
         "jsonrpc": "2.0",
@@ -878,7 +878,7 @@ def mock_websocket_response(*args, **kwargs):
                         "tableName": "test_table",
                         "tableAlias": "test_table",
                         "loadProperties": {
-                            "filterInfo": {"filterClause": "", "filterType": 1}
+                            "filterInfo": {"filterClause": "", "filterType": 1},
                         },
                         "key": "Google_BigQuery_harshal-playground-306419:::test_table",
                         "fields": [
@@ -888,7 +888,7 @@ def mock_websocket_response(*args, **kwargs):
                                 "selected": True,
                                 "checked": True,
                                 "id": "dsd.test_table.name",
-                            }
+                            },
                         ],
                         "connectionInfo": {
                             "name": "Google_BigQuery_harshal-playground-306419",
@@ -982,7 +982,7 @@ def mock_websocket_response(*args, **kwargs):
                     },
                 ],
                 "schemaVersion": 2.1,
-            }
+            },
         }
     else:
         return {}
@@ -991,9 +991,9 @@ def mock_websocket_response(*args, **kwargs):
 @pytest.fixture(scope="module")
 def mock_websocket_send_request():
     with patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
+        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request",
     ) as mock_websocket_send_request, patch(
-        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection",
     ):
         mock_websocket_send_request.side_effect = mock_websocket_response
         yield mock_websocket_send_request
@@ -1009,7 +1009,10 @@ def default_config():
 
 @pytest.mark.integration
 def test_qlik_sense_ingest(
-    pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
+    pytestconfig,
+    tmp_path,
+    requests_mock,
+    mock_websocket_send_request,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
@@ -1032,7 +1035,7 @@ def test_qlik_sense_ingest(
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -1048,7 +1051,10 @@ def test_qlik_sense_ingest(
 
 @pytest.mark.integration
 def test_platform_instance_ingest(
-    pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
+    pytestconfig,
+    tmp_path,
+    requests_mock,
+    mock_websocket_send_request,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
@@ -1068,7 +1074,7 @@ def test_platform_instance_ingest(
                         "Google_BigQuery_harshal-playground-306419": {
                             "platform_instance": "google-cloud",
                             "env": "DEV",
-                        }
+                        },
                     },
                 },
             },
@@ -1078,7 +1084,7 @@ def test_platform_instance_ingest(
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()

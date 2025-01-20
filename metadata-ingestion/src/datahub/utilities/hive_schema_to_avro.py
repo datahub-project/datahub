@@ -55,7 +55,8 @@ class HiveColumnToAvroConverter:
 
     @staticmethod
     def _parse_datatype_string(
-        s: str, **kwargs: Any
+        s: str,
+        **kwargs: Any,
     ) -> Union[object, Dict[str, object]]:
         s = s.strip()
         if s.startswith("array<"):
@@ -73,7 +74,7 @@ class HiveColumnToAvroConverter:
             if len(parts) != 2:
                 raise ValueError(
                     "The map type string format is: 'map<key_type,value_type>', "
-                    + f"but got: {s}"
+                    + f"but got: {s}",
                 )
 
             kt = HiveColumnToAvroConverter._parse_datatype_string(parts[0])
@@ -97,8 +98,9 @@ class HiveColumnToAvroConverter:
                     # ustruct_seqn defines sequence number of struct in union
                     t.append(
                         HiveColumnToAvroConverter._parse_datatype_string(
-                            part, ustruct_seqn=ustruct_seqn
-                        )
+                            part,
+                            ustruct_seqn=ustruct_seqn,
+                        ),
                     )
                     ustruct_seqn += 1
                 else:
@@ -108,7 +110,8 @@ class HiveColumnToAvroConverter:
             if s[-1] != ">":
                 raise ValueError("'>' should be the last char, but got: %s" % s)
             return HiveColumnToAvroConverter._parse_struct_fields_string(
-                s[7:-1], **kwargs
+                s[7:-1],
+                **kwargs,
             )
         elif ":" in s:
             return HiveColumnToAvroConverter._parse_struct_fields_string(s, **kwargs)
@@ -121,12 +124,13 @@ class HiveColumnToAvroConverter:
         fields: List[Dict] = []
         for part in parts:
             name_and_type = HiveColumnToAvroConverter._ignore_brackets_split(
-                part.strip(), HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR
+                part.strip(),
+                HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR,
             )
             if len(name_and_type) != 2:
                 raise ValueError(
                     "The struct field string format is: 'field_name:field_type', "
-                    + f"but got: {part}"
+                    + f"but got: {part}",
                 )
 
             field_name = name_and_type[0].strip()
@@ -135,7 +139,7 @@ class HiveColumnToAvroConverter:
                     raise ValueError("'`' should be the last char, but got: %s" % s)
                 field_name = field_name[1:-1]
             field_type = HiveColumnToAvroConverter._parse_datatype_string(
-                name_and_type[1]
+                name_and_type[1],
             )
 
             if not any(field["name"] == field_name for field in fields):
@@ -245,7 +249,9 @@ class HiveColumnToAvroConverter:
 
     @classmethod
     def get_avro_schema_for_hive_column(
-        cls, hive_column_name: str, hive_column_type: str
+        cls,
+        hive_column_name: str,
+        hive_column_type: str,
     ) -> Union[object, Dict[str, object]]:
         converter = cls()
         # Below Record structure represents the dataset level
@@ -260,7 +266,7 @@ class HiveColumnToAvroConverter:
                     {
                         "name": hive_column_name,
                         "type": converter._parse_datatype_string(hive_column_type),
-                    }
+                    },
                 ],
             }
 
@@ -270,7 +276,8 @@ def get_avro_schema_for_hive_column(
     hive_column_type: str,
 ) -> Union[object, Dict[str, object]]:
     return HiveColumnToAvroConverter.get_avro_schema_for_hive_column(
-        hive_column_name, hive_column_type
+        hive_column_name,
+        hive_column_type,
     )
 
 
@@ -283,7 +290,8 @@ def get_schema_fields_for_hive_column(
 ) -> List[SchemaField]:
     try:
         avro_schema_json = get_avro_schema_for_hive_column(
-            hive_column_name=hive_column_name, hive_column_type=hive_column_type
+            hive_column_name=hive_column_name,
+            hive_column_type=hive_column_type,
         )
         schema_fields = avro_schema_to_mce_fields(
             avro_schema=json.dumps(avro_schema_json),
@@ -292,14 +300,14 @@ def get_schema_fields_for_hive_column(
         )
     except Exception as e:
         logger.warning(
-            f"Unable to parse column {hive_column_name} and type {hive_column_type} the error was: {e}"
+            f"Unable to parse column {hive_column_name} and type {hive_column_type} the error was: {e}",
         )
         schema_fields = [
             SchemaField(
                 fieldPath=hive_column_name,
                 type=SchemaFieldDataTypeClass(type=NullTypeClass()),
                 nativeDataType=hive_column_type,
-            )
+            ),
         ]
 
     assert schema_fields

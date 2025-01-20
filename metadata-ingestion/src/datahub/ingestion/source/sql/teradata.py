@@ -101,7 +101,10 @@ class TeradataTable:
 # lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
 @lru_cache(maxsize=1)
 def get_schema_columns(
-    self: Any, connection: Connection, dbc_columns: str, schema: str
+    self: Any,
+    connection: Connection,
+    dbc_columns: str,
+    schema: str,
 ) -> Dict[str, List[Any]]:
     columns: Dict[str, List[Any]] = {}
     columns_query = f"select * from dbc.{dbc_columns} where DatabaseName (NOT CASESPECIFIC) = '{schema}' (NOT CASESPECIFIC) order by TableName, ColumnId"
@@ -119,7 +122,9 @@ def get_schema_columns(
 # lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
 @lru_cache(maxsize=1)
 def get_schema_pk_constraints(
-    self: Any, connection: Connection, schema: str
+    self: Any,
+    connection: Connection,
+    schema: str,
 ) -> Dict[str, List[Any]]:
     dbc_indices = "IndicesV" + "X" if configure.usexviews else "IndicesV"
     primary_keys: Dict[str, List[Any]] = {}
@@ -168,7 +173,7 @@ def optimized_get_pk_constraint(
     for index_column in res:
         index_columns.append(self.normalize_name(index_column.ColumnName))
         index_name = self.normalize_name(
-            index_column.IndexName
+            index_column.IndexName,
         )  # There should be just one IndexName
 
     return {"constrained_columns": index_columns, "name": index_name}
@@ -199,7 +204,7 @@ def optimized_get_columns(
 
     if td_table is None:
         logger.warning(
-            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
+            f"Table {table_name} not found in cache for schema {schema}, not getting columns",
         )
         return []
 
@@ -223,7 +228,8 @@ def optimized_get_columns(
         dbc_columns = "columnsQV" if use_qvci else "columnsV"
         dbc_columns = dbc_columns + "X" if configure.usexviews else dbc_columns
         res = self.get_schema_columns(connection, dbc_columns, schema).get(
-            table_name, []
+            table_name,
+            [],
         )
 
     final_column_info = []
@@ -245,7 +251,9 @@ def optimized_get_columns(
 # lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
 @lru_cache(maxsize=1)
 def get_schema_foreign_keys(
-    self: Any, connection: Connection, schema: str
+    self: Any,
+    connection: Connection,
+    schema: str,
 ) -> Dict[str, List[Any]]:
     dbc_child_parent_table = (
         "All_RI_ChildrenV" + "X" if configure.usexviews else "All_RI_ChildrenV"
@@ -297,10 +305,10 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
 
         for constraint_col in constraint_cols:
             fk_dict["constrained_columns"].append(
-                self.normalize_name(constraint_col.ChildKeyColumn)
+                self.normalize_name(constraint_col.ChildKeyColumn),
             )
             fk_dict["referred_columns"].append(
-                self.normalize_name(constraint_col.ParentKeyColumn)
+                self.normalize_name(constraint_col.ParentKeyColumn),
             )
 
         fk_dicts.append(fk_dict)
@@ -395,7 +403,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
                 "tdwm",
                 "val",
                 "dbc",
-            ]
+            ],
         ),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -592,7 +600,9 @@ ORDER by DataBaseName, TableName;
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
             setattr(self, "loop_views", self.cached_loop_views)  # noqa: B010
             setattr(  # noqa: B010
-                self, "get_table_properties", self.cached_get_table_properties
+                self,
+                "get_table_properties",
+                self.cached_get_table_properties,
             )
 
             tables_cache = self._tables_cache
@@ -623,7 +633,11 @@ ORDER by DataBaseName, TableName;
                 table_name,
                 schema=None,
                 **kw: optimized_get_pk_constraint(
-                    self, connection, table_name, schema, **kw
+                    self,
+                    connection,
+                    table_name,
+                    schema,
+                    **kw,
                 ),
             )
 
@@ -635,7 +649,11 @@ ORDER by DataBaseName, TableName;
                 table_name,
                 schema=None,
                 **kw: optimized_get_foreign_keys(
-                    self, connection, table_name, schema, **kw
+                    self,
+                    connection,
+                    table_name,
+                    schema,
+                    **kw,
                 ),
             )
 
@@ -643,7 +661,10 @@ ORDER by DataBaseName, TableName;
                 TeradataDialect,
                 "get_schema_columns",
                 lambda self, connection, dbc_columns, schema: get_schema_columns(
-                    self, connection, dbc_columns, schema
+                    self,
+                    connection,
+                    dbc_columns,
+                    schema,
                 ),
             )
 
@@ -660,7 +681,9 @@ ORDER by DataBaseName, TableName;
                 TeradataDialect,
                 "get_schema_pk_constraints",
                 lambda self, connection, schema: get_schema_pk_constraints(
-                    self, connection, schema
+                    self,
+                    connection,
+                    schema,
                 ),
             )
 
@@ -668,12 +691,14 @@ ORDER by DataBaseName, TableName;
                 TeradataDialect,
                 "get_schema_foreign_keys",
                 lambda self, connection, schema: get_schema_foreign_keys(
-                    self, connection, schema
+                    self,
+                    connection,
+                    schema,
                 ),
             )
         else:
             logger.info(
-                "Disabling stale entity removal as tables and views are disabled"
+                "Disabling stale entity removal as tables and views are disabled",
             )
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
@@ -746,14 +771,18 @@ ORDER by DataBaseName, TableName;
             lambda schema: [
                 i.name
                 for i in filter(
-                    lambda t: t.object_type != "View", self._tables_cache[schema]
+                    lambda t: t.object_type != "View",
+                    self._tables_cache[schema],
                 )
             ],
         )
         yield from super().loop_tables(inspector, schema, sql_config)
 
     def cached_get_table_properties(
-        self, inspector: Inspector, schema: str, table: str
+        self,
+        inspector: Inspector,
+        schema: str,
+        table: str,
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description: Optional[str] = None
         properties: Dict[str, str] = {}
@@ -782,7 +811,8 @@ ORDER by DataBaseName, TableName;
             lambda schema: [
                 i.name
                 for i in filter(
-                    lambda t: t.object_type == "View", self._tables_cache[schema]
+                    lambda t: t.object_type == "View",
+                    self._tables_cache[schema],
                 )
             ],
         )
@@ -830,7 +860,7 @@ ORDER by DataBaseName, TableName;
             ""
             if not self.config.databases
             else "and default_database in ({databases})".format(
-                databases=",".join([f"'{db}'" for db in self.config.databases])
+                databases=",".join([f"'{db}'" for db in self.config.databases]),
             )
         )
 
@@ -861,7 +891,7 @@ ORDER by DataBaseName, TableName;
         )
         if result.debug_info.table_error:
             logger.debug(
-                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}"
+                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}",
             )
             self.report.num_table_parse_failures += 1
         else:

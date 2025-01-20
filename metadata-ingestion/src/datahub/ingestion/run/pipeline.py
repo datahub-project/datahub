@@ -63,10 +63,12 @@ class LoggingCallback(WriteCallback):
         self.name = name
 
     def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
+        self,
+        record_envelope: RecordEnvelope,
+        success_metadata: dict,
     ) -> None:
         logger.debug(
-            f"{self.name} sink wrote workunit {record_envelope.metadata['workunit_id']}"
+            f"{self.name} sink wrote workunit {record_envelope.metadata['workunit_id']}",
         )
 
     def on_failure(
@@ -91,7 +93,9 @@ class DeadLetterQueueCallback(WriteCallback):
         logger.info(f"Failure logging enabled. Will log to {config.filename}.")
 
     def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
+        self,
+        record_envelope: RecordEnvelope,
+        success_metadata: dict,
     ) -> None:
         pass
 
@@ -169,7 +173,7 @@ class CliReport(Report):
             if self._peak_memory_usage < mem_usage:
                 self._peak_memory_usage = mem_usage
                 self.peak_memory_usage = humanfriendly.format_size(
-                    self._peak_memory_usage
+                    self._peak_memory_usage,
                 )
             self.mem_info = humanfriendly.format_size(mem_usage)
         except Exception as e:
@@ -254,7 +258,7 @@ class Pipeline:
 
         if self.config.sink is None:
             logger.info(
-                "No sink configured, attempting to use the default datahub-rest sink."
+                "No sink configured, attempting to use the default datahub-rest sink.",
             )
             with _add_init_error_context("configure the default rest sink"):
                 self.sink_type = "datahub-rest"
@@ -262,7 +266,7 @@ class Pipeline:
         else:
             self.sink_type = self.config.sink.type
             with _add_init_error_context(
-                f"find a registered sink for type {self.sink_type}"
+                f"find a registered sink for type {self.sink_type}",
             ):
                 sink_class = sink_registry.get(self.sink_type)
 
@@ -284,16 +288,17 @@ class Pipeline:
                 self._configure_reporting(report_to)
 
             with _add_init_error_context(
-                f"find a registered source for type {self.source_type}"
+                f"find a registered source for type {self.source_type}",
             ):
                 source_class = source_registry.get(self.source_type)
 
             with _add_init_error_context(f"configure the source ({self.source_type})"):
                 self.source = source_class.create(
-                    self.config.source.dict().get("config", {}), self.ctx
+                    self.config.source.dict().get("config", {}),
+                    self.ctx,
                 )
                 logger.debug(
-                    f"Source type {self.source_type} ({source_class}) configured"
+                    f"Source type {self.source_type} ({source_class}) configured",
                 )
                 logger.info("Source configured successfully.")
 
@@ -301,7 +306,8 @@ class Pipeline:
             with _add_init_error_context(f"configure the extractor ({extractor_type})"):
                 extractor_class = extractor_registry.get(extractor_type)
                 self.extractor = extractor_class(
-                    self.config.source.extractor_config, self.ctx
+                    self.config.source.extractor_config,
+                    self.ctx,
                 )
 
             with _add_init_error_context("configure transformers"):
@@ -319,10 +325,10 @@ class Pipeline:
                 transformer_class = transform_registry.get(transformer_type)
                 transformer_config = transformer.dict().get("config", {})
                 self.transformers.append(
-                    transformer_class.create(transformer_config, self.ctx)
+                    transformer_class.create(transformer_config, self.ctx),
                 )
                 logger.debug(
-                    f"Transformer type:{transformer_type},{transformer_class} configured"
+                    f"Transformer type:{transformer_type},{transformer_class} configured",
                 )
 
         # Add the system metadata transformer at the end of the list.
@@ -342,14 +348,14 @@ class Pipeline:
                 reporter.type for reporter in self.config.reporting
             ]:
                 self.config.reporting.append(
-                    ReporterConfig.parse_obj({"type": "datahub"})
+                    ReporterConfig.parse_obj({"type": "datahub"}),
                 )
         elif report_to:
             # we assume this is a file name, and add the file reporter
             self.config.reporting.append(
                 ReporterConfig.parse_obj(
-                    {"type": "file", "config": {"filename": report_to}}
-                )
+                    {"type": "file", "config": {"filename": report_to}},
+                ),
             )
 
         for reporter in self.config.reporting:
@@ -362,10 +368,10 @@ class Pipeline:
                         config_dict=reporter_config_dict,
                         ctx=self.ctx,
                         sink=self.sink,
-                    )
+                    ),
                 )
                 logger.debug(
-                    f"Reporter type:{reporter_type},{reporter_class} configured."
+                    f"Reporter type:{reporter_type},{reporter_class} configured.",
                 )
             except Exception as e:
                 if reporter.required:
@@ -374,7 +380,8 @@ class Pipeline:
                     logger.debug(f"Reporter type {reporter_type} is disabled: {e}")
                 else:
                     logger.warning(
-                        f"Failed to configure reporter: {reporter_type}", exc_info=e
+                        f"Failed to configure reporter: {reporter_type}",
+                        exc_info=e,
                     )
 
     def _notify_reporters_on_ingestion_start(self) -> None:
@@ -446,8 +453,8 @@ class Pipeline:
 
                 stack.enter_context(
                     memray.Tracker(
-                        f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
-                    )
+                        f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin",
+                    ),
                 )
 
             stack.enter_context(self.sink)
@@ -460,7 +467,8 @@ class Pipeline:
                     LoggingCallback()
                     if not self.config.failure_log.enabled
                     else DeadLetterQueueCallback(
-                        self.ctx, self.config.failure_log.log_config
+                        self.ctx,
+                        self.config.failure_log.log_config,
                     )
                 )
                 for wu in itertools.islice(
@@ -483,7 +491,9 @@ class Pipeline:
                         record_envelopes = list(self.extractor.get_records(wu))
                     except Exception as e:
                         self.source.get_report().failure(
-                            "Source produced bad metadata", context=wu.id, exc=e
+                            "Source produced bad metadata",
+                            context=wu.id,
+                            exc=e,
                         )
                         continue
                     try:
@@ -491,12 +501,13 @@ class Pipeline:
                             if not self.dry_run:
                                 try:
                                     self.sink.write_record_async(
-                                        record_envelope, callback
+                                        record_envelope,
+                                        callback,
                                     )
                                 except Exception as e:
                                     # In case the sink's error handling is bad, we still want to report the error.
                                     self.sink.report.report_failure(
-                                        f"Failed to write record: {e}"
+                                        f"Failed to write record: {e}",
                                     )
 
                     except (RuntimeError, SystemExit):
@@ -518,11 +529,12 @@ class Pipeline:
                         RecordEnvelope(
                             record=EndOfStream(),
                             metadata={"workunit_id": "end-of-stream"},
-                        )
-                    ]
+                        ),
+                    ],
                 ):
                     if not self.dry_run and not isinstance(
-                        record_envelope.record, EndOfStream
+                        record_envelope.record,
+                        EndOfStream,
                     ):
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
@@ -566,7 +578,7 @@ class Pipeline:
             else False
         )
         has_warnings: bool = bool(
-            self.source.get_report().warnings or self.sink.get_report().warnings
+            self.source.get_report().warnings or self.sink.get_report().warnings,
         )
 
         for name, committable in self.ctx.get_committables():
@@ -574,7 +586,7 @@ class Pipeline:
 
             logger.info(
                 f"Processing commit request for {name}. Commit policy = {commit_policy},"
-                f" has_errors={has_errors}, has_warnings={has_warnings}"
+                f" has_errors={has_errors}, has_warnings={has_warnings}",
             )
 
             if (
@@ -582,7 +594,7 @@ class Pipeline:
                 and (has_errors or has_warnings)
             ) or (commit_policy == CommitPolicy.ON_NO_ERRORS and has_errors):
                 logger.warning(
-                    f"Skipping commit request for {name} since policy requirements are not met."
+                    f"Skipping commit request for {name} since policy requirements are not met.",
                 )
                 continue
 
@@ -597,18 +609,21 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors",
+                self.source.get_report(),
             )
         if self.sink.get_report().failures:
             raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings",
+                    self.source.get_report(),
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings",
+                    self.sink.get_report(),
                 )
 
     def log_ingestion_stats(self) -> None:
@@ -627,7 +642,7 @@ class Pipeline:
                     transformer.type for transformer in self.config.transformers or []
                 ],
                 "records_written": stats.discretize(
-                    self.sink.get_report().total_records_written
+                    self.sink.get_report().total_records_written,
                 ),
                 "source_failures": stats.discretize(source_failures),
                 "source_warnings": stats.discretize(source_warnings),
@@ -636,7 +651,7 @@ class Pipeline:
                 "global_warnings": global_warnings,
                 "failures": stats.discretize(source_failures + sink_failures),
                 "warnings": stats.discretize(
-                    source_warnings + sink_warnings + global_warnings
+                    source_warnings + sink_warnings + global_warnings,
                 ),
                 "has_pipeline_name": bool(self.config.pipeline_name),
             },
@@ -658,11 +673,13 @@ class Pipeline:
 
     def has_failures(self) -> bool:
         return bool(
-            self.source.get_report().failures or self.sink.get_report().failures
+            self.source.get_report().failures or self.sink.get_report().failures,
         )
 
     def pretty_print_summary(
-        self, warnings_as_failure: bool = False, currently_running: bool = False
+        self,
+        warnings_as_failure: bool = False,
+        currently_running: bool = False,
     ) -> int:
         workunits_produced = self.sink.get_report().total_records_written
 
@@ -696,15 +713,17 @@ class Pipeline:
 
         if self.source.get_report().failures or self.sink.get_report().failures:
             num_failures_source = self._approx_all_vals(
-                self.source.get_report().failures
+                self.source.get_report().failures,
             )
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_failures_source + num_failures_sink} failures"
+                    status=f"with at least {num_failures_source + num_failures_sink} failures",
                 ),
                 fg=self._get_text_color(
-                    running=currently_running, failures=True, warnings=False
+                    running=currently_running,
+                    failures=True,
+                    warnings=False,
                 ),
                 bold=True,
             )
@@ -719,10 +738,12 @@ class Pipeline:
             num_warn_global = len(global_warnings)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings"
+                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings",
                 ),
                 fg=self._get_text_color(
-                    running=currently_running, failures=False, warnings=True
+                    running=currently_running,
+                    failures=False,
+                    warnings=True,
                 ),
                 bold=True,
             )
@@ -731,7 +752,9 @@ class Pipeline:
             click.secho(
                 message_template.format(status="successfully"),
                 fg=self._get_text_color(
-                    running=currently_running, failures=False, warnings=False
+                    running=currently_running,
+                    failures=False,
+                    warnings=False,
                 ),
                 bold=True,
             )
@@ -739,7 +762,8 @@ class Pipeline:
 
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
         logger.exception(
-            f"Ingestion pipeline threw an uncaught exception: {exc}", stacklevel=2
+            f"Ingestion pipeline threw an uncaught exception: {exc}",
+            stacklevel=2,
         )
         self.source.get_report().report_failure(
             title="Pipeline Error",

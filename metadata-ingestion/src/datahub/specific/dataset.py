@@ -109,7 +109,9 @@ class DatasetPatchBuilder(
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     @classmethod
@@ -126,7 +128,8 @@ class DatasetPatchBuilder(
         return self
 
     def remove_upstream_lineage(
-        self, dataset: Union[str, Urn]
+        self,
+        dataset: Union[str, Urn],
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
@@ -138,12 +141,16 @@ class DatasetPatchBuilder(
 
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
-            UpstreamLineage.ASPECT_NAME, "add", path=("upstreams",), value=upstreams
+            UpstreamLineage.ASPECT_NAME,
+            "add",
+            path=("upstreams",),
+            value=upstreams,
         )
         return self
 
     def add_fine_grained_upstream_lineage(
-        self, fine_grained_lineage: FineGrainedLineage
+        self,
+        fine_grained_lineage: FineGrainedLineage,
     ) -> "DatasetPatchBuilder":
         (
             transform_op,
@@ -155,7 +162,10 @@ class DatasetPatchBuilder(
                 UpstreamLineage.ASPECT_NAME,
                 "add",
                 path=self._build_fine_grained_path(
-                    transform_op, downstream_urn, query_id, upstream_urn
+                    transform_op,
+                    downstream_urn,
+                    query_id,
+                    upstream_urn,
                 ),
                 value={"confidenceScore": fine_grained_lineage.confidenceScore},
             )
@@ -175,7 +185,11 @@ class DatasetPatchBuilder(
 
     @classmethod
     def _build_fine_grained_path(
-        cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
+        cls,
+        transform_op: str,
+        downstream_urn: str,
+        query_id: str,
+        upstream_urn: str,
     ) -> PatchPath:
         return (
             "fineGrainedLineages",
@@ -186,7 +200,8 @@ class DatasetPatchBuilder(
         )
 
     def remove_fine_grained_upstream_lineage(
-        self, fine_grained_lineage: FineGrainedLineage
+        self,
+        fine_grained_lineage: FineGrainedLineage,
     ) -> "DatasetPatchBuilder":
         (
             transform_op,
@@ -198,14 +213,18 @@ class DatasetPatchBuilder(
                 UpstreamLineage.ASPECT_NAME,
                 "remove",
                 path=self._build_fine_grained_path(
-                    transform_op, downstream_urn, query_id, upstream_urn
+                    transform_op,
+                    downstream_urn,
+                    query_id,
+                    upstream_urn,
                 ),
                 value={},
             )
         return self
 
     def set_fine_grained_upstream_lineages(
-        self, fine_grained_lineages: List[FineGrainedLineage]
+        self,
+        fine_grained_lineages: List[FineGrainedLineage],
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
@@ -216,7 +235,9 @@ class DatasetPatchBuilder(
         return self
 
     def for_field(
-        self, field_path: str, editable: bool = True
+        self,
+        field_path: str,
+        editable: bool = True,
     ) -> FieldPatchHelper["DatasetPatchBuilder"]:
         """
         Get a helper that can perform patches against fields in the dataset
@@ -231,7 +252,9 @@ class DatasetPatchBuilder(
         )
 
     def set_description(
-        self, description: Optional[str] = None, editable: bool = False
+        self,
+        description: Optional[str] = None,
+        editable: bool = False,
     ) -> "DatasetPatchBuilder":
         if description is not None:
             self._add_patch(
@@ -247,7 +270,8 @@ class DatasetPatchBuilder(
         return self
 
     def set_display_name(
-        self, display_name: Optional[str] = None
+        self,
+        display_name: Optional[str] = None,
     ) -> "DatasetPatchBuilder":
         if display_name is not None:
             self._add_patch(
@@ -259,7 +283,8 @@ class DatasetPatchBuilder(
         return self
 
     def set_qualified_name(
-        self, qualified_name: Optional[str] = None
+        self,
+        qualified_name: Optional[str] = None,
     ) -> "DatasetPatchBuilder":
         if qualified_name is not None:
             self._add_patch(
@@ -271,7 +296,8 @@ class DatasetPatchBuilder(
         return self
 
     def set_created(
-        self, timestamp: Optional[TimeStamp] = None
+        self,
+        timestamp: Optional[TimeStamp] = None,
     ) -> "DatasetPatchBuilder":
         if timestamp is not None:
             self._add_patch(
@@ -283,7 +309,8 @@ class DatasetPatchBuilder(
         return self
 
     def set_last_modified(
-        self, timestamp: Optional[TimeStamp] = None
+        self,
+        timestamp: Optional[TimeStamp] = None,
     ) -> "DatasetPatchBuilder":
         if timestamp is not None:
             self._add_patch(

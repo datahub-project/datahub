@@ -45,12 +45,17 @@ class AddDatasetTags(DatasetTagsTransformer):
         return cls(config, ctx)
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_global_tags_aspect: GlobalTagsClass = cast(GlobalTagsClass, aspect)
         out_global_tags_aspect: GlobalTagsClass = GlobalTagsClass(tags=[])
         self.update_if_keep_existing(
-            self.config, in_global_tags_aspect, out_global_tags_aspect
+            self.config,
+            in_global_tags_aspect,
+            out_global_tags_aspect,
         )
 
         tags_to_add = self.config.get_tags_to_add(entity_urn)
@@ -61,7 +66,10 @@ class AddDatasetTags(DatasetTagsTransformer):
                 self.processed_tags.setdefault(tag.tag, tag)
 
         return self.get_result_semantics(
-            self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
+            self.config,
+            self.ctx.graph,
+            entity_urn,
+            out_global_tags_aspect,
         )
 
     def handle_end_of_stream(
@@ -79,7 +87,7 @@ class AddDatasetTags(DatasetTagsTransformer):
                 MetadataChangeProposalWrapper(
                     entityUrn=tag_urn.urn(),
                     aspect=tag_urn.to_key_aspect(),
-                )
+                ),
             )
 
         return mcps

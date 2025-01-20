@@ -26,7 +26,8 @@ class AutoHelperTransformer(Transformer):
         self.converter = converter
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         records = list(record_envelopes)
 
@@ -36,7 +37,7 @@ class AutoHelperTransformer(Transformer):
         yield from self._from_workunits(
             self.converter(
                 self._into_workunits(normal_records),
-            )
+            ),
         )
 
         # Pass through control records as-is. Note that this isn't fully correct, since it technically
@@ -64,7 +65,8 @@ class AutoHelperTransformer(Transformer):
 
     @classmethod
     def _from_workunits(
-        cls, stream: Iterable[MetadataWorkUnit]
+        cls,
+        stream: Iterable[MetadataWorkUnit],
     ) -> Iterable[RecordEnvelope]:
         for workunit in stream:
             yield RecordEnvelope(

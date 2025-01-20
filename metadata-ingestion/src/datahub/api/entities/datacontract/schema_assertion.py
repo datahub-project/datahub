@@ -60,7 +60,7 @@ class FieldListSchemaContract(BaseAssertion):
 
 class SchemaAssertion(v1_ConfigModel):
     __root__: Union[JsonSchemaContract, FieldListSchemaContract] = v1_Field(
-        discriminator="type"
+        discriminator="type",
     )
 
     @property
@@ -68,7 +68,9 @@ class SchemaAssertion(v1_ConfigModel):
         return self.__root__.type
 
     def generate_mcp(
-        self, assertion_urn: str, entity_urn: str
+        self,
+        assertion_urn: str,
+        entity_urn: str,
     ) -> List[MetadataChangeProposalWrapper]:
         aspect = AssertionInfoClass(
             type=AssertionTypeClass.DATA_SCHEMA,

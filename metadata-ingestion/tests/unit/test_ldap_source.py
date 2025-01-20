@@ -32,7 +32,7 @@ def test_parse_ldap_dn(input, expected):
                 "admins": [
                     b"uid=A.B,ou=People,dc=internal,dc=machines",
                     b"uid=C.D,ou=People,dc=internal,dc=machines",
-                ]
+                ],
             },
             ["urn:li:corpuser:A.B", "urn:li:corpuser:C.D"],
         ),
@@ -40,7 +40,7 @@ def test_parse_ldap_dn(input, expected):
             {
                 "not_admins": [
                     b"doesntmatter",
-                ]
+                ],
             },
             [],
         ),
@@ -64,7 +64,7 @@ def test_parse_users(input, expected):
                 "memberOf": [
                     b"cn=group1,ou=Groups,dc=internal,dc=machines",
                     b"cn=group2,ou=Groups,dc=internal,dc=machines",
-                ]
+                ],
             },
             ["urn:li:corpGroup:group1", "urn:li:corpGroup:group2"],
         ),
@@ -72,7 +72,7 @@ def test_parse_users(input, expected):
             {
                 "not_member": [
                     b"doesntmatter",
-                ]
+                ],
             },
             [],
         ),

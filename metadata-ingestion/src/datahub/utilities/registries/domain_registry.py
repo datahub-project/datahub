@@ -24,7 +24,7 @@ class DomainRegistry:
             ]
             if domains_needing_resolution and not graph:
                 raise ValueError(
-                    f"Following domains need server-side resolution {domains_needing_resolution} but a DataHub server wasn't provided. Either use fully qualified domain ids (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) or provide a datahub_api config in your recipe."
+                    f"Following domains need server-side resolution {domains_needing_resolution} but a DataHub server wasn't provided. Either use fully qualified domain ids (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) or provide a datahub_api config in your recipe.",
                 )
             for domain_identifier in domains_needing_resolution:
                 assert graph
@@ -40,10 +40,10 @@ class DomainRegistry:
                         self.domain_registry[domain_identifier] = domain_urn
                     else:
                         logger.error(
-                            f"Failed to retrieve domain id for domain {domain_identifier}"
+                            f"Failed to retrieve domain id for domain {domain_identifier}",
                         )
                         raise ValueError(
-                            f"domain {domain_identifier} doesn't seem to be provisioned on DataHub. Either provision it first and re-run ingestion, or provide a fully qualified domain id (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) to skip this check."
+                            f"domain {domain_identifier} doesn't seem to be provisioned on DataHub. Either provision it first and re-run ingestion, or provide a fully qualified domain id (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) to skip this check.",
                         )
 
     def get_domain_urn(self, domain_identifier: str) -> str:

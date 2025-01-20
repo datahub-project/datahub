@@ -73,8 +73,9 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
 
     pipeline = Pipeline.create(
         get_default_recipe(
-            f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
-        )
+            f"{tmp_path}/{mce_out_file}",
+            f"{test_resources_dir}/lkml_samples",
+        ),
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -97,7 +98,8 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     # to resolve relative table names (which are not fully qualified)
     # We keep this check just to validate that ingestion doesn't croak on this config
     new_recipe = get_default_recipe(
-        f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_samples",
     )
     new_recipe["source"]["config"]["process_refinements"] = True
 
@@ -134,10 +136,10 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     new_recipe["source"]["config"]["process_refinements"] = True
     new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample1"
     new_recipe["source"]["config"]["view_naming_pattern"] = {
-        "pattern": "{project}.{model}.view.{name}"
+        "pattern": "{project}.{model}.view.{name}",
     }
     new_recipe["source"]["config"]["connection_to_platform_map"] = {
-        "db-connection": "conn"
+        "db-connection": "conn",
     }
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
@@ -180,13 +182,13 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
                     "client_id": "fake_client_id",
                     "client_secret": "fake_client_secret",
                 },
-            }
+            },
         ),
         connection_definition=None,  # type: ignore
     )
 
     new_explore: dict = refinement_resolver.apply_explore_refinement(
-        looker_model.explores[0]
+        looker_model.explores[0],
     )
 
     assert new_explore.get("extends") is not None
@@ -203,7 +205,7 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
                 "primary_key": "yes",
                 "sql": '${TABLE}."id"',
                 "name": "id",
-            }
+            },
         ],
         "name": "flights",
     }
@@ -215,7 +217,7 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
                     "type": "string",
                     "sql": '${TABLE}."air_carrier"',
                     "name": "air_carrier",
-                }
+                },
             ],
             "name": "+flights",
         },
@@ -257,7 +259,8 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
     ]
 
     merged_view: dict = LookerRefinementResolver.merge_refinements(
-        raw_view=raw_view, refinement_views=refinement_views
+        raw_view=raw_view,
+        refinement_views=refinement_views,
     )
 
     expected_view: dict = {
@@ -289,7 +292,7 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
                 "sql_start": '${TABLE}."enrollment_date"',
                 "sql_end": '${TABLE}."graduation_date"',
                 "name": "enrolled",
-            }
+            },
         ],
     }
 
@@ -313,7 +316,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                             "platform": "snowflake",
                             "default_db": "default_db",
                             "default_schema": "default_schema",
-                        }
+                        },
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
@@ -328,7 +331,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -358,7 +361,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                             "platform": "snowflake",
                             "default_db": "default_db",
                             "default_schema": "default_schema",
-                        }
+                        },
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
@@ -373,7 +376,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -405,7 +408,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                             "platform_env": "dev",
                             "default_db": "default_db",
                             "default_schema": "default_schema",
-                        }
+                        },
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
@@ -420,7 +423,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -441,7 +444,9 @@ def test_lookml_ingest_api_bigquery(pytestconfig, tmp_path, mock_time):
         tmp_path,
         mock_time,
         DBConnection(
-            dialect_name="bigquery", host="project-foo", database="default-db"
+            dialect_name="bigquery",
+            host="project-foo",
+            database="default-db",
         ),
     )
 
@@ -503,7 +508,7 @@ def ingestion_test(
                         "filename": f"{tmp_path}/{mce_out_file}",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -533,7 +538,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                             "platform": "snowflake",
                             "default_db": "default_db",
                             "default_schema": "default_schema",
-                        }
+                        },
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
@@ -549,7 +554,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -602,7 +607,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -648,7 +653,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                             "platform": "hive",
                             "default_db": "default_database",
                             "default_schema": "default_schema",
-                        }
+                        },
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
@@ -664,7 +669,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -756,11 +761,12 @@ def test_lookml_base_folder():
                 "deploy_key": "this-is-fake",
             },
             "api": fake_api,
-        }
+        },
     )
 
     with pytest.raises(
-        pydantic.ValidationError, match=r"base_folder.+nor.+git_info.+provided"
+        pydantic.ValidationError,
+        match=r"base_folder.+nor.+git_info.+provided",
     ):
         LookMLSourceConfig.parse_obj({"api": fake_api})
 
@@ -778,7 +784,7 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "base_folder": str(
                         test_resources_dir
-                        / "lkml_same_name_views_different_file_path_samples"
+                        / "lkml_same_name_views_different_file_path_samples",
                     ),
                     "connection_to_platform_map": {
                         "my_connection": {
@@ -802,7 +808,7 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
                     "filename": f"{tmp_path}/{mce_out}",
                 },
             },
-        }
+        },
     )
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -920,7 +926,7 @@ def test_special_liquid_variables():
     }
 
     actual_liquid_variable = SpecialVariable(
-        input_liquid_variable
+        input_liquid_variable,
     ).liquid_variable_with_default(text)
     assert (
         expected_liquid_variable == actual_liquid_variable
@@ -943,7 +949,7 @@ def test_special_liquid_variables():
     }
 
     actual_liquid_variable = SpecialVariable(
-        input_liquid_variable
+        input_liquid_variable,
     ).liquid_variable_with_default(text)
     assert (
         expected_liquid_variable == actual_liquid_variable
@@ -1000,7 +1006,7 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
     )
 
     new_recipe["source"]["config"]["connection_to_platform_map"] = {
-        "my_connection": "hive"
+        "my_connection": "hive",
     }
 
     pipeline = Pipeline.create(new_recipe)
@@ -1027,7 +1033,7 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
     )
 
     new_recipe["source"]["config"]["connection_to_platform_map"] = {
-        "my_connection": "hive"
+        "my_connection": "hive",
     }
 
     return_value: Tuple[str, Optional[SchemaInfo]] = (

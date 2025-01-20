@@ -165,7 +165,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                 "id": 1,
                                 "last_name": "Owner1",
                                 "username": "test_username_1",
-                            }
+                            },
                         ],
                         "schema": "test_schema1",
                         "sql": "SELECT * FROM test_table1",
@@ -195,7 +195,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                 "id": 2,
                                 "last_name": "Owner2",
                                 "username": "test_username_2",
-                            }
+                            },
                         ],
                         "schema": "test_schema2",
                         "sql": "SELECT * FROM test_table2",
@@ -255,7 +255,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "rendered_expression": "count(*)",
                             "verbose_name": None,
                             "warning_text": None,
-                        }
+                        },
                     ],
                     "name": "Test Table 1",
                     "normalize_columns": True,
@@ -326,7 +326,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                             "rendered_expression": "sum(value)",
                             "verbose_name": "Total Value",
                             "warning_text": None,
-                        }
+                        },
                     ],
                     "name": "Test Table 2",
                     "normalize_columns": True,
@@ -423,7 +423,7 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
                     "filename": f"{tmp_path}/superset_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -440,7 +440,11 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
@@ -470,7 +474,7 @@ def test_superset_stateful_ingest(
         },
         "sink": {
             # we are not really interested in the resulting events for this test
-            "type": "console"
+            "type": "console",
         },
         "pipeline_name": "test_pipeline",
     }
@@ -584,7 +588,7 @@ def test_superset_stateful_ingest(
                                 "id": 2,
                                 "last_name": "Owner2",
                                 "username": "test_username_2",
-                            }
+                            },
                         ],
                         "schema": "test_schema2",
                         "sql": "SELECT * FROM test_table2",
@@ -629,13 +633,13 @@ def test_superset_stateful_ingest(
         state1 = checkpoint1.state
         state2 = checkpoint2.state
         dashboard_difference_urns = list(
-            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
         )
         chart_difference_urns = list(
-            state1.get_urns_not_in(type="chart", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="chart", other_checkpoint_state=state2),
         )
         dataset_difference_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
         )
 
         assert len(dashboard_difference_urns) == 1
@@ -652,10 +656,12 @@ def test_superset_stateful_ingest(
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
         # Verify the output.

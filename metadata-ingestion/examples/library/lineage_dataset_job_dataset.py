@@ -13,14 +13,19 @@ input_datasets: List[str] = [
 
 output_datasets: List[str] = [
     builder.make_dataset_urn(
-        platform="kafka", name="debezium.topics.librarydb.member_checkout", env="PROD"
-    )
+        platform="kafka",
+        name="debezium.topics.librarydb.member_checkout",
+        env="PROD",
+    ),
 ]
 
 input_data_jobs: List[str] = [
     builder.make_data_job_urn(
-        orchestrator="airflow", flow_id="flow1", job_id="job0", cluster="PROD"
-    )
+        orchestrator="airflow",
+        flow_id="flow1",
+        job_id="job0",
+        cluster="PROD",
+    ),
 ]
 
 datajob_input_output = DataJobInputOutputClass(
@@ -33,7 +38,10 @@ datajob_input_output = DataJobInputOutputClass(
 # NOTE: This will overwrite all of the existing lineage information associated with this job.
 datajob_input_output_mcp = MetadataChangeProposalWrapper(
     entityUrn=builder.make_data_job_urn(
-        orchestrator="airflow", flow_id="flow1", job_id="job1", cluster="PROD"
+        orchestrator="airflow",
+        flow_id="flow1",
+        job_id="job1",
+        cluster="PROD",
     ),
     aspect=datajob_input_output,
 )

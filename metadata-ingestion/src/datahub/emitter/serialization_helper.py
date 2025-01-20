@@ -17,7 +17,7 @@ def _pre_handle_union_with_aliases(
         # On the way out, we need to remove the field discriminator.
         field = obj["fieldDiscriminator"]
         return True, {
-            field: _json_transform(obj[field], from_pattern, to_pattern, pre=True)
+            field: _json_transform(obj[field], from_pattern, to_pattern, pre=True),
         }
 
     return False, None
@@ -59,19 +59,23 @@ def _json_transform(obj: Any, from_pattern: str, to_pattern: str, pre: bool) -> 
             if key.startswith(from_pattern):
                 new_key = key.replace(from_pattern, to_pattern, 1)
                 return {
-                    new_key: _json_transform(value, from_pattern, to_pattern, pre=pre)
+                    new_key: _json_transform(value, from_pattern, to_pattern, pre=pre),
                 }
 
         if pre:
             handled, new_obj = _pre_handle_union_with_aliases(
-                obj, from_pattern, to_pattern
+                obj,
+                from_pattern,
+                to_pattern,
             )
             if handled:
                 return new_obj
 
         if not pre:
             handled, new_obj = _post_handle_unions_with_aliases(
-                obj, from_pattern, to_pattern
+                obj,
+                from_pattern,
+                to_pattern,
             )
             if handled:
                 return new_obj

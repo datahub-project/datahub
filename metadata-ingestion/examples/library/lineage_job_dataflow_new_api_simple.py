@@ -34,15 +34,18 @@ dataJob4.upstream_urns.append(dataJob3.urn)
 dataJob4.emit(emitter)
 
 jobFlowRun = DataProcessInstance.from_dataflow(
-    dataflow=jobFlow, id=f"{jobFlow.id}-{uuid.uuid4()}"
+    dataflow=jobFlow,
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 jobFlowRun.emit_process_start(
-    emitter, int(datetime.now(timezone.utc).timestamp() * 1000)
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
 )
 
 
 jobRun = DataProcessInstance.from_datajob(
-    datajob=dataJob, id=f"{jobFlow.id}-{uuid.uuid4()}"
+    datajob=dataJob,
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 jobRun.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
@@ -54,7 +57,8 @@ jobRun.emit_process_end(
 
 
 job2Run = DataProcessInstance.from_datajob(
-    datajob=dataJob2, id=f"{jobFlow.id}-{uuid.uuid4()}"
+    datajob=dataJob2,
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 job2Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
@@ -66,7 +70,8 @@ job2Run.emit_process_end(
 
 
 job3Run = DataProcessInstance.from_datajob(
-    datajob=dataJob3, id=f"{jobFlow.id}-{uuid.uuid4()}"
+    datajob=dataJob3,
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 job3Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
@@ -78,7 +83,8 @@ job3Run.emit_process_end(
 
 
 job4Run = DataProcessInstance.from_datajob(
-    datajob=dataJob4, id=f"{jobFlow.id}-{uuid.uuid4()}"
+    datajob=dataJob4,
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 job4Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 

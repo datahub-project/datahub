@@ -37,7 +37,8 @@ def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
 
 
 def get_query_type_of_sql(
-    expression: sqlglot.exp.Expression, dialect: DialectOrStr
+    expression: sqlglot.exp.Expression,
+    dialect: DialectOrStr,
 ) -> Tuple[QueryType, QueryTypeProps]:
     dialect = get_dialect(dialect)
     query_type_props: QueryTypeProps = {}
@@ -80,5 +81,6 @@ def get_query_type_of_sql(
 
 def is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
     return isinstance(statement, sqlglot.exp.Create) and isinstance(
-        statement.this, sqlglot.exp.Schema
+        statement.this,
+        sqlglot.exp.Schema,
     )

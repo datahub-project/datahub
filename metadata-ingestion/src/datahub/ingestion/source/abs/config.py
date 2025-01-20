@@ -26,7 +26,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataLakeSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
 ):
     platform: str = Field(
         default="",
@@ -35,7 +37,8 @@ class DataLakeSourceConfig(
     )
 
     azure_config: Optional[AzureConnectionConfig] = Field(
-        default=None, description="Azure configuration"
+        default=None,
+        description="Azure configuration",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -66,11 +69,13 @@ class DataLakeSourceConfig(
         description="regex patterns for tables to profile ",
     )
     profiling: DataLakeProfilerConfig = Field(
-        default=DataLakeProfilerConfig(), description="Data profiling configuration"
+        default=DataLakeProfilerConfig(),
+        description="Data profiling configuration",
     )
 
     spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
+        default="4g",
+        description="Max amount of memory to grant Spark.",
     )
 
     spark_config: Dict[str, Any] = Field(
@@ -97,17 +102,21 @@ class DataLakeSourceConfig(
     )
 
     _rename_path_spec_to_plural = pydantic_renamed_field(
-        "path_spec", "path_specs", lambda path_spec: [path_spec]
+        "path_spec",
+        "path_specs",
+        lambda path_spec: [path_spec],
     )
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
+        cls,
+        path_specs: List[PathSpec],
+        values: Dict,
     ) -> List[PathSpec]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
@@ -118,7 +127,7 @@ class DataLakeSourceConfig(
         )
         if len(guessed_platforms) > 1:
             raise ValueError(
-                f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
+                f"Cannot have multiple platforms in path_specs: {guessed_platforms}",
             )
         guessed_platform = guessed_platforms.pop()
 
@@ -129,13 +138,13 @@ class DataLakeSourceConfig(
             or values.get("use_abs_blob_properties")
         ):
             raise ValueError(
-                "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
+                "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs.",
             )
 
         # Infer platform if not specified.
         if values.get("platform") and values["platform"] != guessed_platform:
             raise ValueError(
-                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
+                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}",
             )
         else:
             logger.debug(f'Setting config "platform": {guessed_platform}')
@@ -146,7 +155,8 @@ class DataLakeSourceConfig(
     @pydantic.validator("platform", always=True)
     def platform_not_empty(cls, platform: str, values: dict) -> str:
         inferred_platform = values.get(
-            "platform", None
+            "platform",
+            None,
         )  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
@@ -155,7 +165,8 @@ class DataLakeSourceConfig(
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
+        cls,
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:

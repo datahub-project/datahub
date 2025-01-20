@@ -25,13 +25,16 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def mock_kafka_service(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "kafka", cleanup=False
+        test_resources_dir / "docker-compose.yml",
+        "kafka",
+        cleanup=False,
     ) as docker_services:
         wait_for_port(docker_services, "test_zookeeper", 52181, timeout=120)
 
     # Running docker compose twice, since the broker sometimes fails to come up on the first try.
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "kafka"
+        test_resources_dir / "docker-compose.yml",
+        "kafka",
     ) as docker_services:
         wait_for_port(docker_services, "test_broker", 29092, timeout=120)
         wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
@@ -47,7 +50,12 @@ def mock_kafka_service(docker_compose_runner, test_resources_dir):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time, approach
+    mock_kafka_service,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    approach,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / f"{approach}_to_file.yml").resolve()
@@ -97,12 +105,13 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
         )
     else:
         test_connection_helpers.assert_basic_connectivity_failure(
-            report, "Failed to get metadata"
+            report,
+            "Failed to get metadata",
         )
         test_connection_helpers.assert_capability_report(
             capability_report=report.capability_report,
             failure_capabilities={
-                SourceCapability.SCHEMA_METADATA: "[Errno 111] Connection refused"
+                SourceCapability.SCHEMA_METADATA: "[Errno 111] Connection refused",
             },
         )
 
@@ -110,7 +119,11 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_oauth_callback(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+    mock_kafka_service,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_to_file_oauth.yml").resolve()
@@ -118,7 +131,7 @@ def test_kafka_oauth_callback(
     log_file = tmp_path / "kafka_oauth_message.log"
 
     file_handler = logging.FileHandler(
-        str(log_file)
+        str(log_file),
     )  # Add a file handler to later validate a test-case
     logging.getLogger().addHandler(file_handler)
 
@@ -171,8 +184,8 @@ def test_kafka_source_oauth_cb_signature():
                 "connection": {
                     "bootstrap": "foobar:9092",
                     "consumer_config": {"oauth_cb": "oauth:create_token_no_args"},
-                }
-            }
+                },
+            },
         )
 
     with pytest.raises(
@@ -184,6 +197,6 @@ def test_kafka_source_oauth_cb_signature():
                 "connection": {
                     "bootstrap": "foobar:9092",
                     "consumer_config": {"oauth_cb": "oauth:create_token_only_kwargs"},
-                }
-            }
+                },
+            },
         )

@@ -17,7 +17,9 @@ class WebsocketConnection:
         self.handle = [-1]
 
     def _build_websocket_request_dict(
-        self, method: str, params: Union[Dict, List] = {}
+        self,
+        method: str,
+        params: Union[Dict, List] = {},
     ) -> Dict:
         return {
             "jsonrpc": "2.0",
@@ -37,7 +39,9 @@ class WebsocketConnection:
         return {}
 
     def websocket_send_request(
-        self, method: str, params: Union[Dict, List] = {}
+        self,
+        method: str,
+        params: Union[Dict, List] = {},
     ) -> Dict:
         """
         Method to send request to websocket

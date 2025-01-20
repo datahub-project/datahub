@@ -28,7 +28,10 @@ class StatefulCommittable(
     Generic[StateType],
 ):
     def __init__(
-        self, name: str, commit_policy: CommitPolicy, state_to_commit: StateType
+        self,
+        name: str,
+        commit_policy: CommitPolicy,
+        state_to_commit: StateType,
     ):
         super().__init__(name=name, commit_policy=commit_policy)
         self.committed: bool = False

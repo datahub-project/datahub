@@ -295,7 +295,8 @@ class MLflowSource(Source):
 
     def _get_base_external_url_from_tracking_uri(self) -> Optional[str]:
         if isinstance(
-            self.client.tracking_uri, str
+            self.client.tracking_uri,
+            str,
         ) and self.client.tracking_uri.startswith("http"):
             return self.client.tracking_uri
         else:
@@ -326,7 +327,7 @@ class MLflowSource(Source):
                 TagAssociationClass(
                     tag=self._make_stage_tag_urn(model_version.current_stage),
                 ),
-            ]
+            ],
         )
         wu = self._create_workunit(
             urn=self._make_ml_model_urn(model_version),

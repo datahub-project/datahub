@@ -49,7 +49,7 @@ basic_1 = json.loads(
         },
         "proposedDelta": null
     }
-]"""
+]""",
 )
 
 # Timestamps changed from basic_1 but same otherwise.
@@ -97,7 +97,7 @@ basic_2 = json.loads(
         },
         "proposedDelta": null
     }
-]"""
+]""",
 )
 
 # Dataset owner changed from basic_2.
@@ -145,7 +145,7 @@ basic_3 = json.loads(
         },
         "proposedDelta": null
     }
-]"""
+]""",
 )
 
 
@@ -156,12 +156,16 @@ def test_basic_diff_same() -> None:
 def test_basic_diff_only_owner_change() -> None:
     with pytest.raises(AssertionError):
         assert not diff_metadata_json(
-            basic_2, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
+            basic_2,
+            basic_3,
+            mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
 
 
 def test_basic_diff_owner_change() -> None:
     with pytest.raises(AssertionError):
         assert not diff_metadata_json(
-            basic_1, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
+            basic_1,
+            basic_3,
+            mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )

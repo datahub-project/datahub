@@ -36,12 +36,13 @@ test_table = pd.DataFrame(
         "integer_field": [1, 2, 3],
         "boolean_field": [True, False, True],
         "string_field": ["a", "b", "c"],
-    }
+    },
 )
 
 
 def assert_field_types_match(
-    fields: List[SchemaField], expected_field_types: List[Type]
+    fields: List[SchemaField],
+    expected_field_types: List[Type],
 ) -> None:
     assert len(fields) == len(expected_field_types)
     for field, expected_type in zip(fields, expected_field_types):
@@ -63,8 +64,9 @@ def test_infer_schema_tsv():
     with tempfile.TemporaryFile(mode="w+b") as file:
         file.write(
             bytes(
-                test_table.to_csv(index=False, header=True, sep="\t"), encoding="utf-8"
-            )
+                test_table.to_csv(index=False, header=True, sep="\t"),
+                encoding="utf-8",
+            ),
         )
         file.seek(0)
 
@@ -77,7 +79,7 @@ def test_infer_schema_tsv():
 def test_infer_schema_jsonl():
     with tempfile.TemporaryFile(mode="w+b") as file:
         file.write(
-            bytes(test_table.to_json(orient="records", lines=True), encoding="utf-8")
+            bytes(test_table.to_json(orient="records", lines=True), encoding="utf-8"),
         )
         file.seek(0)
 
@@ -120,8 +122,8 @@ def test_infer_schema_avro():
                         {"name": "boolean_field", "type": "boolean"},
                         {"name": "string_field", "type": "string"},
                     ],
-                }
-            )
+                },
+            ),
         )
         writer = DataFileWriter(file, DatumWriter(), schema)
         records = test_table.to_dict(orient="records")

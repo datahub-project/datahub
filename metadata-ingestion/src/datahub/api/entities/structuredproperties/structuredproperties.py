@@ -52,7 +52,7 @@ def _validate_entity_type_urn(v: str) -> str:
     urn = Urn.make_entity_type_urn(v)
     if urn not in VALID_ENTITY_TYPE_URNS:
         raise ValueError(
-            f"Input {v} is not a valid entity type urn. {_VALID_ENTITY_TYPES_STRING}"
+            f"Input {v} is not a valid entity type urn. {_VALID_ENTITY_TYPES_STRING}",
         )
     v = str(urn)
     return v
@@ -62,7 +62,7 @@ class TypeQualifierAllowedTypes(ConfigModel):
     allowed_types: List[str]
 
     _check_allowed_types = validator("allowed_types", each_item=True, allow_reuse=True)(
-        _validate_entity_type_urn
+        _validate_entity_type_urn,
     )
 
 
@@ -81,7 +81,7 @@ class StructuredProperties(ConfigModel):
     immutable: Optional[bool] = False
 
     _check_entity_types = validator("entity_types", each_item=True, allow_reuse=True)(
-        _validate_entity_type_urn
+        _validate_entity_type_urn,
     )
 
     @validator("type")
@@ -95,7 +95,7 @@ class StructuredProperties(ConfigModel):
             # Convert to lowercase if needed
             v = v.lower()
             logger.warning(
-                f"Structured property type should be lowercase. Updated to {v}"
+                f"Structured property type should be lowercase. Updated to {v}",
             )
 
         urn = Urn.make_data_type_urn(v)
@@ -107,7 +107,7 @@ class StructuredProperties(ConfigModel):
             unqualified_data_type = unqualified_data_type[len("datahub.") :]
         if not AllowedTypes.check_allowed_type(unqualified_data_type):
             raise ValueError(
-                f"Type {unqualified_data_type} is not allowed. Allowed types are {AllowedTypes.values()}"
+                f"Type {unqualified_data_type} is not allowed. Allowed types are {AllowedTypes.values()}",
             )
 
         return urn
@@ -189,7 +189,7 @@ class StructuredProperties(ConfigModel):
         )
         if structured_property is None:
             raise Exception(
-                "StructuredPropertyDefinition aspect is None. Unable to create structured property."
+                "StructuredPropertyDefinition aspect is None. Unable to create structured property.",
             )
         return StructuredProperties(
             urn=urn,

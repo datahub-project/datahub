@@ -50,7 +50,8 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         self.output_dir = Path(output_dir)
         self.extras = extras
         self.metric_generator = SnowflakeMetricSQLGenerator(
-            SnowflakeFieldMetricSQLGenerator(), SnowflakeFieldValuesMetricSQLGenerator()
+            SnowflakeFieldMetricSQLGenerator(),
+            SnowflakeFieldValuesMetricSQLGenerator(),
         )
         self.metric_evaluator = SnowflakeMetricEvalOperatorSQLGenerator()
         self.dmf_handler = SnowflakeDMFHandler()
@@ -59,7 +60,9 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
 
     @classmethod
     def create(
-        cls, output_dir: str, extras: Dict[str, str]
+        cls,
+        output_dir: str,
+        extras: Dict[str, str],
     ) -> "SnowflakeAssertionCompiler":
         assert os.path.exists(output_dir), (
             f"Specified location {output_dir} does not exist."
@@ -76,7 +79,8 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         return SnowflakeAssertionCompiler(output_dir, extras)
 
     def compile(
-        self, assertion_config_spec: AssertionsConfigSpec
+        self,
+        assertion_config_spec: AssertionsConfigSpec,
     ) -> AssertionCompilationResult:
         result = AssertionCompilationResult("snowflake", "success")
 
@@ -92,7 +96,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                 try:
                     start_line = f"\n-- Start of Assertion {assertion_spec.get_id()}\n"
                     (dmf_definition, dmf_association) = self.process_assertion(
-                        assertion_spec
+                        assertion_spec,
                     )
                     end_line = f"\n-- End of Assertion {assertion_spec.get_id()}\n"
 
@@ -119,7 +123,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                         path=dmf_definitions_path,
                         type=CompileResultArtifactType.SQL_QUERIES,
                         description="SQL file containing DMF create definitions equivalent to Datahub Assertions",
-                    )
+                    ),
                 )
                 result.add_artifact(
                     CompileResultArtifact(
@@ -127,7 +131,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                         path=dmf_associations_path,
                         type=CompileResultArtifactType.SQL_QUERIES,
                         description="ALTER TABLE queries to associate DMFs to table to run on configured schedule.",
-                    )
+                    ),
                 )
 
             return result
@@ -160,7 +164,8 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             )
         else:
             assertion_sql = self.metric_evaluator.operator_sql(
-                assertion.assertion.operator, metric_definition
+                assertion.assertion.operator,
+                metric_definition,
             )
 
         dmf_name = get_dmf_name(assertion)
@@ -171,7 +176,8 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         entity_name = get_entity_name(assertion.assertion)
 
         self._entity_schedule_history.setdefault(
-            assertion.assertion.entity, assertion.assertion.trigger
+            assertion.assertion.entity,
+            assertion.assertion.trigger,
         )
         if (
             assertion.assertion.entity in self._entity_schedule_history
@@ -182,7 +188,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                 "Assertions on same entity must have same schedules as of now."
                 f" Found different schedules on entity {assertion.assertion.entity} ->"
                 f" ({self._entity_schedule_history[assertion.assertion.entity].trigger}),"
-                f" ({assertion.assertion.trigger.trigger})"
+                f" ({assertion.assertion.trigger.trigger})",
             )
 
         dmf_schedule = get_dmf_schedule(assertion.assertion.trigger)
@@ -220,7 +226,8 @@ def get_dmf_args(assertion: DataHubAssertion) -> Tuple[str, str]:
     if entity_schema:
         for col_dict in entity_schema:
             return args_create_dmf.format(
-                col_name=col_dict["col"], col_type=col_dict["native_type"]
+                col_name=col_dict["col"],
+                col_type=col_dict["native_type"],
             ), args_add_dmf.format(col_name=col_dict["col"])
 
     raise ValueError("entity schema not available")

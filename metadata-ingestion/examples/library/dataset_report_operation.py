@@ -15,5 +15,7 @@ source_type = "DATA_PROCESS"  # Source of the operation (data platform or DAG ta
 
 # Report a change operation for the Dataset.
 operation_client.report_operation(
-    urn=dataset_urn, operation_type=operation_type, source_type=source_type
+    urn=dataset_urn,
+    operation_type=operation_type,
+    source_type=source_type,
 )

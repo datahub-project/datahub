@@ -45,7 +45,7 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     query_file: str = Field(description="Path to file to ingest")
 
     platform: str = Field(
-        description="The platform for which to generate data, e.g. snowflake"
+        description="The platform for which to generate data, e.g. snowflake",
     )
 
     usage: BaseUsageConfig = Field(
@@ -120,7 +120,7 @@ class SqlQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SqlQueriesSourceConfig):
         if not ctx.graph:
             raise ValueError(
-                "SqlQueriesSource needs a datahub_api from which to pull schema metadata"
+                "SqlQueriesSource needs a datahub_api from which to pull schema metadata",
             )
 
         self.graph: DataHubGraph = ctx.graph
@@ -196,7 +196,7 @@ class SqlQueriesSource(Source):
             return
         elif result.debug_info.column_error:
             logger.debug(
-                f"Error parsing column lineage, {result.debug_info.column_error}"
+                f"Error parsing column lineage, {result.debug_info.column_error}",
             )
             self.report.num_column_parse_failures += 1
 
@@ -221,7 +221,10 @@ class QueryEntry:
 
     @classmethod
     def create(
-        cls, entry_dict: dict, *, config: SqlQueriesSourceConfig
+        cls,
+        entry_dict: dict,
+        *,
+        config: SqlQueriesSourceConfig,
     ) -> "QueryEntry":
         return cls(
             query=entry_dict["query"],

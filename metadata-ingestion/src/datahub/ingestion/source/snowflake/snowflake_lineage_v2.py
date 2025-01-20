@@ -194,7 +194,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             # TODO: use sql_aggregator.add_observed_query to report queries from
             # snowflake.account_usage.query_history and let Datahub generate lineage, usage and operations
             logger.info(
-                "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported."
+                "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported.",
             )  # See Edition Note above for why
         else:
             with PerfTimer() as timer:
@@ -216,14 +216,16 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     ) -> None:
         for db_row in results:
             dataset_name = self.identifiers.get_dataset_identifier_from_qualified_name(
-                db_row.DOWNSTREAM_TABLE_NAME
+                db_row.DOWNSTREAM_TABLE_NAME,
             )
             if dataset_name not in discovered_assets or not db_row.QUERIES:
                 continue
 
             for query in db_row.QUERIES:
                 known_lineage = self.get_known_query_lineage(
-                    query, dataset_name, db_row
+                    query,
+                    dataset_name,
+                    db_row,
                 )
                 if known_lineage and known_lineage.upstreams:
                     self.report.num_tables_with_known_upstreams += 1
@@ -232,7 +234,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     logger.debug(f"No lineage found for {dataset_name}")
 
     def get_known_query_lineage(
-        self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
+        self,
+        query: Query,
+        dataset_name: str,
+        db_row: UpstreamLineageEdge,
     ) -> Optional[KnownQueryLineageInfo]:
         if not db_row.UPSTREAM_TABLES:
             return None
@@ -241,12 +246,15 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
         known_lineage = KnownQueryLineageInfo(
             query_id=get_query_fingerprint(
-                query.query_text, self.identifiers.platform, fast=True
+                query.query_text,
+                self.identifiers.platform,
+                fast=True,
             ),
             query_text=query.query_text,
             downstream=downstream_table_urn,
             upstreams=self.map_query_result_upstreams(
-                db_row.UPSTREAM_TABLES, query.query_id
+                db_row.UPSTREAM_TABLES,
+                query.query_id,
             ),
             column_lineage=(
                 self.map_query_result_fine_upstreams(
@@ -277,7 +285,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
     # NOTE: Snowflake does not log this information to the access_history table.
     def _get_copy_history_lineage(
-        self, discovered_tables: List[str]
+        self,
+        discovered_tables: List[str],
     ) -> Iterable[KnownLineageMapping]:
         query: str = SnowflakeQuery.copy_lineage_history(
             start_time_millis=int(self.start_time.timestamp() * 1000),
@@ -288,7 +297,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         try:
             for db_row in self.connection.query(query):
                 known_lineage_mapping = self._process_external_lineage_result_row(
-                    db_row, discovered_tables, identifiers=self.identifiers
+                    db_row,
+                    discovered_tables,
+                    identifiers=self.identifiers,
                 )
                 if known_lineage_mapping:
                     self.report.num_external_table_edges_scanned += 1
@@ -313,7 +324,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     ) -> Optional[KnownLineageMapping]:
         # key is the down-stream table name
         key: str = identifiers.get_dataset_identifier_from_qualified_name(
-            db_row["DOWNSTREAM_TABLE_NAME"]
+            db_row["DOWNSTREAM_TABLE_NAME"],
         )
         if discovered_tables is not None and key not in discovered_tables:
             return None
@@ -326,7 +337,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 if loc.startswith("s3://"):
                     return KnownLineageMapping(
                         upstream_urn=make_s3_urn_for_lineage(
-                            loc, identifiers.identifier_config.env
+                            loc,
+                            identifiers.identifier_config.env,
                         ),
                         downstream_urn=identifiers.gen_dataset_urn(key),
                     )
@@ -357,7 +369,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             self.report_status(TABLE_LINEAGE, False)
 
     def _process_upstream_lineage_row(
-        self, db_row: dict
+        self,
+        db_row: dict,
     ) -> Optional[UpstreamLineageEdge]:
         try:
             return UpstreamLineageEdge.parse_obj(db_row)
@@ -376,7 +389,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return None
 
     def map_query_result_upstreams(
-        self, upstream_tables: Optional[List[UpstreamTableNode]], query_id: str
+        self,
+        upstream_tables: Optional[List[UpstreamTableNode]],
+        query_id: str,
     ) -> List[UrnStr]:
         if not upstream_tables:
             return []
@@ -386,7 +401,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 try:
                     upstream_name = (
                         self.identifiers.get_dataset_identifier_from_qualified_name(
-                            upstream_table.upstream_object_name
+                            upstream_table.upstream_object_name,
                         )
                     )
                     if upstream_name and (
@@ -397,7 +412,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                         )
                     ):
                         upstreams.append(
-                            self.identifiers.gen_dataset_urn(upstream_name)
+                            self.identifiers.gen_dataset_urn(upstream_name),
                         )
                 except Exception as e:
                     logger.debug(e, exc_info=e)
@@ -416,7 +431,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             if column_with_upstreams:
                 try:
                     self._process_add_single_column_upstream(
-                        dataset_urn, fine_upstreams, column_with_upstreams, query_id
+                        dataset_urn,
+                        fine_upstreams,
+                        column_with_upstreams,
+                        query_id,
                     )
                 except Exception as e:
                     logger.debug(e, exc_info=e)
@@ -462,7 +480,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return None
         column_lineage = ColumnLineageInfo(
             downstream=DownstreamColumnRef(
-                table=dataset_urn, column=self.identifiers.snowflake_identifier(col)
+                table=dataset_urn,
+                column=self.identifiers.snowflake_identifier(col),
             ),
             upstreams=sorted(column_upstreams),
         )
@@ -470,7 +489,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         return column_lineage
 
     def build_finegrained_lineage_upstreams(
-        self, upstream_columms: Set[SnowflakeColumnId]
+        self,
+        upstream_columms: Set[SnowflakeColumnId],
     ) -> List[ColumnRef]:
         column_upstreams = []
         for upstream_col in upstream_columms:
@@ -487,16 +507,16 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             ):
                 upstream_dataset_name = (
                     self.identifiers.get_dataset_identifier_from_qualified_name(
-                        upstream_col.object_name
+                        upstream_col.object_name,
                     )
                 )
                 column_upstreams.append(
                     ColumnRef(
                         table=self.identifiers.gen_dataset_urn(upstream_dataset_name),
                         column=self.identifiers.snowflake_identifier(
-                            upstream_col.column_name
+                            upstream_col.column_name,
                         ),
-                    )
+                    ),
                 )
         return column_upstreams
 
@@ -507,7 +527,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             if external_lineage_entry.startswith("s3://"):
                 external_upstream_table = UpstreamClass(
                     dataset=make_s3_urn_for_lineage(
-                        external_lineage_entry, self.config.env
+                        external_lineage_entry,
+                        self.config.env,
                     ),
                     type=DatasetLineageTypeClass.COPY,
                 )

@@ -34,7 +34,8 @@ def test_is_dialect_instance():
 def test_query_types():
     assert get_query_type_of_sql(
         sqlglot.parse_one(
-            "create temp table foo as select * from bar", dialect="redshift"
+            "create temp table foo as select * from bar",
+            dialect="redshift",
         ),
         dialect="redshift",
     ) == (QueryType.CREATE_TABLE_AS_SELECT, {"kind": "TABLE", "temporary": True})
@@ -105,7 +106,7 @@ class QueryGeneralizationTestMode(Enum):
                 (Column1, Column2, Column3)
                 VALUES
                 ('John', 123, 'Lloyds Office');
-                """
+                """,
             ),
             "mssql",
             "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?)",
@@ -138,7 +139,7 @@ class QueryGeneralizationTestMode(Enum):
                 ('Jane', 124, 'Lloyds Office'),
                 ('Billy', 125, 'London Office'),
                 ('Miranda', 126, 'Bristol Office');
-                """
+                """,
             ),
             "mssql",
             "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)",
@@ -167,7 +168,10 @@ class QueryGeneralizationTestMode(Enum):
     ],
 )
 def test_query_generalization(
-    query: str, dialect: str, expected: str, mode: QueryGeneralizationTestMode
+    query: str,
+    dialect: str,
+    expected: str,
+    mode: QueryGeneralizationTestMode,
 ) -> None:
     if mode in {QueryGeneralizationTestMode.FULL, QueryGeneralizationTestMode.BOTH}:
         assert generalize_query(query, dialect=dialect) == expected
@@ -180,11 +184,13 @@ def test_query_generalization(
 
 def test_query_fingerprint():
     assert get_query_fingerprint(
-        "select * /* everything */ from foo where ts = 34", platform="redshift"
+        "select * /* everything */ from foo where ts = 34",
+        platform="redshift",
     ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", platform="redshift")
 
     assert get_query_fingerprint(
-        "select 1 + 1", platform="postgres"
+        "select 1 + 1",
+        platform="postgres",
     ) != get_query_fingerprint("select 2", platform="postgres")
 
 
@@ -193,8 +199,11 @@ def test_redshift_query_fingerprint():
     query2 = "INSERT INTO insert_into_table (SELECT * FROM base_table)"
 
     assert get_query_fingerprint(query1, "redshift") == get_query_fingerprint(
-        query2, "redshift"
+        query2,
+        "redshift",
     )
     assert get_query_fingerprint(query1, "redshift", True) != get_query_fingerprint(
-        query2, "redshift", True
+        query2,
+        "redshift",
+        True,
     )

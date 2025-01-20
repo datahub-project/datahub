@@ -27,20 +27,20 @@ class LineageInfo:
 
     # map from model URIs to deployed endpoints
     model_uri_endpoints: DefaultDict[str, Set[str]] = field(
-        default_factory=lambda: defaultdict(set)
+        default_factory=lambda: defaultdict(set),
     )
     # map from model images to deployed endpoints
     model_image_endpoints: DefaultDict[str, Set[str]] = field(
-        default_factory=lambda: defaultdict(set)
+        default_factory=lambda: defaultdict(set),
     )
 
     # map from group ARNs to model URIs
     model_uri_to_groups: DefaultDict[str, Set[str]] = field(
-        default_factory=lambda: defaultdict(set)
+        default_factory=lambda: defaultdict(set),
     )
     # map from group ARNs to model images
     model_image_to_groups: DefaultDict[str, Set[str]] = field(
-        default_factory=lambda: defaultdict(set)
+        default_factory=lambda: defaultdict(set),
     )
 
 
@@ -173,7 +173,9 @@ class LineageProcessor:
             self.lineage_info.model_image_endpoints[model_image] |= model_endpoints
 
     def get_model_group_lineage(
-        self, model_group_node_arn: str, node: Dict[str, Any]
+        self,
+        model_group_node_arn: str,
+        node: Dict[str, Any],
     ) -> None:
         """
         Get the lineage of a model group (models part of the group).
@@ -193,7 +195,7 @@ class LineageProcessor:
             # if edge is a model package, then look for models in its source edges
             if edge["SourceType"] == "Model":
                 model_package_incoming_edges = self.get_incoming_edges(
-                    edge["SourceArn"]
+                    edge["SourceArn"],
                 )
 
                 # check incoming edges for models under the model package
@@ -211,7 +213,7 @@ class LineageProcessor:
                         and source_uri is not None
                     ):
                         self.lineage_info.model_uri_to_groups[source_uri].add(
-                            model_group_arn
+                            model_group_arn,
                         )
 
                     # add model_group_arn -> model_image mapping
@@ -220,7 +222,7 @@ class LineageProcessor:
                         and source_uri is not None
                     ):
                         self.lineage_info.model_image_to_groups[source_uri].add(
-                            model_group_arn
+                            model_group_arn,
                         )
 
     def get_lineage(self) -> LineageInfo:

@@ -50,7 +50,7 @@ class AddDatasetOwnership(OwnershipTransformer):
             and self.ctx.graph is None
         ):
             raise ConfigurationError(
-                "With PATCH TransformerSemantics, AddDatasetOwnership requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
+                "With PATCH TransformerSemantics, AddDatasetOwnership requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe",
             )
 
     @classmethod
@@ -60,7 +60,9 @@ class AddDatasetOwnership(OwnershipTransformer):
 
     @staticmethod
     def _merge_with_server_ownership(
-        graph: DataHubGraph, urn: str, mce_ownership: Optional[OwnershipClass]
+        graph: DataHubGraph,
+        urn: str,
+        mce_ownership: Optional[OwnershipClass],
     ) -> Optional[OwnershipClass]:
         if not mce_ownership or not mce_ownership.owners:
             # If there are no owners to add, we don't need to patch anything.
@@ -100,7 +102,7 @@ class AddDatasetOwnership(OwnershipTransformer):
                 container_urn = path.urn
 
                 if not container_urn or not container_urn.startswith(
-                    "urn:li:container:"
+                    "urn:li:container:",
                 ):
                     continue
 
@@ -108,7 +110,7 @@ class AddDatasetOwnership(OwnershipTransformer):
                     ownership_container_mapping[container_urn] = data_ownerships
                 else:
                     ownership_container_mapping[container_urn] = list(
-                        ownership_container_mapping[container_urn] + data_ownerships
+                        ownership_container_mapping[container_urn] + data_ownerships,
                     )
 
         mcps: List[
@@ -124,7 +126,10 @@ class AddDatasetOwnership(OwnershipTransformer):
         return mcps
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_ownership_aspect: Optional[OwnershipClass] = cast(OwnershipClass, aspect)
         out_ownership_aspect: OwnershipClass = OwnershipClass(
@@ -149,7 +154,9 @@ class AddDatasetOwnership(OwnershipTransformer):
             return cast(
                 Optional[Aspect],
                 self._merge_with_server_ownership(
-                    self.ctx.graph, entity_urn, out_ownership_aspect
+                    self.ctx.graph,
+                    entity_urn,
+                    out_ownership_aspect,
                 ),
             )
         else:
@@ -170,7 +177,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
 
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
-            config.ownership_type
+            config.ownership_type,
         )
         owners = [
             OwnerClass(
@@ -191,7 +198,9 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SimpleAddDatasetOwnership":
         config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -209,7 +218,7 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
     def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
         owner_pattern = config.owner_pattern
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
-            config.ownership_type
+            config.ownership_type,
         )
         generic_config = AddDatasetOwnershipConfig(
             get_owners_to_add=lambda urn: [
@@ -229,7 +238,9 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetOwnership":
         config = PatternDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)

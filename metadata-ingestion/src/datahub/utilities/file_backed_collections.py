@@ -102,7 +102,9 @@ class ConnectionWrapper:
         # still need to be careful to avoid concurrent access.
         self.conn_lock = threading.Lock()
         self.conn = sqlite3.connect(
-            filename, isolation_level=None, check_same_thread=False
+            filename,
+            isolation_level=None,
+            check_same_thread=False,
         )
         self.conn.row_factory = sqlite3.Row
 
@@ -125,13 +127,17 @@ class ConnectionWrapper:
         return self._temp_directory is None
 
     def execute(
-        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
+        self,
+        sql: str,
+        parameters: Union[Dict[str, Any], Sequence[Any]] = (),
     ) -> sqlite3.Cursor:
         with self.conn_lock:
             return self.conn.execute(sql, parameters)
 
     def executemany(
-        self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
+        self,
+        sql: str,
+        parameters: Union[Dict[str, Any], Sequence[Any]] = (),
     ) -> sqlite3.Cursor:
         with self.conn_lock:
             return self.conn.executemany(sql, parameters)
@@ -219,7 +225,8 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     # Maintains a dirty bit marking whether the value has been modified since it was persisted.
     _active_object_cache: OrderedDict[str, Tuple[_VT, bool]] = field(
-        init=False, repr=False
+        init=False,
+        repr=False,
     )
     _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
@@ -262,7 +269,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 key TEXT UNIQUE,
                 value BLOB
                 {"".join(f", {column_name} BLOB" for column_name in self.extra_columns.keys())}
-            )"""
+            )""",
         )
 
         if not self.delay_index_creation:
@@ -280,7 +287,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns.keys():
             self._conn.execute(
-                f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
+                f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})",
             )
         self.indexes_created = True
 
@@ -294,7 +301,8 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             # However, we don't want to prune the thing we just added,
             # in case there's a mark_dirty() call immediately after.
             num_items_to_prune = min(
-                len(self._active_object_cache) - 1, self.cache_eviction_batch_size
+                len(self._active_object_cache) - 1,
+                self.cache_eviction_batch_size,
             )
             self._prune_cache(num_items_to_prune)
 
@@ -355,7 +363,8 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             return self._active_object_cache[key][0]
 
         cursor = self._conn.execute(
-            f"SELECT value FROM {self.tablename} WHERE key = ?", (key,)
+            f"SELECT value FROM {self.tablename} WHERE key = ?",
+            (key,),
         )
         result: Sequence[SqliteValue] = cursor.fetchone()
         if result is None:
@@ -403,7 +412,8 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             in_cache = True
 
         n_deleted = self._conn.execute(
-            f"DELETE FROM {self.tablename} WHERE key = ?", (key,)
+            f"DELETE FROM {self.tablename} WHERE key = ?",
+            (key,),
         ).rowcount
         if not in_cache and not n_deleted:
             raise KeyError(key)
@@ -412,7 +422,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         if key not in self._active_object_cache:
             raise ValueError(
                 f"key {key} not in active object cache, which means any dirty value "
-                "is already persisted or lost"
+                "is already persisted or lost",
             )
 
         if not self._active_object_cache[key][1]:
@@ -424,13 +434,14 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         # Our active object cache should now be empty, so it's fine to
         # just pull from the DB.
         cursor = self._conn.execute(
-            f"SELECT key FROM {self.tablename} ORDER BY rowid ASC"
+            f"SELECT key FROM {self.tablename} ORDER BY rowid ASC",
         )
         for row in cursor:
             yield row[0]
 
     def items_snapshot(
-        self, cond_sql: Optional[str] = None
+        self,
+        cond_sql: Optional[str] = None,
     ) -> Iterator[Tuple[str, _VT]]:
         """
         Return a fixed snapshot, rather than a view, of the dictionary's items.

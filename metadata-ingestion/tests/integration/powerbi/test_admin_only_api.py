@@ -18,8 +18,8 @@ def scan_init_response(request, context):
 
     w_id_vs_response: Dict[str, Any] = {
         "64ED5CAD-7C10-4684-8180-826122881108": {
-            "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
-        }
+            "id": "4674efd1-603c-4129-8d82-03cf2be05aff",
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -33,8 +33,8 @@ def admin_datasets_response(request, context):
                     "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                     "name": "library-dataset",
                     "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-                }
-            ]
+                },
+            ],
         }
 
     if "ba0130a1-5b03-40de-9535-b34e778ea6ed" in request.query:
@@ -44,8 +44,8 @@ def admin_datasets_response(request, context):
                     "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                     "name": "hr_pbi_test",
                     "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                }
-            ]
+                },
+            ],
         }
 
 
@@ -67,7 +67,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "name": "demo-workspace",
                         "type": "Workspace",
                         "state": "Active",
-                    }
+                    },
                 ],
             },
         },
@@ -89,8 +89,8 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "displayName": "test_dashboard",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
+                    },
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/reports/5b218778-e7a5-4d73-8187-f10824047715/users": {
@@ -116,7 +116,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "principalType": "User",
                         "reportUserAccessRight": "Owner",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
@@ -140,7 +140,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
                         "principalType": "User",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
@@ -164,7 +164,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
                         "principalType": "User",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
@@ -184,7 +184,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "embedUrl": "https://localhost/tiles/embed/2",
                         "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
@@ -200,7 +200,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             "server": "foo",
                         },
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
@@ -238,12 +238,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": "dummy",
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -251,12 +251,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Snowflake.Databases("hp123rt5.ap-southeast-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -264,12 +264,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "SELECT#(lf)concat((UPPER(REPLACE(SELLER,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4", null, [EnableFolding=true]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "SME Units ENT", each if [DEAL_TYPE] = "SME Unit" then [UNIT] else 0),\n    #"Added Conditional Column1" = Table.AddColumn(#"Added Conditional Column", "Banklink Units", each if [DEAL_TYPE] = "Banklink" then [UNIT] else 0),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Conditional Column1",{"Banklink Units"}),\n    #"Added Custom" = Table.AddColumn(#"Removed Columns", "Banklink Units", each if [DEAL_TYPE] = "Banklink" and [SALES_TYPE] = "3 - Upsell"\nthen [UNIT]\n\nelse if [SALES_TYPE] = "Adjusted BL Migration"\nthen [UNIT]\n\nelse 0),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "SME Units in $ (*$361)", each if [DEAL_TYPE] = "SME Unit" \nand [SALES_TYPE] <> "4 - Renewal"\n    then [UNIT] * 361\nelse 0),\n    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Banklink in $ (*$148)", each [Banklink Units] * 148)\nin\n    #"Added Custom2"',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -277,12 +277,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]){[Name="GSL_TEST_DB"]}[Data], "select A.name from GSL_TEST_DB.PUBLIC.SALES_ANALYST as A inner join GSL_TEST_DB.PUBLIC.SALES_FORECAST as B on A.name = B.name where startswith(A.name, \'mo\')", null, [EnableFolding=true])\nin\n    Source',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -290,12 +290,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.domain.com", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -303,12 +303,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                 ],
@@ -324,12 +324,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -337,12 +337,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                     },
                                     {
@@ -375,13 +375,13 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                                 "description": "column description",
                                                 "expression": "let\n x",
                                                 "isHidden": False,
-                                            }
+                                            },
                                         ],
                                         "isHidden": False,
                                         "source": [
                                             {
-                                                "expression": 'let\n    Source = Sql.Database("database.sql.net", "analytics", [Query="select * from analytics.sales_revenue"])\nin\n    Source'
-                                            }
+                                                "expression": 'let\n    Source = Sql.Database("database.sql.net", "analytics", [Query="select * from analytics.sales_revenue"])\nin\n    Source',
+                                            },
                                         ],
                                     },
                                 ],
@@ -391,7 +391,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             {
                                 "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                                 "isReadOnly": True,
-                            }
+                            },
                         ],
                         "reports": [
                             {
@@ -400,10 +400,10 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                 "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
-                            }
+                            },
                         ],
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/modified": {
@@ -433,8 +433,8 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "description": "Acryl sales marketing report",
                         "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
-                ]
+                    },
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
@@ -465,7 +465,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "name": "ReportSection1",
                         "order": "1",
                     },
-                ]
+                ],
             },
         },
     }
@@ -538,7 +538,7 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
                     "filename": f"{tmp_path}/powerbi_admin_only_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -555,7 +555,11 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_most_config_and_modified_since(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -603,7 +607,7 @@ def test_most_config_and_modified_since(
                     "filename": f"{tmp_path}/powerbi_test_most_config_and_modified_since_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()

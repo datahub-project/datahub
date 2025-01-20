@@ -12,7 +12,8 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "ldap"
+        test_resources_dir / "docker-compose.yml",
+        "ldap",
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
@@ -42,7 +43,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/ldap_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -59,7 +60,8 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "ldap"
+        test_resources_dir / "docker-compose.yml",
+        "ldap",
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
@@ -90,7 +92,7 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                         "filename": f"{tmp_path}/ldap_memberof_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -104,12 +106,16 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
 
 @pytest.mark.integration
 def test_ldap_ingest_with_email_as_username(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "ldap"
+        test_resources_dir / "docker-compose.yml",
+        "ldap",
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
@@ -141,7 +147,7 @@ def test_ldap_ingest_with_email_as_username(
                         "filename": f"{tmp_path}/ldap_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

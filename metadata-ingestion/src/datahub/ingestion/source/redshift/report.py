@@ -32,7 +32,7 @@ class RedshiftReport(
     view_cached: TopKDict[str, int] = field(default_factory=TopKDict)
     metadata_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
     operational_metadata_extraction_sec: TopKDict[str, float] = field(
-        default_factory=TopKDict
+        default_factory=TopKDict,
     )
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)

@@ -60,7 +60,7 @@ class TagOption(StrEnum):
 @dataclass(frozen=True)
 class DatabaseId:
     database: str = Field(
-        description="Database created from share in consumer account."
+        description="Database created from share in consumer account.",
     )
     platform_instance: Optional[str] = Field(
         default=None,
@@ -76,7 +76,7 @@ class SnowflakeShareConfig(ConfigModel):
     )
 
     consumers: Set[DatabaseId] = Field(
-        description="List of databases created in consumer accounts."
+        description="List of databases created in consumer accounts.",
     )
 
     @property
@@ -117,7 +117,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`.",
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
@@ -130,7 +130,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
 
 class SnowflakeIdentifierConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
@@ -255,7 +257,7 @@ class SnowflakeV2Config(
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
-        "use_legacy_lineage_method"
+        "use_legacy_lineage_method",
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -285,7 +287,8 @@ class SnowflakeV2Config(
     )
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
-        "upstreams_deny_pattern", "temporary_tables_pattern"
+        "upstreams_deny_pattern",
+        "temporary_tables_pattern",
     )
 
     shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
@@ -306,7 +309,7 @@ class SnowflakeV2Config(
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
-                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work correctly."
+                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work correctly.",
             )
 
         return v
@@ -315,7 +318,7 @@ class SnowflakeV2Config(
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:
             raise ValueError(
-                "include_table_lineage must be True for include_column_lineage to be set."
+                "include_table_lineage must be True for include_column_lineage to be set.",
             )
         return v
 
@@ -340,10 +343,10 @@ class SnowflakeV2Config(
         # TODO: Allow profiling irrespective of basic schema extraction,
         # as it seems possible with some refactor
         if not include_technical_schema and any(
-            [include_profiles, delete_detection_enabled]
+            [include_profiles, delete_detection_enabled],
         ):
             raise ValueError(
-                "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
+                "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling.",
             )
 
         return values
@@ -356,12 +359,18 @@ class SnowflakeV2Config(
         role: Optional[str] = None,
     ) -> str:
         return SnowflakeConnectionConfig.get_sql_alchemy_url(
-            self, database=database, username=username, password=password, role=role
+            self,
+            database=database,
+            username=username,
+            password=password,
+            role=role,
         )
 
     @validator("shares")
     def validate_shares(
-        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+        cls,
+        shares: Optional[Dict[str, SnowflakeShareConfig]],
+        values: Dict,
     ) -> Optional[Dict[str, SnowflakeShareConfig]]:
         current_platform_instance = values.get("platform_instance")
 
@@ -370,7 +379,7 @@ class SnowflakeV2Config(
             if current_platform_instance is None:
                 logger.info(
                     "It is advisable to use `platform_instance` when ingesting from multiple snowflake accounts, if they contain databases with same name. "
-                    "Setting `platform_instance` allows distinguishing such databases without conflict and correctly ingest their metadata."
+                    "Setting `platform_instance` allows distinguishing such databases without conflict and correctly ingest their metadata.",
                 )
 
             databases_included_in_share: List[DatabaseId] = []
@@ -378,7 +387,8 @@ class SnowflakeV2Config(
 
             for share_details in shares.values():
                 shared_db = DatabaseId(
-                    share_details.database, share_details.platform_instance
+                    share_details.database,
+                    share_details.platform_instance,
                 )
                 if current_platform_instance:
                     assert all(
@@ -411,7 +421,7 @@ class SnowflakeV2Config(
             for share_name, share_details in self.shares.items():
                 if share_details.platform_instance == self.platform_instance:
                     logger.debug(
-                        f"database {share_details.database} is included in outbound share(s) {share_name}."
+                        f"database {share_details.database} is included in outbound share(s) {share_name}.",
                     )
                     outbounds[share_details.database].update(share_details.consumers)
         return outbounds
@@ -427,7 +437,7 @@ class SnowflakeV2Config(
                 for consumer in share_details.consumers:
                     if consumer.platform_instance == self.platform_instance:
                         logger.debug(
-                            f"database {consumer.database} is created from inbound share {share_name}."
+                            f"database {consumer.database} is created from inbound share {share_name}.",
                         )
                         inbounds[consumer.database] = share_details.source_database
                         if self.platform_instance:

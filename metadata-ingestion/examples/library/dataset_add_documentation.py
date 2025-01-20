@@ -40,7 +40,8 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
 
 current_editable_properties = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=EditableDatasetPropertiesClass
+    entity_urn=dataset_urn,
+    aspect_type=EditableDatasetPropertiesClass,
 )
 
 need_write = False
@@ -51,7 +52,8 @@ if current_editable_properties:
 else:
     # create a brand new editable dataset properties aspect
     current_editable_properties = EditableDatasetPropertiesClass(
-        created=current_timestamp, description=documentation_to_add
+        created=current_timestamp,
+        description=documentation_to_add,
     )
     need_write = True
 
@@ -68,7 +70,8 @@ else:
 
 
 current_institutional_memory = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
+    entity_urn=dataset_urn,
+    aspect_type=InstitutionalMemoryClass,
 )
 
 need_write = False
@@ -80,7 +83,7 @@ if current_institutional_memory:
 else:
     # create a brand new institutional memory aspect
     current_institutional_memory = InstitutionalMemoryClass(
-        elements=[institutional_memory_element]
+        elements=[institutional_memory_element],
     )
     need_write = True
 

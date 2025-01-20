@@ -80,7 +80,7 @@ class GenericCheckpointState(CheckpointStateBase):
             # From dbt:
             "encoded_node_urns": "dataset",
             # "encoded_assertion_urns": "assertion",  # already handled from SQL
-        }
+        },
     )
 
     def __init__(self, **data: Any):  # type: ignore
@@ -102,7 +102,9 @@ class GenericCheckpointState(CheckpointStateBase):
             self._urns_set.add(urn)
 
     def get_urns_not_in(
-        self, type: str, other_checkpoint_state: "GenericCheckpointState"
+        self,
+        type: str,
+        other_checkpoint_state: "GenericCheckpointState",
     ) -> Iterable[str]:
         """
         Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
@@ -124,7 +126,8 @@ class GenericCheckpointState(CheckpointStateBase):
             yield from (urn for urn in diff if guess_entity_type(urn) == type)
 
     def get_percent_entities_changed(
-        self, old_checkpoint_state: "GenericCheckpointState"
+        self,
+        old_checkpoint_state: "GenericCheckpointState",
     ) -> float:
         """
         Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
@@ -136,7 +139,8 @@ class GenericCheckpointState(CheckpointStateBase):
         old_urns_filtered = filter_ignored_entity_types(old_checkpoint_state.urns)
 
         return compute_percent_entities_changed(
-            new_entities=self.urns, old_entities=old_urns_filtered
+            new_entities=self.urns,
+            old_entities=old_urns_filtered,
         )
 
     def urn_count(self) -> int:
@@ -144,14 +148,16 @@ class GenericCheckpointState(CheckpointStateBase):
 
 
 def compute_percent_entities_changed(
-    new_entities: List[str], old_entities: List[str]
+    new_entities: List[str],
+    old_entities: List[str],
 ) -> float:
     (
         overlap_count,
         old_count,
         _,
     ) = _get_entity_overlap_and_cardinalities(
-        new_entities=new_entities, old_entities=old_entities
+        new_entities=new_entities,
+        old_entities=old_entities,
     )
 
     if old_count:
@@ -160,7 +166,8 @@ def compute_percent_entities_changed(
 
 
 def _get_entity_overlap_and_cardinalities(
-    new_entities: List[str], old_entities: List[str]
+    new_entities: List[str],
+    old_entities: List[str],
 ) -> Tuple[int, int, int]:
     new_set = set(new_entities)
     old_set = set(old_entities)

@@ -16,7 +16,7 @@ pipeline = Pipeline.create(
             "type": "datahub-rest",
             "config": {"server": "http://localhost:8080"},
         },
-    }
+    },
 )
 
 # Run the pipeline and report the results.

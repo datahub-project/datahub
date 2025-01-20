@@ -160,10 +160,12 @@ def test_non_set_data() -> None:
 def test_empty_structures() -> None:
     """Test handling of empty structures"""
     input_data: Dict[
-        str, Union[Set[Any], Dict[Any, Any], List[Any], Tuple[Any, ...]]
+        str,
+        Union[Set[Any], Dict[Any, Any], List[Any], Tuple[Any, ...]],
     ] = {"empty_set": set(), "empty_dict": {}, "empty_list": [], "empty_tuple": ()}
     expected: Dict[
-        str, Union[List[Any], Dict[Any, Any], List[Any], Tuple[Any, ...]]
+        str,
+        Union[List[Any], Dict[Any, Any], List[Any], Tuple[Any, ...]],
     ] = {"empty_set": [], "empty_dict": {}, "empty_list": [], "empty_tuple": ()}
     result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert result == expected

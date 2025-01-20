@@ -41,7 +41,11 @@ class BigQueryIdentifierBuilder:
         self.structured_reporter = structured_reporter
 
     def gen_dataset_urn(
-        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
+        self,
+        project_id: str,
+        dataset_name: str,
+        table: str,
+        use_raw_name: bool = False,
     ) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
         return make_dataset_urn(
@@ -85,14 +89,16 @@ class BigQueryIdentifierBuilder:
 
 class BigQueryFilter:
     def __init__(
-        self, filter_config: BigQueryFilterConfig, structured_reporter: SourceReport
+        self,
+        filter_config: BigQueryFilterConfig,
+        structured_reporter: SourceReport,
     ) -> None:
         self.filter_config = filter_config
         self.structured_reporter = structured_reporter
 
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
-            str(table_id)
+            str(table_id),
         ) and (
             self.is_project_allowed(table_id.project_id)
             and is_schema_allowed(

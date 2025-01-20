@@ -36,7 +36,7 @@ def test_redshift_usage_config():
             email_domain="xxxxx",
             include_views=True,
             include_tables=True,
-        )
+        ),
     )
 
     assert config.host_port == "xxxxx"
@@ -52,12 +52,12 @@ def test_redshift_usage_config():
 @patch("redshift_connector.Connection")
 def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/redshift-usage"
+        pytestconfig.rootpath / "tests/integration/redshift-usage",
     )
     generate_mcps_path = Path(f"{tmp_path}/redshift_usages.json")
     mock_usage_query_result = open(f"{test_resources_dir}/usage_events_history.json")
     mock_operational_query_result = open(
-        f"{test_resources_dir}/operational_events_history.json"
+        f"{test_resources_dir}/operational_events_history.json",
     )
     mock_usage_query_result_dict = json.load(mock_usage_query_result)
     mock_operational_query_result_dict = json.load(mock_operational_query_result)
@@ -109,7 +109,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
                     created=None,
                     comment="",
                 ),
-            ]
+            ],
         },
         "dev": {
             "public": [
@@ -127,7 +127,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
                     created=None,
                     comment="",
                 ),
-            ]
+            ],
         },
     }
     mwus = usage_extractor.get_usage_workunits(all_tables=all_tables)
@@ -160,12 +160,12 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
 @patch("redshift_connector.Connection")
 def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/redshift-usage"
+        pytestconfig.rootpath / "tests/integration/redshift-usage",
     )
     generate_mcps_path = Path(f"{tmp_path}/redshift_usages.json")
     mock_usage_query_result = open(f"{test_resources_dir}/usage_events_history.json")
     mock_operational_query_result = open(
-        f"{test_resources_dir}/operational_events_history.json"
+        f"{test_resources_dir}/operational_events_history.json",
     )
     mock_usage_query_result_dict = json.load(mock_usage_query_result)
     mock_operational_query_result_dict = json.load(mock_operational_query_result)
@@ -216,7 +216,7 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
                     created=None,
                     comment="",
                 ),
-            ]
+            ],
         },
     }
     mwus = usage_extractor.get_usage_workunits(all_tables=all_tables)

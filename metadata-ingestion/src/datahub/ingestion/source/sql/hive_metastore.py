@@ -124,7 +124,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     )
 
     include_view_lineage: bool = Field(
-        default=False, description="", hidden_from_docs=True
+        default=False,
+        description="",
+        hidden_from_docs=True,
     )
 
     include_catalog_name_in_ids: bool = Field(
@@ -143,7 +145,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     )
 
     def get_sql_alchemy_url(
-        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        database: Optional[str] = None,
     ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
@@ -165,7 +169,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
-    SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+    SourceCapability.LINEAGE_COARSE,
+    "View lineage is not supported",
+    supported=False,
 )
 class HiveMetastoreSource(SQLAlchemySource):
     """
@@ -383,11 +389,11 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         statement: str = (
             HiveMetastoreSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
             if "postgresql" in self.config.scheme
             else HiveMetastoreSource._SCHEMAS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
         )
 
@@ -430,15 +436,18 @@ class HiveMetastoreSource(SQLAlchemySource):
         return JobId(self.config.ingestion_job_id)
 
     def _get_table_properties(
-        self, db_name: str, scheme: str, where_clause_suffix: str
+        self,
+        db_name: str,
+        scheme: str,
+        where_clause_suffix: str,
     ) -> Dict[str, Dict[str, str]]:
         statement: str = (
             HiveMetastoreSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
             if "postgresql" in scheme
             else HiveMetastoreSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
         )
         iter_res = self._alchemy_client.execute_query(statement)
@@ -472,11 +481,11 @@ class HiveMetastoreSource(SQLAlchemySource):
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
         statement: str = (
             HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
             if "postgresql" in sql_config.scheme
             else HiveMetastoreSource._TABLES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
         )
 
@@ -498,7 +507,9 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
 
             dataset_name = self.get_identifier(
-                schema=schema_name, entity=key.table, inspector=inspector
+                schema=schema_name,
+                entity=key.table,
+                inspector=inspector,
             )
 
             self.report.report_entity_scanned(dataset_name, ent_type="table")
@@ -550,21 +561,23 @@ class HiveMetastoreSource(SQLAlchemySource):
             properties["create_date"] = str(columns[-1]["create_date"] or "")
 
             par_columns: str = ", ".join(
-                [c["col_name"] for c in columns if c["is_partition_col"]]
+                [c["col_name"] for c in columns if c["is_partition_col"]],
             )
             if par_columns != "":
                 properties["partitioned_columns"] = par_columns
 
             table_description = properties.get("comment")
             yield from self.add_hive_dataset_to_container(
-                dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
+                dataset_urn=dataset_urn,
+                inspector=inspector,
+                schema=key.schema,
             )
 
             if self.config.enable_properties_merge:
                 from datahub.specific.dataset import DatasetPatchBuilder
 
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_snapshot.urn
+                    urn=dataset_snapshot.urn,
                 )
                 patch_builder.set_display_name(key.table)
 
@@ -616,7 +629,10 @@ class HiveMetastoreSource(SQLAlchemySource):
                 )
 
     def add_hive_dataset_to_container(
-        self, dataset_urn: str, inspector: Inspector, schema: str
+        self,
+        dataset_urn: str,
+        inspector: Inspector,
+        schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         db_name = self.get_db_name(inspector)
         schema_container_key = gen_schema_key(
@@ -638,11 +654,11 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         statement: str = (
             HiveMetastoreSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
             if "postgresql" in self.config.scheme
             else HiveMetastoreSource._HIVE_VIEWS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
         )
 
@@ -657,7 +673,9 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
 
             dataset_name = self.get_identifier(
-                schema=schema_name, entity=key.table, inspector=inspector
+                schema=schema_name,
+                entity=key.table,
+                inspector=inspector,
             )
 
             if not self.config.database_pattern.allowed(key.schema):
@@ -683,11 +701,11 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         statement: str = (
             HiveMetastoreSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
             if "postgresql" in self.config.scheme
             else HiveMetastoreSource._VIEWS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
+                where_clause_suffix=where_clause_suffix,
             )
         )
 
@@ -706,7 +724,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
 
             columns, view_definition = self._get_presto_view_column_metadata(
-                row["view_original_text"]
+                row["view_original_text"],
             )
 
             if len(columns) == 0:
@@ -795,7 +813,9 @@ class HiveMetastoreSource(SQLAlchemySource):
             dataset_snapshot.aspects.append(view_properties)
 
             yield from self.add_hive_dataset_to_container(
-                dataset_urn=dataset_urn, inspector=inspector, schema=dataset.schema_name
+                dataset_urn=dataset_urn,
+                inspector=inspector,
+                schema=dataset.schema_name,
             )
 
             # construct mce
@@ -853,7 +873,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         return TableKey(schema=row["schema_name"], table=row["table_name"])
 
     def _get_presto_view_column_metadata(
-        self, view_original_text: str
+        self,
+        view_original_text: str,
     ) -> Tuple[List[Dict], str]:
         """
         Get Column Metadata from VIEW_ORIGINAL_TEXT from TBLS table for Presto Views.
@@ -863,7 +884,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         """
         # remove encoded Presto View data prefix and suffix
         encoded_view_info = view_original_text.split(
-            HiveMetastoreSource._PRESTO_VIEW_PREFIX, 1
+            HiveMetastoreSource._PRESTO_VIEW_PREFIX,
+            1,
         )[-1].rsplit(HiveMetastoreSource._PRESTO_VIEW_SUFFIX, 1)[0]
 
         # view_original_text is b64 encoded:

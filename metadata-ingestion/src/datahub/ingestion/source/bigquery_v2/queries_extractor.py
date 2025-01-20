@@ -100,7 +100,8 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     )
 
     top_n_queries: PositiveInt = Field(
-        default=10, description="Number of top queries to save to each table."
+        default=10,
+        description="Number of top queries to save to each table.",
     )
 
     include_lineage: bool = True
@@ -152,7 +153,7 @@ class BigQueryQueriesExtractor(Closeable):
                 map(
                     self.identifiers.standardize_identifier_case,
                     discovered_tables,
-                )
+                ),
             )
             if discovered_tables
             else None
@@ -259,7 +260,9 @@ class BigQueryQueriesExtractor(Closeable):
 
             with self.report.query_log_fetch_timer:
                 for project in get_projects(
-                    self.schema_api, self.structured_report, self.filters
+                    self.schema_api,
+                    self.structured_report,
+                    self.filters,
                 ):
                     for entry in self.fetch_query_log(project):
                         self.report.num_queries_by_project[project.id] += 1
@@ -285,7 +288,7 @@ class BigQueryQueriesExtractor(Closeable):
                 for query in query_instances.values():
                     if log_timer.should_report():
                         logger.info(
-                            f"Added {i} deduplicated query log entries to SQL aggregator"
+                            f"Added {i} deduplicated query log entries to SQL aggregator",
                         )
 
                     if report_timer.should_report() and self.report.sql_aggregator:
@@ -301,7 +304,8 @@ class BigQueryQueriesExtractor(Closeable):
             audit_log_file.unlink(missing_ok=True)
 
     def deduplicate_queries(
-        self, queries: FileBackedList[ObservedQuery]
+        self,
+        queries: FileBackedList[ObservedQuery],
     ) -> FileBackedDict[Dict[int, ObservedQuery]]:
         # This fingerprint based deduplication is done here to reduce performance hit due to
         # repetitive sql parsing while adding observed query to aggregator that would otherwise
@@ -320,12 +324,17 @@ class BigQueryQueriesExtractor(Closeable):
             time_bucket = 0
             if query.timestamp:
                 time_bucket = datetime_to_ts_millis(
-                    get_time_bucket(query.timestamp, self.config.window.bucket_duration)
+                    get_time_bucket(
+                        query.timestamp,
+                        self.config.window.bucket_duration,
+                    ),
                 )
 
             # Not using original BQ query hash as it's not always present
             query.query_hash = get_query_fingerprint(
-                query.query, self.identifiers.platform, fast=True
+                query.query,
+                self.identifiers.platform,
+                fast=True,
             )
 
             query_instances = queries_deduped.setdefault(query.query_hash, {})
@@ -345,12 +354,14 @@ class BigQueryQueriesExtractor(Closeable):
 
         for region in regions:
             with self.structured_report.report_exc(
-                f"Error fetching query log from BQ Project {project.id} for {region}"
+                f"Error fetching query log from BQ Project {project.id} for {region}",
             ):
                 yield from self.fetch_region_query_log(project, region)
 
     def fetch_region_query_log(
-        self, project: BigqueryProject, region: str
+        self,
+        project: BigqueryProject,
+        region: str,
     ) -> Iterable[ObservedQuery]:
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
@@ -396,7 +407,7 @@ class BigQueryQueriesExtractor(Closeable):
             timestamp=row["creation_time"],
             user=(
                 CorpUserUrn.from_string(
-                    self.identifiers.gen_user_urn(row["user_email"])
+                    self.identifiers.gen_user_urn(row["user_email"]),
                 )
                 if row["user_email"]
                 else None
@@ -472,7 +483,7 @@ def _build_enriched_query_log_query(
     ]
 
     unsupported_statement_types = ",".join(
-        [f"'{statement_type}'" for statement_type in UNSUPPORTED_STATEMENT_TYPES]
+        [f"'{statement_type}'" for statement_type in UNSUPPORTED_STATEMENT_TYPES],
     )
 
     # NOTE the use of partition column creation_time as timestamp here.

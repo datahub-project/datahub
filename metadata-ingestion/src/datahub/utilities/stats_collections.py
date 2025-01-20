@@ -39,7 +39,9 @@ class TopKDict(DefaultDict[_KT, _VT]):
         else:
             try:
                 trimmed_dict = dict(
-                    sorted(self.items(), key=lambda x: x[1], reverse=True)[: self.top_k]
+                    sorted(self.items(), key=lambda x: x[1], reverse=True)[
+                        : self.top_k
+                    ],
                 )
             except TypeError:
                 trimmed_dict = dict(list(self.items())[: self.top_k])

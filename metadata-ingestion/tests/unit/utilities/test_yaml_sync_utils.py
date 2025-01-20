@@ -18,7 +18,7 @@ list_ty:
   - foo
   - key1: value1
     key2: value2
-"""
+""",
     )
     # ind=4, bsi=2
 
@@ -59,7 +59,7 @@ list_ty:
 - foo
 - key1: value1
   key2: value2
-"""
+""",
     )
     # ind=2, bsi=0
 

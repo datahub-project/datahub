@@ -35,7 +35,7 @@ def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
         SELECT "table_name"
         FROM "information_schema"."tables"
         WHERE "table_schema" = :schema and "table_type" = 'VIEW'
-    """
+    """,
     ).strip()
     res = connection.execute(sql.text(query), schema=schema)
     return [row.table_name for row in res]
@@ -54,14 +54,17 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     query = dedent(
         f"""
         SHOW CREATE VIEW "{schema}"."{view_name}"
-    """
+    """,
     ).strip()
     res = connection.execute(sql.text(query))
     return next(res)[0]
 
 
 def _get_full_table(  # type: ignore
-    self, table_name: str, schema: Optional[str] = None, quote: bool = True
+    self,
+    table_name: str,
+    schema: Optional[str] = None,
+    quote: bool = True,
 ) -> str:
     table_part = (
         self.identifier_preparer.quote_identifier(table_name) if quote else table_name

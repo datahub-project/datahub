@@ -28,7 +28,8 @@ def test_base_url_guessing() -> None:
 
     # GitLab repo (notice the trailing slash).
     config_ref = GitReference(
-        repo="https://gitlab.com/gitlab-tests/sample-project/", branch="master"
+        repo="https://gitlab.com/gitlab-tests/sample-project/",
+        branch="master",
     )
     assert (
         config_ref.get_url_for_file_path("hello_world.md")
@@ -37,7 +38,8 @@ def test_base_url_guessing() -> None:
 
     # Three-tier GitLab repo.
     config = GitInfo(
-        repo="https://gitlab.com/gitlab-com/gl-infra/reliability", branch="master"
+        repo="https://gitlab.com/gitlab-com/gl-infra/reliability",
+        branch="master",
     )
     assert (
         config.get_url_for_file_path("onboarding/gitlab.nix")
@@ -67,7 +69,7 @@ def test_base_url_guessing() -> None:
                 repo="https://github.com/datahub-project/datahub",
                 branch="master",
                 base_url="http://mygithubmirror.local",
-            )
+            ),
         )
 
 

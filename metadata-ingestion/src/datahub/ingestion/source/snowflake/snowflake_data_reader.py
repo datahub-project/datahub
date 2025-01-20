@@ -13,19 +13,25 @@ logger = logging.Logger(__name__)
 class SnowflakeDataReader(DataReader):
     @staticmethod
     def create(
-        conn: SnowflakeConnection, col_name_preprocessor: Callable[[str], str]
+        conn: SnowflakeConnection,
+        col_name_preprocessor: Callable[[str], str],
     ) -> "SnowflakeDataReader":
         return SnowflakeDataReader(conn, col_name_preprocessor)
 
     def __init__(
-        self, conn: SnowflakeConnection, col_name_preprocessor: Callable[[str], str]
+        self,
+        conn: SnowflakeConnection,
+        col_name_preprocessor: Callable[[str], str],
     ) -> None:
         # The lifecycle of this connection is managed externally
         self.conn = conn
         self.col_name_preprocessor = col_name_preprocessor
 
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int, **kwargs: Any
+        self,
+        table_id: List[str],
+        sample_size: int,
+        **kwargs: Any,
     ) -> Dict[str, list]:
         """
         For snowflake, table_id should be in form (db_name, schema_name, table_name)
@@ -37,7 +43,7 @@ class SnowflakeDataReader(DataReader):
         table_name = table_id[2]
 
         logger.debug(
-            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
+            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}",
         )
         with PerfTimer() as timer, self.conn.native_connection().cursor() as cursor:
             sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({sample_size} rows);'
@@ -49,7 +55,7 @@ class SnowflakeDataReader(DataReader):
             time_taken = timer.elapsed_seconds()
             logger.debug(
                 f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name};"
-                f"{df.shape[0]} rows; took {time_taken:.3f} seconds"
+                f"{df.shape[0]} rows; took {time_taken:.3f} seconds",
             )
             return df.to_dict(orient="list")
 

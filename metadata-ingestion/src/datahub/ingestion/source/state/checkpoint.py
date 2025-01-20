@@ -37,7 +37,8 @@ class CheckpointStateBase(ConfigModel):
     def to_bytes(
         self,
         compressor: Callable[[bytes], bytes] = functools.partial(
-            bz2.compress, compresslevel=9
+            bz2.compress,
+            compresslevel=9,
         ),
         max_allowed_state_size: int = DEFAULT_MAX_STATE_SIZE,
     ) -> bytes:
@@ -54,7 +55,7 @@ class CheckpointStateBase(ConfigModel):
             # The original base85 implementation used pickle, which would cause
             # issues with deserialization if we ever changed the state class definition.
             raise ValueError(
-                "Cannot write base85 encoded bytes. Use base85-bz2-json instead."
+                "Cannot write base85 encoded bytes. Use base85-bz2-json instead.",
             )
         elif self.serde == "base85-bz2-json":
             encoded_bytes = CheckpointStateBase._to_bytes_base85_json(self, compressor)
@@ -63,7 +64,7 @@ class CheckpointStateBase(ConfigModel):
 
         if len(encoded_bytes) > max_allowed_state_size:
             raise ValueError(
-                f"The state size has exceeded the max_allowed_state_size of {max_allowed_state_size}"
+                f"The state size has exceeded the max_allowed_state_size of {max_allowed_state_size}",
             )
 
         return encoded_bytes
@@ -74,7 +75,8 @@ class CheckpointStateBase(ConfigModel):
 
     @staticmethod
     def _to_bytes_base85_json(
-        model: ConfigModel, compressor: Callable[[bytes], bytes]
+        model: ConfigModel,
+        compressor: Callable[[bytes], bytes],
     ) -> bytes:
         return base64.b85encode(compressor(CheckpointStateBase._to_bytes_utf8(model)))
 
@@ -114,7 +116,8 @@ class Checkpoint(Generic[StateType]):
             try:
                 if checkpoint_aspect.state.serde == "utf-8":
                     state_obj = Checkpoint._from_utf8_bytes(
-                        checkpoint_aspect, state_class
+                        checkpoint_aspect,
+                        state_class,
                     )
                 elif checkpoint_aspect.state.serde == "base85":
                     state_obj = Checkpoint._from_base85_bytes(
@@ -132,7 +135,7 @@ class Checkpoint(Generic[StateType]):
                     raise ValueError(f"Unknown serde: {checkpoint_aspect.state.serde}")
             except Exception as e:
                 logger.error(
-                    f"Failed to construct checkpoint class from checkpoint aspect: {e}"
+                    f"Failed to construct checkpoint class from checkpoint aspect: {e}",
                 )
                 raise e
             else:
@@ -145,7 +148,7 @@ class Checkpoint(Generic[StateType]):
                 )
                 logger.info(
                     f"Successfully constructed last checkpoint state for job {job_name} "
-                    f"with timestamp {parse_ts_millis(checkpoint_aspect.timestampMillis)}"
+                    f"with timestamp {parse_ts_millis(checkpoint_aspect.timestampMillis)}",
                 )
                 return checkpoint
         return None
@@ -171,7 +174,7 @@ class Checkpoint(Generic[StateType]):
         state_class: Type[StateType],
     ) -> StateType:
         state: StateType = pickle.loads(
-            decompressor(base64.b85decode(checkpoint_aspect.state.payload))  # type: ignore
+            decompressor(base64.b85decode(checkpoint_aspect.state.payload)),  # type: ignore
         )
 
         with contextlib.suppress(Exception):
@@ -195,7 +198,7 @@ class Checkpoint(Generic[StateType]):
         state_uncompressed = decompressor(
             base64.b85decode(checkpoint_aspect.state.payload)
             if checkpoint_aspect.state.payload is not None
-            else b"{}"
+            else b"{}",
         )
         state_as_dict = json.loads(state_uncompressed.decode("utf-8"))
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
@@ -203,14 +206,15 @@ class Checkpoint(Generic[StateType]):
         return state_class.parse_obj(state_as_dict)
 
     def to_checkpoint_aspect(
-        self, max_allowed_state_size: int
+        self,
+        max_allowed_state_size: int,
     ) -> Optional[DatahubIngestionCheckpointClass]:
         try:
             checkpoint_state = IngestionCheckpointStateClass(
                 formatVersion=self.state.version,
                 serde=self.state.serde,
                 payload=self.state.to_bytes(
-                    max_allowed_state_size=max_allowed_state_size
+                    max_allowed_state_size=max_allowed_state_size,
                 ),
             )
             checkpoint_aspect = DatahubIngestionCheckpointClass(
@@ -224,7 +228,8 @@ class Checkpoint(Generic[StateType]):
             return checkpoint_aspect
         except Exception as e:
             logger.error(
-                "Failed to construct the checkpoint aspect from checkpoint object", e
+                "Failed to construct the checkpoint aspect from checkpoint object",
+                e,
             )
 
         return None

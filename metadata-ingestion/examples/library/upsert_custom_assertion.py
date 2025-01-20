@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 graph = DataHubGraph(
     config=DatahubClientConfig(
         server="http://localhost:8080",
-    )
+    ),
 )
 
 new_assertion_urn = "urn:li:assertion:my-unique-assertion-id"

@@ -38,7 +38,7 @@ class DataHubSecretStore(SecretStore):
             self.client = DataHubSecretsClient(graph)
         else:
             raise Exception(
-                "Invalid configuration provided: unable to construct DataHub Graph Client."
+                "Invalid configuration provided: unable to construct DataHub Graph Client.",
             )
 
     def get_secret_values(self, secret_names: List[str]) -> Dict[str, Union[str, None]]:
@@ -49,7 +49,7 @@ class DataHubSecretStore(SecretStore):
         except Exception:
             # Failed to resolve secrets, return empty.
             logger.exception(
-                f"Caught exception while attempting to fetch secrets from DataHub. Secret names: {secret_names}"
+                f"Caught exception while attempting to fetch secrets from DataHub. Secret names: {secret_names}",
             )
             return {}
 

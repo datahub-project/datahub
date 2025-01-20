@@ -36,12 +36,12 @@ def get_connection_def_based_on_connection_string(
         except SDKError:
             logger.error(
                 f"Failed to retrieve connection {connection} from Looker. This usually happens when the "
-                f"credentials provided are not admin credentials."
+                f"credentials provided are not admin credentials.",
             )
         else:
             try:
                 connection_def = LookerConnectionDefinition.from_looker_connection(
-                    looker_connection
+                    looker_connection,
                 )
 
                 # Populate the cache (using the config map) to avoid calling looker again for this connection

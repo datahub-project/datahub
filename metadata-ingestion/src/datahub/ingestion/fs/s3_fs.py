@@ -35,7 +35,11 @@ class S3ListIterator(Iterator):
     MAX_KEYS = 1000
 
     def __init__(
-        self, s3_client: Any, bucket: str, prefix: str, max_keys: int = MAX_KEYS
+        self,
+        s3_client: Any,
+        bucket: str,
+        prefix: str,
+        max_keys: int = MAX_KEYS,
     ) -> None:
         self._s3 = s3_client
         self._bucket = bucket
@@ -68,7 +72,7 @@ class S3ListIterator(Iterator):
             [
                 FileInfo(f"s3://{response['Name']}/{x['Key']}", x["Size"], is_file=True)
                 for x in response.get("Contents", [])
-            ]
+            ],
         )
         self._token = response.get("NextContinuationToken")
 
@@ -89,7 +93,9 @@ class S3FileSystem(FileSystem):
         s3_path = parse_s3_path(path)
         try:
             response = self.s3.get_object_attributes(
-                Bucket=s3_path.bucket, Key=s3_path.key, ObjectAttributes=["ObjectSize"]
+                Bucket=s3_path.bucket,
+                Key=s3_path.key,
+                ObjectAttributes=["ObjectSize"],
             )
             assert_ok_status(response)
             return FileInfo(path, response["ObjectSize"], is_file=True)

@@ -20,7 +20,7 @@ assert SQLGLOT_PATCHED
 def test_cooperative_timeout_sql() -> None:
     statement = sqlglot.parse_one("SELECT pg_sleep(3)", dialect="postgres")
     with pytest.raises(
-        CooperativeTimeoutError
+        CooperativeTimeoutError,
     ), PerfTimer() as timer, cooperative_timeout(timeout=0.6):
         while True:
             # sql() implicitly calls copy(), which is where we check for the timeout.
@@ -31,7 +31,7 @@ def test_cooperative_timeout_sql() -> None:
 
 def test_scope_circular_dependency() -> None:
     scope = sqlglot.optimizer.build_scope(
-        sqlglot.parse_one("WITH w AS (SELECT * FROM q) SELECT * FROM w")
+        sqlglot.parse_one("WITH w AS (SELECT * FROM q) SELECT * FROM w"),
     )
     assert scope is not None
 

@@ -73,7 +73,7 @@ class DBTCloudConfig(DBTCommonConfig):
             metadata_endpoint = infer_metadata_endpoint(values["access_url"])
             if metadata_endpoint is None:
                 raise ValueError(
-                    "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint."
+                    "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint.",
                 )
             logger.info(f"Inferred metadata endpoint: {metadata_endpoint}")
             values["metadata_endpoint"] = metadata_endpoint
@@ -290,13 +290,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
     @staticmethod
     def _send_graphql_query(
-        metadata_endpoint: str, token: str, query: str, variables: Dict
+        metadata_endpoint: str,
+        token: str,
+        query: str,
+        variables: Dict,
     ) -> Dict:
         logger.debug(f"Sending GraphQL query to dbt Cloud: {query}")
         response = requests.post(
@@ -315,7 +319,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             res = response.json()
             if "errors" in res:
                 raise ValueError(
-                    f"Unable to fetch metadata from dbt Cloud: {res['errors']}"
+                    f"Unable to fetch metadata from dbt Cloud: {res['errors']}",
                 )
             data = res["data"]
         except JSONDecodeError as e:
@@ -406,7 +410,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             status = node["status"]
             if status is None and materialization != "ephemeral":
                 self.report.report_warning(
-                    key, "node is missing a status, schema metadata will be incomplete"
+                    key,
+                    "node is missing a status, schema metadata will be incomplete",
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.
@@ -429,11 +434,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         columns = []
         if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
-            columns = list(
-                sorted(
-                    [self._parse_into_dbt_column(column) for column in node["columns"]],
-                    key=lambda c: c.index,
-                )
+            columns = sorted(
+                [self._parse_into_dbt_column(column) for column in node["columns"]],
+                key=lambda c: c.index,
             )
 
         test_info = None

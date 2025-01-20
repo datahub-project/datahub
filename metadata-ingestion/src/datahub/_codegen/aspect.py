@@ -19,7 +19,7 @@ class _Aspect(DictWrapper):
             # Ensure that it cannot be instantiated directly, as
             # per https://stackoverflow.com/a/7989101/5004662.
             raise TypeError(
-                "_Aspect is an abstract class, and cannot be instantiated directly."
+                "_Aspect is an abstract class, and cannot be instantiated directly.",
             )
         super().__init__()
 

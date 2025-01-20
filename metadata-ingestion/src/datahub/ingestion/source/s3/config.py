@@ -26,7 +26,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataLakeSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
 ):
     platform: str = Field(
         default="",
@@ -34,13 +36,15 @@ class DataLakeSourceConfig(
         "If not specified, the platform will be inferred from the path_specs.",
     )
     aws_config: Optional[AwsConnectionConfig] = Field(
-        default=None, description="AWS configuration"
+        default=None,
+        description="AWS configuration",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
-        None, description="Whether or not to create tags in datahub from the s3 bucket"
+        None,
+        description="Whether or not to create tags in datahub from the s3 bucket",
     )
     # Whether or not to create in datahub from the s3 object
     use_s3_object_tags: Optional[bool] = Field(
@@ -66,11 +70,13 @@ class DataLakeSourceConfig(
         description="regex patterns for tables to profile ",
     )
     profiling: DataLakeProfilerConfig = Field(
-        default=DataLakeProfilerConfig(), description="Data profiling configuration"
+        default=DataLakeProfilerConfig(),
+        description="Data profiling configuration",
     )
 
     spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
+        default="4g",
+        description="Max amount of memory to grant Spark.",
     )
 
     spark_config: Dict[str, Any] = Field(
@@ -97,7 +103,9 @@ class DataLakeSourceConfig(
     )
 
     _rename_path_spec_to_plural = pydantic_renamed_field(
-        "path_spec", "path_specs", lambda path_spec: [path_spec]
+        "path_spec",
+        "path_specs",
+        lambda path_spec: [path_spec],
     )
 
     sort_schema_fields: bool = Field(
@@ -112,12 +120,14 @@ class DataLakeSourceConfig(
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
+        cls,
+        path_specs: List[PathSpec],
+        values: Dict,
     ) -> List[PathSpec]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
@@ -128,7 +138,7 @@ class DataLakeSourceConfig(
         }
         if len(guessed_platforms) > 1:
             raise ValueError(
-                f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
+                f"Cannot have multiple platforms in path_specs: {guessed_platforms}",
             )
         guessed_platform = guessed_platforms.pop()
 
@@ -137,13 +147,13 @@ class DataLakeSourceConfig(
             values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags")
         ):
             raise ValueError(
-                "Cannot grab s3 object/bucket tags when platform is not s3. Remove the flag or use s3."
+                "Cannot grab s3 object/bucket tags when platform is not s3. Remove the flag or use s3.",
             )
 
         # Infer platform if not specified.
         if values.get("platform") and values["platform"] != guessed_platform:
             raise ValueError(
-                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
+                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}",
             )
         else:
             logger.debug(f'Setting config "platform": {guessed_platform}')
@@ -154,7 +164,8 @@ class DataLakeSourceConfig(
     @pydantic.validator("platform", always=True)
     def platform_valid(cls, platform: str, values: dict) -> str:
         inferred_platform = values.get(
-            "platform", None
+            "platform",
+            None,
         )  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
@@ -162,22 +173,23 @@ class DataLakeSourceConfig(
 
         if platform != "s3" and values.get("use_s3_bucket_tags"):
             raise ValueError(
-                "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3."
+                "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3.",
             )
         if platform != "s3" and values.get("use_s3_object_tags"):
             raise ValueError(
-                "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3."
+                "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3.",
             )
         if platform != "s3" and values.get("use_s3_content_type"):
             raise ValueError(
-                "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
+                "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3.",
             )
 
         return platform
 
     @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
+        cls,
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:

@@ -59,7 +59,8 @@ class IcebergProfilingConfig(ConfigModel):
 class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="Iceberg Stateful Ingestion Config."
+        default=None,
+        description="Iceberg Stateful Ingestion Config.",
     )
     # The catalog configuration is using a dictionary to be open and flexible.  All the keys and values are handled by pyiceberg.  This will future-proof any configuration change done by pyiceberg.
     catalog: Dict[str, Dict[str, Any]] = Field(
@@ -83,7 +84,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
     processing_threads: int = Field(
-        default=1, description="How many threads will be processing tables"
+        default=1,
+        description="How many threads will be processing tables",
     )
 
     @validator("catalog", pre=True, always=True)
@@ -103,7 +105,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             catalog_type = value["type"]
             catalog_config = value["config"]
             new_catalog_config = {
-                catalog_name: {"type": catalog_type, **catalog_config}
+                catalog_name: {"type": catalog_type, **catalog_config},
             }
             return new_catalog_config
         # In case the input is already the new format or is invalid
@@ -120,14 +122,14 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # Check if that dict is not empty
         if not catalog_config or not isinstance(catalog_config, dict):
             raise ValueError(
-                f"The catalog configuration for '{catalog_name}' must not be empty and should be a dictionary with at least one key-value pair."
+                f"The catalog configuration for '{catalog_name}' must not be empty and should be a dictionary with at least one key-value pair.",
             )
 
         return value
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     def get_catalog(self) -> Catalog:
@@ -142,7 +144,9 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # Retrieve the dict associated with the one catalog entry
         catalog_name, catalog_config = next(iter(self.catalog.items()))
         logger.debug(
-            "Initializing the catalog %s with config: %s", catalog_name, catalog_config
+            "Initializing the catalog %s with config: %s",
+            catalog_name,
+            catalog_config,
         )
         return load_catalog(name=catalog_name, **catalog_config)
 
@@ -190,7 +194,7 @@ class TimingClass:
                 "max_time": format_timespan(self.times[-1], detailed=True, max_units=3),
                 # total_time does not provide correct information in case we run in more than 1 thread
                 "total_time": format_timespan(total, detailed=True, max_units=3),
-            }
+            },
         )
 
 
@@ -208,11 +212,13 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     listed_namespaces: int = 0
     total_listed_tables: int = 0
     tables_listed_per_namespace: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     def report_listed_tables_for_namespace(
-        self, namespace: str, no_tables: int
+        self,
+        namespace: str,
+        no_tables: int,
     ) -> None:
         self.tables_listed_per_namespace[namespace] = no_tables
         self.total_listed_tables += no_tables
@@ -227,25 +233,46 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(ent_name)
 
     def report_table_load_time(
-        self, t: float, table_name: str, table_metadata_location: str
+        self,
+        t: float,
+        table_name: str,
+        table_metadata_location: str,
     ) -> None:
         self.load_table_timings.add_timing(t)
         self.tables_load_timings.add(
-            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+            {
+                "table": table_name,
+                "timing": t,
+                "metadata_file": table_metadata_location,
+            },
         )
 
     def report_table_processing_time(
-        self, t: float, table_name: str, table_metadata_location: str
+        self,
+        t: float,
+        table_name: str,
+        table_metadata_location: str,
     ) -> None:
         self.processing_table_timings.add_timing(t)
         self.tables_process_timings.add(
-            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+            {
+                "table": table_name,
+                "timing": t,
+                "metadata_file": table_metadata_location,
+            },
         )
 
     def report_table_profiling_time(
-        self, t: float, table_name: str, table_metadata_location: str
+        self,
+        t: float,
+        table_name: str,
+        table_metadata_location: str,
     ) -> None:
         self.profiling_table_timings.add_timing(t)
         self.tables_profile_timings.add(
-            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+            {
+                "table": table_name,
+                "timing": t,
+                "metadata_file": table_metadata_location,
+            },
         )

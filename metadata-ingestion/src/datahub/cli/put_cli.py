@@ -50,7 +50,10 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> No
 
     entity_type = guess_entity_type(urn)
     aspect_obj = load_config_file(
-        aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
+        aspect_data,
+        allow_stdin=True,
+        resolve_env_vars=False,
+        process_directives=False,
     )
 
     client = get_default_graph()
@@ -95,10 +98,16 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> No
     required=True,
 )
 @click.option(
-    "--run-id", type=str, help="Run ID into which we should log the platform."
+    "--run-id",
+    type=str,
+    help="Run ID into which we should log the platform.",
 )
 def platform(
-    ctx: click.Context, name: str, display_name: Optional[str], logo: str, run_id: str
+    ctx: click.Context,
+    name: str,
+    display_name: Optional[str],
+    logo: str,
+    run_id: str,
 ) -> None:
     """
     Create or update a dataplatform entity in DataHub
@@ -126,5 +135,5 @@ def platform(
     )
     datahub_graph.emit(mcp)
     click.echo(
-        f"✅ Successfully wrote data platform metadata for {platform_urn} to DataHub ({datahub_graph})"
+        f"✅ Successfully wrote data platform metadata for {platform_urn} to DataHub ({datahub_graph})",
     )

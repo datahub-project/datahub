@@ -61,7 +61,7 @@ def register_mock_data(workspace_client):
             "updated_by": "abc@acryl.io",
             "cloud": "aws",
             "global_metastore_id": "aws:us-west-1:2c983545-d403-4f87-9063-5b7e3b6d3736",
-        }
+        },
     )
 
     workspace_client.catalogs.list.return_value = [
@@ -77,7 +77,7 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186064332,
                 "updated_by": "abc@acryl.io",
                 "catalog_type": "MANAGED_CATALOG",
-            }
+            },
         ]
     ]
 
@@ -151,7 +151,7 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186049633,
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-            }
+            },
         ),
         databricks.sdk.service.catalog.TableInfo.from_dict(
             {
@@ -201,7 +201,7 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186049633,
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-            }
+            },
         ),
     ]
 
@@ -254,7 +254,7 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186049633,
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-            }
+            },
         )
     )
 
@@ -279,7 +279,8 @@ def register_mock_data(workspace_client):
 
 TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
 ViewEntry = namedtuple(
-    "ViewEntry", ["namespace", "viewName", "isTemporary", "isMaterialized"]
+    "ViewEntry",
+    ["namespace", "viewName", "isTemporary", "isMaterialized"],
 )
 
 
@@ -406,13 +407,13 @@ def mock_hive_sql(query):
         ]
     elif query == "DESCRIBE EXTENDED `bronze_kambi`.`delta_error_table`":
         raise Exception(
-            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table."
+            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table.",
         )
     elif query == "SHOW CREATE TABLE `bronze_kambi`.`view1`":
         return [
             (
                 "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
-            )
+            ),
         ]
     elif query == "SHOW TABLES FROM `bronze_kambi`":
         return [
@@ -436,9 +437,10 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
     output_file_name = "unity_catalog_mcps.json"
 
     with patch(
-        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
+        "datahub.ingestion.source.unity.proxy.WorkspaceClient",
     ) as mock_client, patch.object(
-        HiveMetastoreProxy, "get_inspector"
+        HiveMetastoreProxy,
+        "get_inspector",
     ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client

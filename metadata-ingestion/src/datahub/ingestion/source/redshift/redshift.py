@@ -315,7 +315,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
@@ -334,7 +335,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.domain_registry = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=list(self.config.domain.keys()), graph=self.ctx.graph
+                cached_domains=list(self.config.domain.keys()),
+                graph=self.ctx.graph,
             )
 
         self.redundant_lineage_run_skip_handler: Optional[
@@ -358,7 +360,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.data_dictionary = RedshiftDataDictionary(
-            is_serverless=self.config.is_serverless
+            is_serverless=self.config.is_serverless,
         )
 
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
@@ -408,10 +410,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
+                auto_incremental_lineage,
+                self.config.incremental_lineage,
             ),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -432,11 +437,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         # TODO: Ideally, we'd push down exception handling to the place where the connection is used, as opposed to keeping
         # this fallback. For now, this gets us broad coverage quickly.
         yield from handle_redshift_exceptions_yield(
-            self.report, self._extract_metadata, connection, database
+            self.report,
+            self._extract_metadata,
+            connection,
+            database,
         )
 
     def _extract_metadata(
-        self, connection: redshift_connector.Connection, database: str
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from self.gen_database_container(
             database=database,
@@ -445,10 +455,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.cache_tables_and_views(connection, database)
 
         self.report.tables_in_mem_size[database] = humanfriendly.format_size(
-            memory_footprint.total_size(self.db_tables)
+            memory_footprint.total_size(self.db_tables),
         )
         self.report.views_in_mem_size[database] = humanfriendly.format_size(
-            memory_footprint.total_size(self.db_views)
+            memory_footprint.total_size(self.db_views),
         )
 
         if self.config.use_lineage_v2:
@@ -460,7 +470,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
             ) as lineage_extractor:
                 yield from lineage_extractor.aggregator.register_schemas_from_stream(
-                    self.process_schemas(connection, database)
+                    self.process_schemas(connection, database),
                 )
 
                 with self.report.new_stage(LINEAGE_EXTRACTION):
@@ -483,13 +493,17 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     yield from self.extract_lineage(
-                        connection=connection, all_tables=all_tables, database=database
+                        connection=connection,
+                        all_tables=all_tables,
+                        database=database,
                     )
 
         if self.config.include_usage_statistics:
             with self.report.new_stage(USAGE_EXTRACTION_INGESTION):
                 yield from self.extract_usage(
-                    connection=connection, all_tables=all_tables, database=database
+                    connection=connection,
+                    all_tables=all_tables,
+                    database=database,
                 )
 
         if self.config.is_profiling_enabled():
@@ -503,7 +517,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_schemas(self, connection, database):
         for schema in self.data_dictionary.get_schemas(
-            conn=connection, database=database
+            conn=connection,
+            database=database,
         ):
             if not is_schema_allowed(
                 self.config.schema_pattern,
@@ -563,7 +578,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
-                conn=connection, schema=schema
+                conn=connection,
+                schema=schema,
             )
 
             if self.config.include_tables:
@@ -577,7 +593,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         table.columns = schema_columns[schema.name].get(table.name, [])
                         table.column_count = len(table.columns)
                         table_wu_generator = self._process_table(
-                            table, database=database
+                            table,
+                            database=database,
                         )
                         yield from classification_workunit_processor(
                             table_wu_generator,
@@ -587,12 +604,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         )
                         self.report.table_processed[report_key] = (
                             self.report.table_processed.get(
-                                f"{database}.{schema.name}", 0
+                                f"{database}.{schema.name}",
+                                0,
                             )
                             + 1
                         )
                         logger.debug(
-                            f"Table processed: {schema.database}.{schema.name}.{table.name}"
+                            f"Table processed: {schema.database}.{schema.name}.{table.name}",
                         )
                 else:
                     self.report.info(
@@ -613,17 +631,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         view.columns = schema_columns[schema.name].get(view.name, [])
                         view.column_count = len(view.columns)
                         yield from self._process_view(
-                            table=view, database=database, schema=schema
+                            table=view,
+                            database=database,
+                            schema=schema,
                         )
 
                         self.report.view_processed[report_key] = (
                             self.report.view_processed.get(
-                                f"{database}.{schema.name}", 0
+                                f"{database}.{schema.name}",
+                                0,
                             )
                             + 1
                         )
                         logger.debug(
-                            f"Table processed: {schema.database}.{schema.name}.{view.name}"
+                            f"Table processed: {schema.database}.{schema.name}.{view.name}",
                         )
                 else:
                     self.report.info(
@@ -635,7 +656,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info("View processing disabled, skipping")
 
             self.report.metadata_extraction_sec[report_key] = timer.elapsed_seconds(
-                digits=2
+                digits=2,
             )
 
     def _process_table(
@@ -652,11 +673,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         yield from self.gen_table_dataset_workunits(
-            table, database=database, dataset_name=datahub_dataset_name
+            table,
+            database=database,
+            dataset_name=datahub_dataset_name,
         )
 
     def _process_view(
-        self, table: RedshiftView, database: str, schema: RedshiftSchema
+        self,
+        table: RedshiftView,
+        database: str,
+        schema: RedshiftSchema,
     ) -> Iterable[MetadataWorkUnit]:
         datahub_dataset_name = f"{database}.{schema.name}.{table.name}"
 
@@ -735,7 +761,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 viewLogic=view.ddl,
             )
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=view_properties_aspect
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
             ).as_workunit()
 
     # TODO: Remove to common?
@@ -788,7 +815,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             fields=self.gen_schema_fields(table.columns),
         )
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=schema_metadata
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
         ).as_workunit()
 
     def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
@@ -812,7 +840,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
         yield from self.gen_schema_metadata(
-            dataset_urn, table, str(datahub_dataset_name)
+            dataset_urn,
+            table,
+            str(datahub_dataset_name),
         )
 
         dataset_properties = DatasetProperties(
@@ -835,15 +865,18 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             # TODO: use auto_incremental_properties workunit processor instead
             # Deprecate use of patch_custom_properties
             patch_builder = create_dataset_props_patch_builder(
-                dataset_urn, dataset_properties
+                dataset_urn,
+                dataset_properties,
             )
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}",
+                    mcp_raw=patch_mcp,
                 )
         else:
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=dataset_properties
+                entityUrn=dataset_urn,
+                aspect=dataset_properties,
             ).as_workunit()
 
         # TODO: Check if needed
@@ -872,7 +905,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         subTypes = SubTypes(typeNames=[sub_type])
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=subTypes
+            entityUrn=dataset_urn,
+            aspect=subTypes,
         ).as_workunit()
 
         if self.domain_registry:
@@ -896,14 +930,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.match_fully_qualified_names,
             ):
                 logger.debug(
-                    f"Not caching table for schema {database}.{schema} which is not allowed by schema_pattern"
+                    f"Not caching table for schema {database}.{schema} which is not allowed by schema_pattern",
                 )
                 continue
 
             self.db_tables[database][schema] = []
             for table in tables[schema]:
                 if self.config.table_pattern.allowed(
-                    f"{database}.{schema}.{table.name}"
+                    f"{database}.{schema}.{table.name}",
                 ):
                     self.db_tables[database][schema].append(table)
                     self.report.table_cached[f"{database}.{schema}"] = (
@@ -911,7 +945,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     logger.debug(
-                        f"Table {database}.{schema}.{table.name} is filtered by table_pattern"
+                        f"Table {database}.{schema}.{table.name} is filtered by table_pattern",
                     )
                     self.report.table_filtered[f"{database}.{schema}"] = (
                         self.report.table_filtered.get(f"{database}.{schema}", 0) + 1
@@ -925,7 +959,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.match_fully_qualified_names,
             ):
                 logger.debug(
-                    f"Not caching views for schema {database}.{schema} which is not allowed by schema_pattern"
+                    f"Not caching views for schema {database}.{schema} which is not allowed by schema_pattern",
                 )
                 continue
 
@@ -938,7 +972,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     logger.debug(
-                        f"View {database}.{schema}.{view.name} is filtered by view_pattern"
+                        f"View {database}.{schema}.{view.name} is filtered by view_pattern",
                     )
                     self.report.view_filtered[f"{database}.{schema}"] = (
                         self.report.view_filtered.get(f"{database}.{schema}", 0) + 1
@@ -1007,20 +1041,24 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         with PerfTimer() as timer:
             lineage_extractor.populate_lineage(
-                database=database, connection=connection, all_tables=all_tables
+                database=database,
+                connection=connection,
+                all_tables=all_tables,
             )
 
             self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
-                digits=2
+                digits=2,
             )
             yield from self.generate_lineage(
-                database, lineage_extractor=lineage_extractor
+                database,
+                lineage_extractor=lineage_extractor,
             )
 
             if self.redundant_lineage_run_skip_handler:
                 # Update the checkpoint state for this run.
                 self.redundant_lineage_run_skip_handler.update_state(
-                    self.config.start_time, self.config.end_time
+                    self.config.start_time,
+                    self.config.end_time,
                 )
 
     def extract_lineage_v2(
@@ -1036,19 +1074,22 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             all_tables = self.get_all_tables()
 
             lineage_extractor.build(
-                connection=connection, all_tables=all_tables, db_schemas=self.db_schemas
+                connection=connection,
+                all_tables=all_tables,
+                db_schemas=self.db_schemas,
             )
 
             yield from lineage_extractor.generate()
 
             self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
-                digits=2
+                digits=2,
             )
 
         if self.redundant_lineage_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_lineage_run_skip_handler.update_state(
-                lineage_extractor.start_time, lineage_extractor.end_time
+                lineage_extractor.start_time,
+                lineage_extractor.end_time,
             )
 
     def _should_ingest_lineage(self) -> bool:
@@ -1069,18 +1110,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         return True
 
     def generate_lineage(
-        self, database: str, lineage_extractor: RedshiftLineageExtractor
+        self,
+        database: str,
+        lineage_extractor: RedshiftLineageExtractor,
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
         for schema in deduplicate_list(
-            itertools.chain(self.db_tables[database], self.db_views[database])
+            itertools.chain(self.db_tables[database], self.db_views[database]),
         ):
             if (
                 database not in self.db_schemas
                 or schema not in self.db_schemas[database]
             ):
                 logger.warning(
-                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
+                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong.",
                 )
                 continue
 

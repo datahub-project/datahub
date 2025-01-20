@@ -40,7 +40,9 @@ FROZEN_TIME = "2021-07-22 18:54:06"
     ],
 )
 def test_serde_to_json(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path, json_filename: str
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+    json_filename: str,
 ) -> None:
     golden_file = pytestconfig.rootpath / json_filename
     output_file = tmp_path / "output.json"
@@ -50,7 +52,7 @@ def test_serde_to_json(
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
             "run_id": "serde_test",
-        }
+        },
     )
     pipeline.run()
     pipeline.raise_from_status()
@@ -81,13 +83,14 @@ def test_serde_to_avro(
     with patch("datahub.ingestion.api.common.PipelineContext") as mock_pipeline_context:
         json_path = pytestconfig.rootpath / json_filename
         source = GenericFileSource(
-            ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))
+            ctx=mock_pipeline_context,
+            config=FileSourceConfig(path=str(json_path)),
         )
         mces = list(source.iterate_mce_file(str(json_path)))
 
         # Serialize to Avro.
         parsed_schema = fastavro.parse_schema(
-            json.loads(getMetadataChangeEventSchema())
+            json.loads(getMetadataChangeEventSchema()),
         )
         fo = io.BytesIO()
         out_records = [mce.to_obj(tuples=True) for mce in mces]
@@ -132,7 +135,8 @@ def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) 
 
 
 def test_check_metadata_rewrite(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
 ) -> None:
     json_input = (
         pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_input.json"
@@ -144,11 +148,13 @@ def test_check_metadata_rewrite(
     output_file_path = tmp_path / "output.json"
     shutil.copyfile(json_input, output_file_path)
     run_datahub_cmd(
-        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"]
+        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"],
     )
 
     mce_helpers.check_golden_file(
-        pytestconfig, output_path=output_file_path, golden_path=json_output_reference
+        pytestconfig,
+        output_path=output_file_path,
+        golden_path=json_output_reference,
     )
 
 
@@ -160,7 +166,8 @@ def test_check_metadata_rewrite(
     ],
 )
 def test_check_mce_schema_failure(
-    pytestconfig: pytest.Config, json_filename: str
+    pytestconfig: pytest.Config,
+    json_filename: str,
 ) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
@@ -189,7 +196,9 @@ def test_field_discriminator() -> None:
 def test_type_error() -> None:
     dataflow = models.DataFlowSnapshotClass(
         urn=mce_builder.make_data_flow_urn(
-            orchestrator="argo", flow_id="42", cluster="DEV"
+            orchestrator="argo",
+            flow_id="42",
+            cluster="DEV",
         ),
         aspects=[
             models.DataFlowInfoClass(
@@ -198,7 +207,7 @@ def test_type_error() -> None:
                 externalUrl="http://example.com",
                 # This is a type error - custom properties should be a Dict[str, str].
                 customProperties={"x": 1},  # type: ignore
-            )
+            ),
         ],
     )
 
@@ -237,10 +246,10 @@ def test_missing_optional_simple() -> None:
                         "condition": "EQUALS",
                         "field": "TYPE",
                         "values": ["notebook", "dataset", "dashboard"],
-                    }
-                ]
+                    },
+                ],
             },
-        }
+        },
     )
 
     # This one is missing the optional filters.allResources field.
@@ -251,8 +260,8 @@ def test_missing_optional_simple() -> None:
                     "condition": "EQUALS",
                     "field": "TYPE",
                     "values": ["notebook", "dataset", "dashboard"],
-                }
-            ]
+                },
+            ],
         },
     }
     revised = models.DataHubResourceFilterClass.from_obj(revised_obj)
@@ -264,13 +273,13 @@ def test_missing_optional_simple() -> None:
 def test_missing_optional_in_union() -> None:
     # This one doesn't contain any optional fields and should work fine.
     revised_json = json.loads(
-        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}',
     )
     revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
 
     # This one is missing the optional filters.allResources field.
     original_json = json.loads(
-        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}',
     )
     original = models.DataHubPolicyInfoClass.from_obj(original_json)
 
@@ -286,9 +295,9 @@ def test_reserved_keywords() -> None:
             models.ConjunctiveCriterionClass(
                 and_=[
                     models.CriterionClass(field="foo", value="var", negated=True),
-                ]
-            )
-        ]
+                ],
+            ),
+        ],
     )
     assert "or" in filter2.to_obj()
 
@@ -302,13 +311,15 @@ def test_read_empty_dict() -> None:
     model = models.AssertionResultClass.from_obj(json.loads(original))
     assert model.nativeResults == {}
     assert model == models.AssertionResultClass(
-        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+        type=models.AssertionResultTypeClass.SUCCESS,
+        nativeResults={},
     )
 
 
 def test_write_optional_empty_dict() -> None:
     model = models.AssertionResultClass(
-        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+        type=models.AssertionResultTypeClass.SUCCESS,
+        nativeResults={},
     )
     assert model.nativeResults == {}
 
@@ -329,7 +340,7 @@ def test_write_optional_empty_dict() -> None:
                             fieldDiscriminator=models.CostCostDiscriminatorClass.costCode,
                             costCode="sampleCostCode",
                         ),
-                    )
+                    ),
                 ],
             ),
             {
@@ -339,8 +350,8 @@ def test_write_optional_empty_dict() -> None:
                         "com.linkedin.common.Cost": {
                             "costType": "ORG_COST_TYPE",
                             "cost": {"costCode": "sampleCostCode"},
-                        }
-                    }
+                        },
+                    },
                 ],
             },
         ),

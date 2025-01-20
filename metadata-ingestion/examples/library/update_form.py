@@ -31,9 +31,10 @@ def get_emitter() -> Union[DataHubRestEmitter, DatahubKafkaEmitter]:
         return DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
-                    bootstrap=kafka_server, schema_registry_url=schema_registry_url
-                )
-            )
+                    bootstrap=kafka_server,
+                    schema_registry_url=schema_registry_url,
+                ),
+            ),
         )
 
 
@@ -46,7 +47,7 @@ new_prompt = FormPromptClass(
     title="title",
     type=FormPromptTypeClass.STRUCTURED_PROPERTY,
     structuredPropertyParams=StructuredPropertyParamsClass(
-        "urn:li:structuredProperty:io.acryl.test"
+        "urn:li:structuredProperty:io.acryl.test",
     ),
     required=True,
 )
@@ -55,7 +56,7 @@ new_prompt2 = FormPromptClass(
     title="title",
     type=FormPromptTypeClass.FIELDS_STRUCTURED_PROPERTY,
     structuredPropertyParams=StructuredPropertyParamsClass(
-        "urn:li:structuredProperty:io.acryl.test"
+        "urn:li:structuredProperty:io.acryl.test",
     ),
     required=True,
 )
@@ -65,8 +66,9 @@ with get_emitter() as emitter:
         FormPatchBuilder(str(form_urn))
         .add_owner(
             OwnerClass(
-                owner="urn:li:corpuser:jdoe", type=OwnershipTypeClass.TECHNICAL_OWNER
-            )
+                owner="urn:li:corpuser:jdoe",
+                type=OwnershipTypeClass.TECHNICAL_OWNER,
+            ),
         )
         .set_name("New Name")
         .set_description("New description here")

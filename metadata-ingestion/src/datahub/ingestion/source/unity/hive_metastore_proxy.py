@@ -68,7 +68,10 @@ class HiveMetastoreProxy(Closeable):
     """
 
     def __init__(
-        self, sqlalchemy_url: str, options: dict, report: UnityCatalogReport
+        self,
+        sqlalchemy_url: str,
+        options: dict,
+        report: UnityCatalogReport,
     ) -> None:
         try:
             self.inspector = HiveMetastoreProxy.get_inspector(sqlalchemy_url, options)
@@ -125,10 +128,12 @@ class HiveMetastoreProxy(Closeable):
             return [row.tableName for row in rows]
         except Exception as e:
             self.report.report_warning(
-                "Failed to get tables for schema", f"{HIVE_METASTORE}.{schema_name}"
+                "Failed to get tables for schema",
+                f"{HIVE_METASTORE}.{schema_name}",
             )
             logger.warning(
-                f"Failed to get tables {schema_name} due to {e}", exc_info=True
+                f"Failed to get tables {schema_name} due to {e}",
+                exc_info=True,
             )
         return []
 
@@ -140,7 +145,8 @@ class HiveMetastoreProxy(Closeable):
         except Exception as e:
             self.report.report_warning("Failed to get views for schema", schema_name)
             logger.warning(
-                f"Failed to get views {schema_name} due to {e}", exc_info=True
+                f"Failed to get views {schema_name} due to {e}",
+                exc_info=True,
             )
         return []
 
@@ -156,7 +162,7 @@ class HiveMetastoreProxy(Closeable):
         comment = detailed_info.pop("Comment", None)
         storage_location = detailed_info.pop("Location", None)
         datasource_format = self._get_datasource_format(
-            detailed_info.pop("Provider", None)
+            detailed_info.pop("Provider", None),
         )
 
         created_at = self._get_created_at(detailed_info.pop("Created Time", None))
@@ -184,7 +190,9 @@ class HiveMetastoreProxy(Closeable):
         )
 
     def get_table_profile(
-        self, ref: TableReference, include_column_stats: bool = False
+        self,
+        ref: TableReference,
+        include_column_stats: bool = False,
     ) -> Optional[TableProfile]:
         columns = self._get_columns(
             ref.schema,
@@ -220,7 +228,9 @@ class HiveMetastoreProxy(Closeable):
         )
 
     def _get_column_profile(
-        self, column: str, ref: TableReference
+        self,
+        column: str,
+        ref: TableReference,
     ) -> Optional[ColumnProfile]:
         try:
             props = self._column_describe_extended(ref.schema, ref.table, column)
@@ -267,7 +277,8 @@ class HiveMetastoreProxy(Closeable):
         )
 
     def _get_datasource_format(
-        self, provider: Optional[str]
+        self,
+        provider: Optional[str],
     ) -> Optional[DataSourceFormat]:
         raw_format = provider
         if raw_format:
@@ -281,7 +292,7 @@ class HiveMetastoreProxy(Closeable):
     def _get_view_definition(self, schema_name: str, table_name: str) -> Optional[str]:
         try:
             rows = self._execute_sql(
-                f"SHOW CREATE TABLE `{schema_name}`.`{table_name}`"
+                f"SHOW CREATE TABLE `{schema_name}`.`{table_name}`",
             )
             for row in rows:
                 return row[0]
@@ -370,7 +381,7 @@ class HiveMetastoreProxy(Closeable):
                         position=None,
                         nullable=None,
                         comment=row[2],
-                    )
+                    ),
                 )
         except Exception as e:
             self.report.report_warning(
@@ -392,14 +403,17 @@ class HiveMetastoreProxy(Closeable):
         return self._execute_sql(f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}`")
 
     def _column_describe_extended(
-        self, schema_name: str, table_name: str, column_name: str
+        self,
+        schema_name: str,
+        table_name: str,
+        column_name: str,
     ) -> List[Row]:
         """
         Rows are structured as shown in examples here
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
         """
         return self._execute_sql(
-            f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}"
+            f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}",
         )
 
     def _execute_sql(self, sql: str) -> List[Row]:

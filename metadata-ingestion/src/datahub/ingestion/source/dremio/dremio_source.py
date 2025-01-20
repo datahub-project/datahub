@@ -205,7 +205,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
                     datahub_source_type = (
                         DremioToDataHubSourceTypeMapping.get_datahub_source_type(
-                            source_type
+                            source_type,
                         )
                     )
 
@@ -233,11 +233,12 @@ class DremioSource(StatefulIngestionSourceBase):
                     except Exception as exc:
                         logger.info(
                             f"Source {source_type} is not a standard Dremio source type. "
-                            f"Adding source_type {source_type} to mapping as database. Error: {exc}"
+                            f"Adding source_type {source_type} to mapping as database. Error: {exc}",
                         )
 
                         DremioToDataHubSourceTypeMapping.add_mapping(
-                            source_type, source_name
+                            source_type,
+                            source_name,
                         )
                         dremio_source_type = (
                             DremioToDataHubSourceTypeMapping.get_category(source_type)
@@ -251,10 +252,10 @@ class DremioSource(StatefulIngestionSourceBase):
 
             else:
                 logger.error(
-                    f'Source "{source.container_name}" is broken. Containers will not be created for source.'
+                    f'Source "{source.container_name}" is broken. Containers will not be created for source.',
                 )
                 logger.error(
-                    f'No new cross-platform lineage will be emitted for source "{source.container_name}".'
+                    f'No new cross-platform lineage will be emitted for source "{source.container_name}".',
                 )
                 logger.error("Fix this source in Dremio to fix this issue.")
 
@@ -264,7 +265,9 @@ class DremioSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -281,7 +284,7 @@ class DremioSource(StatefulIngestionSourceBase):
             try:
                 yield from self.process_container(container)
                 logger.info(
-                    f"Dremio container {container.container_name} emitted successfully"
+                    f"Dremio container {container.container_name} emitted successfully",
                 )
             except Exception as exc:
                 self.report.num_containers_failed += 1  # Increment failed containers
@@ -298,7 +301,7 @@ class DremioSource(StatefulIngestionSourceBase):
             try:
                 yield from self.process_dataset(dataset_info)
                 logger.info(
-                    f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
+                    f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully",
                 )
             except Exception as exc:
                 self.report.num_datasets_failed += 1  # Increment failed datasets
@@ -333,7 +336,7 @@ class DremioSource(StatefulIngestionSourceBase):
         # Profiling
         if self.config.is_profiling_enabled():
             with ThreadPoolExecutor(
-                max_workers=self.config.profiling.max_workers
+                max_workers=self.config.profiling.max_workers,
             ) as executor:
                 future_to_dataset = {
                     executor.submit(self.generate_profiles, dataset): dataset
@@ -355,21 +358,25 @@ class DremioSource(StatefulIngestionSourceBase):
                         )
 
     def process_container(
-        self, container_info: DremioContainer
+        self,
+        container_info: DremioContainer,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Process a Dremio container and generate metadata workunits.
         """
         container_urn = self.dremio_aspects.get_container_urn(
-            path=container_info.path, name=container_info.container_name
+            path=container_info.path,
+            name=container_info.container_name,
         )
 
         yield from self.dremio_aspects.populate_container_mcp(
-            container_urn, container_info
+            container_urn,
+            container_info,
         )
 
     def process_dataset(
-        self, dataset_info: DremioDataset
+        self,
+        dataset_info: DremioDataset,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Process a Dremio dataset and generate metadata workunits.
@@ -392,12 +399,14 @@ class DremioSource(StatefulIngestionSourceBase):
         )
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
-            dataset_urn, dataset_info
+            dataset_urn,
+            dataset_info,
         ):
             yield dremio_mcp
             # Check if the emitted aspect is SchemaMetadataClass
             if isinstance(
-                dremio_mcp.metadata, MetadataChangeProposalWrapper
+                dremio_mcp.metadata,
+                MetadataChangeProposalWrapper,
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
@@ -438,8 +447,8 @@ class DremioSource(StatefulIngestionSourceBase):
                             UpstreamClass(
                                 dataset=upstream_urn,
                                 type=DatasetLineageTypeClass.COPY,
-                            )
-                        ]
+                            ),
+                        ],
                     )
                     mcp = MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn,
@@ -453,7 +462,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_glossary_term(
-        self, glossary_term_info: DremioGlossaryTerm
+        self,
+        glossary_term_info: DremioGlossaryTerm,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Process a Dremio container and generate metadata workunits.
@@ -462,7 +472,8 @@ class DremioSource(StatefulIngestionSourceBase):
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
     def generate_profiles(
-        self, dataset_info: DremioDataset
+        self,
+        dataset_info: DremioDataset,
     ) -> Iterable[MetadataWorkUnit]:
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
@@ -476,7 +487,9 @@ class DremioSource(StatefulIngestionSourceBase):
             yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
     def generate_view_lineage(
-        self, dataset_urn: str, parents: List[str]
+        self,
+        dataset_urn: str,
+        parents: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate lineage information for views.
@@ -498,7 +511,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     type=DatasetLineageTypeClass.VIEW,
                 )
                 for upstream_urn in upstream_urns
-            ]
+            ],
         )
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -580,7 +593,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 timestamp=query.submitted_ts,
                 user=CorpUserUrn(username=query.username),
                 default_db=self.default_db,
-            )
+            ),
         )
 
     def _map_dremio_dataset_to_urn(
@@ -601,7 +614,8 @@ class DremioSource(StatefulIngestionSourceBase):
             return None
 
         platform_instance = mapping.get(
-            "platform_instance", self.config.platform_instance
+            "platform_instance",
+            self.config.platform_instance,
         )
         env = mapping.get("env", self.config.env)
 

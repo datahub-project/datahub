@@ -116,7 +116,7 @@ class LineageItem:
             if c.downstream.column in existing_cll:
                 # Merge using upstream + column name as the merge key.
                 existing_cll[c.downstream.column].upstreams = deduplicate_list(
-                    [*existing_cll[c.downstream.column].upstreams, *c.upstreams]
+                    [*existing_cll[c.downstream.column].upstreams, *c.upstreams],
                 )
             else:
                 # New output column, just add it as is.
@@ -177,7 +177,9 @@ class RedshiftLineageExtractor:
         self.temp_tables: Dict[str, TempTableRow] = {}
 
     def _init_temp_table_schema(
-        self, database: str, temp_tables: List[TempTableRow]
+        self,
+        database: str,
+        temp_tables: List[TempTableRow],
     ) -> None:
         if self.context.graph is None:  # to silent lint
             return
@@ -192,7 +194,7 @@ class RedshiftLineageExtractor:
         # prepare dataset_urn vs List of schema fields
         for table in temp_tables:
             logger.debug(
-                f"Processing temp table: {table.create_command} with query text {table.query_text}"
+                f"Processing temp table: {table.create_command} with query text {table.query_text}",
             )
             result = sqlglot_l.create_lineage_sql_parsed_result(
                 platform=LineageDatasetPlatform.REDSHIFT.value,
@@ -232,7 +234,7 @@ class RedshiftLineageExtractor:
             if downstream_urn not in dataset_vs_columns:
                 dataset_vs_columns[downstream_urn] = []
             dataset_vs_columns[downstream_urn].extend(
-                sqlglot_l.infer_output_schema(table.parsed_result) or []
+                sqlglot_l.infer_output_schema(table.parsed_result) or [],
             )
 
         # Add datasets, and it's respective fields in schema_resolver, so that later schema_resolver would be able
@@ -244,7 +246,7 @@ class RedshiftLineageExtractor:
                 schema_metadata=SchemaMetadata(
                     schemaName=table_name,
                     platform=builder.make_data_platform_urn(
-                        LineageDatasetPlatform.REDSHIFT.value
+                        LineageDatasetPlatform.REDSHIFT.value,
                     ),
                     version=0,
                     hash="",
@@ -257,7 +259,8 @@ class RedshiftLineageExtractor:
         if self.redundant_run_skip_handler:
             self.report.stateful_lineage_ingestion_enabled = True
             return self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
         else:
             return self.config.start_time, self.config.end_time
@@ -279,7 +282,7 @@ class RedshiftLineageExtractor:
             ):
                 self.report.num_lineage_dropped_s3_path += 1
                 logger.debug(
-                    f"Skipping s3 path {path} as it does not match any path spec."
+                    f"Skipping s3 path {path} as it does not match any path spec.",
                 )
                 return None
 
@@ -313,7 +316,7 @@ class RedshiftLineageExtractor:
             return sources, None
         elif parsed_result.debug_info.table_error:
             logger.debug(
-                f"native query parsing failed for {query} with error: {parsed_result.debug_info.table_error}"
+                f"native query parsing failed for {query} with error: {parsed_result.debug_info.table_error}",
             )
             return sources, None
 
@@ -339,7 +342,7 @@ class RedshiftLineageExtractor:
         path = filename.strip()
         if urlparse(path).scheme != "s3":
             raise ValueError(
-                f"Only s3 source supported with copy/unload. The source was: {path}"
+                f"Only s3 source supported with copy/unload. The source was: {path}",
             )
         s3_path = self._get_s3_path(path)
         return strip_s3_prefix(s3_path) if s3_path else None
@@ -369,7 +372,7 @@ class RedshiftLineageExtractor:
                 sources, cll = self._get_sources_from_query(db_name=db_name, query=ddl)
             except Exception as e:
                 logger.warning(
-                    f"Error parsing query {ddl} for getting lineage. Error was {e}."
+                    f"Error parsing query {ddl} for getting lineage. Error was {e}.",
                 )
                 self.report.num_lineage_dropped_query_parser += 1
         else:
@@ -378,7 +381,7 @@ class RedshiftLineageExtractor:
                 path = filename.strip()
                 if urlparse(path).scheme != "s3":
                     logger.warning(
-                        "Only s3 source supported with copy. The source was: {path}."
+                        "Only s3 source supported with copy. The source was: {path}.",
                     )
                     self.report.num_lineage_dropped_not_support_copy_path += 1
                     return [], None
@@ -413,7 +416,7 @@ class RedshiftLineageExtractor:
                 LineageDataset(
                     platform=platform,
                     urn=urn,
-                )
+                ),
             ]
 
         return sources, cll
@@ -448,7 +451,8 @@ class RedshiftLineageExtractor:
             alias_db_name = self.config.database
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                conn=connection, query=query
+                conn=connection,
+                query=query,
             ):
                 target = self._get_target_lineage(
                     alias_db_name,
@@ -460,7 +464,7 @@ class RedshiftLineageExtractor:
                     continue
 
                 logger.debug(
-                    f"Processing {lineage_type.name} lineage row: {lineage_row}"
+                    f"Processing {lineage_type.name} lineage row: {lineage_row}",
                 )
 
                 sources, cll = self._get_sources(
@@ -481,20 +485,21 @@ class RedshiftLineageExtractor:
                         alias_db_name=alias_db_name,
                         raw_db_name=raw_db_name,
                         connection=connection,
-                    )
+                    ),
                 )
                 target.cll = cll
 
                 # Merging upstreams if dataset already exists and has upstreams
                 if target.dataset.urn in self._lineage_map:
                     self._lineage_map[target.dataset.urn].merge_lineage(
-                        upstreams=target.upstreams, cll=target.cll
+                        upstreams=target.upstreams,
+                        cll=target.cll,
                     )
                 else:
                     self._lineage_map[target.dataset.urn] = target
 
                 logger.debug(
-                    f"Lineage[{target}]:{self._lineage_map[target.dataset.urn]}"
+                    f"Lineage[{target}]:{self._lineage_map[target.dataset.urn]}",
                 )
         except Exception as e:
             self.warn(
@@ -505,7 +510,8 @@ class RedshiftLineageExtractor:
             self.report_status(f"extract-{lineage_type.name}", False)
 
     def _update_lineage_map_for_table_renames(
-        self, table_renames: Dict[str, TableRename]
+        self,
+        table_renames: Dict[str, TableRename],
     ) -> None:
         if not table_renames:
             return
@@ -517,7 +523,7 @@ class RedshiftLineageExtractor:
             prev_table_lineage = self._lineage_map.get(entry.original_urn)
             if prev_table_lineage:
                 logger.debug(
-                    f"including lineage for {entry.original_urn} in {entry.new_urn} due to table rename"
+                    f"including lineage for {entry.original_urn} in {entry.new_urn} due to table rename",
                 )
                 self._lineage_map[entry.new_urn].merge_lineage(
                     upstreams=prev_table_lineage.upstreams,
@@ -539,7 +545,7 @@ class RedshiftLineageExtractor:
             if (
                 not self.config.schema_pattern.allowed(lineage_row.target_schema)
                 or not self.config.table_pattern.allowed(
-                    f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+                    f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}",
                 )
             ) and not (
                 # We also check the all_tables_set, since this might be a renamed table
@@ -649,7 +655,7 @@ class RedshiftLineageExtractor:
 
             logger.debug(
                 f"Number of permanent datasets found for {target_table} = {number_of_permanent_dataset_found} in "
-                f"temp tables {probable_temp_tables}"
+                f"temp tables {probable_temp_tables}",
             )
 
         return target_source
@@ -743,11 +749,13 @@ class RedshiftLineageExtractor:
         self._update_lineage_map_for_table_renames(table_renames=table_renames)
 
         self.report.lineage_mem_size[self.config.database] = humanfriendly.format_size(
-            memory_footprint.total_size(self._lineage_map)
+            memory_footprint.total_size(self._lineage_map),
         )
 
     def make_fine_grained_lineage_class(
-        self, lineage_item: LineageItem, dataset_urn: str
+        self,
+        lineage_item: LineageItem,
+        dataset_urn: str,
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages: List[FineGrainedLineage] = []
 
@@ -781,7 +789,7 @@ class RedshiftLineageExtractor:
                     downstreams=downstream,
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=upstreams,
-                )
+                ),
             )
 
         logger.debug(f"Created fine_grained_lineage for {dataset_urn}")
@@ -865,7 +873,8 @@ class RedshiftLineageExtractor:
         )
 
         for rename_row in RedshiftDataDictionary.get_alter_table_commands(
-            connection, query
+            connection,
+            query,
         ):
             # Redshift's system table has some issues where it encodes newlines as \n instead a proper
             # newline character. This can cause issues in our parser.
@@ -895,7 +904,10 @@ class RedshiftLineageExtractor:
             )
 
             table_renames[new_urn] = TableRename(
-                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+                prev_urn,
+                new_urn,
+                query_text,
+                timestamp=rename_row.start_time,
             )
 
             # We want to generate lineage for the previous name too.
@@ -905,7 +917,8 @@ class RedshiftLineageExtractor:
         return table_renames, all_tables
 
     def get_temp_tables(
-        self, connection: redshift_connector.Connection
+        self,
+        connection: redshift_connector.Connection,
     ) -> Iterable[TempTableRow]:
         ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
@@ -921,14 +934,16 @@ class RedshiftLineageExtractor:
             yield row
 
     def find_temp_tables(
-        self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]
+        self,
+        temp_table_rows: List[TempTableRow],
+        temp_table_names: List[str],
     ) -> List[TempTableRow]:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
             prefixes = self.queries.get_temp_table_clause(table_name)
             prefixes.extend(
-                self.queries.get_temp_table_clause(table_name.split(".")[-1])
+                self.queries.get_temp_table_clause(table_name.split(".")[-1]),
             )
 
             for row in temp_table_rows:
@@ -940,7 +955,9 @@ class RedshiftLineageExtractor:
         return matched_temp_tables
 
     def resolve_column_refs(
-        self, column_refs: List[sqlglot_l.ColumnRef], depth: int = 0
+        self,
+        column_refs: List[sqlglot_l.ColumnRef],
+        depth: int = 0,
     ) -> List[sqlglot_l.ColumnRef]:
         """
         This method resolves the column reference to the original column reference.
@@ -955,7 +972,7 @@ class RedshiftLineageExtractor:
 
         if depth >= max_depth:
             logger.warning(
-                f"Max depth reached for resolving temporary columns: {column_refs}"
+                f"Max depth reached for resolving temporary columns: {column_refs}",
             )
             self.report.num_unresolved_temp_columns += 1
             return column_refs
@@ -972,19 +989,20 @@ class RedshiftLineageExtractor:
                         ):
                             resolved_column_refs.extend(
                                 self.resolve_column_refs(
-                                    column_lineage.upstreams, depth=depth + 1
-                                )
+                                    column_lineage.upstreams,
+                                    depth=depth + 1,
+                                ),
                             )
                             resolved = True
                             break
                     # If we reach here, it means that we were not able to resolve the column reference.
                     if resolved is False:
                         logger.warning(
-                            f"Unable to resolve column reference {ref} to a permanent table"
+                            f"Unable to resolve column reference {ref} to a permanent table",
                         )
             else:
                 logger.debug(
-                    f"Resolved column reference {ref} is not resolved because referenced table {ref.table} is not a temp table or not found. Adding reference as non-temp table. This is normal."
+                    f"Resolved column reference {ref} is not resolved because referenced table {ref.table} is not a temp table or not found. Adding reference as non-temp table. This is normal.",
                 )
                 resolved_column_refs.append(ref)
         return resolved_column_refs
@@ -1011,7 +1029,7 @@ class RedshiftLineageExtractor:
                             == target_column_ref.column
                         ):
                             resolved_columns = self.resolve_column_refs(
-                                source_column_lineage.upstreams
+                                source_column_lineage.upstreams,
                             )
                             # Add all upstream of above temporary column into upstream of target column
                             upstreams.extend(resolved_columns)
@@ -1036,7 +1054,7 @@ class RedshiftLineageExtractor:
 
         for temp_table in temp_table_rows:
             logger.debug(
-                f"Processing temp table with transaction id: {temp_table.transaction_id} and query text {temp_table.query_text}"
+                f"Processing temp table with transaction id: {temp_table.transaction_id} and query text {temp_table.query_text}",
             )
 
             intermediate_l_datasets, cll = self._get_sources_from_query(

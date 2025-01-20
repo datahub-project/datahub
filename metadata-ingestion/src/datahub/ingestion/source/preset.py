@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 class PresetConfig(SupersetConfig):
     manager_uri: str = Field(
-        default="https://api.app.preset.io", description="Preset.io API URL"
+        default="https://api.app.preset.io",
+        description="Preset.io API URL",
     )
     connect_uri: str = Field(default="", description="Preset workspace URL.")
     display_uri: Optional[str] = Field(
@@ -39,7 +40,8 @@ class PresetConfig(SupersetConfig):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="Preset Stateful Ingestion Config."
+        default=None,
+        description="Preset Stateful Ingestion Config.",
     )
 
     options: Dict = Field(default={}, description="")
@@ -68,7 +70,8 @@ class PresetConfig(SupersetConfig):
 @config_class(PresetConfig)
 @support_status(SupportStatus.TESTING)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via stateful_ingestion",
 )
 class PresetSource(SupersetSource):
     """
@@ -106,7 +109,7 @@ class PresetSource(SupersetSource):
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
                 "Accept": "*/*",
-            }
+            },
         )
         # Test the connection
         test_response = requests_session.get(f"{self.config.connect_uri}/version")

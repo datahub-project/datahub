@@ -40,7 +40,10 @@ def check() -> None:
     help="Rewrite the JSON file to it's canonical form.",
 )
 @click.option(
-    "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
+    "--unpack-mces",
+    default=False,
+    is_flag=True,
+    help="Converts MCEs into MCPs",
 )
 @telemetry.with_telemetry()
 def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
@@ -102,7 +105,10 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
 )
 @telemetry.with_telemetry()
 def metadata_diff(
-    actual_file: str, expected_file: str, verbose: bool, ignore_path: List[str]
+    actual_file: str,
+    expected_file: str,
+    verbose: bool,
+    ignore_path: List[str],
 ) -> None:
     """Compare two metadata (MCE or MCP) JSON files.
 
@@ -159,7 +165,7 @@ def plugins(source: Optional[str], verbose: bool) -> None:
     if not verbose:
         click.echo("For details on why a plugin is disabled, rerun with '--verbose'")
     click.echo(
-        f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
+        f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'",
     )
 
 
@@ -386,7 +392,7 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
 
     except Exception as e:
         logger.error(
-            f"Failed to validate pattern {pattern_dicts} in path {path_spec_key}"
+            f"Failed to validate pattern {pattern_dicts} in path {path_spec_key}",
         )
         raise e
 
@@ -403,7 +409,8 @@ def extract_sql_agg_log(query_log_file: str, output: Optional[str]) -> None:
 
     shared_connection = ConnectionWrapper(pathlib.Path(query_log_file))
     query_log = FileBackedList[LoggedQuery](
-        shared_connection=shared_connection, tablename="stored_queries"
+        shared_connection=shared_connection,
+        tablename="stored_queries",
     )
     logger.info(f"Extracting {len(query_log)} queries from {query_log_file}")
     queries = [dataclasses.asdict(query) for query in query_log]

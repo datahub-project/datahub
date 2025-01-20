@@ -41,7 +41,7 @@ def test_simple_or_filters():
 
 def test_simple_field_match():
     query: ElasticDocumentQuery = ElasticDocumentQuery.create_from(
-        ("field1", "value1:1")
+        ("field1", "value1:1"),
     )
     assert query.build() == 'field1:"value1\\:1"'
 

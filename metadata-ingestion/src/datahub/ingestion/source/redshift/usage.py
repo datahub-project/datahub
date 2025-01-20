@@ -124,7 +124,8 @@ class RedshiftUsageExtractor:
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
         else:
             return self.config.start_time, self.config.end_time
@@ -147,7 +148,8 @@ class RedshiftUsageExtractor:
         return True
 
     def get_usage_workunits(
-        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+        self,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_usage():
             return
@@ -175,7 +177,8 @@ class RedshiftUsageExtractor:
             )
 
     def _get_workunits_internal(
-        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+        self,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
@@ -186,7 +189,8 @@ class RedshiftUsageExtractor:
                 with PerfTimer() as timer:
                     # Generate operation aspect workunits
                     yield from self._gen_operation_aspect_workunits(
-                        self.connection, all_tables
+                        self.connection,
+                        all_tables,
                     )
                     self.report.operational_metadata_extraction_sec[
                         self.config.database
@@ -201,12 +205,14 @@ class RedshiftUsageExtractor:
             )
             access_events_iterable: Iterable[RedshiftAccessEvent] = (
                 self._gen_access_events_from_history_query(
-                    query, connection=self.connection, all_tables=all_tables
+                    query,
+                    connection=self.connection,
+                    all_tables=all_tables,
                 )
             )
 
             aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
-                access_events_iterable
+                access_events_iterable,
             )
             # Generate usage workunits from aggregated events.
             for time_bucket in aggregated_events.values():
@@ -227,7 +233,9 @@ class RedshiftUsageExtractor:
         )
         access_events_iterable: Iterable[RedshiftAccessEvent] = (
             self._gen_access_events_from_history_query(
-                query, connection, all_tables=all_tables
+                query,
+                connection,
+                all_tables=all_tables,
             )
         )
 
@@ -236,8 +244,9 @@ class RedshiftUsageExtractor:
             mcpw.as_workunit()
             for mcpw in self._drop_repeated_operations(
                 self._gen_operation_aspect_workunits_from_access_events(
-                    access_events_iterable, all_tables=all_tables
-                )
+                    access_events_iterable,
+                    all_tables=all_tables,
+                ),
             )
         )
 
@@ -291,7 +300,7 @@ class RedshiftUsageExtractor:
                     )
                 except pydantic.error_wrappers.ValidationError as e:
                     logging.warning(
-                        f"Validation error on access event creation from row {row}. The error was: {e} Skipping ...."
+                        f"Validation error on access event creation from row {row}. The error was: {e} Skipping ....",
                     )
                     self.report.num_usage_stat_skipped += 1
                     continue
@@ -304,7 +313,8 @@ class RedshiftUsageExtractor:
             results = cursor.fetchmany()
 
     def _drop_repeated_operations(
-        self, events: Iterable[MetadataChangeProposalWrapper]
+        self,
+        events: Iterable[MetadataChangeProposalWrapper],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Drop repeated operations on the same entity.
 
@@ -329,14 +339,17 @@ class RedshiftUsageExtractor:
         # dict of entity urn -> (last event's actor, operation type)
         # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
         last_events: Dict[str, Tuple[Optional[str], str]] = cachetools.TTLCache(  # type: ignore[assignment]
-            maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
+            maxsize=OPERATION_CACHE_MAXSIZE,
+            ttl=DROP_WINDOW_SEC * 1000,
+            timer=timer,
         )
 
         for event in events:
             assert isinstance(event.aspect, OperationClass)
 
             timestamp_low_watermark = min(
-                timestamp_low_watermark, event.aspect.lastUpdatedTimestamp
+                timestamp_low_watermark,
+                event.aspect.lastUpdatedTimestamp,
             )
 
             urn = event.entityUrn
@@ -392,17 +405,20 @@ class RedshiftUsageExtractor:
 
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             yield MetadataChangeProposalWrapper(
-                entityUrn=self.dataset_urn_builder(resource), aspect=operation_aspect
+                entityUrn=self.dataset_urn_builder(resource),
+                aspect=operation_aspect,
             )
             self.report.num_operational_stats_workunits_emitted += 1
 
     def _aggregate_access_events(
-        self, events_iterable: Iterable[RedshiftAccessEvent]
+        self,
+        events_iterable: Iterable[RedshiftAccessEvent],
     ) -> AggregatedAccessEvents:
         datasets: AggregatedAccessEvents = collections.defaultdict(dict)
         for event in events_iterable:
             floored_ts: datetime = get_time_bucket(
-                event.starttime, self.config.bucket_duration
+                event.starttime,
+                self.config.bucket_duration,
             )
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             # Get a reference to the bucket value(or initialize not yet in dict) and update it.

@@ -57,13 +57,13 @@ def run_ingest(
     )
 
     with patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token",
     ) as mock_token, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users",
     ) as mock_users, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups",
     ) as mock_groups, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members",
     ) as mock_group_users, patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -71,7 +71,11 @@ def run_ingest(
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(
-            test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
+            test_resources_dir,
+            mock_token,
+            mock_users,
+            mock_groups,
+            mock_group_users,
         )
 
         # Run an azure usage ingestion run.
@@ -102,7 +106,7 @@ def load_test_resources(test_resources_dir):
         azure_ad_nested_groups_members_json_file.open()
     ) as azure_ad_nested_groups_users_json:
         reference_nested_groups_users = json.loads(
-            azure_ad_nested_groups_users_json.read()
+            azure_ad_nested_groups_users_json.read(),
         )
 
     return (
@@ -131,7 +135,7 @@ def mocked_functions(
 
     # mock users and groups response
     users, groups, nested_group, nested_group_members = load_test_resources(
-        test_resources_dir
+        test_resources_dir,
     )
     mock_users.return_value = iter(list([users]))
     mock_groups.return_value = (
@@ -200,7 +204,7 @@ def test_azure_ad_config():
             ingest_users=True,
             ingest_groups=True,
             ingest_group_membership=True,
-        )
+        ),
     )
 
     # Sanity on required configurations
@@ -249,7 +253,9 @@ def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_p
 
 @freeze_time(FROZEN_TIME)
 def test_azure_ad_source_empty_group_membership(
-    pytestconfig, mock_datahub_graph, tmp_path
+    pytestconfig,
+    mock_datahub_graph,
+    tmp_path,
 ):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -330,7 +336,10 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
 
 @freeze_time(FROZEN_TIME)
 def test_azure_ad_stateful_ingestion(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     new_recipe = default_recipe(tmp_path)
 
@@ -366,10 +375,12 @@ def test_azure_ad_stateful_ingestion(
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline1, expected_providers=1
+        pipeline=pipeline1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline2, expected_providers=1
+        pipeline=pipeline2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted Dashboard should not be
@@ -378,7 +389,7 @@ def test_azure_ad_stateful_ingestion(
     state2 = checkpoint2.state
 
     difference_dashboard_urns = list(
-        state1.get_urns_not_in(type="corpGroup", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="corpGroup", other_checkpoint_state=state2),
     )
 
     assert len(difference_dashboard_urns) == 1

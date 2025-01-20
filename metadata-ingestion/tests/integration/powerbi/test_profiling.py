@@ -15,8 +15,8 @@ def scan_init_response(request, context):
 
     w_id_vs_response: Dict[str, Any] = {
         "64ED5CAD-7C10-4684-8180-826122881108": {
-            "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
-        }
+            "id": "4674efd1-603c-4129-8d82-03cf2be05aff",
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -29,8 +29,8 @@ def admin_datasets_response(request, context):
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-            }
-        ]
+            },
+        ],
     }
 
 
@@ -48,10 +48,10 @@ def execute_queries_response(request, context):
                                     "[max]": 34333,
                                     "[unique_count]": 15,
                                 },
-                            ]
-                        }
-                    ]
-                }
+                            ],
+                        },
+                    ],
+                },
             ],
         }
     elif "COUNTROWS" in query:
@@ -64,10 +64,10 @@ def execute_queries_response(request, context):
                                 {
                                     "[count]": 542300,
                                 },
-                            ]
-                        }
-                    ]
-                }
+                            ],
+                        },
+                    ],
+                },
             ],
         }
     elif "TOPN" in query:
@@ -95,10 +95,10 @@ def execute_queries_response(request, context):
                                     "[topic]": "normal matters",
                                     "[view_count]": 123455,
                                 },
-                            ]
-                        }
-                    ]
-                }
+                            ],
+                        },
+                    ],
+                },
             ],
         }
 
@@ -121,7 +121,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "name": "demo-workspace",
                         "type": "Workspace",
                         "state": "Active",
-                    }
+                    },
                 ],
             },
         },
@@ -150,7 +150,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                             "server": "foo",
                         },
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/executeQueries": {
@@ -193,12 +193,12 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
-                                            }
+                                            },
                                         ],
                                         "datasourceUsages": [
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                            }
+                                            },
                                         ],
                                         "columns": [
                                             {
@@ -229,7 +229,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                                                 "description": "column description",
                                                 "expression": "let\n x",
                                                 "isHidden": False,
-                                            }
+                                            },
                                         ],
                                     },
                                 ],
@@ -238,7 +238,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "dashboards": [],
                         "reports": [],
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
@@ -322,7 +322,7 @@ def test_profiling(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
                     "filename": f"{tmp_path}/powerbi_profiling.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()

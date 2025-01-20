@@ -98,7 +98,8 @@ class FivetranLogConfig(ConfigModel):
         description="If destination platform is 'bigquery', provide bigquery configuration.",
     )
     _rename_destination_config = pydantic_renamed_field(
-        "destination_config", "snowflake_destination_config"
+        "destination_config",
+        "snowflake_destination_config",
     )
 
     @root_validator(pre=True)
@@ -107,16 +108,16 @@ class FivetranLogConfig(ConfigModel):
         if destination_platform == "snowflake":
             if "snowflake_destination_config" not in values:
                 raise ValueError(
-                    "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
+                    "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe.",
                 )
         elif destination_platform == "bigquery":
             if "bigquery_destination_config" not in values:
                 raise ValueError(
-                    "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
+                    "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe.",
                 )
         else:
             raise ValueError(
-                f"Destination platform '{destination_platform}' is not yet supported."
+                f"Destination platform '{destination_platform}' is not yet supported.",
             )
         return values
 
@@ -124,13 +125,13 @@ class FivetranLogConfig(ConfigModel):
 @dataclasses.dataclass
 class MetadataExtractionPerfReport(Report):
     connectors_metadata_extraction_sec: PerfTimer = dataclasses.field(
-        default_factory=PerfTimer
+        default_factory=PerfTimer,
     )
     connectors_lineage_extraction_sec: PerfTimer = dataclasses.field(
-        default_factory=PerfTimer
+        default_factory=PerfTimer,
     )
     connectors_jobs_extraction_sec: PerfTimer = dataclasses.field(
-        default_factory=PerfTimer
+        default_factory=PerfTimer,
     )
 
 
@@ -139,7 +140,7 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
-        default_factory=MetadataExtractionPerfReport
+        default_factory=MetadataExtractionPerfReport,
     )
 
     def report_connectors_scanned(self, count: int = 1) -> None:
@@ -190,7 +191,8 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Airbyte Stateful Ingestion Config."
+        default=None,
+        description="Airbyte Stateful Ingestion Config.",
     )
 
     # Fivetran connector all sources to platform instance mapping
@@ -218,7 +220,8 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             for key, value in mapping.items():
                 values["sources_to_platform_instance"].setdefault(key, {})
                 values["sources_to_platform_instance"][key].setdefault(
-                    "database", value
+                    "database",
+                    value,
                 )
 
         return values

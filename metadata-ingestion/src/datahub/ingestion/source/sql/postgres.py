@@ -100,7 +100,7 @@ class ViewLineageEntry(BaseModel):
 class BasePostgresConfig(BasicSQLAlchemyConfig):
     scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern(deny=["information_schema"])
+        default=AllowDenyPattern(deny=["information_schema"]),
     )
 
 
@@ -158,7 +158,7 @@ class PostgresSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
         url = self.config.get_sql_alchemy_url(
-            database=self.config.database or self.config.initial_database
+            database=self.config.database or self.config.initial_database,
         )
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
@@ -170,7 +170,7 @@ class PostgresSource(SQLAlchemySource):
                 # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
                 # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
                 databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1')"
+                    "SELECT datname from pg_database where datname not in ('template0', 'template1')",
                 )
                 for db in databases:
                     if not self.config.database_pattern.allowed(db["datname"]):
@@ -189,7 +189,8 @@ class PostgresSource(SQLAlchemySource):
                     yield from self._get_view_lineage_workunits(inspector)
 
     def _get_view_lineage_elements(
-        self, inspector: Inspector
+        self,
+        inspector: Inspector,
     ) -> Dict[Tuple[str, str], List[str]]:
         data: List[ViewLineageEntry] = []
         with inspector.engine.connect() as conn:
@@ -205,13 +206,13 @@ class PostgresSource(SQLAlchemySource):
         for lineage in data:
             if not self.config.view_pattern.allowed(lineage.dependent_view):
                 self.report.report_dropped(
-                    f"{lineage.dependent_schema}.{lineage.dependent_view}"
+                    f"{lineage.dependent_schema}.{lineage.dependent_view}",
                 )
                 continue
 
             if not self.config.schema_pattern.allowed(lineage.dependent_schema):
                 self.report.report_dropped(
-                    f"{lineage.dependent_schema}.{lineage.dependent_view}"
+                    f"{lineage.dependent_schema}.{lineage.dependent_view}",
                 )
                 continue
 
@@ -227,13 +228,14 @@ class PostgresSource(SQLAlchemySource):
                     ),
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                )
+                ),
             )
 
         return lineage_elements
 
     def _get_view_lineage_workunits(
-        self, inspector: Inspector
+        self,
+        inspector: Inspector,
     ) -> Iterable[MetadataWorkUnit]:
         lineage_elements = self._get_view_lineage_elements(inspector)
 
@@ -247,7 +249,9 @@ class PostgresSource(SQLAlchemySource):
 
             # Construct a lineage object.
             view_identifier = self.get_identifier(
-                schema=dependent_schema, entity=dependent_view, inspector=inspector
+                schema=dependent_schema,
+                entity=dependent_view,
+                inspector=inspector,
             )
             if view_identifier not in self.views_failed_parsing:
                 return
@@ -269,7 +273,12 @@ class PostgresSource(SQLAlchemySource):
                 yield item.as_workunit()
 
     def get_identifier(
-        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+        self,
+        *,
+        schema: str,
+        entity: str,
+        inspector: Inspector,
+        **kwargs: Any,
     ) -> str:
         regular = f"{schema}.{entity}"
         if self.config.database:
@@ -281,7 +290,7 @@ class PostgresSource(SQLAlchemySource):
         try:
             with inspector.engine.connect() as conn:
                 for row in conn.execute(
-                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES""",
                 ):
                     self.profile_metadata_info.dataset_name_to_storage_bytes[
                         self.get_identifier(

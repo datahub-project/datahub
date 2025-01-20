@@ -30,19 +30,22 @@ def _generate_assertion_std_parameter(
 ) -> AssertionStdParameterClass:
     if isinstance(value, str):
         return AssertionStdParameterClass(
-            value=value, type=AssertionStdParameterTypeClass.STRING
+            value=value,
+            type=AssertionStdParameterTypeClass.STRING,
         )
     elif isinstance(value, (int, float)):
         return AssertionStdParameterClass(
-            value=str(value), type=AssertionStdParameterTypeClass.NUMBER
+            value=str(value),
+            type=AssertionStdParameterTypeClass.NUMBER,
         )
     elif isinstance(value, list):
         return AssertionStdParameterClass(
-            value=json.dumps(value), type=AssertionStdParameterTypeClass.LIST
+            value=json.dumps(value),
+            type=AssertionStdParameterTypeClass.LIST,
         )
     else:
         raise ValueError(
-            f"Unsupported assertion parameter {value} of type {type(value)}"
+            f"Unsupported assertion parameter {value} of type {type(value)}",
         )
 
 
@@ -99,7 +102,8 @@ class BetweenOperator(v1_ConfigModel):
 
     def generate_parameters(self) -> AssertionStdParametersClass:
         return _generate_assertion_std_parameters(
-            min_value=self.min, max_value=self.max
+            min_value=self.min,
+            max_value=self.max,
         )
 
 

@@ -58,7 +58,8 @@ class BackpressureAwareExecutor:
                 # If the pending list is full, wait until one is done.
                 if len(pending_futures) >= max_pending:
                     (done, _) = concurrent.futures.wait(
-                        pending_futures, return_when=concurrent.futures.FIRST_COMPLETED
+                        pending_futures,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
                     )
                     for future in done:
                         pending_futures.remove(future)

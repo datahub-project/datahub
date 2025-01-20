@@ -74,24 +74,28 @@ class AddDatasetDomain(DatasetDomainTransformer):
     def raise_ctx_configuration_error(ctx: PipelineContext) -> None:
         if ctx.graph is None:
             raise ConfigurationError(
-                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
+                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe",
             )
 
     @staticmethod
     def get_domain_class(
-        graph: Optional[DataHubGraph], domains: List[str]
+        graph: Optional[DataHubGraph],
+        domains: List[str],
     ) -> DomainsClass:
         domain_registry: DomainRegistry = DomainRegistry(
-            cached_domains=[k for k in domains], graph=graph
+            cached_domains=[k for k in domains],
+            graph=graph,
         )
         domain_class = DomainsClass(
-            domains=[domain_registry.get_domain_urn(domain) for domain in domains]
+            domains=[domain_registry.get_domain_urn(domain) for domain in domains],
         )
         return domain_class
 
     @staticmethod
     def _merge_with_server_domains(
-        graph: Optional[DataHubGraph], urn: str, mce_domain: Optional[DomainsClass]
+        graph: Optional[DataHubGraph],
+        urn: str,
+        mce_domain: Optional[DomainsClass],
     ) -> Optional[DomainsClass]:
         if not mce_domain or not mce_domain.domains:
             # nothing to add, no need to consult server
@@ -139,7 +143,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
                 container_urn = path.urn
 
                 if not container_urn or not container_urn.startswith(
-                    "urn:li:container:"
+                    "urn:li:container:",
                 ):
                     continue
 
@@ -149,8 +153,8 @@ class AddDatasetDomain(DatasetDomainTransformer):
                     container_domain_mapping[container_urn] = list(
                         set(
                             container_domain_mapping[container_urn]
-                            + domain_to_add.domains
-                        )
+                            + domain_to_add.domains,
+                        ),
                     )
 
         for urn, domains in container_domain_mapping.items():
@@ -158,13 +162,16 @@ class AddDatasetDomain(DatasetDomainTransformer):
                 MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=DomainsClass(domains=domains),
-                )
+                ),
             )
 
         return domain_mcps
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
         domain_aspect: DomainsClass = DomainsClass(domains=[])
@@ -185,7 +192,9 @@ class AddDatasetDomain(DatasetDomainTransformer):
                     return None
             if self.config.semantics == TransformerSemantics.PATCH:
                 final_aspect = AddDatasetDomain._merge_with_server_domains(
-                    self.ctx.graph, entity_urn, domain_aspect
+                    self.ctx.graph,
+                    entity_urn,
+                    domain_aspect,
                 )
         return cast(Optional[Aspect], final_aspect)
 
@@ -194,7 +203,9 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
     def __init__(
-        self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext
+        self,
+        config: SimpleDatasetDomainSemanticsConfig,
+        ctx: PipelineContext,
     ):
         AddDatasetDomain.raise_ctx_configuration_error(ctx)
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
@@ -206,7 +217,9 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SimpleAddDatasetDomain":
         config = SimpleDatasetDomainSemanticsConfig.parse_obj(config_dict)
         return cls(config, ctx)
@@ -216,7 +229,9 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
     def __init__(
-        self, config: PatternDatasetDomainSemanticsConfig, ctx: PipelineContext
+        self,
+        config: PatternDatasetDomainSemanticsConfig,
+        ctx: PipelineContext,
     ):
         AddDatasetDomain.raise_ctx_configuration_error(ctx)
 
@@ -236,7 +251,9 @@ class PatternAddDatasetDomain(AddDatasetDomain):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetDomain":
         config = PatternDatasetDomainSemanticsConfig.parse_obj(config_dict)
         return cls(config, ctx)

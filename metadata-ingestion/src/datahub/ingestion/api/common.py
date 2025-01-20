@@ -70,7 +70,7 @@ class PipelineContext:
     def register_checkpointer(self, committable: Committable) -> None:
         if committable.name in self.checkpointers:
             raise IndexError(
-                f"Checkpointing provider {committable.name} already registered."
+                f"Checkpointing provider {committable.name} already registered.",
             )
         self.checkpointers[committable.name] = committable
 
@@ -81,6 +81,6 @@ class PipelineContext:
         if not self.graph:
             raise ConfigurationError(
                 f"{operation or 'This operation'} requires a graph, but none was provided. "
-                "To provide one, either use the datahub-rest sink or set the top-level datahub_api config in the recipe."
+                "To provide one, either use the datahub-rest sink or set the top-level datahub_api config in the recipe.",
             )
         return self.graph

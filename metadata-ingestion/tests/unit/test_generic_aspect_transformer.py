@@ -40,7 +40,7 @@ def make_mce_datajob(
     if aspects is None:
         aspects = [StatusClass(removed=False)]
     return MetadataChangeEventClass(
-        proposedSnapshot=DataJobSnapshotClass(urn=entity_urn, aspects=aspects)
+        proposedSnapshot=DataJobSnapshotClass(urn=entity_urn, aspects=aspects),
     )
 
 
@@ -78,7 +78,9 @@ class DummyGenericAspectTransformer(GenericAspectTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "DummyGenericAspectTransformer":
         return cls()
 
@@ -89,7 +91,10 @@ class DummyGenericAspectTransformer(GenericAspectTransformer):
         return "customAspect"
 
     def transform_generic_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[GenericAspectClass],
     ) -> Optional[GenericAspectClass]:
         value = (
             aspect.value if aspect else json.dumps({"customAspect": 10}).encode("utf-8")
@@ -108,8 +113,8 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         inputs = [mce_dataset, mce_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(i, metadata={}) for i in inputs]
-            )
+                [RecordEnvelope(i, metadata={}) for i in inputs],
+            ),
         )
 
         assert len(outputs) == len(inputs) + 1
@@ -129,13 +134,13 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
     def test_add_generic_aspect_when_mcpw_received(self):
         mcpw_dataset = make_mcpw()
         mcpw_datajob = make_mcpw(
-            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
+            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
         )
         inputs = [mcpw_dataset, mcpw_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(i, metadata={}) for i in inputs]
-            )
+                [RecordEnvelope(i, metadata={}) for i in inputs],
+            ),
         )
 
         assert len(outputs) == len(inputs) + 1
@@ -155,13 +160,13 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
     def test_add_generic_aspect_when_mcpc_received(self):
         mcpc_dataset = make_mcpc()
         mcpc_datajob = make_mcpc(
-            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
+            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
         )
         inputs = [mcpc_dataset, mcpc_datajob, EndOfStream()]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(i, metadata={}) for i in inputs]
-            )
+                [RecordEnvelope(i, metadata={}) for i in inputs],
+            ),
         )
 
         assert len(outputs) == len(inputs) + 1
@@ -189,7 +194,7 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
             ),
         )
         mcpc_datajob = make_mcpc(
-            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
+            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
         )
         inputs = [
             mcpc_dataset_without_custom_aspect,
@@ -199,8 +204,8 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         ]
         outputs = list(
             DummyGenericAspectTransformer().transform(
-                [RecordEnvelope(i, metadata={}) for i in inputs]
-            )
+                [RecordEnvelope(i, metadata={}) for i in inputs],
+            ),
         )
 
         assert len(outputs) == len(inputs) + 1
@@ -229,7 +234,9 @@ class DummyRemoveGenericAspectTransformer(GenericAspectTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "DummyRemoveGenericAspectTransformer":
         return cls()
 
@@ -240,7 +247,10 @@ class DummyRemoveGenericAspectTransformer(GenericAspectTransformer):
         return "customAspect"
 
     def transform_generic_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[GenericAspectClass],
     ) -> Optional[GenericAspectClass]:
         return None
 
@@ -257,7 +267,7 @@ class TestDummyRemoveGenericAspectTransformer(unittest.TestCase):
             ),
         )
         mcpc_datajob = make_mcpc(
-            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
+            entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
         )
         inputs = [
             mcpc_dataset_without_custom_aspect,
@@ -267,8 +277,8 @@ class TestDummyRemoveGenericAspectTransformer(unittest.TestCase):
         ]
         outputs = list(
             DummyRemoveGenericAspectTransformer().transform(
-                [RecordEnvelope(i, metadata={}) for i in inputs]
-            )
+                [RecordEnvelope(i, metadata={}) for i in inputs],
+            ),
         )
 
         # Check that the second entry is removed.

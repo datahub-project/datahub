@@ -122,7 +122,8 @@ class RedshiftConfig(
     )
 
     include_table_lineage: bool = Field(
-        default=True, description="Whether table lineage should be ingested."
+        default=True,
+        description="Whether table lineage should be ingested.",
     )
     include_copy_lineage: bool = Field(
         default=True,
@@ -203,7 +204,7 @@ class RedshiftConfig(
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`.",
             )
         return values
 
@@ -215,7 +216,7 @@ class RedshiftConfig(
             and len(values["extra_client_options"]) > 0
         ):
             raise ValueError(
-                "Cannot set both `connect_args` and `extra_client_options` in the config. Please use `extra_client_options` only."
+                "Cannot set both `connect_args` and `extra_client_options` in the config. Please use `extra_client_options` only.",
             )
 
         if "options" in values and "connect_args" in values["options"]:

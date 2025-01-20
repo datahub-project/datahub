@@ -15,7 +15,8 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "clickhouse"
+        test_resources_dir / "docker-compose.yml",
+        "clickhouse",
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
         # Run the metadata ingestion pipeline.
@@ -42,11 +43,15 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_clickhouse_ingest_uri_form(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "clickhouse"
+        test_resources_dir / "docker-compose.yml",
+        "clickhouse",
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
 

@@ -19,11 +19,11 @@ class FakeSource(Source):
                             platform_id="elasticsearch",
                             table_name="fooIndex",
                             env="PROD",
-                        )
+                        ),
                     ),
                     aspect=StatusClass(removed=False),
                 ),
-            )
+            ),
         ]
 
     def __init__(self, ctx: PipelineContext):

@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 def to_datajob_input_output(
-    *, mcps: Iterable[MetadataChangeProposalWrapper], ignore_extra_mcps: bool = True
+    *,
+    mcps: Iterable[MetadataChangeProposalWrapper],
+    ignore_extra_mcps: bool = True,
 ) -> Optional[DataJobInputOutputClass]:
     inputDatasets: List[str] = []
     outputDatasets: List[str] = []
@@ -37,7 +39,7 @@ def to_datajob_input_output(
             pass
         else:
             raise ValueError(
-                f"Expected an upstreamLineage aspect, got {mcp.aspectName} for {mcp.entityUrn}"
+                f"Expected an upstreamLineage aspect, got {mcp.aspectName} for {mcp.entityUrn}",
             )
 
     if not inputDatasets and not outputDatasets:

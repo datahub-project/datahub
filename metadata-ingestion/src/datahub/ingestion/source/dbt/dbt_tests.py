@@ -92,7 +92,7 @@ _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
             value=AssertionStdParameterClass(
                 value="1.0",
                 type=AssertionStdParameterTypeClass.NUMBER,
-            )
+            ),
         ),
     ),
     "accepted_values": AssertionParams(

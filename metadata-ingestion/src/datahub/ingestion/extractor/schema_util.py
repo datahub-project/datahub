@@ -162,7 +162,8 @@ class AvroToMceSchemaConverter:
 
     @staticmethod
     def _get_type_name(
-        avro_schema: SchemaOrField, logical_if_present: bool = False
+        avro_schema: SchemaOrField,
+        logical_if_present: bool = False,
     ) -> str:
         logical_type_name: Optional[str] = None
         if logical_if_present:
@@ -172,39 +173,45 @@ class AvroToMceSchemaConverter:
                 or avro_schema.props.get("logicalType"),
             )
         return logical_type_name or str(
-            getattr(avro_schema.type, "type", avro_schema.type)
+            getattr(avro_schema.type, "type", avro_schema.type),
         )
 
     @staticmethod
     def _get_column_type(
-        avro_schema: SchemaOrField, logical_type: Optional[str]
+        avro_schema: SchemaOrField,
+        logical_type: Optional[str],
     ) -> SchemaFieldDataType:
         type_name: str = AvroToMceSchemaConverter._get_type_name(avro_schema)
         TypeClass: Optional[Type] = AvroToMceSchemaConverter.field_type_mapping.get(
-            type_name
+            type_name,
         )
         if logical_type is not None:
             TypeClass = AvroToMceSchemaConverter.field_logical_type_mapping.get(
-                logical_type, TypeClass
+                logical_type,
+                TypeClass,
             )
         assert TypeClass is not None
         dt = SchemaFieldDataType(type=TypeClass())
         # Handle Arrays and Maps
         if isinstance(dt.type, ArrayTypeClass) and isinstance(
-            avro_schema, avro.schema.ArraySchema
+            avro_schema,
+            avro.schema.ArraySchema,
         ):
             dt.type.nestedType = [
                 AvroToMceSchemaConverter._get_type_name(
-                    avro_schema.items, logical_if_present=True
-                )
+                    avro_schema.items,
+                    logical_if_present=True,
+                ),
             ]
         elif isinstance(dt.type, MapTypeClass) and isinstance(
-            avro_schema, avro.schema.MapSchema
+            avro_schema,
+            avro.schema.MapSchema,
         ):
             # Avro map's key is always a string. See: https://avro.apache.org/docs/current/spec.html#Maps
             dt.type.keyType = "string"
             dt.type.valueType = AvroToMceSchemaConverter._get_type_name(
-                avro_schema.values, logical_if_present=True
+                avro_schema.values,
+                logical_if_present=True,
             )
         return dt
 
@@ -262,18 +269,21 @@ class AvroToMceSchemaConverter:
     @staticmethod
     @overload
     def _get_underlying_type_if_option_as_union(
-        schema: SchemaOrField, default: SchemaOrField
+        schema: SchemaOrField,
+        default: SchemaOrField,
     ) -> SchemaOrField: ...
 
     @staticmethod
     @overload
     def _get_underlying_type_if_option_as_union(
-        schema: SchemaOrField, default: Optional[SchemaOrField] = None
+        schema: SchemaOrField,
+        default: Optional[SchemaOrField] = None,
     ) -> Optional[SchemaOrField]: ...
 
     @staticmethod
     def _get_underlying_type_if_option_as_union(
-        schema: SchemaOrField, default: Optional[SchemaOrField] = None
+        schema: SchemaOrField,
+        default: Optional[SchemaOrField] = None,
     ) -> Optional[SchemaOrField]:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             (first, second) = schema.schemas
@@ -335,7 +345,8 @@ class AvroToMceSchemaConverter:
                     schema = schema.type
                     actual_schema = (
                         self._converter._get_underlying_type_if_option_as_union(
-                            schema, schema
+                            schema,
+                            schema,
                         )
                     )
 
@@ -355,7 +366,8 @@ class AvroToMceSchemaConverter:
                         slice(len(type_prefix), len(native_data_type) - 1)
                     ]
                 native_data_type = cast(
-                    str, actual_schema.props.get("native_data_type", native_data_type)
+                    str,
+                    actual_schema.props.get("native_data_type", native_data_type),
                 )
 
                 field_path = self._converter._get_cur_field_path()
@@ -367,7 +379,7 @@ class AvroToMceSchemaConverter:
                 meta_aspects: Dict[str, Any] = {}
                 if self._converter._meta_mapping_processor:
                     meta_aspects = self._converter._meta_mapping_processor.process(
-                        merged_props
+                        merged_props,
                     )
 
                 tags: List[str] = []
@@ -447,7 +459,7 @@ class AvroToMceSchemaConverter:
         # Union type
         elif isinstance(schema, avro.schema.UnionSchema):
             is_option_as_union_type = self._get_underlying_type_if_option_as_union(
-                schema
+                schema,
             )
             if is_option_as_union_type is not None:
                 yield is_option_as_union_type
@@ -478,7 +490,8 @@ class AvroToMceSchemaConverter:
         self._fields_stack.pop()
 
     def _gen_from_last_field(
-        self, schema_to_recurse: Optional[AvroNestedSchemas] = None
+        self,
+        schema_to_recurse: Optional[AvroNestedSchemas] = None,
     ) -> Iterable[SchemaField]:
         """Emits the field most-recent field, optionally triggering sub-schema generation under the field."""
         last_field_schema = self._fields_stack[-1]
@@ -499,7 +512,8 @@ class AvroToMceSchemaConverter:
                     yield from self._to_mce_fields(sub_schema)
 
     def _gen_from_non_field_nested_schemas(
-        self, schema: SchemaOrField
+        self,
+        schema: SchemaOrField,
     ) -> Iterable[SchemaField]:
         """Handles generation of MCE SchemaFields for all standard AVRO nested types."""
         # Handle recursive record definitions
@@ -543,7 +557,8 @@ class AvroToMceSchemaConverter:
                         yield from self._to_mce_fields(sub_schema)
 
     def _gen_non_nested_to_mce_fields(
-        self, schema: SchemaOrField
+        self,
+        schema: SchemaOrField,
     ) -> Iterable[SchemaField]:
         """Handles generation of MCE SchemaFields for non-nested AVRO types."""
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
@@ -623,7 +638,7 @@ def avro_schema_to_mce_fields(
                 meta_mapping_processor,
                 schema_tags_field,
                 tag_prefix,
-            )
+            ),
         )
     except Exception:
         if swallow_exceptions:

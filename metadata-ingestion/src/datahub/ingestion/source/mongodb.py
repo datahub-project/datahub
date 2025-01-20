@@ -85,23 +85,29 @@ class HostingEnvironment(Enum):
 
 
 class MongoDBConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    StatefulIngestionConfigBase,
 ):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: str = Field(
-        default="mongodb://localhost", description="MongoDB connection URI."
+        default="mongodb://localhost",
+        description="MongoDB connection URI.",
     )
     username: Optional[str] = Field(default=None, description="MongoDB username.")
     password: Optional[str] = Field(default=None, description="MongoDB password.")
     authMechanism: Optional[str] = Field(
-        default=None, description="MongoDB authentication mechanism."
+        default=None,
+        description="MongoDB authentication mechanism.",
     )
     options: dict = Field(
-        default={}, description="Additional options to pass to `pymongo.MongoClient()`."
+        default={},
+        description="Additional options to pass to `pymongo.MongoClient()`.",
     )
     enableSchemaInference: bool = Field(
-        default=True, description="Whether to infer schemas. "
+        default=True,
+        description="Whether to infer schemas. ",
     )
     schemaSamplingSize: Optional[PositiveInt] = Field(
         default=1000,
@@ -112,7 +118,8 @@ class MongoDBConfig(
         description="If documents for schema inference should be randomly selected. If `False`, documents will be selected from start.",
     )
     maxSchemaSize: Optional[PositiveInt] = Field(
-        default=300, description="Maximum number of fields to include in the schema."
+        default=300,
+        description="Maximum number of fields to include in the schema.",
     )
     # mongodb only supports 16MB as max size for documents. However, if we try to retrieve a larger document it
     # errors out with "16793600" as the maximum size supported.
@@ -306,12 +313,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
     def get_pymongo_type_string(
-        self, field_type: Union[Type, str], collection_name: str
+        self,
+        field_type: Union[Type, str],
+        collection_name: str,
     ) -> str:
         """
         Return Mongo type string from a Python type
@@ -336,7 +347,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
         return type_string
 
     def get_field_type(
-        self, field_type: Union[Type, str], collection_name: str
+        self,
+        field_type: Union[Type, str],
+        collection_name: str,
     ) -> SchemaFieldDataType:
         """
         Maps types encountered in PyMongo to corresponding schema types.
@@ -405,7 +418,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     data_platform_instance = DataPlatformInstanceClass(
                         platform=make_data_platform_urn(self.platform),
                         instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
+                            self.platform,
+                            self.config.platform_instance,
                         ),
                     )
 
@@ -460,7 +474,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
         max_schema_size = self.config.maxSchemaSize
         collection_schema_size = len(collection_schema.values())
         collection_fields: Union[
-            List[SchemaDescription], ValuesView[SchemaDescription]
+            List[SchemaDescription],
+            ValuesView[SchemaDescription],
         ] = collection_schema.values()
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
@@ -488,7 +503,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],
                 nativeDataType=self.get_pymongo_type_string(
-                    schema_field["type"], dataset_urn.name
+                    schema_field["type"],
+                    dataset_urn.name,
                 ),
                 type=self.get_field_type(schema_field["type"], dataset_urn.name),
                 description=None,
@@ -512,12 +528,12 @@ class MongoDBSource(StatefulIngestionSourceBase):
             server_version = self.mongo_client.server_info().get("versionArray")
             if server_version:
                 logger.info(
-                    f"Mongodb version for current connection - {server_version}"
+                    f"Mongodb version for current connection - {server_version}",
                 )
                 server_version_str_list = [str(i) for i in server_version]
                 required_version = "4.4"
                 return version.parse(
-                    ".".join(server_version_str_list)
+                    ".".join(server_version_str_list),
                 ) >= version.parse(required_version)
         except Exception as e:
             logger.error("Error while getting version of the mongodb server %s", e)

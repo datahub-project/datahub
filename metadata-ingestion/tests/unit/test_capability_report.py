@@ -11,14 +11,20 @@ from datahub.ingestion.api.source import (
 def test_basic_capability_report():
     report = TestConnectionReport(
         basic_connectivity=CapabilityReport(
-            capable=True, failure_reason=None, mitigation_message=None
+            capable=True,
+            failure_reason=None,
+            mitigation_message=None,
         ),
         capability_report={
             "CONTAINERS": CapabilityReport(
-                capable=True, failure_reason=None, mitigation_message=None
+                capable=True,
+                failure_reason=None,
+                mitigation_message=None,
             ),
             "SCHEMA_METADATA": CapabilityReport(
-                capable=True, failure_reason=None, mitigation_message=None
+                capable=True,
+                failure_reason=None,
+                mitigation_message=None,
             ),
             "DESCRIPTIONS": CapabilityReport(
                 capable=False,
@@ -26,7 +32,9 @@ def test_basic_capability_report():
                 mitigation_message="Enable admin privileges for this account.",
             ),
             "DATA_PROFILING": CapabilityReport(
-                capable=True, failure_reason=None, mitigation_message=None
+                capable=True,
+                failure_reason=None,
+                mitigation_message=None,
             ),
             SourceCapability.DOMAINS: CapabilityReport(capable=True),
         },

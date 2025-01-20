@@ -24,7 +24,9 @@ def report_operation(context):
     for outlet in task._outlets:
         print(f"Reporting insert operation for {outlet.urn}")
         reporter.report_operation(
-            urn=outlet.urn, operation_type="INSERT", num_affected_rows=123
+            urn=outlet.urn,
+            operation_type="INSERT",
+            num_affected_rows=123,
         )
 
 

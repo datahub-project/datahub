@@ -139,23 +139,26 @@ class SnowflakeV2Source(
         self.report: SnowflakeV2Report = SnowflakeV2Report()
 
         self.filters = SnowflakeFilter(
-            filter_config=self.config, structured_reporter=self.report
+            filter_config=self.config,
+            structured_reporter=self.report,
         )
         self.identifiers = SnowflakeIdentifierBuilder(
-            identifier_config=self.config, structured_reporter=self.report
+            identifier_config=self.config,
+            structured_reporter=self.report,
         )
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
+                cached_domains=[k for k in self.config.domain],
+                graph=self.ctx.graph,
             )
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
 
         self.connection: SnowflakeConnection = self._exit_stack.enter_context(
-            self.config.get_connection()
+            self.config.get_connection(),
         )
 
         # For database, schema, tables, views, etc
@@ -182,7 +185,7 @@ class SnowflakeV2Source(
                 generate_usage_statistics=False,
                 generate_operations=False,
                 format_queries=self.config.format_sql_queries,
-            )
+            ),
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -206,7 +209,7 @@ class SnowflakeV2Source(
                     identifiers=self.identifiers,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                     sql_aggregator=self.aggregator,
-                )
+                ),
             )
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
@@ -229,7 +232,7 @@ class SnowflakeV2Source(
                     filter=self.filters,
                     identifiers=self.identifiers,
                     redundant_run_skip_handler=redundant_usage_run_skip_handler,
-                )
+                ),
             )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
@@ -245,7 +248,9 @@ class SnowflakeV2Source(
         self.profiler: Optional[SnowflakeProfiler] = None
         if config.is_profiling_enabled():
             self.profiler = SnowflakeProfiler(
-                config, self.report, self.profiling_state_handler
+                config,
+                self.report,
+                self.profiling_state_handler,
             )
 
         self.add_config_to_report()
@@ -256,7 +261,7 @@ class SnowflakeV2Source(
 
         try:
             connection_conf = SnowflakeConnectionConfig.parse_obj_allow_extras(
-                config_dict
+                config_dict,
             )
 
             connection: SnowflakeConnection = connection_conf.get_connection()
@@ -265,7 +270,8 @@ class SnowflakeV2Source(
             test_report.basic_connectivity = CapabilityReport(capable=True)
 
             test_report.capability_report = SnowflakeV2Source.check_capabilities(
-                connection, connection_conf
+                connection,
+                connection_conf,
             )
             connection.close()
 
@@ -273,7 +279,8 @@ class SnowflakeV2Source(
             logger.error(f"Failed to test connection due to {e}", exc_info=e)
             if test_report.basic_connectivity is None:
                 test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=f"{e}"
+                    capable=False,
+                    failure_reason=f"{e}",
                 )
             else:
                 test_report.internal_failure = True
@@ -283,7 +290,8 @@ class SnowflakeV2Source(
 
     @staticmethod
     def check_capabilities(
-        conn: SnowflakeConnection, connection_conf: SnowflakeConnectionConfig
+        conn: SnowflakeConnection,
+        connection_conf: SnowflakeConnectionConfig,
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
@@ -312,7 +320,7 @@ class SnowflakeV2Source(
 
         cur = conn.query("select current_secondary_roles()")
         secondary_roles_str = json.loads(
-            [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0]
+            [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0],
         )["roles"]
         secondary_roles = (
             [] if secondary_roles_str == "" else secondary_roles_str.split(",")
@@ -343,7 +351,7 @@ class SnowflakeV2Source(
                     "SCHEMA",
                 ) and privilege.privilege in ("OWNERSHIP", "USAGE"):
                     _report[SourceCapability.CONTAINERS] = CapabilityReport(
-                        capable=True
+                        capable=True,
                     )
                     _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
                 elif privilege.object_type in (
@@ -352,19 +360,19 @@ class SnowflakeV2Source(
                     "MATERIALIZED_VIEW",
                 ):
                     _report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
-                        capable=True
+                        capable=True,
                     )
                     _report[SourceCapability.DESCRIPTIONS] = CapabilityReport(
-                        capable=True
+                        capable=True,
                     )
 
                     # Table level profiling is supported without SELECT access
                     # if privilege.privilege in ("SELECT", "OWNERSHIP"):
                     _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
-                        capable=True
+                        capable=True,
                     )
                     _report[SourceCapability.CLASSIFICATION] = CapabilityReport(
-                        capable=True
+                        capable=True,
                     )
 
                     if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
@@ -372,15 +380,15 @@ class SnowflakeV2Source(
                         # Finer access control is not yet supported for shares
                         # https://community.snowflake.com/s/article/Error-Granting-individual-privileges-on-imported-database-is-not-allowed-Use-GRANT-IMPORTED-PRIVILEGES-instead
                         _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
-                            capable=True
+                            capable=True,
                         )
 
                         _report[SourceCapability.LINEAGE_FINE] = CapabilityReport(
-                            capable=True
+                            capable=True,
                         )
 
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
-                            capable=True
+                            capable=True,
                         )
                         _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
 
@@ -448,13 +456,17 @@ class SnowflakeV2Source(
         return [
             *super().get_workunit_processors(),
             functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
+                auto_incremental_lineage,
+                self.config.incremental_lineage,
             ),
             functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
+                auto_incremental_properties,
+                self.config.incremental_properties,
             ),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -490,7 +502,8 @@ class SnowflakeV2Source(
 
         if self.config.shares:
             yield from SnowflakeSharesHandler(
-                self.config, self.report
+                self.config,
+                self.report,
             ).get_shares_workunits(databases)
 
         discovered_tables: List[str] = [
@@ -572,7 +585,10 @@ class SnowflakeV2Source(
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
-                self.config, self.report, self.connection, self.identifiers
+                self.config,
+                self.report,
+                self.connection,
+                self.identifiers,
             ).get_assertion_workunits(discovered_datasets)
 
         self.connection.close()
@@ -717,7 +733,11 @@ class SnowflakeV2Source(
         plat = platform.system().lower()
         if plat == "darwin":
             file_path = os.path.join(
-                "~", "Library", "Caches", "Snowflake", "ocsp_response_validation_cache"
+                "~",
+                "Library",
+                "Caches",
+                "Snowflake",
+                "ocsp_response_validation_cache",
             )
         elif plat == "windows":
             file_path = os.path.join(
@@ -731,7 +751,10 @@ class SnowflakeV2Source(
         else:
             # linux is the default fallback for snowflake
             file_path = os.path.join(
-                "~", ".cache", "snowflake", "ocsp_response_validation_cache"
+                "~",
+                ".cache",
+                "snowflake",
+                "ocsp_response_validation_cache",
             )
 
         file_path = os.path.expanduser(file_path)

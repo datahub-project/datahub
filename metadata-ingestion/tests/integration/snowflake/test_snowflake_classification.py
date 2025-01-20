@@ -35,7 +35,7 @@ sample_values = ["abc@xyz.com" for _ in range(NUM_SAMPLE_VALUES)]
 )
 def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tables):
     with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table",
     ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -43,11 +43,13 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
         sf_connection.cursor.return_value = sf_cursor
 
         sf_cursor.execute.side_effect = partial(
-            default_query_results, num_tables=num_tables, num_cols=num_cols_per_table
+            default_query_results,
+            num_tables=num_tables,
+            num_cols=num_cols_per_table,
         )
 
         mock_sample_values.return_value = pd.DataFrame(
-            data={f"col_{i}": sample_values for i in range(1, num_cols_per_table + 1)}
+            data={f"col_{i}": sample_values for i in range(1, num_cols_per_table + 1)},
         )
 
         datahub_classifier_config = DataHubClassifierConfig(
@@ -74,14 +76,15 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
                             max_workers=num_workers,
                             classifiers=[
                                 DynamicTypedClassifierConfig(
-                                    type="datahub", config=datahub_classifier_config
-                                )
+                                    type="datahub",
+                                    config=datahub_classifier_config,
+                                ),
                             ],
                         ),
                     ),
                 ),
                 sink=DynamicTypedConfig(type="blackhole", config={}),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -97,7 +100,7 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
             len(
                 cast(SnowflakeV2Report, source_report).info_types_detected[
                     "Email_Address"
-                ]
+                ],
             )
             == num_tables * num_cols_per_table
         )

@@ -73,7 +73,10 @@ def upsert(file: str) -> None:
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def compile(
-    file: str, platform: str, output_to: Optional[str], extras: List[str]
+    file: str,
+    platform: str,
+    output_to: Optional[str],
+    extras: List[str],
 ) -> None:
     """Compile a set of assertions for input assertion platform.
     Note that this does not run any code or execute any queries on assertion platform
@@ -99,7 +102,8 @@ def compile(
 
     try:
         compiler = ASSERTION_PLATFORMS[platform].create(
-            output_dir=output_to, extras=extras_list_to_dict(extras)
+            output_dir=output_to,
+            extras=extras_list_to_dict(extras),
         )
         result = compiler.compile(assertions_spec)
 
@@ -127,7 +131,7 @@ def write_report_file(output_to: str, result: AssertionCompilationResult) -> Non
                 path=report_path,
                 type=CompileResultArtifactType.COMPILE_REPORT,
                 description="Detailed report about compile status",
-            )
+            ),
         )
         f.write(result.report.as_json())
 

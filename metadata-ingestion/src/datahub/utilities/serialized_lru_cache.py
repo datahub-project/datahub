@@ -42,7 +42,8 @@ def serialized_lru_cache(
             # We need a type ignore here because there's no way for us to require that
             # the args and kwargs are hashable while using ParamSpec.
             key: _Key = cachetools.keys.hashkey(
-                *args, **{k: v for k, v in kwargs.items() if "cache_exclude" not in k}
+                *args,
+                **{k: v for k, v in kwargs.items() if "cache_exclude" not in k},
             )  # type: ignore
 
             with cache_lock:

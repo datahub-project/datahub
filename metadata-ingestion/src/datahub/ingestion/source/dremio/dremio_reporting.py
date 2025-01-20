@@ -10,7 +10,9 @@ from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 @dataclass
 class DremioSourceReport(
-    SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport
+    SQLSourceReport,
+    StaleEntityRemovalSourceReport,
+    IngestionStageReport,
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0

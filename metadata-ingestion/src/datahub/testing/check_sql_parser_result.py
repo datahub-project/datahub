@@ -55,7 +55,7 @@ def assert_sql_result_with_resolver(
         expected_file.write_text(txt)
         raise AssertionError(
             f"Expected file {expected_file} does not exist. "
-            "Created it with the expected output. Please verify it."
+            "Created it with the expected output. Please verify it.",
         )
 
     expected = SqlParsingResult.parse_raw(expected_file.read_text())
@@ -80,7 +80,8 @@ def assert_sql_result(
     **kwargs: Any,
 ) -> None:
     schema_resolver = SchemaResolver(
-        platform=dialect, platform_instance=platform_instance
+        platform=dialect,
+        platform_instance=platform_instance,
     )
     if schemas:
         for urn, schema in schemas.items():

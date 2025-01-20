@@ -37,18 +37,21 @@ class SinkReport(Report):
         self.current_time = datetime.datetime.now()
         if self.start_time:
             self.total_duration_in_seconds = round(
-                (self.current_time - self.start_time).total_seconds(), 2
+                (self.current_time - self.start_time).total_seconds(),
+                2,
             )
             if self.total_duration_in_seconds > 0:
                 self.records_written_per_second = int(
-                    self.total_records_written / self.total_duration_in_seconds
+                    self.total_records_written / self.total_duration_in_seconds,
                 )
 
 
 class WriteCallback(metaclass=ABCMeta):
     @abstractmethod
     def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
+        self,
+        record_envelope: RecordEnvelope,
+        success_metadata: dict,
     ) -> None:
         pass
 
@@ -66,7 +69,9 @@ class NoopWriteCallback(WriteCallback):
     """Convenience WriteCallback class to support noop"""
 
     def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
+        self,
+        record_envelope: RecordEnvelope,
+        success_metadata: dict,
     ) -> None:
         pass
 
@@ -124,7 +129,9 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
 
     @abstractmethod
     def write_record_async(
-        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
+        self,
+        record_envelope: RecordEnvelope,
+        write_callback: WriteCallback,
     ) -> None:
         # must call callback when done.
         pass

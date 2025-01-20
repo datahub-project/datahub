@@ -35,7 +35,7 @@ def test_lossyset_sampling(length, sampling):
     assert lossy_set.sampled is sampling
     if sampling:
         assert f"... sampled with at most {length - 10} elements missing" in str(
-            lossy_set
+            lossy_set,
         )
     else:
         assert "sampled" not in str(lossy_set)
@@ -48,7 +48,8 @@ def test_lossyset_sampling(length, sampling):
 
 
 @pytest.mark.parametrize(
-    "length, sampling, sub_length", [(4, False, 4), (10, False, 14), (100, True, 1000)]
+    "length, sampling, sub_length",
+    [(4, False, 4), (10, False, 14), (100, True, 1000)],
 )
 def test_lossydict_sampling(length, sampling, sub_length):
     lossy_dict: LossyDict[int, LossyList[str]] = LossyDict()

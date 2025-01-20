@@ -84,7 +84,7 @@ def snowflake_databases() -> List[SnowflakeDatabase]:
                     last_altered=None,
                     tables=["table311", "table312"],
                     views=["view311"],
-                )
+                ),
             ],
         ),
     ]
@@ -92,7 +92,9 @@ def snowflake_databases() -> List[SnowflakeDatabase]:
 
 def make_snowflake_urn(table_name, instance_name=None):
     return make_dataset_urn_with_platform_instance(
-        "snowflake", table_name, instance_name
+        "snowflake",
+        table_name,
+        instance_name,
     )
 
 
@@ -122,14 +124,14 @@ def test_same_database_inbound_and_outbound_invalid_config() -> None:
                     database="db1",
                     platform_instance="instance2",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance1")
+                        DatabaseId(database="db1", platform_instance="instance1"),
                     ],
                 ),
                 "share2": SnowflakeShareConfig(
                     database="db1",
                     platform_instance="instance3",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance1")
+                        DatabaseId(database="db1", platform_instance="instance1"),
                     ],
                 ),
             },
@@ -147,14 +149,14 @@ def test_same_database_inbound_and_outbound_invalid_config() -> None:
                     database="db1",
                     platform_instance="instance2",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance1")
+                        DatabaseId(database="db1", platform_instance="instance1"),
                     ],
                 ),
                 "share2": SnowflakeShareConfig(
                     database="db1",
                     platform_instance="instance1",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance3")
+                        DatabaseId(database="db1", platform_instance="instance3"),
                     ],
                 ),
             },
@@ -172,14 +174,14 @@ def test_same_database_inbound_and_outbound_invalid_config() -> None:
                     database="db1",
                     platform_instance="instance1",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance3")
+                        DatabaseId(database="db1", platform_instance="instance3"),
                     ],
                 ),
                 "share1": SnowflakeShareConfig(
                     database="db1",
                     platform_instance="instance2",
                     consumers=[
-                        DatabaseId(database="db1", platform_instance="instance1")
+                        DatabaseId(database="db1", platform_instance="instance1"),
                     ],
                 ),
             },
@@ -197,7 +199,7 @@ def test_snowflake_shares_workunit_inbound_share(
                 database="db1",
                 platform_instance="instance2",
                 consumers=[DatabaseId(database="db1", platform_instance="instance1")],
-            )
+            ),
         },
     )
 
@@ -214,14 +216,16 @@ def test_snowflake_shares_workunit_inbound_share(
 
     for wu in wus:
         assert isinstance(
-            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            wu.metadata,
+            (MetadataChangeProposal, MetadataChangeProposalWrapper),
         )
         if wu.metadata.aspectName == "upstreamLineage":
             upstream_aspect = wu.get_aspect_of_type(UpstreamLineage)
             assert upstream_aspect is not None
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
-                "instance1.db1", "instance2.db1"
+                "instance1.db1",
+                "instance2.db1",
             )
             upstream_lineage_aspect_entity_urns.add(wu.get_urn())
         else:
@@ -230,7 +234,7 @@ def test_snowflake_shares_workunit_inbound_share(
             assert not siblings_aspect.primary
             assert len(siblings_aspect.siblings) == 1
             assert siblings_aspect.siblings == [
-                wu.get_urn().replace("instance1.db1", "instance2.db1")
+                wu.get_urn().replace("instance1.db1", "instance2.db1"),
             ]
             sibling_aspect_entity_urns.add(wu.get_urn())
 
@@ -249,11 +253,12 @@ def test_snowflake_shares_workunit_outbound_share(
                 platform_instance="instance1",
                 consumers=[
                     DatabaseId(
-                        database="db2_from_share", platform_instance="instance2"
+                        database="db2_from_share",
+                        platform_instance="instance2",
                     ),
                     DatabaseId(database="db2", platform_instance="instance3"),
                 ],
-            )
+            ),
         },
     )
 
@@ -298,7 +303,8 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
                 platform_instance="instance1",
                 consumers=[
                     DatabaseId(
-                        database="db2_from_share", platform_instance="instance2"
+                        database="db2_from_share",
+                        platform_instance="instance2",
                     ),
                     DatabaseId(database="db2", platform_instance="instance3"),
                 ],
@@ -317,14 +323,16 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
 
     for wu in wus:
         assert isinstance(
-            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            wu.metadata,
+            (MetadataChangeProposal, MetadataChangeProposalWrapper),
         )
         if wu.metadata.aspectName == "upstreamLineage":
             upstream_aspect = wu.get_aspect_of_type(UpstreamLineage)
             assert upstream_aspect is not None
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
-                "instance1.db1", "instance2.db1"
+                "instance1.db1",
+                "instance2.db1",
             )
         else:
             siblings_aspect = wu.get_aspect_of_type(Siblings)
@@ -333,7 +341,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
                 assert not siblings_aspect.primary
                 assert len(siblings_aspect.siblings) == 1
                 assert siblings_aspect.siblings == [
-                    wu.get_urn().replace("instance1.db1", "instance2.db1")
+                    wu.get_urn().replace("instance1.db1", "instance2.db1"),
                 ]
             else:
                 assert siblings_aspect.primary
@@ -385,14 +393,16 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
 
     for wu in wus:
         assert isinstance(
-            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            wu.metadata,
+            (MetadataChangeProposal, MetadataChangeProposalWrapper),
         )
         if wu.metadata.aspectName == "upstreamLineage":
             upstream_aspect = wu.get_aspect_of_type(UpstreamLineage)
             assert upstream_aspect is not None
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
-                "db2.", "db2_main."
+                "db2.",
+                "db2_main.",
             )
         else:
             siblings_aspect = wu.get_aspect_of_type(Siblings)
@@ -408,5 +418,5 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
                 assert not siblings_aspect.primary
                 assert len(siblings_aspect.siblings) == 1
                 assert siblings_aspect.siblings == [
-                    wu.get_urn().replace("db2.", "db2_main.")
+                    wu.get_urn().replace("db2.", "db2_main."),
                 ]

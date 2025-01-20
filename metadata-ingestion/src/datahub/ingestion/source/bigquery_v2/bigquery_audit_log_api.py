@@ -69,7 +69,7 @@ class BigQueryAuditLogApi:
             self.report.num_get_exported_log_entries_api_requests += 1
             for dataset in bigquery_audit_metadata_datasets:
                 logger.info(
-                    f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
+                    f"Start loading log entries from BigQueryAuditMetadata in {dataset}",
                 )
 
                 query = bigquery_audit_metadata_query_template(
@@ -85,7 +85,7 @@ class BigQueryAuditLogApi:
 
                 query_job = bigquery_client.query(query)
                 logger.info(
-                    f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
+                    f"Finished loading log entries from BigQueryAuditMetadata in {dataset}",
                 )
 
                 for entry in query_job:
@@ -126,7 +126,7 @@ class BigQueryAuditLogApi:
             for i, entry in enumerate(list_entries):
                 if i > 0 and i % 1000 == 0:
                     logger.info(
-                        f"Loaded {i} log entries from GCP Log for {client.project}"
+                        f"Loaded {i} log entries from GCP Log for {client.project}",
                     )
 
                 with current_timer.pause():
@@ -137,5 +137,5 @@ class BigQueryAuditLogApi:
                         yield entry
 
             logger.info(
-                f"Finished loading log entries from GCP Log for {client.project}"
+                f"Finished loading log entries from GCP Log for {client.project}",
             )

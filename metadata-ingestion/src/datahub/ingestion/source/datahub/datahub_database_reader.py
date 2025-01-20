@@ -148,7 +148,9 @@ class DataHubDatabaseReader:
         """
 
     def execute_server_cursor(
-        self, query: str, params: Dict[str, Any]
+        self,
+        query: str,
+        params: Dict[str, Any],
     ) -> Iterable[Dict[str, Any]]:
         with self.engine.connect() as conn:
             if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
@@ -168,7 +170,9 @@ class DataHubDatabaseReader:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
 
     def _get_rows(
-        self, from_createdon: datetime, stop_time: datetime
+        self,
+        from_createdon: datetime,
+        stop_time: datetime,
     ) -> Iterable[Dict[str, Any]]:
         params = {
             "exclude_aspects": list(self.config.exclude_aspects),
@@ -177,10 +181,12 @@ class DataHubDatabaseReader:
         yield from self.execute_server_cursor(self.query, params)
 
     def get_aspects(
-        self, from_createdon: datetime, stop_time: datetime
+        self,
+        from_createdon: datetime,
+        stop_time: datetime,
     ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
         orderer = VersionOrderer[Dict[str, Any]](
-            enabled=self.config.include_all_versions
+            enabled=self.config.include_all_versions,
         )
         rows = self._get_rows(from_createdon=from_createdon, stop_time=stop_time)
         for row in orderer(rows):
@@ -208,12 +214,13 @@ class DataHubDatabaseReader:
                         yield dict(zip(columns, row))
 
     def _parse_row(
-        self, row: Dict[str, Any]
+        self,
+        row: Dict[str, Any],
     ) -> Optional[MetadataChangeProposalWrapper]:
         try:
             json_aspect = post_json_transform(json.loads(row["metadata"]))
             json_metadata = post_json_transform(
-                json.loads(row["systemmetadata"] or "{}")
+                json.loads(row["systemmetadata"] or "{}"),
             )
             system_metadata = SystemMetadataClass.from_obj(json_metadata)
             return MetadataChangeProposalWrapper(
@@ -224,10 +231,12 @@ class DataHubDatabaseReader:
             )
         except Exception as e:
             logger.warning(
-                f"Failed to parse metadata for {row['urn']}: {e}", exc_info=True
+                f"Failed to parse metadata for {row['urn']}: {e}",
+                exc_info=True,
             )
             self.report.num_database_parse_errors += 1
             self.report.database_parse_errors.setdefault(
-                str(e), LossyDict()
+                str(e),
+                LossyDict(),
             ).setdefault(row["aspect"], LossyList()).append(row["urn"])
             return None

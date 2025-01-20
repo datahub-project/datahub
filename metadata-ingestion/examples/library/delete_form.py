@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 graph = DataHubGraph(
     config=DatahubClientConfig(
         server="http://localhost:8080",
-    )
+    ),
 )
 
 form_urn = FormUrn("metadata_initiative_1")

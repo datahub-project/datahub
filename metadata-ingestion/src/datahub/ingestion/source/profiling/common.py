@@ -14,7 +14,8 @@ class Cardinality(Enum):
 
 
 def convert_to_cardinality(
-    unique_count: Optional[int], pct_unique: Optional[float]
+    unique_count: Optional[int],
+    pct_unique: Optional[float],
 ) -> Optional[Cardinality]:
     """
     Resolve the cardinality of a column based on the unique count and the percentage of unique values.

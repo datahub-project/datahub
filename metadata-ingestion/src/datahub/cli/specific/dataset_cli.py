@@ -61,7 +61,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
-                f"{json.dumps(dataset.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataset.dict(exclude_unset=True, exclude_none=True), indent=2)}",
             )
             if to_file:
                 dataset.to_yaml(Path(to_file))
@@ -91,7 +91,10 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
 
 
 def _emit_sibling(
-    graph: DataHubGraph, primary_urn: str, urn: str, all_urns: Set[str]
+    graph: DataHubGraph,
+    primary_urn: str,
+    urn: str,
+    all_urns: Set[str],
 ) -> None:
     siblings = _get_existing_siblings(graph, urn)
     for sibling_urn in all_urns:
@@ -101,7 +104,7 @@ def _emit_sibling(
         MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=Siblings(primary=primary_urn == urn, siblings=sorted(siblings)),
-        )
+        ),
     )
 
 

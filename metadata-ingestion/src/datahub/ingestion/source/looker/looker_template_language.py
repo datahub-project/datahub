@@ -49,7 +49,7 @@ class SpecialVariable:
 
         for variable in variables:
             keys = variable.split(
-                "."
+                ".",
             )  # variable is defined as view._is_selected or view.field_name._is_selected
 
             current_dict: dict = new_dict
@@ -72,7 +72,7 @@ class SpecialVariable:
             [
                 text[m.start() : m.end()]
                 for m in re.finditer(SpecialVariable.SPECIAL_VARIABLE_PATTERN, text)
-            ]
+            ],
         )
 
         # if set is empty then no special variables are found.
@@ -91,7 +91,7 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
         # https://cloud.google.com/looker/docs/liquid-variable-reference#usage_of_in_query_is_selected_and_is_filtered
         # update in liquid_variable with there default values
         liquid_variable = SpecialVariable(liquid_variable).liquid_variable_with_default(
-            text
+            text,
         )
         # Resolve liquid template
         return create_template(text).render(liquid_variable)
@@ -204,7 +204,8 @@ class LookMLViewTransformer(ABC):
         if SQL_TABLE_NAME in view and self.is_attribute_supported(SQL_TABLE_NAME):
             # Give precedence to already processed transformed view.sql_table_name to apply more transformation
             value_to_transform = view.get(
-                DATAHUB_TRANSFORMED_SQL_TABLE_NAME, view[SQL_TABLE_NAME]
+                DATAHUB_TRANSFORMED_SQL_TABLE_NAME,
+                view[SQL_TABLE_NAME],
             )
 
         if (
@@ -214,7 +215,8 @@ class LookMLViewTransformer(ABC):
         ):
             # Give precedence to already processed transformed view.derived.sql to apply more transformation
             value_to_transform = view[DERIVED_TABLE].get(
-                DATAHUB_TRANSFORMED_SQL, view[DERIVED_TABLE][SQL]
+                DATAHUB_TRANSFORMED_SQL,
+                view[DERIVED_TABLE][SQL],
             )
 
         if value_to_transform is None:
@@ -223,7 +225,8 @@ class LookMLViewTransformer(ABC):
         logger.debug(f"value to transform = {value_to_transform}")
 
         transformed_value: str = self._apply_transformation(
-            value=value_to_transform, view=view
+            value=value_to_transform,
+            view=view,
         )
 
         logger.debug(f"transformed value = {transformed_value}")
@@ -313,17 +316,20 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
         # This regx will keep whatever after -- if looker_environment --
         self.evaluate_to_true_regx = r"-- if {} --".format(
-            self.source_config.looker_environment
+            self.source_config.looker_environment,
         )
 
         # It will remove all other lines starts with -- if ... --
         self.remove_if_comment_line_regx = r"-- if {} --.*?(?=\n|-- if|$)".format(
-            dev if self.source_config.looker_environment.lower() == prod else prod
+            dev if self.source_config.looker_environment.lower() == prod else prod,
         )
 
     def _apply_regx(self, value: str) -> str:
         result: str = re.sub(
-            self.remove_if_comment_line_regx, "", value, flags=re.IGNORECASE | re.DOTALL
+            self.remove_if_comment_line_regx,
+            "",
+            value,
+            flags=re.IGNORECASE | re.DOTALL,
         )
 
         # Remove '-- if prod --' but keep the rest of the line
@@ -381,7 +387,8 @@ class TransformedLookMlView:
             logger.debug(f"Applying transformer {transformer.__class__.__name__}")
 
             self.transformed_dict = always_merger.merge(
-                self.transformed_dict, transformer.transform(self.transformed_dict)
+                self.transformed_dict,
+                transformer.transform(self.transformed_dict),
             )
 
         return self.transformed_dict
@@ -396,16 +403,16 @@ def process_lookml_template_language(
 
     transformers: List[LookMLViewTransformer] = [
         LookMlIfCommentTransformer(
-            source_config=source_config
+            source_config=source_config,
         ),  # First evaluate the -- if -- comments. Looker does the same
         LiquidVariableTransformer(
-            source_config=source_config
+            source_config=source_config,
         ),  # Now resolve liquid variables
         DropDerivedViewPatternTransformer(
-            source_config=source_config
+            source_config=source_config,
         ),  # Remove any ${} symbol
         IncompleteSqlTransformer(
-            source_config=source_config
+            source_config=source_config,
         ),  # complete any incomplete sql
     ]
 
@@ -413,7 +420,7 @@ def process_lookml_template_language(
 
     for view in view_lkml_file_dict["views"]:
         transformed_views.append(
-            TransformedLookMlView(transformers=transformers, view_dict=view).view()
+            TransformedLookMlView(transformers=transformers, view_dict=view).view(),
         )
 
     view_lkml_file_dict["views"] = transformed_views

@@ -28,7 +28,8 @@ class DataPlatformInstance(BaseModel):
             platform=make_data_platform_urn(self.platform),
             instance=(
                 make_dataplatform_instance_urn(
-                    platform=self.platform, instance=self.platform_instance
+                    platform=self.platform,
+                    instance=self.platform_instance,
                 )
                 if self.platform_instance
                 else None

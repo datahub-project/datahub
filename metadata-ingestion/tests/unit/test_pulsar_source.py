@@ -29,17 +29,18 @@ class TestPulsarSourceConfig:
     def test_pulsar_source_config_valid_web_service_url(self):
         assert (
             PulsarSourceConfig().web_service_url_scheme_host_port(
-                "http://localhost:8080/"
+                "http://localhost:8080/",
             )
             == "http://localhost:8080"
         )
 
     def test_pulsar_source_config_invalid_web_service_url_scheme(self):
         with pytest.raises(
-            ValueError, match=r"Scheme should be http or https, found ftp"
+            ValueError,
+            match=r"Scheme should be http or https, found ftp",
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(
-                "ftp://localhost:8080/"
+                "ftp://localhost:8080/",
             )
 
     def test_pulsar_source_config_invalid_web_service_url_host(self):
@@ -48,7 +49,7 @@ class TestPulsarSourceConfig:
             match=r"Not a valid hostname, hostname contains invalid characters, found localhost&",
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(
-                "http://localhost&:8080/"
+                "http://localhost&:8080/",
             )
 
 
@@ -97,7 +98,7 @@ class TestPulsarSource(unittest.TestCase):
     def test_pulsar_source_get_token_oauth(self, mock_post, mock_get):
         ctx = PipelineContext(run_id="test")
         mock_get.return_value.json.return_value = {
-            "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token"
+            "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token",
         }
 
         pulsar_source = PulsarSource.create(
@@ -124,7 +125,7 @@ class TestPulsarSource(unittest.TestCase):
 
         # Mock fetching Pulsar metadata
         with patch(
-            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata"
+            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata",
         ) as mock:
             mock.side_effect = [
                 ["t_1"],  # tenant list
@@ -165,7 +166,7 @@ class TestPulsarSource(unittest.TestCase):
 
         # Mock fetching Pulsar metadata
         with patch(
-            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata"
+            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata",
         ) as mock:
             mock.side_effect = [
                 ["t_1/ns_1"],  # namespaces list
@@ -209,7 +210,7 @@ class TestPulsarSource(unittest.TestCase):
 
         # Mock fetching Pulsar metadata
         with patch(
-            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata"
+            "datahub.ingestion.source.pulsar.PulsarSource._get_pulsar_metadata",
         ) as mock:
             mock.side_effect = [
                 ["t_1/ns_1", "t_2/ns_1"],  # namespaces list

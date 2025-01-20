@@ -122,7 +122,8 @@ class BigQueryUsageState(Closeable):
                 "resource": lambda e: str(e.resource),
                 "name": lambda e: e.jobName,
                 "timestamp": lambda e: get_time_bucket(
-                    e.timestamp, config.bucket_duration
+                    e.timestamp,
+                    config.bucket_duration,
                 ),
                 "user": lambda e: e.actor_email,
                 "from_query": lambda e: int(e.from_query),
@@ -260,7 +261,8 @@ class BigQueryUsageState(Closeable):
         query = self.usage_statistics_query(top_n)
 
         rows = self.read_events.sql_query_iterator(
-            query, refs=[self.query_events, self.column_accesses]
+            query,
+            refs=[self.query_events, self.column_accesses],
         )
         for row in rows:
             yield self.UsageStatistic(
@@ -291,9 +293,9 @@ class BigQueryUsageState(Closeable):
             {
                 "main": humanfriendly.format_size(os.path.getsize(self.conn.filename)),
                 "queries": humanfriendly.format_size(
-                    os.path.getsize(self.queries._conn.filename)
+                    os.path.getsize(self.queries._conn.filename),
                 ),
-            }
+            },
         )
 
 
@@ -334,7 +336,8 @@ class BigQueryUsageExtractor:
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
+                self.config.start_time,
+                self.config.end_time,
             )
         else:
             return self.config.start_time, self.config.end_time
@@ -369,7 +372,9 @@ class BigQueryUsageExtractor:
         return True
 
     def get_usage_workunits(
-        self, projects: Iterable[str], table_refs: Collection[str]
+        self,
+        projects: Iterable[str],
+        table_refs: Collection[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_usage():
             return
@@ -385,7 +390,9 @@ class BigQueryUsageExtractor:
             )
 
     def _get_workunits_internal(
-        self, events: Iterable[AuditEvent], table_refs: Collection[str]
+        self,
+        events: Iterable[AuditEvent],
+        table_refs: Collection[str],
     ) -> Iterable[MetadataWorkUnit]:
         try:
             with BigQueryUsageState(self.config) as usage_state:
@@ -395,7 +402,8 @@ class BigQueryUsageExtractor:
 
                 if self.config.usage.include_operational_stats:
                     yield from self._generate_operational_workunits(
-                        usage_state, table_refs
+                        usage_state,
+                        table_refs,
                     )
 
                 yield from auto_empty_dataset_usage_statistics(
@@ -407,7 +415,7 @@ class BigQueryUsageExtractor:
                     ),
                     dataset_urns={
                         self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(ref)
+                            BigQueryTableRef.from_string_name(ref),
                         )
                         for ref in table_refs
                     },
@@ -418,7 +426,8 @@ class BigQueryUsageExtractor:
             self.report_status("usage-ingestion", False)
 
     def generate_read_events_from_query(
-        self, query_event_on_view: QueryEvent
+        self,
+        query_event_on_view: QueryEvent,
     ) -> Iterable[AuditEvent]:
         try:
             tables = self.get_tables_from_query(
@@ -429,12 +438,12 @@ class BigQueryUsageExtractor:
             assert len(tables) != 0
             for table in tables:
                 yield AuditEvent.create(
-                    ReadEvent.from_query_event(table, query_event_on_view)
+                    ReadEvent.from_query_event(table, query_event_on_view),
                 )
         except Exception as ex:
             logger.debug(
                 f"Generating read events failed for this query on view: {query_event_on_view.query}. "
-                f"Usage won't be added. The error was {ex}."
+                f"Usage won't be added. The error was {ex}.",
             )
             self.report.num_view_query_events_failed_sql_parsing += 1
 
@@ -472,11 +481,15 @@ class BigQueryUsageExtractor:
                     for new_event in self.generate_read_events_from_query(query_event):
                         with self.report.processing_perf.store_usage_event_sec:
                             num_generated += self._store_usage_event(
-                                new_event, usage_state, table_refs
+                                new_event,
+                                usage_state,
+                                table_refs,
                             )
                 with self.report.processing_perf.store_usage_event_sec:
                     num_aggregated += self._store_usage_event(
-                        audit_event, usage_state, table_refs
+                        audit_event,
+                        usage_state,
+                        table_refs,
                     )
 
             except Exception as e:
@@ -493,13 +506,16 @@ class BigQueryUsageExtractor:
             usage_state.delete_original_read_events_for_view_query_events()
 
     def _generate_operational_workunits(
-        self, usage_state: BigQueryUsageState, table_refs: Collection[str]
+        self,
+        usage_state: BigQueryUsageState,
+        table_refs: Collection[str],
     ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(f"*: {USAGE_EXTRACTION_OPERATIONAL_STATS}"):
             for audit_event in usage_state.standalone_events():
                 try:
                     operational_wu = self._create_operation_workunit(
-                        audit_event, table_refs
+                        audit_event,
+                        table_refs,
                     )
                     if operational_wu:
                         yield operational_wu
@@ -512,7 +528,8 @@ class BigQueryUsageExtractor:
                     )
 
     def _generate_usage_workunits(
-        self, usage_state: BigQueryUsageState
+        self,
+        usage_state: BigQueryUsageState,
     ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
             top_n = (
@@ -525,7 +542,8 @@ class BigQueryUsageExtractor:
                     query_freq = [
                         (
                             self.uuid_to_query.get(
-                                query_hash, usage_state.queries[query_hash]
+                                query_hash,
+                                usage_state.queries[query_hash],
                             ),
                             count,
                         )
@@ -560,7 +578,7 @@ class BigQueryUsageExtractor:
             with PerfTimer() as timer:
                 try:
                     with self.report.new_stage(
-                        f"{project_id}: {USAGE_EXTRACTION_INGESTION}"
+                        f"{project_id}: {USAGE_EXTRACTION_INGESTION}",
                     ):
                         yield from self._get_parsed_bigquery_log_events(project_id)
                 except Exception as e:
@@ -573,7 +591,7 @@ class BigQueryUsageExtractor:
                     self.report_status(f"usage-extraction-{project_id}", False)
 
                 self.report.usage_extraction_sec[project_id] = timer.elapsed_seconds(
-                    digits=2
+                    digits=2,
                 )
 
     def _store_usage_event(
@@ -637,7 +655,8 @@ class BigQueryUsageExtractor:
             return None
 
     def _extract_operational_meta(
-        self, event: AuditEvent
+        self,
+        event: AuditEvent,
     ) -> Optional[OperationalDataMeta]:
         # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
         # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
@@ -646,7 +665,7 @@ class BigQueryUsageExtractor:
                 statement_type=OperationTypeClass.CUSTOM,
                 custom_type="CUSTOM_READ",
                 last_updated_timestamp=int(
-                    event.read_event.timestamp.timestamp() * 1000
+                    event.read_event.timestamp.timestamp() * 1000,
                 ),
                 actor_email=event.read_event.actor_email,
             )
@@ -674,7 +693,7 @@ class BigQueryUsageExtractor:
                 statement_type=statement_type,
                 custom_type=custom_type,
                 last_updated_timestamp=int(
-                    event.query_event.timestamp.timestamp() * 1000
+                    event.query_event.timestamp.timestamp() * 1000,
                 ),
                 actor_email=event.query_event.actor_email,
             )
@@ -682,7 +701,9 @@ class BigQueryUsageExtractor:
             return None
 
     def _create_operation_workunit(
-        self, event: AuditEvent, table_refs: Collection[str]
+        self,
+        event: AuditEvent,
+        table_refs: Collection[str],
     ) -> Optional[MetadataWorkUnit]:
         if not event.read_event and not event.query_event:
             return None
@@ -696,7 +717,7 @@ class BigQueryUsageExtractor:
             or str(destination_table) not in table_refs
         ):
             logger.debug(
-                f"Filtering out operation {event.query_event}: invalid destination {destination_table}."
+                f"Filtering out operation {event.query_event}: invalid destination {destination_table}.",
             )
             self.report.num_usage_operations_dropped += 1
             return None
@@ -715,7 +736,7 @@ class BigQueryUsageExtractor:
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
                 affected_datasets.append(
-                    self.identifiers.gen_dataset_urn_from_raw_ref(table)
+                    self.identifiers.gen_dataset_urn_from_raw_ref(table),
                 )
 
         operation_aspect = OperationClass(
@@ -740,7 +761,8 @@ class BigQueryUsageExtractor:
         ).as_workunit()
 
     def _create_operational_custom_properties(
-        self, event: AuditEvent
+        self,
+        event: AuditEvent,
     ) -> Dict[str, str]:
         custom_properties: Dict[str, str] = {}
         # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
@@ -749,7 +771,7 @@ class BigQueryUsageExtractor:
                 if event.query_event.end_time and event.query_event.start_time:
                     custom_properties["millisecondsTaken"] = str(
                         int(event.query_event.end_time.timestamp() * 1000)
-                        - int(event.query_event.start_time.timestamp() * 1000)
+                        - int(event.query_event.start_time.timestamp() * 1000),
                     )
 
                 if event.query_event.job_name:
@@ -759,7 +781,7 @@ class BigQueryUsageExtractor:
 
                 if event.query_event.billed_bytes:
                     custom_properties["bytesProcessed"] = str(
-                        event.query_event.billed_bytes
+                        event.query_event.billed_bytes,
                     )
 
                 if event.query_event.default_dataset:
@@ -772,13 +794,14 @@ class BigQueryUsageExtractor:
 
                 if event.read_event.fieldsRead:
                     custom_properties["fieldsRead"] = ",".join(
-                        event.read_event.fieldsRead
+                        event.read_event.fieldsRead,
                     )
 
         return custom_properties
 
     def _parse_bigquery_log_entry(
-        self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
+        self,
+        entry: Union[AuditLogEntry, BigQueryAuditMetadata],
     ) -> Optional[AuditEvent]:
         event: Optional[Union[ReadEvent, QueryEvent]] = None
         missing_read_entry = ReadEvent.get_missing_key_entry(entry)
@@ -801,30 +824,33 @@ class BigQueryUsageExtractor:
 
         if event is None and missing_query_entry_v2 is None:
             event = QueryEvent.from_entry_v2(
-                entry, self.config.debug_include_full_payloads
+                entry,
+                self.config.debug_include_full_payloads,
             )
             self.report.num_query_events += 1
 
         if event is None:
             logger.warning(
                 f"Unable to parse {type(entry)} missing read {missing_read_entry}, "
-                f"missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
+                f"missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
             )
             return None
 
         return AuditEvent.create(event)
 
     def _parse_exported_bigquery_audit_metadata(
-        self, audit_metadata: BigQueryAuditMetadata
+        self,
+        audit_metadata: BigQueryAuditMetadata,
     ) -> Optional[AuditEvent]:
         event: Optional[Union[ReadEvent, QueryEvent]] = None
 
         missing_read_event = ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
-            audit_metadata
+            audit_metadata,
         )
         if missing_read_event is None:
             event = ReadEvent.from_exported_bigquery_audit_metadata(
-                audit_metadata, self.config.debug_include_full_payloads
+                audit_metadata,
+                self.config.debug_include_full_payloads,
             )
             if not self._is_table_allowed(event.resource):
                 self.report.num_filtered_read_events += 1
@@ -838,7 +864,8 @@ class BigQueryUsageExtractor:
         )
         if event is None and missing_query_event is None:
             event = QueryEvent.from_exported_bigquery_audit_metadata(
-                audit_metadata, self.config.debug_include_full_payloads
+                audit_metadata,
+                self.config.debug_include_full_payloads,
             )
             self.report.num_query_events += 1
 
@@ -846,14 +873,16 @@ class BigQueryUsageExtractor:
             logger.warning(
                 f"{audit_metadata['logName']}-{audit_metadata['insertId']} "
                 f"Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event)} "
-                f"ReadEvent keys: {str(missing_read_event)} for {audit_metadata}"
+                f"ReadEvent keys: {str(missing_read_event)} for {audit_metadata}",
             )
             return None
 
         return AuditEvent.create(event)
 
     def _get_parsed_bigquery_log_events(
-        self, project_id: str, limit: Optional[int] = None
+        self,
+        project_id: str,
+        limit: Optional[int] = None,
     ) -> Iterable[AuditEvent]:
         audit_log_api = BigQueryAuditLogApi(
             self.report.audit_log_api_perf,
@@ -887,7 +916,7 @@ class BigQueryUsageExtractor:
             logging_client = self.config.make_gcp_logging_client(project_id)
             logger.info(
                 f"Start loading log entries from BigQuery for {project_id} "
-                f"with start_time={corrected_start_time} and end_time={corrected_end_time}"
+                f"with start_time={corrected_start_time} and end_time={corrected_end_time}",
             )
             entries = audit_log_api.get_bigquery_log_entries_via_gcp_logging(
                 logging_client,
@@ -918,7 +947,10 @@ class BigQueryUsageExtractor:
         )
 
     def get_tables_from_query(
-        self, query: str, default_project: str, default_dataset: Optional[str] = None
+        self,
+        query: str,
+        default_project: str,
+        default_dataset: Optional[str] = None,
     ) -> List[BigQueryTableRef]:
         """
         This method attempts to parse bigquery objects read in the query
@@ -936,7 +968,7 @@ class BigQueryUsageExtractor:
                 )
         except Exception:
             logger.debug(
-                f"Sql parsing failed on this query on view: {query}. Usage won't be added."
+                f"Sql parsing failed on this query on view: {query}. Usage won't be added.",
             )
             logger.debug(result.debug_info)
             return []

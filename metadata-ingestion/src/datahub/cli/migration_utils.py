@@ -81,7 +81,7 @@ def get_aspect_name_from_relationship(relationship_type: str, entity_type: str) 
         return aspect_map[relationship_type][entity_type.lower()]
 
     raise Exception(
-        f"Unable to map aspect name from relationship_type {relationship_type} and entity_type {entity_type}"
+        f"Unable to map aspect name from relationship_type {relationship_type} and entity_type {entity_type}",
     )
 
 
@@ -109,7 +109,7 @@ class UrnListModifier:
             return dataJobInputOutput
 
         raise Exception(
-            f"Unable to map aspect_name: dataJobInputOutput, relationship_type {relationship_type}"
+            f"Unable to map aspect_name: dataJobInputOutput, relationship_type {relationship_type}",
         )
 
     @staticmethod
@@ -232,7 +232,7 @@ def modify_urn_list_for_aspect(
             new_urn=new_urn,
         )
     raise Exception(
-        f"Unable to map aspect_name: {aspect_name}, relationship_type {relationship_type}"
+        f"Unable to map aspect_name: {aspect_name}, relationship_type {relationship_type}",
     )
 
 

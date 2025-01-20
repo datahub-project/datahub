@@ -11,7 +11,10 @@ class ConfigEnum(Enum):
     # Ideally we would use @staticmethod here, but some versions of Python don't support it.
     # See https://github.com/python/mypy/issues/7591.
     def _generate_next_value_(  # type: ignore
-        name: str, start, count, last_values
+        name: str,
+        start,
+        count,
+        last_values,
     ) -> str:
         # This makes the enum value match the enum option name.
         # From https://stackoverflow.com/a/44785241/5004662.
@@ -26,7 +29,8 @@ class ConfigEnum(Enum):
             from pydantic_core import core_schema
 
             return core_schema.no_info_before_validator_function(
-                cls.validate, handler(source_type)
+                cls.validate,
+                handler(source_type),
             )
 
     else:

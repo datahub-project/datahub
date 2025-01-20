@@ -44,12 +44,16 @@ def spark_submit(file_path: str, args: str = "") -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_multiprocessing_iceberg_ingest(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
+        test_resources_dir / "docker-compose.yml",
+        "iceberg",
     ) as docker_services:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
@@ -61,7 +65,8 @@ def test_multiprocessing_iceberg_ingest(
             test_resources_dir / "iceberg_multiprocessing_to_file.yml"
         ).resolve()
         run_datahub_cmd(
-            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
         )
         # Verify the output.
         mce_helpers.check_golden_file(
@@ -77,7 +82,8 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
+        test_resources_dir / "docker-compose.yml",
+        "iceberg",
     ) as docker_services:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
@@ -87,7 +93,8 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "iceberg_to_file.yml").resolve()
         run_datahub_cmd(
-            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
         )
         # Verify the output.
         mce_helpers.check_golden_file(
@@ -100,7 +107,11 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
 
 @freeze_time(FROZEN_TIME)
 def test_iceberg_stateful_ingest(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg"
     platform_instance = "test_platform_instance"
@@ -137,13 +148,14 @@ def test_iceberg_stateful_ingest(
         },
         "sink": {
             # we are not really interested in the resulting events for this test
-            "type": "console"
+            "type": "console",
         },
         "pipeline_name": "test_pipeline",
     }
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
+        test_resources_dir / "docker-compose.yml",
+        "iceberg",
     ) as docker_services, patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -184,7 +196,7 @@ def test_iceberg_stateful_ingest(
         state1 = checkpoint1.state
         state2 = checkpoint2.state
         difference_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
         )
 
         assert len(difference_urns) == 1
@@ -195,10 +207,12 @@ def test_iceberg_stateful_ingest(
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
         # Verify the output.
@@ -215,7 +229,8 @@ def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_t
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
+        test_resources_dir / "docker-compose.yml",
+        "iceberg",
     ) as docker_services:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
@@ -225,7 +240,8 @@ def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_t
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "iceberg_profile_to_file.yml").resolve()
         run_datahub_cmd(
-            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
         )
 
         # Verify the output.

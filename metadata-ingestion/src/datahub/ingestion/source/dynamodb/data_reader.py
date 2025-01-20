@@ -24,7 +24,10 @@ class DynamoDBTableItemsReader(DataReader):
         self.client = client
 
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int, **kwargs: Any
+        self,
+        table_id: List[str],
+        sample_size: int,
+        **kwargs: Any,
     ) -> Dict[str, list]:
         """
         For dynamoDB, table_id should be in formation ( table-name ) or (region, table-name )
@@ -50,7 +53,7 @@ class DynamoDBTableItemsReader(DataReader):
                     # for complex data types - L (list) or M (map) - we will recursively process the value into json-like form
                     for attribute_name, attribute_value in item.items():
                         column_values[attribute_name].append(
-                            self._get_value(attribute_value)
+                            self._get_value(attribute_value),
                         )
 
         # Note: Consider including items configured via `include_table_item` in sample data ?

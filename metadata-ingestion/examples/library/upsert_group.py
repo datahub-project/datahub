@@ -29,8 +29,9 @@ datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
 
 for event in group.generate_mcp(
     generation_config=CorpGroupGenerationConfig(
-        override_editable=False, datahub_graph=datahub_graph
-    )
+        override_editable=False,
+        datahub_graph=datahub_graph,
+    ),
 ):
     datahub_graph.emit(event)
 log.info(f"Upserted group {group.urn}")

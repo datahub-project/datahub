@@ -85,7 +85,7 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_FIXED_TYPE: str = json.dumps(
                 },
             },
         ],
-    }
+    },
 )
 
 
@@ -103,7 +103,8 @@ def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
 
 
 def assert_field_paths_match(
-    fields: List[SchemaField], expected_field_paths: List[str]
+    fields: List[SchemaField],
+    expected_field_paths: List[str],
 ) -> None:
     log_field_paths(fields)
     assert len(fields) == len(expected_field_paths)
@@ -640,7 +641,7 @@ def test_mce_avro_parses_okay():
             "datahub",
             "metadata",
             "schema.avsc",
-        )
+        ),
     ).read_text()
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields)
@@ -755,11 +756,12 @@ def test_logical_types_fully_specified_in_type():
                     "native_data_type": "decimal(3, 2)",
                     "_nullable": True,
                 },
-            }
+            },
         ],
     }
     fields: List[SchemaField] = avro_schema_to_mce_fields(
-        json.dumps(schema), default_nullable=True
+        json.dumps(schema),
+        default_nullable=True,
     )
     assert len(fields) == 1
     assert "[version=2.0].[type=test].[type=bytes].name" == fields[0].fieldPath
@@ -852,7 +854,7 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
                 "operation": "add_term",
                 "config": {"term": "{{ $match }}"},
             },
-        }
+        },
     )
     fields = avro_schema_to_mce_fields(schema, meta_mapping_processor=processor)
     expected_field_paths = [
@@ -874,9 +876,9 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     assert fields[2].globalTags == pii_tag_aspect
     assert fields[3].globalTags == pii_tag_aspect
     assert fields[3].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
-        ["urn:li:glossaryTerm:PhoneNumber"]
+        ["urn:li:glossaryTerm:PhoneNumber"],
     )
     assert fields[8].globalTags == pii_tag_aspect
     assert fields[8].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
-        ["urn:li:glossaryTerm:Address"]
+        ["urn:li:glossaryTerm:Address"],
     )

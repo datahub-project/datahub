@@ -45,7 +45,7 @@ class DataContract(v1_ConfigModel):
         description="The data contract urn. If not provided, one will be generated.",
     )
     entity: str = v1_Field(
-        description="The entity urn that the Data Contract is associated with"
+        description="The entity urn that the Data Contract is associated with",
     )
     # TODO: add support for properties
     # properties: Optional[Dict[str, str]] = None
@@ -61,7 +61,8 @@ class DataContract(v1_ConfigModel):
 
     @v1_validator("data_quality")  # type: ignore
     def validate_data_quality(
-        cls, data_quality: Optional[List[DataQualityAssertion]]
+        cls,
+        data_quality: Optional[List[DataQualityAssertion]],
     ) -> Optional[List[DataQualityAssertion]]:
         if data_quality:
             # Raise an error if there are duplicate ids.
@@ -70,7 +71,7 @@ class DataContract(v1_ConfigModel):
 
             if duplicates:
                 raise ValueError(
-                    f"Got multiple data quality tests with the same type or ID: {duplicates}. Set a unique ID for each data quality test."
+                    f"Got multiple data quality tests with the same type or ID: {duplicates}. Set a unique ID for each data quality test.",
                 )
 
         return data_quality
@@ -87,7 +88,8 @@ class DataContract(v1_ConfigModel):
         return urn
 
     def _generate_freshness_assertion(
-        self, freshness: FreshnessAssertion
+        self,
+        freshness: FreshnessAssertion,
     ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
         guid_dict = {
             "contract": self.urn,
@@ -102,7 +104,8 @@ class DataContract(v1_ConfigModel):
         )
 
     def _generate_schema_assertion(
-        self, schema_metadata: SchemaAssertion
+        self,
+        schema_metadata: SchemaAssertion,
     ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
         # ingredients for guid -> the contract id, the fact that this is a schema assertion and the entity on which the assertion is made
         guid_dict = {
@@ -118,7 +121,8 @@ class DataContract(v1_ConfigModel):
         )
 
     def _generate_data_quality_assertion(
-        self, data_quality: DataQualityAssertion
+        self,
+        data_quality: DataQualityAssertion,
     ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
         guid_dict = {
             "contract": self.urn,
@@ -133,14 +137,15 @@ class DataContract(v1_ConfigModel):
         )
 
     def _generate_dq_assertions(
-        self, data_quality_spec: List[DataQualityAssertion]
+        self,
+        data_quality_spec: List[DataQualityAssertion],
     ) -> Tuple[List[str], List[MetadataChangeProposalWrapper]]:
         assertion_urns = []
         assertion_mcps = []
 
         for dq_check in data_quality_spec:
             assertion_urn, assertion_mcp = self._generate_data_quality_assertion(
-                dq_check
+                dq_check,
             )
 
             assertion_urns.append(assertion_urn)
@@ -168,7 +173,7 @@ class DataContract(v1_ConfigModel):
             yield from sla_assertion_mcps
 
         dq_assertions, dq_assertion_mcps = self._generate_dq_assertions(
-            self.data_quality or []
+            self.data_quality or [],
         )
         yield from dq_assertion_mcps
 

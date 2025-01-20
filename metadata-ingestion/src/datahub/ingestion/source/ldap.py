@@ -113,7 +113,8 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     base_dn: str = Field(description="LDAP DN.")
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
     attrs_list: Optional[List[str]] = Field(
-        default=None, description="Retrieved attributes list"
+        default=None,
+        description="Retrieved attributes list",
     )
 
     custom_props_list: Optional[List[str]] = Field(
@@ -128,7 +129,8 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
 
     page_size: int = Field(
-        default=20, description="Size of each page to fetch when extracting metadata."
+        default=20,
+        description="Size of each page to fetch when extracting metadata.",
     )
 
     manager_filter_enabled: bool = Field(
@@ -141,7 +143,8 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="[deprecated] Use pagination_enabled ",
     )
     _deprecate_manager_pagination_enabled = pydantic_renamed_field(
-        "manager_pagination_enabled", "pagination_enabled"
+        "manager_pagination_enabled",
+        "pagination_enabled",
     )
     pagination_enabled: bool = Field(
         default=True,
@@ -167,7 +170,9 @@ class LDAPSourceReport(StaleEntityRemovalSourceReport):
 
 
 def guess_person_ldap(
-    attrs: Dict[str, Any], config: LDAPSourceConfig, report: LDAPSourceReport
+    attrs: Dict[str, Any],
+    config: LDAPSourceConfig,
+    report: LDAPSourceReport,
 ) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
     if config.user_attrs_map["urn"] in attrs:
@@ -228,7 +233,8 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         try:
             self.ldap_client.simple_bind_s(
-                self.config.ldap_user, self.config.ldap_password
+                self.config.ldap_user,
+                self.config.ldap_password,
             )
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e
@@ -248,7 +254,9 @@ class LDAPSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -301,7 +309,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
                     self.report.report_failure(
-                        "ldap-control", "Server ignores RFC 2696 control."
+                        "ldap-control",
+                        "Server ignores RFC 2696 control.",
                     )
                     break
                 cookie = set_cookie(self.lc, pctrls)
@@ -335,7 +344,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                     manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
 
                     m_email = get_attr_or_none(
-                        m_attrs, self.config.user_attrs_map["email"]
+                        m_attrs,
+                        self.config.user_attrs_map["email"],
                     )
                     make_manager_urn = (
                         m_email
@@ -352,7 +362,9 @@ class LDAPSource(StatefulIngestionSourceBase):
             self.report.report_dropped(dn)
 
     def handle_group(
-        self, dn: str, attrs: Dict[str, Any]
+        self,
+        dn: str,
+        attrs: Dict[str, Any],
     ) -> Iterable[MetadataWorkUnit]:
         """Creates a workunit for LDAP groups."""
 
@@ -363,7 +375,10 @@ class LDAPSource(StatefulIngestionSourceBase):
             self.report.report_dropped(dn)
 
     def build_corp_user_mce(
-        self, dn: str, attrs: dict, manager_ldap: Optional[str]
+        self,
+        dn: str,
+        attrs: dict,
+        manager_ldap: Optional[str],
     ) -> Optional[MetadataChangeEvent]:
         """
         Create the MetadataChangeEvent via DN and attributes.
@@ -382,17 +397,22 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         email = get_attr_or_none(attrs, self.config.user_attrs_map["email"])
         display_name = get_attr_or_none(
-            attrs, self.config.user_attrs_map["displayName"], full_name
+            attrs,
+            self.config.user_attrs_map["displayName"],
+            full_name,
         )
         title = get_attr_or_none(attrs, self.config.user_attrs_map["title"])
         department_id_str = get_attr_or_none(
-            attrs, self.config.user_attrs_map["departmentId"]
+            attrs,
+            self.config.user_attrs_map["departmentId"],
         )
         department_name = get_attr_or_none(
-            attrs, self.config.user_attrs_map["departmentName"]
+            attrs,
+            self.config.user_attrs_map["departmentName"],
         )
         country_code = get_attr_or_none(
-            attrs, self.config.user_attrs_map["countryCode"]
+            attrs,
+            self.config.user_attrs_map["countryCode"],
         )
         department_id = None
         with contextlib.suppress(ValueError):
@@ -445,10 +465,12 @@ class LDAPSource(StatefulIngestionSourceBase):
 
             email = get_attr_or_none(attrs, self.config.group_attrs_map["email"])
             description = get_attr_or_none(
-                attrs, self.config.group_attrs_map["description"]
+                attrs,
+                self.config.group_attrs_map["description"],
             )
             displayName = get_attr_or_none(
-                attrs, self.config.group_attrs_map["displayName"]
+                attrs,
+                self.config.group_attrs_map["displayName"],
             )
 
             make_group_urn = (
@@ -513,6 +535,8 @@ def parse_ldap_dn(input_clean: bytes) -> str:
 
 
 def get_attr_or_none(
-    attrs: Dict[str, Any], key: str, default: Optional[str] = None
+    attrs: Dict[str, Any],
+    key: str,
+    default: Optional[str] = None,
 ) -> str:
     return attrs[key][0].decode() if attrs.get(key) else default

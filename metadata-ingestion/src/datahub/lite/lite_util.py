@@ -40,7 +40,8 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         self.lite.write(record)
         record_envelope = RecordEnvelope(record=record, metadata={})
         self.forward_to.write_record_async(
-            record_envelope=record_envelope, write_callback=NoopWriteCallback()
+            record_envelope=record_envelope,
+            write_callback=NoopWriteCallback(),
         )
 
     def close(self) -> None:
@@ -79,7 +80,8 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         return self.lite.ls(path)
 
     def get_all_entities(
-        self, typed: bool = False
+        self,
+        typed: bool = False,
     ) -> Iterable[Dict[str, Union[dict, _Aspect]]]:
         yield from self.lite.get_all_entities(typed)
 
@@ -98,11 +100,11 @@ def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLite
         lite_class = lite_registry.get(lite_type)
     except KeyError:
         raise Exception(
-            f"Failed to find a registered lite implementation for {lite_type}. Valid values are {[k for k in lite_registry.mapping.keys()]}"
+            f"Failed to find a registered lite implementation for {lite_type}. Valid values are {[k for k in lite_registry.mapping.keys()]}",
         )
 
     lite_specific_config = lite_class.get_config_class().parse_obj(
-        lite_local_config.config
+        lite_local_config.config,
     )
     lite = lite_class(lite_specific_config)
     # we only set up forwarding if forwarding config is present and read_only is set to False
@@ -118,15 +120,16 @@ def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLite
                 return DataHubLiteWrapper(lite, forward_to)
             except Exception as e:
                 logger.warning(
-                    f"Failed to set up forwarding due to {e}, will not forward events"
+                    f"Failed to set up forwarding due to {e}, will not forward events",
                 )
                 logger.debug(
-                    "Failed to set up forwarding, will not forward events", exc_info=e
+                    "Failed to set up forwarding, will not forward events",
+                    exc_info=e,
                 )
                 return lite
         else:
             raise Exception(
-                f"Failed to find a registered forwarding sink for type {lite_local_config.forward_to.type}. Valid values are {[k for k in sink_registry.mapping.keys()]}"
+                f"Failed to find a registered forwarding sink for type {lite_local_config.forward_to.type}. Valid values are {[k for k in sink_registry.mapping.keys()]}",
             )
     else:
         return lite

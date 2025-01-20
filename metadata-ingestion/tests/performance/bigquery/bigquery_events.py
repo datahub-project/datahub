@@ -62,7 +62,7 @@ def generate_events(
                 ref_from_table(field.table, table_to_project)
                 for field in query.fields_accessed
                 if field.table.is_view()
-            )
+            ),
         )
 
         yield AuditEvent.create(
@@ -83,7 +83,7 @@ def generate_events(
                         ref_from_table(field.table, table_to_project)
                         for field in query.fields_accessed
                         if not field.table.is_view()
-                    )
+                    ),
                 )
                 + list(
                     dict.fromkeys(  # Preserve order
@@ -91,7 +91,7 @@ def generate_events(
                         for field in query.fields_accessed
                         if field.table.is_view()
                         for parent in field.table.upstreams
-                    )
+                    ),
                 ),
                 referencedViews=referencedViews,
                 payload=(
@@ -100,19 +100,19 @@ def generate_events(
                     else None
                 ),
                 query_on_view=True if referencedViews else False,
-            )
+            ),
         )
         table_accesses: Dict[BigQueryTableRef, Set[str]] = defaultdict(set)
         for field in query.fields_accessed:
             if not field.table.is_view():
                 table_accesses[ref_from_table(field.table, table_to_project)].add(
-                    field.column
+                    field.column,
                 )
             else:
                 # assuming that same fields are accessed in parent tables
                 for parent in field.table.upstreams:
                     table_accesses[ref_from_table(parent, table_to_project)].add(
-                        field.column
+                        field.column,
                     )
 
         for ref, columns in table_accesses.items():
@@ -129,13 +129,15 @@ def generate_events(
                         if config.debug_include_full_payloads
                         else None
                     ),
-                )
+                ),
             )
 
 
 def ref_from_table(table: Table, table_to_project: Dict[str, str]) -> BigQueryTableRef:
     return BigQueryTableRef(
         BigqueryTableIdentifier(
-            table_to_project[table.name], table.container.name, table.name
-        )
+            table_to_project[table.name],
+            table.container.name,
+            table.name,
+        ),
     )

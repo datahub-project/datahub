@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 class GEProfilingBaseConfig(ConfigModel):
     enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
+        default=False,
+        description="Whether profiling should be done.",
     )
     operation_config: OperationConfig = Field(
         default_factory=OperationConfig,
@@ -73,7 +74,8 @@ class GEProfilingBaseConfig(ConfigModel):
         description="Whether to profile for the quantiles of numeric columns.",
     )
     include_field_distinct_value_frequencies: bool = Field(
-        default=False, description="Whether to profile for distinct value frequencies."
+        default=False,
+        description="Whether to profile for distinct value frequencies.",
     )
     include_field_histogram: bool = Field(
         default=False,
@@ -205,7 +207,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     @pydantic.root_validator(pre=True)
     def ensure_field_level_settings_are_normalized(
-        cls: "GEProfilingConfig", values: Dict[str, Any]
+        cls: "GEProfilingConfig",
+        values: Dict[str, Any],
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
@@ -216,7 +219,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
                 if field_level_metric.startswith("include_field_"):
                     if values.get(field_level_metric):
                         raise ValueError(
-                            "Cannot enable field-level metrics if profile_table_level_only is set"
+                            "Cannot enable field-level metrics if profile_table_level_only is set",
                         )
                     values[field_level_metric] = False
 

@@ -127,7 +127,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.session.headers.update(
             {
                 "Content-Type": "application/json",
-            }
+            },
         )
 
         if self._is_oauth_authentication_configured():
@@ -136,20 +136,22 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
-                oid_config_url, verify=self.session.verify, allow_redirects=False
+                oid_config_url,
+                verify=self.session.verify,
+                allow_redirects=False,
             )
 
             if oid_config_response:
                 self.config.oid_config.update(oid_config_response.json())
             else:
                 logger.error(
-                    f"Unexpected response while getting discovery document using {oid_config_url} : {oid_config_response}"
+                    f"Unexpected response while getting discovery document using {oid_config_url} : {oid_config_response}",
                 )
 
             if "token_endpoint" not in self.config.oid_config:
                 raise Exception(
                     "The token_endpoint is not set, please verify the configured issuer_url or"
-                    " set oid_config.token_endpoint manually in the configuration file."
+                    " set oid_config.token_endpoint manually in the configuration file.",
                 )
 
         # Authentication configured
@@ -159,7 +161,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         ):
             # Update session header with Bearer token
             self.session.headers.update(
-                {"Authorization": f"Bearer {self.get_access_token()}"}
+                {"Authorization": f"Bearer {self.get_access_token()}"},
             )
 
     def get_access_token(self) -> str:
@@ -199,7 +201,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         # Failed to get an access token,
         raise ConfigurationError(
             f"Failed to get the Pulsar access token from token_endpoint {self.config.oid_config.get('token_endpoint')}."
-            f" Please check your input configuration."
+            f" Please check your input configuration.",
         )
 
     def _get_pulsar_metadata(self, url):
@@ -229,7 +231,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 self.report.report_warning("HTTPError", message)
         except requests.exceptions.RequestException as e:
             raise Exception(
-                f"An ambiguous exception occurred while handling the request: {e}"
+                f"An ambiguous exception occurred while handling the request: {e}",
             )
 
     @classmethod
@@ -246,7 +248,9 @@ class PulsarSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -271,8 +275,9 @@ class PulsarSource(StatefulIngestionSourceBase):
         # Report the Pulsar broker version we are communicating with
         self.report.report_pulsar_version(
             self.session.get(
-                f"{self.base_url}/brokers/version", timeout=self.config.timeout
-            ).text
+                f"{self.base_url}/brokers/version",
+                timeout=self.config.timeout,
+            ).text,
         )
 
         # If no tenants are provided, request all tenants from cluster using /admin/v2/tenants endpoint.
@@ -311,7 +316,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                             # Create a mesh of topics with partitioned values, the
                             # partitioned info is added as a custom properties later
                             topics.update(
-                                {topic: partitioned for topic in pulsar_topics}
+                                {topic: partitioned for topic in pulsar_topics},
                             )
 
                         # For all allowed topics get the metadata
@@ -333,7 +338,9 @@ class PulsarSource(StatefulIngestionSourceBase):
         return self.config.issuer_url is not None
 
     def _get_schema_and_fields(
-        self, pulsar_topic: PulsarTopic, is_key_schema: bool
+        self,
+        pulsar_topic: PulsarTopic,
+        is_key_schema: bool,
     ) -> Tuple[Optional[PulsarSchema], List[SchemaField]]:
         pulsar_schema: Optional[PulsarSchema] = None
 
@@ -360,14 +367,18 @@ class PulsarSource(StatefulIngestionSourceBase):
         return pulsar_schema, fields
 
     def _get_schema_fields(
-        self, pulsar_topic: PulsarTopic, schema: PulsarSchema, is_key_schema: bool
+        self,
+        pulsar_topic: PulsarTopic,
+        schema: PulsarSchema,
+        is_key_schema: bool,
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
         if schema.schema_type in ["AVRO", "JSON"]:
             # Extract fields from schema and get the FQN for the schema
             fields = schema_util.avro_schema_to_mce_fields(
-                schema.schema_str, is_key_schema=is_key_schema
+                schema.schema_str,
+                is_key_schema=is_key_schema,
             )
         else:
             self.report.report_warning(
@@ -377,11 +388,14 @@ class PulsarSource(StatefulIngestionSourceBase):
         return fields
 
     def _get_schema_metadata(
-        self, pulsar_topic: PulsarTopic, platform_urn: str
+        self,
+        pulsar_topic: PulsarTopic,
+        platform_urn: str,
     ) -> Tuple[Optional[PulsarSchema], Optional[SchemaMetadata]]:
         # FIXME: Type annotations are not working for this function.
         schema, fields = self._get_schema_and_fields(
-            pulsar_topic=pulsar_topic, is_key_schema=False
+            pulsar_topic=pulsar_topic,
+            is_key_schema=False,
         )  # type: Tuple[Optional[PulsarSchema], List[SchemaField]]
 
         # Create the schemaMetadata aspect.
@@ -404,7 +418,9 @@ class PulsarSource(StatefulIngestionSourceBase):
         return None, None
 
     def _extract_record(
-        self, topic: str, partitioned: bool
+        self,
+        topic: str,
+        partitioned: bool,
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"topic = {topic}")
 
@@ -465,7 +481,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=BrowsePathsClass(
-                [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
+                [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"],
             ),
         ).as_workunit()
 
@@ -476,7 +492,8 @@ class PulsarSource(StatefulIngestionSourceBase):
                 aspect=DataPlatformInstanceClass(
                     platform=platform_urn,
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.platform,
+                        self.config.platform_instance,
                     ),
                 ),
             ).as_workunit()

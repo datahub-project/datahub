@@ -33,11 +33,11 @@ variables = {
                         "negated": "false",
                         "field": "degree",
                         "values": ["1", "2", "3+"],
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         ],
-    }
+    },
 }
 result = graph.execute_graphql(query=query, variables=variables)
 

@@ -81,7 +81,8 @@ class StatefulIngestionConfig(ConfigModel):
         if values.get("enabled"):
             if values.get("state_provider") is None:
                 values["state_provider"] = DynamicTypedStateProviderConfig(
-                    type="datahub", config={}
+                    type="datahub",
+                    config={},
                 )
         return values
 
@@ -95,7 +96,8 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     """
 
     stateful_ingestion: Optional[CustomConfig] = Field(
-        default=None, description="Stateful Ingestion Config"
+        default=None,
+        description="Stateful Ingestion Config",
     )
 
 
@@ -108,7 +110,8 @@ class StatefulLineageConfigMixin(ConfigModel):
     )
 
     _store_last_lineage_extraction_timestamp = pydantic_renamed_field(
-        "store_last_lineage_extraction_timestamp", "enable_stateful_lineage_ingestion"
+        "store_last_lineage_extraction_timestamp",
+        "enable_stateful_lineage_ingestion",
     )
 
     @root_validator(skip_on_failure=True)
@@ -117,7 +120,7 @@ class StatefulLineageConfigMixin(ConfigModel):
         if not sti or not sti.enabled:
             if values.get("enable_stateful_lineage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well",
                 )
                 values["enable_stateful_lineage_ingestion"] = False
 
@@ -133,7 +136,8 @@ class StatefulProfilingConfigMixin(ConfigModel):
     )
 
     _store_last_profiling_timestamps = pydantic_renamed_field(
-        "store_last_profiling_timestamps", "enable_stateful_profiling"
+        "store_last_profiling_timestamps",
+        "enable_stateful_profiling",
     )
 
     @root_validator(skip_on_failure=True)
@@ -142,7 +146,7 @@ class StatefulProfilingConfigMixin(ConfigModel):
         if not sti or not sti.enabled:
             if values.get("enable_stateful_profiling"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well",
                 )
                 values["enable_stateful_profiling"] = False
         return values
@@ -157,7 +161,8 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
     )
 
     _store_last_usage_extraction_timestamp = pydantic_renamed_field(
-        "store_last_usage_extraction_timestamp", "enable_stateful_usage_ingestion"
+        "store_last_usage_extraction_timestamp",
+        "enable_stateful_usage_ingestion",
     )
 
     @root_validator(skip_on_failure=True)
@@ -166,7 +171,7 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         if not sti or not sti.enabled:
             if values.get("enable_stateful_usage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well",
                 )
                 values["enable_stateful_usage_ingestion"] = False
         return values
@@ -239,7 +244,7 @@ class StateProviderWrapper:
             and self.ctx.pipeline_name
         ):
             logger.info(
-                "Stateful ingestion will be automatically enabled, as datahub-rest sink is used or `datahub_api` is specified"
+                "Stateful ingestion will be automatically enabled, as datahub-rest sink is used or `datahub_api` is specified",
             )
             self.stateful_ingestion_config = StatefulIngestionConfig(
                 enabled=True,
@@ -253,17 +258,17 @@ class StateProviderWrapper:
         ):
             if self.ctx.pipeline_name is None:
                 raise ConfigurationError(
-                    "pipeline_name must be provided if stateful ingestion is enabled."
+                    "pipeline_name must be provided if stateful ingestion is enabled.",
                 )
             checkpointing_state_provider_class = (
                 ingestion_checkpoint_provider_registry.get(
-                    self.stateful_ingestion_config.state_provider.type
+                    self.stateful_ingestion_config.state_provider.type,
                 )
             )
             if checkpointing_state_provider_class is None:
                 raise ConfigurationError(
                     f"Cannot find checkpoint provider class of type={self.stateful_ingestion_config.state_provider.type} "
-                    " in the registry! Please check the type of the checkpointing provider in your config."
+                    " in the registry! Please check the type of the checkpointing provider in your config.",
                 )
             self.ingestion_checkpointing_state_provider = (
                 checkpointing_state_provider_class.create(
@@ -274,21 +279,22 @@ class StateProviderWrapper:
             assert self.ingestion_checkpointing_state_provider
             if self.stateful_ingestion_config.ignore_old_state:
                 logger.warning(
-                    "The 'ignore_old_state' config is True. The old checkpoint state will not be provided."
+                    "The 'ignore_old_state' config is True. The old checkpoint state will not be provided.",
                 )
             if self.stateful_ingestion_config.ignore_new_state:
                 logger.warning(
-                    "The 'ignore_new_state' config is True. The new checkpoint state will not be created."
+                    "The 'ignore_new_state' config is True. The new checkpoint state will not be created.",
                 )
             # Add the checkpoint state provide to the platform context.
             self.ctx.register_checkpointer(self.ingestion_checkpointing_state_provider)
 
             logger.debug(
-                f"Successfully created {self.stateful_ingestion_config.state_provider.type} state provider."
+                f"Successfully created {self.stateful_ingestion_config.state_provider.type} state provider.",
             )
 
     def register_stateful_ingestion_usecase_handler(
-        self, usecase_handler: StatefulIngestionUsecaseHandlerBase
+        self,
+        usecase_handler: StatefulIngestionUsecaseHandlerBase,
     ) -> None:
         """
         Registers a use-case handler with the common-base class.
@@ -327,7 +333,9 @@ class StateProviderWrapper:
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
     def _get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[StateType]
+        self,
+        job_id: JobId,
+        checkpoint_state_class: Type[StateType],
     ) -> Optional[Checkpoint]:
         """
         This is a template method implementation for querying the last checkpoint state.
@@ -354,7 +362,9 @@ class StateProviderWrapper:
 
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[StateType]
+        self,
+        job_id: JobId,
+        checkpoint_state_class: Type[StateType],
     ) -> Optional[Checkpoint[StateType]]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
@@ -364,7 +374,8 @@ class StateProviderWrapper:
 
         if job_id not in self.last_checkpoints:
             self.last_checkpoints[job_id] = self._get_last_checkpoint(
-                job_id, checkpoint_state_class
+                job_id,
+                checkpoint_state_class,
             )
         return self.last_checkpoints[job_id]
 
@@ -391,13 +402,13 @@ class StateProviderWrapper:
             and self.stateful_ingestion_config.ignore_new_state
         ):
             logger.info(
-                "The `ignore_new_state` config is True. Not committing current checkpoint."
+                "The `ignore_new_state` config is True. Not committing current checkpoint.",
             )
             return None
         if self.ctx.dry_run_mode or self.ctx.preview_mode:
             logger.warning(
                 f"Will not be committing checkpoints in dry_run_mode(={self.ctx.dry_run_mode})"
-                f" or preview_mode(={self.ctx.preview_mode})."
+                f" or preview_mode(={self.ctx.preview_mode}).",
             )
             return None
 
@@ -409,7 +420,7 @@ class StateProviderWrapper:
             job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
-                    self.stateful_ingestion_config.max_checkpoint_state_size
+                    self.stateful_ingestion_config.max_checkpoint_state_size,
                 )
             except Exception as e:
                 logger.error(
@@ -423,7 +434,7 @@ class StateProviderWrapper:
         # Set the state to commit in the provider.
         assert self.ingestion_checkpointing_state_provider
         self.ingestion_checkpointing_state_provider.state_to_commit.update(
-            job_checkpoint_aspects
+            job_checkpoint_aspects,
         )
 
     def prepare_for_commit(self) -> None:

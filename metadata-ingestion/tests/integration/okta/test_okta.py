@@ -59,7 +59,7 @@ def run_ingest(
     recipe,
 ):
     with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient"
+        "datahub.ingestion.source.identity.okta.OktaClient",
     ) as MockClient, patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -78,7 +78,7 @@ def run_ingest(
 
 def test_okta_config():
     config = OktaConfig.parse_obj(
-        dict(okta_domain="test.okta.com", okta_api_token="test-token")
+        dict(okta_domain="test.okta.com", okta_api_token="test-token"),
     )
 
     # Sanity on required configurations
@@ -108,7 +108,8 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
     run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            _init_mock_okta_client, test_resources_dir=test_resources_dir
+            _init_mock_okta_client,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=default_recipe(output_file_path),
     )
@@ -133,7 +134,8 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
     run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            _init_mock_okta_client, test_resources_dir=test_resources_dir
+            _init_mock_okta_client,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=new_recipe,
     )
@@ -148,7 +150,9 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
 @freeze_time(FROZEN_TIME)
 @pytest.mark.asyncio
 def test_okta_source_include_deprovisioned_suspended_users(
-    pytestconfig, mock_datahub_graph, tmp_path
+    pytestconfig,
+    mock_datahub_graph,
+    tmp_path,
 ):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -162,7 +166,8 @@ def test_okta_source_include_deprovisioned_suspended_users(
     run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            _init_mock_okta_client, test_resources_dir=test_resources_dir
+            _init_mock_okta_client,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=new_recipe,
     )
@@ -187,7 +192,8 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
     run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            _init_mock_okta_client, test_resources_dir=test_resources_dir
+            _init_mock_okta_client,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=new_recipe,
     )
@@ -218,7 +224,8 @@ def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub
     pipeline1 = run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            _init_mock_okta_client, test_resources_dir=test_resources_dir
+            _init_mock_okta_client,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=new_recipe,
     )
@@ -234,7 +241,8 @@ def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub
     pipeline2 = run_ingest(
         mock_datahub_graph=mock_datahub_graph,
         mocked_functions_reference=partial(
-            overwrite_group_in_mocked_data, test_resources_dir=test_resources_dir
+            overwrite_group_in_mocked_data,
+            test_resources_dir=test_resources_dir,
         ),
         recipe=new_recipe,
     )
@@ -244,10 +252,12 @@ def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub
     #
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline1, expected_providers=1
+        pipeline=pipeline1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline2, expected_providers=1
+        pipeline=pipeline2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted group should not be
@@ -256,7 +266,7 @@ def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub
     state2 = checkpoint2.state
 
     difference_group_urns = list(
-        state1.get_urns_not_in(type="corpGroup", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="corpGroup", other_checkpoint_state=state2),
     )
 
     assert len(difference_group_urns) == 1
@@ -273,7 +283,10 @@ def overwrite_group_in_mocked_data(test_resources_dir, MockClient):
 
 # Initializes a Mock Okta Client to return users from okta_users.json and groups from okta_groups.json.
 def _init_mock_okta_client(
-    test_resources_dir, MockClient, mock_users_json=None, mock_groups_json=None
+    test_resources_dir,
+    MockClient,
+    mock_users_json=None,
+    mock_groups_json=None,
 ):
     okta_users_json_file = (
         test_resources_dir / "okta_users.json"
@@ -303,7 +316,7 @@ def _init_mock_okta_client(
     users_next_future = asyncio.Future()  # type: asyncio.Future
     users_next_future.set_result(
         # users, err
-        ([users[-1]], None)
+        ([users[-1]], None),
     )
     users_resp_mock.next.return_value = users_next_future
 
@@ -311,7 +324,7 @@ def _init_mock_okta_client(
     list_users_future = asyncio.Future()  # type: asyncio.Future
     list_users_future.set_result(
         # users, resp, err
-        (users[0:-1], users_resp_mock, None)
+        (users[0:-1], users_resp_mock, None),
     )
     MockClient().list_users.return_value = list_users_future
 
@@ -321,7 +334,7 @@ def _init_mock_okta_client(
     groups_next_future = asyncio.Future()  # type: asyncio.Future
     groups_next_future.set_result(
         # groups, err
-        ([groups[-1]], None)
+        ([groups[-1]], None),
     )
     groups_resp_mock.next.return_value = groups_next_future
 
@@ -339,7 +352,7 @@ def _init_mock_okta_client(
         group_users_next_future = asyncio.Future()  # type: asyncio.Future
         group_users_next_future.set_result(
             # users, err
-            ([users[-1]], None)
+            ([users[-1]], None),
         )
         group_users_resp_mock.next.return_value = group_users_next_future
         # users, resp, err
@@ -347,7 +360,7 @@ def _init_mock_okta_client(
         # Exclude last user from being in any groups
         filtered_users = [user for user in users if user.id != USER_ID_NOT_IN_GROUPS]
         list_group_users_future.set_result(
-            (filtered_users, group_users_resp_mock, None)
+            (filtered_users, group_users_resp_mock, None),
         )
         list_group_users_result_values.append(list_group_users_future)
 

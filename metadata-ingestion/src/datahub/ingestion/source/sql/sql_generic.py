@@ -52,10 +52,10 @@ class BaseView:
 
 class SQLAlchemyGenericConfig(SQLCommonConfig):
     platform: str = Field(
-        description="Name of platform being ingested, used in constructing URNs."
+        description="Name of platform being ingested, used in constructing URNs.",
     )
     connect_uri: str = Field(
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls"
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls",
     )
 
     def get_sql_alchemy_url(self):

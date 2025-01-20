@@ -6,7 +6,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Create an emitter to DataHub over REST
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
 model_group_urn = builder.make_ml_model_group_urn(
-    group_name="my-recommendations-model-group", platform="science", env="PROD"
+    group_name="my-recommendations-model-group",
+    platform="science",
+    env="PROD",
 )
 
 

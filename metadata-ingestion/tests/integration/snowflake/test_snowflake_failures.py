@@ -51,7 +51,7 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_usage_stats=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                    tzinfo=timezone.utc
+                    tzinfo=timezone.utc,
                 ),
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
             ),
@@ -69,7 +69,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
     with mock.patch("snowflake.connector.connect") as mock_connect:
         # Snowflake connection fails role not granted error
         mock_connect.side_effect = Exception(
-            "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
+            "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC",
         )
 
         with pytest.raises(PipelineInitError, match="Permissions error"):
@@ -227,7 +227,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
                     start_time_millis=1654473600000,
                     end_time_millis=1654586220000,
                     include_column_lineage=True,
-                )
+                ),
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",
         )

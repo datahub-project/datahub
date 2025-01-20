@@ -53,7 +53,9 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
     with docker_compose_runner(
-        docker_compose_file, "kafka-connect", cleanup=False
+        docker_compose_file,
+        "kafka-connect",
+        cleanup=False,
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -367,7 +369,10 @@ def loaded_kafka_connect(kafka_connect_runner):
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_ingest(
-    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+    loaded_kafka_connect,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
@@ -384,7 +389,10 @@ def test_kafka_connect_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_mongosourceconnect_ingest(
-    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+    loaded_kafka_connect,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_connect_mongo_to_file.yml").resolve()
@@ -401,7 +409,10 @@ def test_kafka_connect_mongosourceconnect_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_s3sink_ingest(
-    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+    loaded_kafka_connect,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_connect_s3sink_to_file.yml").resolve()
@@ -418,7 +429,11 @@ def test_kafka_connect_s3sink_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_ingest_stateful(
-    loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
+    loaded_kafka_connect,
+    pytestconfig,
+    tmp_path,
+    mock_datahub_graph,
+    test_resources_dir,
 ):
     output_file_name: str = "kafka_connect_before_mces.json"
     golden_file_name: str = "kafka_connect_before_golden_mces.json"
@@ -475,7 +490,7 @@ def test_kafka_connect_ingest_stateful(
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         # Set the special properties for this run
         pipeline_run1_config["source"]["config"]["connector_patterns"]["allow"] = [
@@ -507,7 +522,7 @@ def test_kafka_connect_ingest_stateful(
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         # Set the special properties for this run
         pipeline_run1_config["source"]["config"]["connector_patterns"]["allow"] = [
@@ -532,10 +547,12 @@ def test_kafka_connect_ingest_stateful(
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
+        pipeline=pipeline_run1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
+        pipeline=pipeline_run2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted table should not be
@@ -544,17 +561,17 @@ def test_kafka_connect_ingest_stateful(
     state2 = cast(GenericCheckpointState, checkpoint2.state)
 
     difference_pipeline_urns = list(
-        state1.get_urns_not_in(type="dataFlow", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataFlow", other_checkpoint_state=state2),
     )
 
     assert len(difference_pipeline_urns) == 1
     deleted_pipeline_urns: List[str] = [
-        "urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD)"
+        "urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD)",
     ]
     assert sorted(deleted_pipeline_urns) == sorted(difference_pipeline_urns)
 
     difference_job_urns = list(
-        state1.get_urns_not_in(type="dataJob", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataJob", other_checkpoint_state=state2),
     )
     assert len(difference_job_urns) == 3
     deleted_job_urns = [
@@ -591,7 +608,10 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_snowflake_sink_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     override_data = {
@@ -641,7 +661,7 @@ def test_kafka_connect_snowflake_sink_ingest(
                     "connector_patterns": {
                         "allow": [
                             "snowflake_sink1",
-                        ]
+                        ],
                     },
                 },
             },
@@ -651,7 +671,7 @@ def test_kafka_connect_snowflake_sink_ingest(
                     "filename": f"{tmp_path}/kafka_connect_snowflake_sink_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -667,7 +687,10 @@ def test_kafka_connect_snowflake_sink_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_bigquery_sink_ingest(
-    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+    loaded_kafka_connect,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (

@@ -70,7 +70,9 @@ def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSo
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
         config=IcebergSourceConfig(
-            catalog=catalog, processing_threads=processing_threads, **kwargs
+            catalog=catalog,
+            processing_threads=processing_threads,
+            **kwargs,
         ),
     )
 
@@ -78,7 +80,8 @@ def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSo
 def with_iceberg_profiler() -> IcebergProfiler:
     iceberg_source_instance = with_iceberg_source()
     return IcebergProfiler(
-        iceberg_source_instance.report, iceberg_source_instance.config.profiling
+        iceberg_source_instance.report,
+        iceberg_source_instance.config.profiling,
     )
 
 
@@ -155,7 +158,7 @@ def test_config_support_nested_dicts():
                 "nested_array": ["a1", "a2"],
                 "subnested_dict": {"subnested_key": "subnested_value"},
             },
-        }
+        },
     }
     test_config = IcebergSourceConfig(catalog=catalog)
     assert isinstance(test_config.catalog["test"]["nested_dict"], Dict)
@@ -163,7 +166,8 @@ def test_config_support_nested_dicts():
     assert isinstance(test_config.catalog["test"]["nested_dict"]["nested_array"], List)
     assert test_config.catalog["test"]["nested_dict"]["nested_array"][0] == "a1"
     assert isinstance(
-        test_config.catalog["test"]["nested_dict"]["subnested_dict"], Dict
+        test_config.catalog["test"]["nested_dict"]["subnested_dict"],
+        Dict,
     )
     assert (
         test_config.catalog["test"]["nested_dict"]["subnested_dict"]["subnested_key"]
@@ -203,7 +207,8 @@ def test_config_support_nested_dicts():
     ],
 )
 def test_iceberg_primitive_type_to_schema_field(
-    iceberg_type: PrimitiveType, expected_schema_field_type: Any
+    iceberg_type: PrimitiveType,
+    expected_schema_field_type: Any,
 ) -> None:
     """
     Test converting a primitive typed Iceberg field to a SchemaField
@@ -211,10 +216,18 @@ def test_iceberg_primitive_type_to_schema_field(
     iceberg_source_instance = with_iceberg_source()
     for column in [
         NestedField(
-            1, "required_field", iceberg_type, True, "required field documentation"
+            1,
+            "required_field",
+            iceberg_type,
+            True,
+            "required field documentation",
         ),
         NestedField(
-            1, "optional_field", iceberg_type, False, "optional field documentation"
+            1,
+            "optional_field",
+            iceberg_type,
+            False,
+            "optional field documentation",
         ),
     ]:
         schema = Schema(column)
@@ -262,7 +275,8 @@ def test_iceberg_primitive_type_to_schema_field(
     ],
 )
 def test_iceberg_list_to_schema_field(
-    iceberg_type: PrimitiveType, expected_array_nested_type: Any
+    iceberg_type: PrimitiveType,
+    expected_array_nested_type: Any,
 ) -> None:
     """
     Test converting a list typed Iceberg field to an ArrayType SchemaField, including the list nested type.
@@ -304,7 +318,10 @@ def test_iceberg_list_to_schema_field(
             f"Expected 1 field, but got {len(schema_fields)}"
         )
         assert_field(
-            schema_fields[0], list_column.doc, list_column.optional, ArrayTypeClass
+            schema_fields[0],
+            list_column.doc,
+            list_column.optional,
+            ArrayTypeClass,
         )
         assert isinstance(schema_fields[0].type.type, ArrayType), (
             f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
@@ -347,7 +364,8 @@ def test_iceberg_list_to_schema_field(
     ],
 )
 def test_iceberg_map_to_schema_field(
-    iceberg_type: PrimitiveType, expected_map_type: Any
+    iceberg_type: PrimitiveType,
+    expected_map_type: Any,
 ) -> None:
     """
     Test converting a map typed Iceberg field to a MapType SchemaField, where the key is the same type as the value.
@@ -391,7 +409,10 @@ def test_iceberg_map_to_schema_field(
             f"Expected 3 fields, but got {len(schema_fields)}"
         )
         assert_field(
-            schema_fields[0], map_column.doc, map_column.optional, ArrayTypeClass
+            schema_fields[0],
+            map_column.doc,
+            map_column.optional,
+            ArrayTypeClass,
         )
 
         # The second field will be the key type
@@ -438,24 +459,35 @@ def test_iceberg_map_to_schema_field(
     ],
 )
 def test_iceberg_struct_to_schema_field(
-    iceberg_type: PrimitiveType, expected_schema_field_type: Any
+    iceberg_type: PrimitiveType,
+    expected_schema_field_type: Any,
 ) -> None:
     """
     Test converting a struct typed Iceberg field to a RecordType SchemaField.
     """
     field1 = NestedField(11, "field1", iceberg_type, True, "field documentation")
     struct_column = NestedField(
-        1, "structField", StructType(field1), True, "struct documentation"
+        1,
+        "structField",
+        StructType(field1),
+        True,
+        "struct documentation",
     )
     iceberg_source_instance = with_iceberg_source()
     schema = Schema(struct_column)
     schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
     assert len(schema_fields) == 2, f"Expected 2 fields, but got {len(schema_fields)}"
     assert_field(
-        schema_fields[0], struct_column.doc, struct_column.optional, RecordTypeClass
+        schema_fields[0],
+        struct_column.doc,
+        struct_column.optional,
+        RecordTypeClass,
     )
     assert_field(
-        schema_fields[1], field1.doc, field1.optional, expected_schema_field_type
+        schema_fields[1],
+        field1.doc,
+        field1.optional,
+        expected_schema_field_type,
     )
 
 
@@ -491,7 +523,9 @@ def test_iceberg_struct_to_schema_field(
     ],
 )
 def test_iceberg_profiler_value_render(
-    value_type: IcebergType, value: Any, expected_value: Optional[str]
+    value_type: IcebergType,
+    value: Any,
+    expected_value: Optional[str],
 ) -> None:
     iceberg_profiler_instance = with_iceberg_profiler()
     assert (
@@ -511,7 +545,7 @@ def test_avro_decimal_bytes_nullable() -> None:
     decimal_avro_schema = avro.schema.parse(decimal_avro_schema_string)
     print("\nDecimal (bytes)")
     print(
-        f"Original avro schema string:                         {decimal_avro_schema_string}"
+        f"Original avro schema string:                         {decimal_avro_schema_string}",
     )
     print(f"After avro parsing, _nullable attribute is missing:  {decimal_avro_schema}")
 
@@ -519,20 +553,20 @@ def test_avro_decimal_bytes_nullable() -> None:
     decimal_fixed_avro_schema = avro.schema.parse(decimal_fixed_avro_schema_string)
     print("\nDecimal (fixed)")
     print(
-        f"Original avro schema string:                           {decimal_fixed_avro_schema_string}"
+        f"Original avro schema string:                           {decimal_fixed_avro_schema_string}",
     )
     print(
-        f"After avro parsing, _nullable attribute is preserved:  {decimal_fixed_avro_schema}"
+        f"After avro parsing, _nullable attribute is preserved:  {decimal_fixed_avro_schema}",
     )
 
     boolean_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"type": {"type": "boolean", "native_data_type": "boolean", "_nullable": false}, "name": "required_field", "doc": "required field documentation"}]}"""
     boolean_avro_schema = avro.schema.parse(boolean_avro_schema_string)
     print("\nBoolean")
     print(
-        f"Original avro schema string:                           {boolean_avro_schema_string}"
+        f"Original avro schema string:                           {boolean_avro_schema_string}",
     )
     print(
-        f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}"
+        f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}",
     )
 
 
@@ -573,7 +607,7 @@ def test_exception_while_listing_namespaces() -> None:
     source = with_iceberg_source(processing_threads=2)
     mock_catalog = MockCatalogExceptionListingNamespaces({})
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog, pytest.raises(Exception):
         get_catalog.return_value = mock_catalog
         [*source.get_workunits_internal()]
@@ -595,7 +629,7 @@ def test_known_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
             "no_such_namespace": {},
             "namespaceB": {
@@ -636,7 +670,7 @@ def test_known_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
             "namespaceD": {
                 "table5": lambda: Table(
@@ -650,12 +684,12 @@ def test_known_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
-        }
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
@@ -696,7 +730,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
             "generic_exception": {},
             "namespaceB": {
@@ -737,7 +771,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
             "namespaceD": {
                 "table5": lambda: Table(
@@ -751,12 +785,12 @@ def test_unknown_exception_while_listing_tables() -> None:
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
-        }
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
@@ -797,13 +831,13 @@ def test_proper_run_with_multiple_namespaces() -> None:
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
                     catalog=None,
-                )
+                ),
             },
             "namespaceB": {},
-        }
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
@@ -927,10 +961,10 @@ def test_filtering() -> None:
                     catalog=None,
                 ),
             },
-        }
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
@@ -1024,11 +1058,11 @@ def test_handle_expected_exceptions() -> None:
                 "table7": _raise_file_not_found_error,
                 "table8": _raise_no_such_iceberg_table_exception,
                 "table9": _raise_server_error,
-            }
-        }
+            },
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
@@ -1110,11 +1144,11 @@ def test_handle_unexpected_exceptions() -> None:
                     catalog=None,
                 ),
                 "table5": _raise_exception,
-            }
-        }
+            },
+        },
     )
     with patch(
-        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog",
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]

@@ -284,7 +284,7 @@ class AllowDenyPattern(ConfigModel):
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         if not self.is_fully_specified_allow_list():
             raise ValueError(
-                "allow list must be fully specified to get list of allowed strings"
+                "allow list must be fully specified to get list of allowed strings",
             )
         return [a for a in self.allow if not self.denied(a)]
 
@@ -316,7 +316,7 @@ class KeyValuePattern(ConfigModel):
             return self.rules[matching_keys[0]]
         else:
             return deduplicate_list(
-                [v for key in matching_keys for v in self.rules[key]]
+                [v for key in matching_keys for v in self.rules[key]],
             )
 
 

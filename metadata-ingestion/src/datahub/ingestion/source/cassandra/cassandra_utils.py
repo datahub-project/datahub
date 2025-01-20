@@ -29,9 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 # we always skip over ingesting metadata about these keyspaces
-SYSTEM_KEYSPACE_LIST = set(
-    ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
-)
+SYSTEM_KEYSPACE_LIST = {
+    "system",
+    "system_auth",
+    "system_schema",
+    "system_distributed",
+    "system_traces",
+}
 
 
 @dataclass
@@ -57,7 +61,7 @@ class CassandraSourceReport(StaleEntityRemovalSourceReport, IngestionStageReport
     # TODO Need to create seperate common config for profiling report
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
     profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
+        default_factory=int_top_k_dict,
     )
 
     def report_entity_profiled(self, name: str) -> None:
@@ -109,19 +113,20 @@ class CassandraToSchemaFieldConverter:
     def get_column_type(cassandra_column_type: str) -> SchemaFieldDataType:
         type_class: Optional[Type] = (
             CassandraToSchemaFieldConverter._field_type_to_schema_field_type.get(
-                cassandra_column_type
+                cassandra_column_type,
             )
         )
         if type_class is None:
             logger.warning(
-                f"Cannot map {cassandra_column_type!r} to SchemaFieldDataType, using NullTypeClass."
+                f"Cannot map {cassandra_column_type!r} to SchemaFieldDataType, using NullTypeClass.",
             )
             type_class = NullTypeClass
 
         return SchemaFieldDataType(type=type_class())
 
     def _get_schema_fields(
-        self, cassandra_column_infos: List[CassandraColumn]
+        self,
+        cassandra_column_infos: List[CassandraColumn],
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
         for column_info in cassandra_column_infos:
@@ -129,7 +134,7 @@ class CassandraToSchemaFieldConverter:
             cassandra_type: str = column_info.type
 
             schema_field_data_type: SchemaFieldDataType = self.get_column_type(
-                cassandra_type
+                cassandra_type,
             )
             schema_field: SchemaField = SchemaField(
                 fieldPath=column_name,
@@ -143,7 +148,8 @@ class CassandraToSchemaFieldConverter:
 
     @classmethod
     def get_schema_fields(
-        cls, cassandra_column_infos: List[CassandraColumn]
+        cls,
+        cassandra_column_infos: List[CassandraColumn],
     ) -> Generator[SchemaField, None, None]:
         converter = cls()
         yield from converter._get_schema_fields(cassandra_column_infos)

@@ -32,7 +32,7 @@ example_version_mapper = QuickstartVersionMappingConfig.parse_obj(
                 "mysql_tag": "8.2",
             },
         },
-    }
+    },
 )
 
 
@@ -59,7 +59,9 @@ def test_quickstart_version_config_default():
 def test_quickstart_version_config_stable():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("stable")
     expected = QuickstartExecutionPlan(
-        docker_tag="latest", composefile_git_ref="v1.0.1", mysql_tag="8.2"
+        docker_tag="latest",
+        composefile_git_ref="v1.0.1",
+        mysql_tag="8.2",
     )
     assert execution_plan == expected
 
@@ -87,7 +89,7 @@ def test_quickstart_forced_not_a_version_tag():
     a recent change, otherwise it should be on an older version of datahub.
     """
     execution_plan = example_version_mapper.get_quickstart_execution_plan(
-        "NOT A VERSION"
+        "NOT A VERSION",
     )
     expected = QuickstartExecutionPlan(
         docker_tag="NOT A VERSION",

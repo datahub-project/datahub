@@ -149,7 +149,7 @@ class QualifiedNameParser:
 class PostgresQualifiedNameParser(QualifiedNameParser):
     split_char: str = "."
     names: List = field(
-        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+        default_factory=lambda: ["database_name", "schema_name", "table_name"],
     )
     default_schema: Optional[str] = "public"
 
@@ -158,7 +158,7 @@ class PostgresQualifiedNameParser(QualifiedNameParser):
 class MssqlQualifiedNameParser(QualifiedNameParser):
     split_char: str = "."
     names: List = field(
-        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+        default_factory=lambda: ["database_name", "schema_name", "table_name"],
     )
     default_schema: Optional[str] = "dbo"
 
@@ -192,7 +192,7 @@ class AthenaQualifiedNameParser(QualifiedNameParser):
 class BigqueryQualifiedNameParser(QualifiedNameParser):
     split_char: str = "."
     names: List = field(
-        default_factory=lambda: ["database_name", "schema_name", "table_name"]
+        default_factory=lambda: ["database_name", "schema_name", "table_name"],
     )
 
     def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
@@ -208,27 +208,32 @@ class BigqueryQualifiedNameParser(QualifiedNameParser):
 def get_full_qualified_name(platform: str, database_name: str, table_name: str) -> str:
     if platform == "athena":
         return AthenaQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
+            database_name,
+            table_name,
         )
 
     elif platform == "bigquery":
         return BigqueryQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
+            database_name,
+            table_name,
         )
 
     elif platform == "mssql":
         return MssqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
+            database_name,
+            table_name,
         )
 
     elif platform == "mysql":
         return MysqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
+            database_name,
+            table_name,
         )
 
     elif platform == "postgres":
         return PostgresQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
+            database_name,
+            table_name,
         )
 
     else:
@@ -239,7 +244,8 @@ class RedashConfig(ConfigModel):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
     connect_uri: str = Field(
-        default="http://localhost:5000", description="Redash base URL."
+        default="http://localhost:5000",
+        description="Redash base URL.",
     )
     api_key: str = Field(default="REDASH_API_KEY", description="Redash user API key.")
 
@@ -253,10 +259,12 @@ class RedashConfig(ConfigModel):
         description="regex patterns for charts to filter for ingestion.",
     )
     skip_draft: bool = Field(
-        default=True, description="Only ingest published dashboards and charts."
+        default=True,
+        description="Only ingest published dashboards and charts.",
     )
     page_size: int = Field(
-        default=25, description="Limit on number of items to be queried at once."
+        default=25,
+        description="Limit on number of items to be queried at once.",
     )
     api_page_limit: int = Field(
         default=sys.maxsize,
@@ -267,7 +275,8 @@ class RedashConfig(ConfigModel):
         description="Parallelism to use while processing.",
     )
     parse_table_names_from_sql: bool = Field(
-        default=False, description="See note below."
+        default=False,
+        description="See note below.",
     )
 
     env: str = Field(
@@ -328,7 +337,7 @@ class RedashSource(Source):
             {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-            }
+            },
         )
 
         # Handling retry and backoff
@@ -351,7 +360,7 @@ class RedashSource(Source):
         self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
 
         logger.info(
-            f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
+            f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}",
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -379,13 +388,15 @@ class RedashSource(Source):
         data_source_type = data_source.get("type")
         if data_source_type:
             map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
-                data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
+                data_source_type,
+                {"platform": DEFAULT_DATA_SOURCE_PLATFORM},
             )
             return map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
         return DEFAULT_DATA_SOURCE_PLATFORM
 
     def _get_database_name_based_on_datasource(
-        self, data_source: Dict
+        self,
+        data_source: Dict,
     ) -> Optional[str]:
         data_source_type = data_source.get("type", "external")
         data_source_name = data_source.get("name")
@@ -395,18 +406,22 @@ class RedashSource(Source):
             database_name = data_source_name
         else:
             map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
-                data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
+                data_source_type,
+                {"platform": DEFAULT_DATA_SOURCE_PLATFORM},
             )
 
             database_name_key = map.get("db_name_key", "db")
             database_name = data_source_options.get(
-                database_name_key, DEFAULT_DATA_BASE_NAME
+                database_name_key,
+                DEFAULT_DATA_BASE_NAME,
             )
 
         return database_name
 
     def _get_datasource_urns(
-        self, data_source: Dict, sql_query_data: Dict = {}
+        self,
+        data_source: Dict,
+        sql_query_data: Dict = {},
     ) -> Optional[List[str]]:
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
@@ -441,13 +456,14 @@ class RedashSource(Source):
 
             else:
                 return [
-                    builder.make_dataset_urn(platform, database_name, self.config.env)
+                    builder.make_dataset_urn(platform, database_name, self.config.env),
                 ]
 
         return None
 
     def _get_dashboard_description_from_widgets(
-        self, dashboard_widgets: List[Dict]
+        self,
+        dashboard_widgets: List[Dict],
     ) -> str:
         description = ""
 
@@ -472,7 +488,8 @@ class RedashSource(Source):
         return description
 
     def _get_dashboard_chart_urns_from_widgets(
-        self, dashboard_widgets: List[Dict]
+        self,
+        dashboard_widgets: List[Dict],
     ) -> List[str]:
         chart_urns = []
         for widget in dashboard_widgets:
@@ -482,7 +499,7 @@ class RedashSource(Source):
                 visualization_id = visualization.get("id", None)
                 if visualization_id is not None:
                     chart_urns.append(
-                        f"urn:li:chart:({self.platform},{visualization_id})"
+                        f"urn:li:chart:({self.platform},{visualization_id})",
                     )
 
         return chart_urns
@@ -497,7 +514,7 @@ class RedashSource(Source):
 
         modified_actor = f"urn:li:corpuser:{dashboard_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(dashboard_data.get("updated_at", "now")).timestamp() * 1000
+            dp.parse(dashboard_data.get("updated_at", "now")).timestamp() * 1000,
         )
         title = dashboard_data.get("name", "")
 
@@ -532,7 +549,8 @@ class RedashSource(Source):
         return dashboard_snapshot
 
     def _process_dashboard_response(
-        self, current_page: int
+        self,
+        current_page: int,
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Starting processing dashboard for page {current_page}")
         if current_page > self.api_page_limit:
@@ -540,7 +558,8 @@ class RedashSource(Source):
             return
         with PerfTimer() as timer:
             dashboards_response = self.client.dashboards(
-                page=current_page, page_size=self.config.page_size
+                page=current_page,
+                page_size=self.config.page_size,
             )
             for dashboard_response in dashboards_response["results"]:
                 dashboard_name = dashboard_response["name"]
@@ -557,7 +576,7 @@ class RedashSource(Source):
                     # Tested the same with a Redash instance
                     dashboard_id = dashboard_response["id"]
                     dashboard_data = self.client._get(
-                        f"api/dashboards/{dashboard_id}"
+                        f"api/dashboards/{dashboard_id}",
                     ).json()
                 except Exception:
                     # This does not work in our testing but keeping for now because
@@ -571,13 +590,14 @@ class RedashSource(Source):
 
                 logger.debug(dashboard_data)
                 dashboard_snapshot = self._get_dashboard_snapshot(
-                    dashboard_data, redash_version
+                    dashboard_data,
+                    redash_version,
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
             self.report.timing[f"dashboard-{current_page}"] = int(
-                timer.elapsed_seconds()
+                timer.elapsed_seconds(),
             )
 
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -586,7 +606,7 @@ class RedashSource(Source):
         total_dashboards = dashboards_response["count"]
         max_page = math.ceil(total_dashboards / self.config.page_size)
         logger.info(
-            f"/api/dashboards total count {total_dashboards} and max page {max_page}"
+            f"/api/dashboards total count {total_dashboards} and max page {max_page}",
         )
         self.report.total_dashboards = total_dashboards
         self.report.max_page_dashboards = max_page
@@ -636,7 +656,7 @@ class RedashSource(Source):
 
         modified_actor = f"urn:li:corpuser:{viz_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(viz_data.get("updated_at", "now")).timestamp() * 1000
+            dp.parse(viz_data.get("updated_at", "now")).timestamp() * 1000,
         )
         title = f"{query_data.get('name')} {viz_data.get('name', '')}"
 
@@ -683,7 +703,8 @@ class RedashSource(Source):
             return
         with PerfTimer() as timer:
             queries_response = self.client.queries(
-                page=current_page, page_size=self.config.page_size
+                page=current_page,
+                page_size=self.config.page_size,
             )
             for query_response in queries_response["results"]:
                 chart_name = query_response["name"]

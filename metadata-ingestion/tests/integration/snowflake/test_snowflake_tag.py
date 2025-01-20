@@ -26,7 +26,7 @@ def test_snowflake_tag_pattern():
             match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             tag_pattern=AllowDenyPattern(
-                allow=["TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"]
+                allow=["TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"],
             ),
             include_technical_schema=True,
             include_table_lineage=False,
@@ -40,7 +40,7 @@ def test_snowflake_tag_pattern():
             config=PipelineConfig(
                 source=SourceConfig(type="snowflake", config=tag_config),
                 sink=DynamicTypedConfig(type="blackhole", config={}),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -50,7 +50,7 @@ def test_snowflake_tag_pattern():
         assert isinstance(source_report, SnowflakeV2Report)
         assert source_report.tags_scanned == 5
         assert source_report._processed_tags == {
-            "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"
+            "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1",
         }
 
 
@@ -69,7 +69,7 @@ def test_snowflake_tag_pattern_deny():
             match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             tag_pattern=AllowDenyPattern(
-                deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"]
+                deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"],
             ),
             include_technical_schema=True,
             include_table_lineage=False,
@@ -83,7 +83,7 @@ def test_snowflake_tag_pattern_deny():
             config=PipelineConfig(
                 source=SourceConfig(type="snowflake", config=tag_config),
                 sink=DynamicTypedConfig(type="blackhole", config={}),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -116,10 +116,10 @@ def test_snowflake_structured_property_pattern_deny():
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             extract_tags_as_structured_properties=True,
             tag_pattern=AllowDenyPattern(
-                deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"]
+                deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"],
             ),
             structured_property_pattern=AllowDenyPattern(
-                deny=["TEST_DB.TEST_SCHEMA.my_tag_[0-9]"]
+                deny=["TEST_DB.TEST_SCHEMA.my_tag_[0-9]"],
             ),
             include_technical_schema=True,
             include_table_lineage=False,
@@ -133,7 +133,7 @@ def test_snowflake_structured_property_pattern_deny():
             config=PipelineConfig(
                 source=SourceConfig(type="snowflake", config=tag_config),
                 sink=DynamicTypedConfig(type="blackhole", config={}),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()

@@ -39,19 +39,22 @@ def side_effect_call_salesforce(type, url):
         return MockResponse(_read_response("account_fields_soql_response.json"), 200)
     elif url.endswith("FROM CustomField WHERE EntityDefinitionId='Account'"):
         return MockResponse(
-            _read_response("account_custom_fields_soql_response.json"), 200
+            _read_response("account_custom_fields_soql_response.json"),
+            200,
         )
     elif url.endswith("FROM CustomObject where DeveloperName='Property'"):
         return MockResponse(
-            _read_response("property_custom_object_soql_response.json"), 200
+            _read_response("property_custom_object_soql_response.json"),
+            200,
         )
     elif url.endswith(
-        "FROM EntityParticle WHERE EntityDefinitionId='01I5i000000Y6fp'"
+        "FROM EntityParticle WHERE EntityDefinitionId='01I5i000000Y6fp'",
     ):  # DurableId of Property__c
         return MockResponse(_read_response("property_fields_soql_response.json"), 200)
     elif url.endswith("FROM CustomField WHERE EntityDefinitionId='01I5i000000Y6fp'"):
         return MockResponse(
-            _read_response("property_custom_fields_soql_response.json"), 200
+            _read_response("property_custom_fields_soql_response.json"),
+            200,
         )
     elif url.endswith("/recordCount?sObjects=Property__c"):
         return MockResponse(_read_response("record_count_property_response.json"), 200)
@@ -83,9 +86,9 @@ def test_latest_version(mock_sdk):
             "profile_pattern": {
                 "allow": [
                     "^Property__c$",
-                ]
+                ],
             },
-        }
+        },
     )
     SalesforceSource(config=config, ctx=Mock())
     calls = mock_sf._call_salesforce.mock_calls
@@ -126,9 +129,9 @@ def test_custom_version(mock_sdk):
             "profile_pattern": {
                 "allow": [
                     "^Property__c$",
-                ]
+                ],
             },
-        }
+        },
     )
     SalesforceSource(config=config, ctx=Mock())
 
@@ -171,7 +174,7 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
                         "profile_pattern": {
                             "allow": [
                                 "^Property__c$",
-                            ]
+                            ],
                         },
                     },
                 },
@@ -181,7 +184,7 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/salesforce_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

@@ -39,7 +39,10 @@ class SnowsightUrlBuilder:
     def __init__(self, account_locator: str, region: str, privatelink: bool = False):
         cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
         self.snowsight_base_url = self.create_snowsight_base_url(
-            account_locator, cloud_region_id, cloud, privatelink
+            account_locator,
+            cloud_region_id,
+            cloud,
+            privatelink,
         )
 
     @staticmethod
@@ -94,7 +97,9 @@ class SnowsightUrlBuilder:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
 
     def get_external_url_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> Optional[str]:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
 
@@ -104,7 +109,9 @@ class SnowsightUrlBuilder:
 
 class SnowflakeFilter:
     def __init__(
-        self, filter_config: SnowflakeFilterConfig, structured_reporter: SourceReport
+        self,
+        filter_config: SnowflakeFilterConfig,
+        structured_reporter: SourceReport,
     ) -> None:
         self.filter_config = filter_config
         self.structured_reporter = structured_reporter
@@ -141,7 +148,7 @@ class SnowflakeFilter:
         if (
             len(dataset_params) >= 1
             and not self.filter_config.database_pattern.allowed(
-                dataset_params[0].strip('"')
+                dataset_params[0].strip('"'),
             )
         ) or (
             len(dataset_params) >= 2
@@ -155,9 +162,9 @@ class SnowflakeFilter:
             return False
 
         if dataset_type.lower() in {
-            SnowflakeObjectDomain.TABLE
+            SnowflakeObjectDomain.TABLE,
         } and not self.filter_config.table_pattern.allowed(
-            _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            _cleanup_qualified_name(dataset_name, self.structured_reporter),
         ):
             return False
 
@@ -165,7 +172,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         } and not self.filter_config.view_pattern.allowed(
-            _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            _cleanup_qualified_name(dataset_name, self.structured_reporter),
         ):
             return False
 
@@ -173,7 +180,10 @@ class SnowflakeFilter:
 
 
 def _combine_identifier_parts(
-    *, table_name: str, schema_name: str, db_name: str
+    *,
+    table_name: str,
+    schema_name: str,
+    db_name: str,
 ) -> str:
     return f"{db_name}.{schema_name}.{table_name}"
 
@@ -229,7 +239,8 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
 # and also unavailability of utility function to identify whether current table/schema/database
 # name should be quoted in above method get_dataset_identifier
 def _cleanup_qualified_name(
-    qualified_name: str, structured_reporter: SourceReport
+    qualified_name: str,
+    structured_reporter: SourceReport,
 ) -> str:
     name_parts = _split_qualified_name(qualified_name)
     if len(name_parts) != 3:
@@ -266,12 +277,17 @@ class SnowflakeIdentifierBuilder:
         return identifier
 
     def get_dataset_identifier(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> str:
         return self.snowflake_identifier(
             _combine_identifier_parts(
-                table_name=table_name, schema_name=schema_name, db_name=db_name
-            )
+                table_name=table_name,
+                schema_name=schema_name,
+                db_name=db_name,
+            ),
         )
 
     def gen_dataset_urn(self, dataset_identifier: str) -> str:
@@ -284,7 +300,7 @@ class SnowflakeIdentifierBuilder:
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         return self.snowflake_identifier(
-            _cleanup_qualified_name(qualified_name, self.structured_reporter)
+            _cleanup_qualified_name(qualified_name, self.structured_reporter),
         )
 
     @staticmethod
@@ -312,13 +328,13 @@ class SnowflakeIdentifierBuilder:
             return self.snowflake_identifier(
                 user_email
                 if self.identifier_config.email_as_user_identifier is True
-                else user_email.split("@")[0]
+                else user_email.split("@")[0],
             )
         return self.snowflake_identifier(
             f"{user_name}@{self.identifier_config.email_domain}"
             if self.identifier_config.email_as_user_identifier is True
             and self.identifier_config.email_domain is not None
-            else user_name
+            else user_name,
         )
 
 

@@ -24,9 +24,11 @@ def test_athena_source_ingestion(pytestconfig, tmp_path):
 
     # Mock dependencies
     with patch.object(
-        AthenaSource, "get_inspectors"
+        AthenaSource,
+        "get_inspectors",
     ) as mock_get_inspectors, patch.object(
-        AthenaSource, "get_table_properties"
+        AthenaSource,
+        "get_table_properties",
     ) as mock_get_table_properties:
         # Mock engine and inspectors
         mock_inspector = MagicMock()
@@ -91,7 +93,8 @@ def test_athena_source_ingestion(pytestconfig, tmp_path):
             {
                 "name": "job_history",
                 "type": MapType(
-                    String(), STRUCT(year=INTEGER(), company=String(), role=String())
+                    String(),
+                    STRUCT(year=INTEGER(), company=String(), role=String()),
                 ),
                 "nullable": True,
                 "default": None,

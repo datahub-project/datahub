@@ -199,7 +199,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -217,7 +219,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 continue
 
             table_wu_generator = self._process_table(
-                region, dynamodb_client, table_name, dataset_name
+                region,
+                dynamodb_client,
+                table_name,
+                dataset_name,
             )
             yield from classification_workunit_processor(
                 table_wu_generator,
@@ -252,7 +257,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
         primary_key_dict = self.extract_primary_key_from_key_schema(table_info)
         table_schema = self.construct_schema_from_dynamodb(
-            dynamodb_client, region, table_name
+            dynamodb_client,
+            region,
+            table_name,
         )
 
         schema_metadata = self.construct_schema_metadata(
@@ -361,20 +368,20 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         assert isinstance(primary_key_list, List)
         if len(primary_key_list) > MAX_PRIMARY_KEYS_SIZE:
             logger.info(
-                f"the provided primary keys list size exceeded the max size for table {dataset_name}, we'll only process the first {MAX_PRIMARY_KEYS_SIZE} items"
+                f"the provided primary keys list size exceeded the max size for table {dataset_name}, we'll only process the first {MAX_PRIMARY_KEYS_SIZE} items",
             )
             primary_key_list = primary_key_list[0:MAX_PRIMARY_KEYS_SIZE]
         items: List[Dict[str, "AttributeValueTypeDef"]] = []
         response = dynamodb_client.batch_get_item(
-            RequestItems={table_name: {"Keys": primary_key_list}}
+            RequestItems={table_name: {"Keys": primary_key_list}},
         ).get("Responses")
         if response is None:
             logger.error(
-                f"failed to retrieve item from table {table_name} by the given key {primary_key_list}"
+                f"failed to retrieve item from table {table_name} by the given key {primary_key_list}",
             )
             return
         logger.debug(
-            f"successfully retrieved {len(primary_key_list)} items based on supplied primary key list"
+            f"successfully retrieved {len(primary_key_list)} items based on supplied primary key list",
         )
         items = response.get(table_name) or []
 
@@ -411,7 +418,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 # Handle nested maps by recursive calls
                 if data_type == "M":
                     logger.debug(
-                        f"expanding nested fields for map, current_field_path: {current_field_path}"
+                        f"expanding nested fields for map, current_field_path: {current_field_path}",
                     )
                     self.append_schema(schema, attribute_value, current_field_path)
 
@@ -435,7 +442,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     )  # Mark as nullable if null encountered
                 types = schema[current_field_path]["types"]
                 logger.debug(
-                    f"append schema with field_path: {current_field_path} and type: {types}"
+                    f"append schema with field_path: {current_field_path} and type: {types}",
                 )
 
     def construct_schema_metadata(
@@ -510,7 +517,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         return schema_metadata
 
     def extract_primary_key_from_key_schema(
-        self, table_info: "TableDescriptionTypeDef"
+        self,
+        table_info: "TableDescriptionTypeDef",
     ) -> Dict[str, str]:
         key_schema = table_info.get("KeySchema")
         primary_key_dict: Dict[str, str] = {}
@@ -524,7 +532,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def get_native_type(self, attribute_type: Union[type, str], table_name: str) -> str:
         assert isinstance(attribute_type, str)
         type_string: Optional[str] = _attribute_type_to_native_type_mapping.get(
-            attribute_type
+            attribute_type,
         )
         if type_string is None:
             self.report.report_warning(
@@ -536,11 +544,13 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         return type_string
 
     def get_field_type(
-        self, attribute_type: Union[type, str], table_name: str
+        self,
+        attribute_type: Union[type, str],
+        table_name: str,
     ) -> SchemaFieldDataType:
         assert isinstance(attribute_type, str)
         type_class: Optional[type] = _attribute_type_to_field_type_mapping.get(
-            attribute_type
+            attribute_type,
         )
 
         if type_class is None:
@@ -556,13 +566,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         return self.report
 
     def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str
+        self,
+        dataset_name: str,
+        entity_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = None
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
+                    self.domain_registry.get_domain_urn(domain),
                 )
                 break
 

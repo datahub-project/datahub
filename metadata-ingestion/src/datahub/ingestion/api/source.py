@@ -95,7 +95,7 @@ class StructuredLogs(Report):
             StructuredLogLevel.ERROR: LossyDict(10),
             StructuredLogLevel.WARN: LossyDict(10),
             StructuredLogLevel.INFO: LossyDict(10),
-        }
+        },
     )
 
     def report_log(
@@ -194,10 +194,10 @@ class SourceReport(Report):
     _urns_seen: Set[str] = field(default_factory=set)
     entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
     aspects: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
+        default_factory=lambda: defaultdict(lambda: defaultdict(int)),
     )
     aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
+        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList)),
     )
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
@@ -252,7 +252,12 @@ class SourceReport(Report):
         exc: Optional[BaseException] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=False
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=False,
         )
 
     def warning(
@@ -263,7 +268,12 @@ class SourceReport(Report):
         exc: Optional[BaseException] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=True
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=True,
         )
 
     def report_failure(
@@ -275,7 +285,12 @@ class SourceReport(Report):
         log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
         )
 
     def failure(
@@ -287,7 +302,12 @@ class SourceReport(Report):
         log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
         )
 
     def info(
@@ -299,7 +319,12 @@ class SourceReport(Report):
         log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=log
+            StructuredLogLevel.INFO,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
         )
 
     @contextlib.contextmanager
@@ -317,7 +342,11 @@ class SourceReport(Report):
             yield
         except Exception as exc:
             self._structured_logs.report_log(
-                level, message=message, title=title, context=context, exc=exc
+                level,
+                message=message,
+                title=title,
+                context=context,
+                exc=exc,
             )
 
     def __post_init__(self) -> None:
@@ -340,7 +369,7 @@ class SourceReport(Report):
         workunits_produced = self.events_produced
         if duration.total_seconds() > 0:
             self.events_produced_per_sec: int = int(
-                workunits_produced / duration.total_seconds()
+                workunits_produced / duration.total_seconds(),
             )
             self.running_time = duration
         else:
@@ -418,7 +447,7 @@ class Source(Closeable, metaclass=ABCMeta):
             and self.ctx.pipeline_config.flags.generate_browse_path_v2
         ):
             browse_path_processor = self._get_browse_path_processor(
-                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
+                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run,
             )
 
         auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
@@ -437,7 +466,7 @@ class Source(Closeable, metaclass=ABCMeta):
                 or (
                     hasattr(self.ctx.pipeline_config.source.config, "get")
                     and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
+                        "convert_urns_to_lowercase",
                     )
                 )
             )
@@ -449,7 +478,8 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths,
+                platform=self._infer_platform(),
             ),
             partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
             browse_path_processor,
@@ -470,12 +500,13 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return self._apply_workunit_processors(
-            self.get_workunit_processors(), self.get_workunits_internal()
+            self.get_workunit_processors(),
+            self.get_workunits_internal(),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         raise NotImplementedError(
-            "get_workunits_internal must be implemented if get_workunits is not overriden."
+            "get_workunits_internal must be implemented if get_workunits is not overriden.",
         )
 
     def get_config(self) -> Optional[ConfigModel]:

@@ -92,7 +92,7 @@ def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
         """
         SELECT *
         FROM "system"."metadata"."catalogs"
-    """
+    """,
     ).strip()
     res = engine.execute(sql.text(query))
     return {row.catalog_name: row.connector_name for row in res}
@@ -114,7 +114,7 @@ def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
         SELECT "table_name"
         FROM "information_schema"."tables"
         WHERE "table_schema" = :schema and "table_type" != 'VIEW'
-    """
+    """,
     ).strip()
     res = connection.execute(sql.text(query), schema=schema)
     return [row.table_name for row in res]
@@ -165,7 +165,7 @@ def _get_columns(self, connection, table_name, schema: str = None, **kw):  # typ
         WHERE "table_schema" = :schema
             AND "table_name" = :table
         ORDER BY "ordinal_position" ASC
-    """
+    """,
     ).strip()
     res = connection.execute(sql.text(query), schema=schema, table=table_name)
     columns = []
@@ -240,7 +240,10 @@ class TrinoSource(SQLAlchemySource):
     config: TrinoConfig
 
     def __init__(
-        self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
+        self,
+        config: TrinoConfig,
+        ctx: PipelineContext,
+        platform: str = "trino",
     ):
         super().__init__(config, ctx, platform)
 
@@ -262,10 +265,11 @@ class TrinoSource(SQLAlchemySource):
         if not connector_name:
             return None
         connector_details = self.config.catalog_to_connector_details.get(
-            catalog_name, ConnectorDetail()
+            catalog_name,
+            ConnectorDetail(),
         )
         connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
-            connector_details.connector_platform or connector_name
+            connector_details.connector_platform or connector_name,
         )
         if not connector_platform_name:
             logging.debug(f"Platform '{connector_platform_name}' is not yet supported.")
@@ -300,14 +304,16 @@ class TrinoSource(SQLAlchemySource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=Siblings(
-                primary=self.config.trino_as_primary, siblings=[source_dataset_urn]
+                primary=self.config.trino_as_primary,
+                siblings=[source_dataset_urn],
             ),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=source_dataset_urn,
             aspect=Siblings(
-                primary=not self.config.trino_as_primary, siblings=[dataset_urn]
+                primary=not self.config.trino_as_primary,
+                siblings=[dataset_urn],
             ),
         ).as_workunit()
 
@@ -323,8 +329,8 @@ class TrinoSource(SQLAlchemySource):
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
                 upstreams=[
-                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW),
+                ],
             ),
         ).as_workunit()
 
@@ -338,7 +344,12 @@ class TrinoSource(SQLAlchemySource):
         data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         yield from super()._process_table(
-            dataset_name, inspector, schema, table, sql_config, data_reader
+            dataset_name,
+            inspector,
+            schema,
+            table,
+            sql_config,
+            data_reader,
         )
         if self.config.ingest_lineage_to_connectors:
             dataset_urn = make_dataset_urn_with_platform_instance(
@@ -348,7 +359,10 @@ class TrinoSource(SQLAlchemySource):
                 self.config.env,
             )
             source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, table
+                dataset_name,
+                inspector,
+                schema,
+                table,
             )
             if source_dataset_urn:
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
@@ -363,7 +377,11 @@ class TrinoSource(SQLAlchemySource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         yield from super()._process_view(
-            dataset_name, inspector, schema, view, sql_config
+            dataset_name,
+            inspector,
+            schema,
+            view,
+            sql_config,
         )
         if self.config.ingest_lineage_to_connectors:
             dataset_urn = make_dataset_urn_with_platform_instance(
@@ -373,7 +391,10 @@ class TrinoSource(SQLAlchemySource):
                 self.config.env,
             )
             source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, view
+                dataset_name,
+                inspector,
+                schema,
+                view,
             )
             if source_dataset_urn:
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
@@ -404,11 +425,13 @@ class TrinoSource(SQLAlchemySource):
             field = fields[0]
             # Get avro schema for subfields along with parent complex field
             avro_schema = self.get_avro_schema_from_data_type(
-                column["type"], column["name"]
+                column["type"],
+                column["name"],
             )
 
             newfields = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=True
+                json.dumps(avro_schema),
+                default_nullable=True,
             )
 
             # First field is the parent complex field
@@ -420,7 +443,9 @@ class TrinoSource(SQLAlchemySource):
         return fields
 
     def get_avro_schema_from_data_type(
-        self, column_type: TypeEngine, column_name: str
+        self,
+        column_type: TypeEngine,
+        column_name: str,
     ) -> Dict[str, Any]:
         # Below Record structure represents the dataset level
         # Inner fields represent the complex field (struct/array/map/union)

@@ -19,7 +19,10 @@ class GitClone:
         self.last_repo_cloned: Optional[git.Repo] = None
 
     def clone(
-        self, ssh_key: Optional[SecretStr], repo_url: str, branch: Optional[str] = None
+        self,
+        ssh_key: Optional[SecretStr],
+        repo_url: str,
+        branch: Optional[str] = None,
     ) -> Path:
         # Note: this does a shallow clone.
 
@@ -59,7 +62,7 @@ class GitClone:
 
         if branch is None:
             logger.info(
-                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (default branch), this can take some time..."
+                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (default branch), this can take some time...",
             )
             self.last_repo_cloned = git.Repo.clone_from(
                 repo_url,
@@ -72,7 +75,7 @@ class GitClone:
             # we can't just use the --branch flag of Git clone. Doing a blobless clone allows
             # us to quickly checkout the right commit.
             logger.info(
-                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (branch: {branch}), this can take some time..."
+                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (branch: {branch}), this can take some time...",
             )
             self.last_repo_cloned = git.Repo.clone_from(
                 repo_url,

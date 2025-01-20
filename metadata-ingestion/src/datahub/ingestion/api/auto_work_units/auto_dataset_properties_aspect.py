@@ -40,7 +40,7 @@ def try_aspect_from_metadata_change_proposal_class(
                 # Deserializing `lastModified` as the `auto_patch_last_modified` function relies on this property
                 # to decide if a patch aspect for the datasetProperties aspect should be generated
                 return DatasetPropertiesClass(
-                    lastModified=TimeStampClass(time=operation["value"]["time"])
+                    lastModified=TimeStampClass(time=operation["value"]["time"]),
                 )
 
     return None
@@ -67,7 +67,7 @@ def auto_patch_last_modified(
             continue
 
         dataset_properties_aspect = wu.get_aspect_of_type(
-            DatasetPropertiesClass
+            DatasetPropertiesClass,
         ) or try_aspect_from_metadata_change_proposal_class(wu)
         dataset_operation_aspect = wu.get_aspect_of_type(OperationClass)
 
@@ -120,8 +120,8 @@ def auto_patch_last_modified(
 
             dataset_patch_builder.set_last_modified(
                 timestamp=TimeStampClass(
-                    time=timestamp_pair.last_updated_timestamp_dataset_props
-                )
+                    time=timestamp_pair.last_updated_timestamp_dataset_props,
+                ),
             )
 
             yield from [

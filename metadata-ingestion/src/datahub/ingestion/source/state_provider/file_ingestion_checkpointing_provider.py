@@ -30,7 +30,9 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
     ) -> "FileIngestionCheckpointingProvider":
         config = FileIngestionStateProviderConfig.parse_obj(config_dict)
         return cls(config)
@@ -42,11 +44,13 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     ) -> Optional[DatahubIngestionCheckpointClass]:
         logger.debug(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
-            f" job_name:'{job_name}'"
+            f" job_name:'{job_name}'",
         )
 
         data_job_urn = self.get_data_job_urn(
-            self.orchestrator_name, pipeline_name, job_name
+            self.orchestrator_name,
+            pipeline_name,
+            job_name,
         )
         latest_checkpoint: Optional[DatahubIngestionCheckpointClass] = None
         try:
@@ -67,13 +71,13 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" job_name:'{job_name}' found with start_time:"
-                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}"
+                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}",
             )
             return latest_checkpoint
         else:
             logger.debug(
                 f"No committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
-                f" job_name:'{job_name}' found"
+                f" job_name:'{job_name}' found",
             )
 
         return None
@@ -88,7 +92,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             # Emit the ingestion state for each job
             logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
-                f"job:'{job_name}'"
+                f"job:'{job_name}'",
             )
             datajob_urn = self.get_data_job_urn(
                 self.orchestrator_name,
@@ -99,10 +103,10 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 MetadataChangeProposalWrapper(
                     entityUrn=datajob_urn,
                     aspect=checkpoint,
-                )
+                ),
             )
         write_metadata_file(pathlib.Path(self.config.filename), checkpoint_workunits)
         self.committed = True
         logger.debug(
-            f"Committed all ingestion checkpoints for pipeline:'{checkpoint.pipelineName}'"
+            f"Committed all ingestion checkpoints for pipeline:'{checkpoint.pipelineName}'",
         )

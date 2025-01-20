@@ -31,7 +31,8 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 @pytest.fixture(scope="module")
 def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "mysql"
+        test_resources_dir / "docker-compose.yml",
+        "mysql",
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -109,5 +110,6 @@ def test_mysql_test_connection(mysql_runner, config_dict, is_success):
         test_connection_helpers.assert_basic_connectivity_success(report)
     else:
         test_connection_helpers.assert_basic_connectivity_failure(
-            report, "Connection refused"
+            report,
+            "Connection refused",
         )

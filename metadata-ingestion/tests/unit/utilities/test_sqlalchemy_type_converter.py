@@ -23,7 +23,9 @@ def test_get_avro_schema_for_sqlalchemy_column():
     inspector_magic_mock.dialect = DefaultDialect()
 
     schema_fields = get_schema_fields_for_sqlalchemy_column(
-        column_name="test", column_type=types.INTEGER(), inspector=inspector_magic_mock
+        column_name="test",
+        column_type=types.INTEGER(),
+        inspector=inspector_magic_mock,
     )
     assert len(schema_fields) == 1
     assert schema_fields[0].fieldPath == "[version=2.0].[type=int].test"
@@ -77,7 +79,8 @@ def test_get_avro_schema_for_sqlalchemy_map_column():
         == "[version=2.0].[type=struct].[type=map].[type=boolean].test"
     )
     assert schema_fields[0].type.type == MapTypeClass(
-        keyType="string", valueType="boolean"
+        keyType="string",
+        valueType="boolean",
     )
     assert schema_fields[0].nativeDataType == "MapType(String(), BOOLEAN())"
 
@@ -112,7 +115,9 @@ def test_get_avro_schema_for_sqlalchemy_unknown_column():
     inspector_magic_mock.dialect = DefaultDialect()
 
     schema_fields = get_schema_fields_for_sqlalchemy_column(
-        "invalid", "test", inspector=inspector_magic_mock
+        "invalid",
+        "test",
+        inspector=inspector_magic_mock,
     )
     assert len(schema_fields) == 1
     assert schema_fields[0].type.type == NullTypeClass()

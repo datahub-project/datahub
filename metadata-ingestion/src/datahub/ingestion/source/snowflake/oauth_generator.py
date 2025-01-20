@@ -41,7 +41,9 @@ class OAuthTokenGenerator:
 
     def _get_microsoft_token(self, credentials, scopes, check_cache):
         app = msal.ConfidentialClientApplication(
-            self.client_id, authority=self.authority_url, client_credential=credentials
+            self.client_id,
+            authority=self.authority_url,
+            client_credential=credentials,
         )
         _token = None
         if check_cache:
@@ -85,7 +87,7 @@ class OAuthTokenGenerator:
         decoded_private_key_content = base64.b64decode(private_key_content)
         decoded_public_key_content = base64.b64decode(public_key_content)
         public_cert_thumbprint = self.get_public_certificate_thumbprint(
-            str(decoded_public_key_content, "UTF-8")
+            str(decoded_public_key_content, "UTF-8"),
         )
 
         CLIENT_CREDENTIAL = {
@@ -95,6 +97,9 @@ class OAuthTokenGenerator:
         return self._get_token(CLIENT_CREDENTIAL, scopes, check_cache)
 
     def get_token_with_secret(
-        self, secret: str, scopes: Optional[List[str]], check_cache: bool = False
+        self,
+        secret: str,
+        scopes: Optional[List[str]],
+        check_cache: bool = False,
     ) -> Any:
         return self._get_token(secret, scopes, check_cache)

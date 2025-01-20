@@ -43,12 +43,12 @@ def parse_procedure_code(
                 default_db=default_db,
                 default_schema=default_schema,
                 query=query,
-            )
+            ),
         )
     if aggregator.report.num_observed_queries_failed and raise_:
         logger.info(aggregator.report.as_string())
         raise ValueError(
-            f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
+            f"Failed to parse {aggregator.report.num_observed_queries_failed} queries.",
         )
 
     mcps = list(aggregator.gen_metadata())

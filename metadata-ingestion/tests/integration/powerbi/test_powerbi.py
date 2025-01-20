@@ -56,16 +56,16 @@ def scan_init_response(request, context):
 
     w_id_vs_response: Dict[str, Any] = {
         "64ED5CAD-7C10-4684-8180-826122881108": {
-            "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
+            "id": "4674efd1-603c-4129-8d82-03cf2be05aff",
         },
         "64ED5CAD-7C22-4684-8180-826122881108": {
-            "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
+            "id": "a674efd1-603c-4129-8d82-03cf2be05aff",
         },
         "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
-            "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
+            "id": "a674efd1-603c-4129-8d82-03cf2be05aff",
         },
         "A8D655A6-F521-477E-8C22-255018583BF4": {
-            "id": "62DAF926-0B18-4FF1-982C-2A3EB6B8F0E4"
+            "id": "62DAF926-0B18-4FF1-982C-2A3EB6B8F0E4",
         },
         "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492": {
             "id": "81B02907-E2A3-45C3-B505-3781839C8CAA",
@@ -84,7 +84,9 @@ def read_mock_data(path: Union[Path, str]) -> dict:
 
 
 def register_mock_api(
-    pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
+    pytestconfig: pytest.Config,
+    request_mock: Any,
+    override_data: Optional[dict] = None,
 ) -> None:
     default_mock_data_path = (
         pytestconfig.rootpath
@@ -163,7 +165,7 @@ def test_powerbi_ingest(
                     "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -194,7 +196,7 @@ def test_powerbi_workspace_type_filter(
         pytestconfig=pytestconfig,
         override_data=read_mock_data(
             pytestconfig.rootpath
-            / "tests/integration/powerbi/mock_data/workspace_type_filter.json"
+            / "tests/integration/powerbi/mock_data/workspace_type_filter.json",
         ),
     )
 
@@ -222,7 +224,7 @@ def test_powerbi_workspace_type_filter(
                     "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -266,7 +268,7 @@ def test_powerbi_ingest_patch_disabled(
                     "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -285,7 +287,8 @@ def test_powerbi_ingest_patch_disabled(
 @pytest.mark.integration
 def test_powerbi_test_connection_success(mock_msal):
     report = test_connection_helpers.run_test_connection(
-        PowerBiDashboardSource, default_source_config()
+        PowerBiDashboardSource,
+        default_source_config(),
     )
     test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -294,10 +297,12 @@ def test_powerbi_test_connection_success(mock_msal):
 @pytest.mark.integration
 def test_powerbi_test_connection_failure():
     report = test_connection_helpers.run_test_connection(
-        PowerBiDashboardSource, default_source_config()
+        PowerBiDashboardSource,
+        default_source_config(),
     )
     test_connection_helpers.assert_basic_connectivity_failure(
-        report, "Unable to get authority configuration"
+        report,
+        "Unable to get authority configuration",
     )
 
 
@@ -333,7 +338,7 @@ def test_powerbi_platform_instance_ingest(
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -380,7 +385,7 @@ def test_powerbi_ingest_urn_lower_case(
                     "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -424,7 +429,7 @@ def test_override_ownership(
                     "filename": f"{tmp_path}/powerbi_mces_disabled_ownership.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -472,7 +477,7 @@ def test_scan_all_workspaces(
                     "filename": f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -517,7 +522,7 @@ def test_extract_reports(
                     "filename": f"{tmp_path}/powerbi_report_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -556,7 +561,7 @@ def test_extract_lineage(
                     "dataset_type_mapping": {
                         "PostgreSql": {"platform_instance": "operational_instance"},
                         "Oracle": {
-                            "platform_instance": "high_performance_production_unit"
+                            "platform_instance": "high_performance_production_unit",
                         },
                         "Sql": {"platform_instance": "reporting-db"},
                         "Snowflake": {"platform_instance": "sn-2"},
@@ -569,7 +574,7 @@ def test_extract_lineage(
                     "filename": f"{tmp_path}/powerbi_lineage_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -614,7 +619,7 @@ def test_extract_endorsements(
                     "filename": f"{tmp_path}/powerbi_endorsement_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -663,7 +668,7 @@ def test_admin_access_is_not_allowed(
                     "dataset_type_mapping": {
                         "PostgreSql": {"platform_instance": "operational_instance"},
                         "Oracle": {
-                            "platform_instance": "high_performance_production_unit"
+                            "platform_instance": "high_performance_production_unit",
                         },
                         "Sql": {"platform_instance": "reporting-db"},
                         "Snowflake": {"platform_instance": "sn-2"},
@@ -676,7 +681,7 @@ def test_admin_access_is_not_allowed(
                     "filename": f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -724,7 +729,7 @@ def test_workspace_container(
                     "filename": f"{tmp_path}/powerbi_container_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -764,7 +769,7 @@ def test_access_token_expiry_with_long_expiry(
                         "filename": f"{tmp_path}/powerbi_access_token_mces.json",
                     },
                 },
-            }
+            },
         )
 
     # for long expiry, the token should only be requested once.
@@ -804,7 +809,7 @@ def test_access_token_expiry_with_short_expiry(
                         "filename": f"{tmp_path}/powerbi_access_token_mces.json",
                     },
                 },
-            }
+            },
         )
 
     # for short expiry, the token should be requested when expires.
@@ -820,7 +825,8 @@ def test_access_token_expiry_with_short_expiry(
 
 def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
     source_config: PowerBiDashboardSourceConfig = cast(
-        PowerBiDashboardSource, pipeline.source
+        PowerBiDashboardSource,
+        pipeline.source,
     ).source_config
 
     assert source_config.dataset_type_mapping is not None
@@ -839,7 +845,11 @@ def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_dataset_type_mapping_should_set_to_all(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     """
     Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
@@ -865,7 +875,7 @@ def test_dataset_type_mapping_should_set_to_all(
                     "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
                 },
             },
-        }
+        },
     )
 
     dataset_type_mapping_set_to_all_platform(pipeline)
@@ -875,7 +885,11 @@ def test_dataset_type_mapping_should_set_to_all(
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_dataset_type_mapping_error(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     """
     Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
@@ -894,7 +908,7 @@ def test_dataset_type_mapping_error(
                         "server_to_platform_instance": {
                             "localhost": {
                                 "platform_instance": "test",
-                            }
+                            },
                         },
                     },
                 },
@@ -904,14 +918,18 @@ def test_dataset_type_mapping_error(
                         "filename": f"{tmp_path}/powerbi_lower_case_urn_mces.json",
                     },
                 },
-            }
+            },
         )
 
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_server_to_platform_map(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
     new_config: dict = {
@@ -951,7 +969,7 @@ def test_server_to_platform_map(
                     "filename": output_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -988,7 +1006,8 @@ def validate_pipeline(pipeline: Pipeline) -> None:
     )
     # Fetch actual reports
     reports: List[Report] = cast(
-        PowerBiDashboardSource, pipeline.source
+        PowerBiDashboardSource,
+        pipeline.source,
     ).powerbi_client.get_reports(workspace=mock_workspace)
 
     assert len(reports) == 2
@@ -1031,7 +1050,8 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             pages=[
                 Page(
                     id="{}.{}".format(
-                        report[Constant.ID], page[Constant.NAME].replace(" ", "_")
+                        report[Constant.ID],
+                        page[Constant.NAME].replace(" ", "_"),
                     ),
                     name=page[Constant.NAME],
                     displayName=page[Constant.DISPLAY_NAME],
@@ -1095,7 +1115,7 @@ def test_reports_with_failed_page_request(
                             "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
                             "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ED5CAD-7C10-4684-8180-826122881108",
                         },
-                    ]
+                    ],
                 },
             },
             "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
@@ -1139,7 +1159,7 @@ def test_reports_with_failed_page_request(
                             "name": "ReportSection1",
                             "order": "1",
                         },
-                    ]
+                    ],
                 },
             },
             "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97/pages": {
@@ -1149,7 +1169,7 @@ def test_reports_with_failed_page_request(
                     "error": {
                         "code": "InvalidRequest",
                         "message": "Request is currently not supported for RDL reports",
-                    }
+                    },
                 },
             },
         },
@@ -1172,7 +1192,7 @@ def test_reports_with_failed_page_request(
                     "filename": f"{tmp_path}powerbi_reports_with_failed_page_request_mces.json",
                 },
             },
-        }
+        },
     )
 
     validate_pipeline(pipeline)
@@ -1233,14 +1253,14 @@ def test_independent_datasets_extraction(
                                             "source": [
                                                 {
                                                     "expression": "dummy",
-                                                }
+                                                },
                                             ],
-                                        }
+                                        },
                                     ],
                                 },
                             ],
                         },
-                    ]
+                    ],
                 },
             },
             "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -1267,7 +1287,7 @@ def test_independent_datasets_extraction(
                     "filename": f"{tmp_path}/powerbi_independent_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -1323,7 +1343,7 @@ def test_cll_extraction(
                     "filename": f"{tmp_path}/powerbi_cll_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -1353,7 +1373,7 @@ def test_cll_extraction_flags(
 
     default_conf: dict = default_source_config()
     pattern: str = re.escape(
-        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']",
     )
 
     with pytest.raises(Exception, match=pattern):
@@ -1373,7 +1393,7 @@ def test_cll_extraction_flags(
                         "filename": f"{tmp_path}/powerbi_cll_mces.json",
                     },
                 },
-            }
+            },
         )
 
 
@@ -1392,7 +1412,7 @@ def test_powerbi_cross_workspace_reference_info_message(
         request_mock=requests_mock,
         override_data=read_mock_data(
             path=pytestconfig.rootpath
-            / "tests/integration/powerbi/mock_data/cross_workspace_mock_response.json"
+            / "tests/integration/powerbi/mock_data/cross_workspace_mock_response.json",
         ),
     )
 
@@ -1404,7 +1424,7 @@ def test_powerbi_cross_workspace_reference_info_message(
         "allow": [
             "A8D655A6-F521-477E-8C22-255018583BF4",
             "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
-        ]
+        ],
     }
 
     config["include_workspace_name_in_dataset_urn"] = True
@@ -1424,7 +1444,7 @@ def test_powerbi_cross_workspace_reference_info_message(
                     "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -1433,7 +1453,8 @@ def test_powerbi_cross_workspace_reference_info_message(
     assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
 
     info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
-        StructuredLogLevel.INFO, {}
+        StructuredLogLevel.INFO,
+        {},
     )  # type :ignore
 
     is_entry_present: bool = False
@@ -1469,7 +1490,7 @@ def common_app_ingest(
         request_mock=requests_mock,
         override_data=read_mock_data(
             path=pytestconfig.rootpath
-            / "tests/integration/powerbi/mock_data/workspace_with_app_mock_response.json"
+            / "tests/integration/powerbi/mock_data/workspace_with_app_mock_response.json",
         ),
     )
 
@@ -1480,7 +1501,7 @@ def common_app_ingest(
     config["workspace_id_pattern"] = {
         "allow": [
             "8F756DE6-26AD-45FF-A201-44276FF1F561",
-        ]
+        ],
     }
 
     config.update(override_config)
@@ -1500,7 +1521,7 @@ def common_app_ingest(
                     "filename": output_mcp_path,
                 },
             },
-        }
+        },
     )
 
     pipeline.run()
@@ -1558,7 +1579,8 @@ def test_powerbi_app_ingest_info_message(
     assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
 
     info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
-        StructuredLogLevel.INFO, {}
+        StructuredLogLevel.INFO,
+        {},
     )  # type :ignore
 
     is_entry_present: bool = False

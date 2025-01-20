@@ -125,7 +125,9 @@ def _get_field_for_entity_type_in_mce(entity_type: str) -> str:
 
 
 def _get_filter(
-    mce: bool = False, mcp: bool = False, entity_type: Optional[str] = None
+    mce: bool = False,
+    mcp: bool = False,
+    entity_type: Optional[str] = None,
 ) -> Callable[[Dict], bool]:
     if mce:
         # cheap way to determine if we are working with an MCE for the appropriate entity_type
@@ -159,7 +161,9 @@ def _get_element(event: Dict[str, Any], path_spec: List[str]) -> Any:
 
 
 def _element_matches_pattern(
-    event: Dict[str, Any], path_spec: List[str], pattern: str
+    event: Dict[str, Any],
+    path_spec: List[str],
+    pattern: str,
 ) -> Tuple[bool, bool]:
     import re
 
@@ -194,7 +198,10 @@ def _get_entity_urns(events_list: List[Dict]) -> Set[str]:
 
 
 def assert_mcp_entity_urn(
-    filter: str, entity_type: str, regex_pattern: str, file: str
+    filter: str,
+    entity_type: str,
+    regex_pattern: str,
+    file: str,
 ) -> int:
     def get_path_spec_for_urn() -> List[str]:
         return [MCPConstants.ENTITY_URN]
@@ -214,7 +221,7 @@ def assert_mcp_entity_urn(
         return len(filtered_events)
     else:
         raise Exception(
-            f"Did not expect the file {file} to not contain a list of items"
+            f"Did not expect the file {file} to not contain a list of items",
         )
 
 
@@ -233,7 +240,10 @@ def _get_mcp_urn_path_spec() -> List[str]:
 
 
 def assert_mce_entity_urn(
-    filter: str, entity_type: str, regex_pattern: str, file: str
+    filter: str,
+    entity_type: str,
+    regex_pattern: str,
+    file: str,
 ) -> int:
     """Assert that all mce entity urns must match the regex pattern passed in. Return the number of events matched"""
 
@@ -249,12 +259,12 @@ def assert_mce_entity_urn(
         failed_events = [y for y in filtered_events if not y[1][0] or not y[1][1]]
         if failed_events:
             raise Exception(
-                "Failed to match events: {json.dumps(failed_events, indent=2)}"
+                "Failed to match events: {json.dumps(failed_events, indent=2)}",
             )
         return len(filtered_events)
     else:
         raise Exception(
-            f"Did not expect the file {file} to not contain a list of items"
+            f"Did not expect the file {file} to not contain a list of items",
         )
 
 
@@ -292,7 +302,8 @@ def assert_for_each_entity(
         if o.get(MCPConstants.ASPECT_NAME) == aspect_name:
             # load the inner aspect payload and assign to this urn
             aspect_map[o[MCPConstants.ENTITY_URN]] = o.get(
-                MCPConstants.ASPECT_VALUE, {}
+                MCPConstants.ASPECT_VALUE,
+                {},
             ).get("json")
 
     success: List[str] = []
@@ -312,14 +323,17 @@ def assert_for_each_entity(
         print(f"Succeeded on assertion for urns {success}")
     if failures:
         raise AssertionError(
-            f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
+            f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}",
         )
 
     return len(success)
 
 
 def assert_entity_mce_aspect(
-    entity_urn: str, aspect: Any, aspect_type: Type, file: str
+    entity_urn: str,
+    aspect: Any,
+    aspect_type: Type,
+    file: str,
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
@@ -342,7 +356,10 @@ def assert_entity_mce_aspect(
 
 
 def assert_entity_mcp_aspect(
-    entity_urn: str, aspect_field_matcher: Dict[str, Any], aspect_name: str, file: str
+    entity_urn: str,
+    aspect_field_matcher: Dict[str, Any],
+    aspect_name: str,
+    file: str,
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
@@ -416,5 +433,5 @@ def assert_entity_urn_like(entity_type: str, regex_pattern: str, file: str) -> i
         return len(matched_urns)
     else:
         raise AssertionError(
-            f"No urns found that match the pattern {regex_pattern}. Full list is {all_urns}"
+            f"No urns found that match the pattern {regex_pattern}. Full list is {all_urns}",
         )

@@ -29,7 +29,9 @@ class HasOwnershipPatch(MetadataPatchProposal):
         return self
 
     def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
+        self,
+        owner: str,
+        owner_type: Optional[OwnershipTypeClass] = None,
     ) -> Self:
         """Remove an owner from the entity.
 
@@ -62,6 +64,9 @@ class HasOwnershipPatch(MetadataPatchProposal):
             The patch builder instance.
         """
         self._add_patch(
-            OwnershipClass.ASPECT_NAME, "add", path=("owners",), value=owners
+            OwnershipClass.ASPECT_NAME,
+            "add",
+            path=("owners",),
+            value=owners,
         )
         return self

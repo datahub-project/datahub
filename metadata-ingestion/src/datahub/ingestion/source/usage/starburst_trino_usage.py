@@ -87,13 +87,13 @@ class EnvBasedSourceBaseConfig:
 
 class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
     email_domain: str = Field(
-        description="The email domain which will be appended to the users "
+        description="The email domain which will be appended to the users ",
     )
     audit_catalog: str = Field(
-        description="The catalog name where the audit table can be found "
+        description="The catalog name where the audit table can be found ",
     )
     audit_schema: str = Field(
-        description="The schema name where the audit table can be found"
+        description="The schema name where the audit table can be found",
     )
     options: dict = Field(default={}, description="")
     database: str = Field(description="The name of the catalog from getting the usage")
@@ -199,7 +199,7 @@ class TrinoUsageSource(Source):
         for event_dict in events:
             if event_dict.get("create_time"):
                 event_dict["create_time"] = self._convert_str_to_datetime(
-                    event_dict["create_time"]
+                    event_dict["create_time"],
                 )
             else:
                 self.report.num_joined_access_events_skipped += 1
@@ -207,7 +207,7 @@ class TrinoUsageSource(Source):
                 continue
 
             event_dict["end_time"] = self._convert_str_to_datetime(
-                event_dict.get("end_time")
+                event_dict.get("end_time"),
             )
 
             if not event_dict["accessed_metadata"]:
@@ -216,7 +216,7 @@ class TrinoUsageSource(Source):
                 continue
 
             event_dict["accessed_metadata"] = json.loads(
-                event_dict["accessed_metadata"]
+                event_dict["accessed_metadata"],
             )
 
             if not event_dict.get("usr"):
@@ -233,7 +233,8 @@ class TrinoUsageSource(Source):
         return joined_access_events
 
     def _aggregate_access_events(
-        self, events: List[TrinoJoinedAccessEvent]
+        self,
+        events: List[TrinoJoinedAccessEvent],
     ) -> Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]]:
         datasets: Dict[datetime, Dict[TrinoTableRef, AggregatedDataset]] = (
             collections.defaultdict(dict)
@@ -244,10 +245,10 @@ class TrinoUsageSource(Source):
             for metadata in event.accessed_metadata:
                 # Skipping queries starting with $system@
                 if metadata.catalog_name and metadata.catalog_name.startswith(
-                    "$system@"
+                    "$system@",
                 ):
                     logging.debug(
-                        f"Skipping system query for {metadata.catalog_name}..."
+                        f"Skipping system query for {metadata.catalog_name}...",
                     )
                     continue
 

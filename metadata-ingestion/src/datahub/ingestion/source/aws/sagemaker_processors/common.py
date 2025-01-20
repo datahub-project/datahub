@@ -16,13 +16,16 @@ class SagemakerSourceConfig(
     StatefulIngestionConfigBase,
 ):
     extract_feature_groups: Optional[bool] = Field(
-        default=True, description="Whether to extract feature groups."
+        default=True,
+        description="Whether to extract feature groups.",
     )
     extract_models: Optional[bool] = Field(
-        default=True, description="Whether to extract models."
+        default=True,
+        description="Whether to extract models.",
     )
     extract_jobs: Optional[Union[Dict[str, str], bool]] = Field(
-        default=True, description="Whether to extract AutoML jobs."
+        default=True,
+        description="Whether to extract AutoML jobs.",
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None

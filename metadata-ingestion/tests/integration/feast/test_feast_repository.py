@@ -34,7 +34,7 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
                             "feast_owner_name": "MOCK_OWNER",
                             "datahub_owner_urn": "urn:li:corpGroup:MOCK_OWNER",
                             "datahub_ownership_type": "BUSINESS_OWNER",
-                        }
+                        },
                     ],
                 },
             },
@@ -44,7 +44,7 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
                     "filename": str(output_path),
                 },
             },
-        }
+        },
     )
 
     pipeline.run()

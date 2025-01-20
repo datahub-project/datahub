@@ -8,7 +8,9 @@ datahub_client = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080")
 
 # Create Dataset URN
 dataset_urn = make_dataset_urn(
-    platform="snowflake", name="fct_users_created", env="PROD"
+    platform="snowflake",
+    name="fct_users_created",
+    env="PROD",
 )
 
 # Create Dataset Patch to Add + Remove Term for 'profile_id' column

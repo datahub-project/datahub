@@ -23,7 +23,8 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
         hash="",  # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
         platformSchema=OtherSchemaClass(rawSchema="__insert raw schema here__"),
         lastModified=AuditStampClass(
-            time=1640692800000, actor="urn:li:corpuser:ingestion"
+            time=1640692800000,
+            actor="urn:li:corpuser:ingestion",
         ),
         fields=[
             SchemaFieldClass(
@@ -32,7 +33,8 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
                 nativeDataType="VARCHAR(50)",  # use this to provide the type of the field in the source system's vernacular
                 description="This is the zipcode of the address. Specified using extended form and limited to addresses in the United States",
                 lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
+                    time=1640692800000,
+                    actor="urn:li:corpuser:ingestion",
                 ),
             ),
             SchemaFieldClass(
@@ -41,7 +43,8 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
                 nativeDataType="VARCHAR(100)",
                 description="Street corresponding to the address",
                 lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
+                    time=1640692800000,
+                    actor="urn:li:corpuser:ingestion",
                 ),
             ),
             SchemaFieldClass(
@@ -50,10 +53,12 @@ event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
                 nativeDataType="Date",
                 description="Date of the last sale date for this property",
                 created=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
+                    time=1640692800000,
+                    actor="urn:li:corpuser:ingestion",
                 ),
                 lastModified=AuditStampClass(
-                    time=1640692800000, actor="urn:li:corpuser:ingestion"
+                    time=1640692800000,
+                    actor="urn:li:corpuser:ingestion",
                 ),
             ),
         ],

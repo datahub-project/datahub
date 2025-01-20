@@ -32,7 +32,8 @@ _M_QUERY_PARSE_TIMEOUT = int(os.getenv("DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT", 
 def get_lark_parser() -> Lark:
     # Read lexical grammar as text
     grammar: str = pkg_resource.read_text(
-        "datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule"
+        "datahub.ingestion.source.powerbi",
+        "powerbi-lexical-grammar.rule",
     )
     # Create lark parser for the grammar text
     return Lark(grammar, start="let_expression", regex=True)
@@ -74,12 +75,13 @@ def get_upstream_tables(
     parameters = parameters or {}
 
     logger.debug(
-        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}"
+        f"Processing {table.full_name} m-query expression for lineage extraction. Expression = {table.expression}",
     )
 
     try:
         valid, message = validator.validate_parse_tree(
-            table.expression, native_query_enabled=config.native_query_parsing
+            table.expression,
+            native_query_enabled=config.native_query_parsing,
         )
         if valid is False:
             assert message is not None
@@ -95,7 +97,8 @@ def get_upstream_tables(
         with reporter.m_query_parse_timer:
             reporter.m_query_parse_attempts += 1
             parse_tree: Tree = _parse_expression(
-                table.expression, parse_timeout=config.m_query_parse_timeout
+                table.expression,
+                parse_timeout=config.m_query_parse_timeout,
             )
 
     except KeyboardInterrupt:

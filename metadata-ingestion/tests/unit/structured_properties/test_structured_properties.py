@@ -45,7 +45,9 @@ def mock_graph():
 
 def test_structured_properties_basic_creation():
     props = StructuredProperties(
-        id="test_prop", type="string", description="Test description"
+        id="test_prop",
+        type="string",
+        description="Test description",
     )
     assert props.id == "test_prop"
     assert props.type == "urn:li:dataType:datahub.string"
@@ -95,7 +97,7 @@ def test_structured_properties_generate_mcps():
         display_name="Test Property",
         entity_types=["dataset"],
         allowed_values=[
-            AllowedValue(value="test_value", description="Test value description")
+            AllowedValue(value="test_value", description="Test value description"),
         ],
     )
 
@@ -121,14 +123,15 @@ def test_structured_properties_from_datahub(mock_graph):
         entityTypes=["urn:li:entityType:datahub.dataset"],
         cardinality="SINGLE",
         allowedValues=[
-            PropertyValueClass(value="test_value", description="Test description")
+            PropertyValueClass(value="test_value", description="Test description"),
         ],
     )
 
     mock_graph.get_aspect.return_value = mock_aspect
 
     props = StructuredProperties.from_datahub(
-        mock_graph, "urn:li:structuredProperty:test_prop"
+        mock_graph,
+        "urn:li:structuredProperty:test_prop",
     )
 
     assert props.qualified_name == "test_prop"
@@ -145,7 +148,7 @@ def test_structured_properties_to_yaml(tmp_path):
         type="string",
         description="Test description",
         allowed_values=[
-            AllowedValue(value="test_value", description="Test value description")
+            AllowedValue(value="test_value", description="Test value description"),
         ],
     )
 
@@ -185,7 +188,7 @@ def test_structured_properties_type_qualifier():
     mcps = props.generate_mcps()
     assert mcps[0].aspect
     assert mcps[0].aspect.typeQualifier["allowedTypes"] == [  # type: ignore
-        "urn:li:entityType:datahub.dataset"
+        "urn:li:entityType:datahub.dataset",
     ]
 
 
@@ -206,7 +209,7 @@ def test_structured_properties_list(mock_graph):
 
     # Verify get_urns_by_filter was called with correct arguments
     mock_graph.get_urns_by_filter.assert_called_once_with(
-        entity_types=["structuredProperty"]
+        entity_types=["structuredProperty"],
     )
 
     assert len(props) == 2

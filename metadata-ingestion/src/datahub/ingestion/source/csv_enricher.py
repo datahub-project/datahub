@@ -318,7 +318,7 @@ class CSVEnricherSource(Source):
 
         if not entityClass:
             raise ValueError(
-                f"Entity Type {entityType} cannot be operated on using csv-enricher"
+                f"Entity Type {entityType} cannot be operated on using csv-enricher",
             )
         current_editable_properties: Optional[
             Union[
@@ -475,7 +475,7 @@ class CSVEnricherSource(Source):
                         ]
                         if len(term_associations_filtered) > 0:
                             field_info.glossaryTerms.terms.extend(
-                                term_associations_filtered
+                                term_associations_filtered,
                             )
                             needs_write = True
                     else:
@@ -506,7 +506,7 @@ class CSVEnricherSource(Source):
         if not field_match:
             # this field isn't present in the editable schema metadata aspect, add it
             current_editable_schema_metadata.editableSchemaFieldInfo.append(
-                field_info_to_set
+                field_info_to_set,
             )
             needs_write = True
         return current_editable_schema_metadata, needs_write
@@ -541,7 +541,9 @@ class CSVEnricherSource(Source):
                     current_editable_schema_metadata,
                     needs_write,
                 ) = self.process_sub_resource_row(
-                    sub_resource_row, current_editable_schema_metadata, needs_write
+                    sub_resource_row,
+                    current_editable_schema_metadata,
+                    needs_write,
                 )
 
             # Write an MCPW if needed.
@@ -553,7 +555,8 @@ class CSVEnricherSource(Source):
                 ).as_workunit()
 
     def maybe_extract_glossary_terms(
-        self, row: Dict[str, str]
+        self,
+        row: Dict[str, str],
     ) -> List[GlossaryTermAssociationClass]:
         if not row["glossary_terms"]:
             return []
@@ -583,7 +586,9 @@ class CSVEnricherSource(Source):
         return tag_associations
 
     def maybe_extract_owners(
-        self, row: Dict[str, str], is_resource_row: bool
+        self,
+        row: Dict[str, str],
+        is_resource_row: bool,
     ) -> List[OwnerClass]:
         if not is_resource_row:
             return []
@@ -635,12 +640,13 @@ class CSVEnricherSource(Source):
                 decoded_content = resp.content.decode("utf-8-sig")
                 rows = list(
                     csv.DictReader(
-                        decoded_content.splitlines(), delimiter=self.config.delimiter
-                    )
+                        decoded_content.splitlines(),
+                        delimiter=self.config.delimiter,
+                    ),
                 )
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}, error:{e}"
+                    f"Cannot read remote file {self.config.filename}, error:{e}",
                 )
         else:
             with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
@@ -694,7 +700,7 @@ class CSVEnricherSource(Source):
                         tag_associations=tag_associations,
                         description=description,
                         domain=domain,
-                    )
+                    ),
                 )
 
         yield from self.get_sub_resource_work_units()

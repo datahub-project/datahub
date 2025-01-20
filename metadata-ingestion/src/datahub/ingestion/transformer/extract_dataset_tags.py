@@ -45,12 +45,17 @@ class ExtractDatasetTags(DatasetTagsTransformer):
             raise NotImplementedError()
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_global_tags_aspect: GlobalTagsClass = cast(GlobalTagsClass, aspect)
         out_global_tags_aspect: GlobalTagsClass = GlobalTagsClass(tags=[])
         self.update_if_keep_existing(
-            self.config, in_global_tags_aspect, out_global_tags_aspect
+            self.config,
+            in_global_tags_aspect,
+            out_global_tags_aspect,
         )
 
         tags_to_add = self._get_tags_to_add(entity_urn)
@@ -58,5 +63,8 @@ class ExtractDatasetTags(DatasetTagsTransformer):
             out_global_tags_aspect.tags.extend(tags_to_add)
 
         return self.get_result_semantics(
-            self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
+            self.config,
+            self.ctx.graph,
+            entity_urn,
+            out_global_tags_aspect,
         )

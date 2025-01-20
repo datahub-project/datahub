@@ -48,7 +48,7 @@ def random_email():
             [
                 random.choice(string.ascii_lowercase)
                 for i in range(random.randint(10, 15))
-            ]
+            ],
         )
         + "@xyz.com"
     )
@@ -80,7 +80,7 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
                             config=DataHubClassifierConfig(
                                 minimum_values_threshold=1,
                             ),
-                        )
+                        ),
                     ],
                     max_workers=1,
                 ).dict(),
@@ -145,12 +145,14 @@ def test_bigquery_v2_ingest(
     get_datasets_for_project_id.return_value = [
         # BigqueryDataset(name=dataset_name, location="US")
         BigqueryDataset(
-            name=dataset_name, location="US", labels={"priority": "medium:test"}
-        )
+            name=dataset_name,
+            location="US",
+            labels={"priority": "medium:test"},
+        ),
     ]
 
     table_list_item = TableListItem(
-        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}},
     )
     table_name = "table-1"
     snapshot_table_name = "snapshot-table-1"
@@ -271,15 +273,15 @@ def test_bigquery_v2_project_labels_ingest(
     mcp_output_path = "{}/{}".format(tmp_path, "bigquery_project_label_mcp_output.json")
 
     get_datasets_for_project_id.return_value = [
-        BigqueryDataset(name="bigquery-dataset-1")
+        BigqueryDataset(name="bigquery-dataset-1"),
     ]
 
     get_projects_with_labels.return_value = [
-        BigqueryProject(id="dev", name="development")
+        BigqueryProject(id="dev", name="development"),
     ]
 
     table_list_item = TableListItem(
-        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}},
     )
     table_name = "table-1"
     get_core_table_details.return_value = {table_name: table_list_item}
@@ -306,7 +308,7 @@ def test_bigquery_v2_project_labels_ingest(
                 is_partition_column=False,
                 cluster_column_position=None,
             ),
-        ]
+        ],
     }
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
@@ -328,7 +330,7 @@ def test_bigquery_v2_project_labels_ingest(
     del pipeline_config_dict["source"]["config"]["project_ids"]
 
     pipeline_config_dict["source"]["config"]["project_labels"] = [
-        "environment:development"
+        "environment:development",
     ]
 
     run_and_get_pipeline(pipeline_config_dict)
@@ -371,11 +373,11 @@ def test_bigquery_queries_v2_ingest(
 
     dataset_name = "bigquery-dataset-1"
     get_datasets_for_project_id.return_value = [
-        BigqueryDataset(name=dataset_name, location="US")
+        BigqueryDataset(name=dataset_name, location="US"),
     ]
 
     table_list_item = TableListItem(
-        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}},
     )
     table_name = "table-1"
     snapshot_table_name = "snapshot-table-1"
@@ -492,10 +494,16 @@ def test_bigquery_queries_v2_lineage_usage_ingest(
     get_bigquery_client.return_value = client
     client.list_tables.return_value = [
         TableListItem(
-            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "table-1"}}
+            {
+                "tableReference": {
+                    "projectId": "",
+                    "datasetId": "",
+                    "tableId": "table-1",
+                },
+            },
         ),
         TableListItem(
-            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "view-1"}}
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "view-1"}},
         ),
     ]
 
@@ -624,11 +632,11 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
 
     dataset_name = "bigquery-dataset-1"
     get_datasets_for_project_id.return_value = [
-        BigqueryDataset(name=dataset_name, location="US")
+        BigqueryDataset(name=dataset_name, location="US"),
     ]
 
     table_list_item = TableListItem(
-        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}},
     )
     table_name = "table-1"
     snapshot_table_name = "snapshot-table-1"

@@ -29,7 +29,7 @@ def test_basic_schema_resolver():
     schema_resolver = create_default_schema_resolver(urn=input_urn)
 
     urn, schema = schema_resolver.resolve_table(
-        _TableName(database="my_db", db_schema="public", table="test_table")
+        _TableName(database="my_db", db_schema="public", table="test_table"),
     )
 
     assert urn == input_urn
@@ -106,7 +106,8 @@ def test_match_columns_to_schema():
     schema_info: SchemaInfo = {"id": "string", "Name": "string", "Address": "string"}
 
     output_columns = match_columns_to_schema(
-        schema_info, input_columns=["Id", "name", "address", "weight"]
+        schema_info,
+        input_columns=["Id", "name", "address", "weight"],
     )
 
     assert output_columns == ["id", "Name", "Address", "weight"]

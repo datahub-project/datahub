@@ -142,16 +142,19 @@ class DeltaLakeSource(Source):
         return fields
 
     def _create_operation_aspect_wu(
-        self, delta_table: DeltaTable, dataset_urn: str
+        self,
+        delta_table: DeltaTable,
+        dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         for hist in delta_table.history(
-            limit=self.source_config.version_history_lookback
+            limit=self.source_config.version_history_lookback,
         ):
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = hist["timestamp"]
             statement_type = OPERATION_STATEMENT_TYPES.get(
-                hist.get("operation", "UNKNOWN"), OperationTypeClass.CUSTOM
+                hist.get("operation", "UNKNOWN"),
+                OperationTypeClass.CUSTOM,
             )
             custom_type = (
                 hist.get("operation")
@@ -184,7 +187,9 @@ class DeltaLakeSource(Source):
             ).as_workunit()
 
     def ingest_table(
-        self, delta_table: DeltaTable, path: str
+        self,
+        delta_table: DeltaTable,
+        path: str,
     ) -> Iterable[MetadataWorkUnit]:
         table_name = (
             delta_table.metadata().name
@@ -193,7 +198,7 @@ class DeltaLakeSource(Source):
         )
         if not self.source_config.table_pattern.allowed(table_name):
             logger.debug(
-                f"Skipping table ({table_name}) present at location {path} as table pattern does not match"
+                f"Skipping table ({table_name}) present at location {path} as table pattern does not match",
             )
 
         logger.debug(f"Ingesting table {table_name} from location {path}")
@@ -270,7 +275,8 @@ class DeltaLakeSource(Source):
         yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
 
         yield from self.container_WU_creator.create_container_hierarchy(
-            browse_path, dataset_urn
+            browse_path,
+            dataset_urn,
         )
 
         yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
@@ -318,7 +324,9 @@ class DeltaLakeSource(Source):
     def s3_get_folders(self, path: str) -> Iterable[str]:
         parse_result = urlparse(path)
         for page in self.s3_client.get_paginator("list_objects_v2").paginate(
-            Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
+            Bucket=parse_result.netloc,
+            Prefix=parse_result.path[1:],
+            Delimiter="/",
         ):
             for o in page.get("CommonPrefixes", []):
                 yield f"{parse_result.scheme}://{parse_result.netloc}/{o.get('Prefix')}"
@@ -326,7 +334,7 @@ class DeltaLakeSource(Source):
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
             raise FileNotFoundError(
-                f"{path} does not exist or is not a directory. Please check base_path configuration."
+                f"{path} does not exist or is not a directory. Please check base_path configuration.",
             )
         for folder in os.listdir(path):
             yield os.path.join(path, folder)

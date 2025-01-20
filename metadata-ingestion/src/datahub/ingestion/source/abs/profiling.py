@@ -136,12 +136,13 @@ class _SingleTableProfiler:
                 ]
 
                 self.report.report_file_dropped(
-                    f"The max_number_of_fields_to_profile={self.profiling_config.max_number_of_fields_to_profile} reached. Profile of columns {self.file_path}({', '.join(sorted(columns_being_dropped))})"
+                    f"The max_number_of_fields_to_profile={self.profiling_config.max_number_of_fields_to_profile} reached. Profile of columns {self.file_path}({', '.join(sorted(columns_being_dropped))})",
                 )
 
         analysis_result = self.analyzer.run()
         analysis_metrics = AnalyzerContext.successMetricsAsJson(
-            self.spark, analysis_result
+            self.spark,
+            analysis_result,
         )
 
         # reshape distinct counts into dictionary
@@ -156,7 +157,7 @@ class _SingleTableProfiler:
                 when(
                     isnan(c) | col(c).isNull(),
                     c,
-                )
+                ),
             ).alias(c)
             for c in self.columns_to_profile
             if column_types[column] in [DoubleType, FloatType]
@@ -168,14 +169,14 @@ class _SingleTableProfiler:
                 when(
                     col(c).isNull(),
                     c,
-                )
+                ),
             ).alias(c)
             for c in self.columns_to_profile
             if column_types[column] not in [DoubleType, FloatType]
         ]
 
         null_counts = dataframe.select(
-            select_numeric_null_counts + select_nonnumeric_null_counts
+            select_numeric_null_counts + select_nonnumeric_null_counts,
         )
         column_null_counts = null_counts.toPandas().T[0].to_dict()
         column_null_fractions = {
@@ -215,7 +216,7 @@ class _SingleTableProfiler:
             column_profile.nullProportion = column_null_fractions.get(column)
             if self.profiling_config.include_field_sample_values:
                 column_profile.sampleValues = sorted(
-                    [str(x[column]) for x in rdd_sample]
+                    [str(x[column]) for x in rdd_sample],
                 )
 
             column_spec.type_ = column_types[column]
@@ -373,7 +374,7 @@ class _SingleTableProfiler:
 
         # resolve histogram types for grouping
         column_metrics["kind"] = column_metrics["name"].apply(
-            lambda x: "Histogram" if x.startswith("Histogram.") else x
+            lambda x: "Histogram" if x.startswith("Histogram.") else x,
         )
 
         column_histogram_metrics = column_metrics[column_metrics["kind"] == "Histogram"]
@@ -387,12 +388,12 @@ class _SingleTableProfiler:
             # we only want the absolute counts for each histogram for now
             column_histogram_metrics = column_histogram_metrics[
                 column_histogram_metrics["name"].apply(
-                    lambda x: x.startswith("Histogram.abs.")
+                    lambda x: x.startswith("Histogram.abs."),
                 )
             ]
             # get the histogram bins by chopping off the "Histogram.abs." prefix
             column_histogram_metrics["bin"] = column_histogram_metrics["name"].apply(
-                lambda x: x[14:]
+                lambda x: x[14:],
             )
 
             # reshape histogram counts for easier access
@@ -407,7 +408,7 @@ class _SingleTableProfiler:
         if len(column_nonhistogram_metrics) > 0:
             # reshape other metrics for easier access
             nonhistogram_metrics = column_nonhistogram_metrics.set_index(
-                ["instance", "name"]
+                ["instance", "name"],
             )["value"]
 
             profiled_columns = set(nonhistogram_metrics.index.get_level_values(0))
@@ -428,10 +429,10 @@ class _SingleTableProfiler:
             column_profile.max = null_str(deequ_column_profile.get("Maximum"))
             column_profile.mean = null_str(deequ_column_profile.get("Mean"))
             column_profile.median = null_str(
-                deequ_column_profile.get("ApproxQuantiles-0.5")
+                deequ_column_profile.get("ApproxQuantiles-0.5"),
             )
             column_profile.stdev = null_str(
-                deequ_column_profile.get("StandardDeviation")
+                deequ_column_profile.get("StandardDeviation"),
             )
             if all(
                 deequ_column_profile.get(f"ApproxQuantiles-{quantile}") is not None
@@ -453,13 +454,15 @@ class _SingleTableProfiler:
                 if column_spec.histogram_distinct:
                     column_profile.distinctValueFrequencies = [
                         ValueFrequencyClass(
-                            value=value, frequency=int(column_histogram.loc[value])
+                            value=value,
+                            frequency=int(column_histogram.loc[value]),
                         )
                         for value in column_histogram.index
                     ]
                     # sort so output is deterministic
                     column_profile.distinctValueFrequencies = sorted(
-                        column_profile.distinctValueFrequencies, key=lambda x: x.value
+                        column_profile.distinctValueFrequencies,
+                        key=lambda x: x.value,
                     )
 
                 else:

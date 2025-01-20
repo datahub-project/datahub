@@ -20,7 +20,8 @@ class CheckpointStateUtil:
 
     @staticmethod
     def get_encoded_urns_not_in(
-        encoded_urns_1: List[str], encoded_urns_2: List[str]
+        encoded_urns_1: List[str],
+        encoded_urns_2: List[str],
     ) -> Set[str]:
         return set(encoded_urns_1) - set(encoded_urns_2)
 
@@ -29,8 +30,10 @@ class CheckpointStateUtil:
         platform, name, env = encoded_urn.split(CheckpointStateUtil.get_separator())
         return dataset_key_to_urn(
             DatasetKeyClass(
-                platform=make_data_platform_urn(platform), name=name, origin=env
-            )
+                platform=make_data_platform_urn(platform),
+                name=name,
+                origin=env,
+            ),
         )
 
     @staticmethod

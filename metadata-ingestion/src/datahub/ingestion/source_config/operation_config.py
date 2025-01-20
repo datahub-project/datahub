@@ -46,7 +46,7 @@ class OperationConfig(ConfigModel):
             return None
         if profile_day_of_week < 0 or profile_day_of_week > 6:
             raise ValueError(
-                f"Invalid value {profile_day_of_week} for profile_day_of_week. Must be between 0 to 6 (both inclusive)."
+                f"Invalid value {profile_day_of_week} for profile_day_of_week. Must be between 0 to 6 (both inclusive).",
             )
         return profile_day_of_week
 
@@ -57,7 +57,7 @@ class OperationConfig(ConfigModel):
             return None
         if profile_date_of_month < 1 or profile_date_of_month > 31:
             raise ValueError(
-                f"Invalid value {profile_date_of_month} for profile_date_of_month. Must be between 1 to 31 (both inclusive)."
+                f"Invalid value {profile_date_of_month} for profile_date_of_month. Must be between 1 to 31 (both inclusive).",
             )
         return profile_date_of_month
 

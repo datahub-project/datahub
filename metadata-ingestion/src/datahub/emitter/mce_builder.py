@@ -124,7 +124,10 @@ def make_data_platform_urn(platform: str) -> str:
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return make_dataset_urn_with_platform_instance(
-        platform=platform, name=name, platform_instance=None, env=env
+        platform=platform,
+        name=name,
+        platform_instance=None,
+        env=env,
     )
 
 
@@ -136,7 +139,10 @@ def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
 
 
 def make_dataset_urn_with_platform_instance(
-    platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
+    platform: str,
+    name: str,
+    platform_instance: Optional[str],
+    env: str = DEFAULT_ENV,
 ) -> str:
     if DATASET_URN_TO_LOWER:
         name = name.lower()
@@ -146,7 +152,7 @@ def make_dataset_urn_with_platform_instance(
             table_name=name,
             env=env,
             platform_instance=platform_instance,
-        )
+        ),
     )
 
 
@@ -296,7 +302,7 @@ def make_data_flow_urn(
             flow_id=flow_id,
             env=cluster,
             platform_instance=platform_instance,
-        )
+        ),
     )
 
 
@@ -316,12 +322,15 @@ def make_data_job_urn(
     platform_instance: Optional[str] = None,
 ) -> str:
     return make_data_job_urn_with_flow(
-        make_data_flow_urn(orchestrator, flow_id, cluster, platform_instance), job_id
+        make_data_flow_urn(orchestrator, flow_id, cluster, platform_instance),
+        job_id,
     )
 
 
 def make_dashboard_urn(
-    platform: str, name: str, platform_instance: Optional[str] = None
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
 ) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
     if platform_instance:
@@ -339,7 +348,9 @@ def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
 
 
 def make_chart_urn(
-    platform: str, name: str, platform_instance: Optional[str] = None
+    platform: str,
+    name: str,
+    platform_instance: Optional[str] = None,
 ) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
     if platform_instance:
@@ -420,16 +431,17 @@ def make_lineage_mce(
                             type=lineage_type,
                         )
                         for upstream_urn in upstream_urns
-                    ]
-                )
+                    ],
+                ),
             ],
-        )
+        ),
     )
     return mce
 
 
 def can_add_aspect_to_snapshot(
-    SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
+    SnapshotType: Type[DictWrapper],
+    AspectType: Type[Aspect],
 ) -> bool:
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
@@ -446,16 +458,18 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
 
 
 def assert_can_add_aspect(
-    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+    mce: MetadataChangeEventClass,
+    AspectType: Type[Aspect],
 ) -> None:
     if not can_add_aspect(mce, AspectType):
         raise AssertionError(
-            f"Cannot add aspect {AspectType} to {type(mce.proposedSnapshot)}"
+            f"Cannot add aspect {AspectType} to {type(mce.proposedSnapshot)}",
         )
 
 
 def get_aspect_if_available(
-    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+    mce: MetadataChangeEventClass,
+    AspectType: Type[Aspect],
 ) -> Optional[Aspect]:
     assert_can_add_aspect(mce, AspectType)
 
@@ -466,7 +480,7 @@ def get_aspect_if_available(
 
     if len(aspects) > 1:
         raise ValueError(
-            f"MCE contains multiple aspects of type {AspectType}: {aspects}"
+            f"MCE contains multiple aspects of type {AspectType}: {aspects}",
         )
     if aspects:
         return aspects[0]
@@ -474,7 +488,8 @@ def get_aspect_if_available(
 
 
 def remove_aspect_if_available(
-    mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
+    mce: MetadataChangeEventClass,
+    aspect_type: Type[Aspect],
 ) -> bool:
     assert_can_add_aspect(mce, aspect_type)
     # loose type annotations since we checked before
@@ -498,7 +513,7 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
 
 def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
-        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags]
+        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags],
     )
 
 
@@ -509,7 +524,7 @@ def make_ownership_aspect_from_urn_list(
 ) -> OwnershipClass:
     for owner_urn in owner_urns:
         assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
-            "urn:li:corpGroup:"
+            "urn:li:corpGroup:",
         )
     ownership_source_type: Union[None, OwnershipSourceClass] = None
     if source_type:
@@ -542,7 +557,9 @@ def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTe
 
 
 def set_aspect(
-    mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
+    mce: MetadataChangeEventClass,
+    aspect: Optional[Aspect],
+    aspect_type: Type[Aspect],
 ) -> None:
     """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
     If passed in aspect is None, then the existing aspect value will be removed"""

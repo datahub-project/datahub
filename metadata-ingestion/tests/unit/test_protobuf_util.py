@@ -17,7 +17,7 @@ message Test1 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_1.proto", schema)
+        ProtobufSchema("main_1.proto", schema),
     )
 
     assert 0 == len(fields)
@@ -34,7 +34,8 @@ message Test2 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_2.proto", schema), is_key_schema=True
+        ProtobufSchema("main_2.proto", schema),
+        is_key_schema=True,
     )
     assert 1 == len(fields)
     assert (
@@ -64,7 +65,7 @@ message Test4 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_3.proto", schema)
+        ProtobufSchema("main_3.proto", schema),
     )
 
     assert 5 == len(fields)
@@ -98,7 +99,7 @@ message Test5 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_4.proto", schema)
+        ProtobufSchema("main_4.proto", schema),
     )
 
     assert 4 == len(fields)
@@ -127,7 +128,7 @@ message Test6 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_5.proto", schema)
+        ProtobufSchema("main_5.proto", schema),
     )
 
     assert 1 == len(fields)
@@ -154,7 +155,7 @@ message Test7 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_6.proto", schema)
+        ProtobufSchema("main_6.proto", schema),
     )
 
     assert 2 == len(fields)
@@ -189,7 +190,7 @@ message Test8 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_7.proto", schema)
+        ProtobufSchema("main_7.proto", schema),
     )
 
     assert 7 == len(fields)
@@ -253,7 +254,7 @@ message Test10 {
 }
 """
     fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
-        ProtobufSchema("main_8.proto", schema)
+        ProtobufSchema("main_8.proto", schema),
     )
 
     assert 10 == len(fields)

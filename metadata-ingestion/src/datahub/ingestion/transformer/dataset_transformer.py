@@ -28,7 +28,9 @@ class DatasetTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABC
 
 
 class OwnershipTransformer(
-    DatasetTransformer, SingleAspectTransformer, metaclass=ABCMeta
+    DatasetTransformer,
+    SingleAspectTransformer,
+    metaclass=ABCMeta,
 ):
     def aspect_name(self) -> str:
         return "ownership"
@@ -79,7 +81,9 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
 
     @staticmethod
     def merge_with_server_global_tags(
-        graph: DataHubGraph, urn: str, global_tags_aspect: Optional[GlobalTagsClass]
+        graph: DataHubGraph,
+        urn: str,
+        global_tags_aspect: Optional[GlobalTagsClass],
     ) -> Optional[GlobalTagsClass]:
         if not global_tags_aspect or not global_tags_aspect.tags:
             # nothing to add, no need to consult server
@@ -93,7 +97,7 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
                 {
                     **{tag.tag: tag for tag in server_global_tags_aspect.tags},
                     **{tag.tag: tag for tag in global_tags_aspect.tags},
-                }.values()
+                }.values(),
             )
 
         return global_tags_aspect
@@ -124,7 +128,9 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
             return cast(
                 Optional[Aspect],
                 DatasetTagsTransformer.merge_with_server_global_tags(
-                    graph, urn, out_global_tags_aspect
+                    graph,
+                    urn,
+                    out_global_tags_aspect,
                 ),
             )
 

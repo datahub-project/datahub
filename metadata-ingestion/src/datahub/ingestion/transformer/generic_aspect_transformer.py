@@ -20,7 +20,9 @@ log = logging.getLogger(__name__)
 
 
 class GenericAspectTransformer(
-    BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta
+    BaseTransformer,
+    SingleAspectTransformer,
+    metaclass=ABCMeta,
 ):
     """Transformer that does transform custom aspects using GenericAspectClass."""
 
@@ -28,14 +30,20 @@ class GenericAspectTransformer(
         super().__init__()
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         """Do not implement."""
         pass
 
     @abstractmethod
     def transform_generic_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[GenericAspectClass]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[GenericAspectClass],
     ) -> Optional[GenericAspectClass]:
         """Implement this method to transform the single custom aspect for an entity.
         The purpose of this abstract method is to reinforce the use of GenericAspectClass.
@@ -57,7 +65,7 @@ class GenericAspectTransformer(
             self._mark_processed(envelope.record.entityUrn)
             if transformed_aspect is None:
                 log.debug(
-                    f"Dropping record {envelope} as transformation result is None"
+                    f"Dropping record {envelope} as transformation result is None",
                 )
             envelope.record.aspect = transformed_aspect
         else:
@@ -65,7 +73,8 @@ class GenericAspectTransformer(
         return envelope if envelope.record.aspect is not None else None
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+        self,
+        record_envelopes: Iterable[RecordEnvelope],
     ) -> Iterable[RecordEnvelope]:
         """
         This method overrides the original one from BaseTransformer in order to support
@@ -86,7 +95,8 @@ class GenericAspectTransformer(
                 else:
                     envelope = return_envelope
             elif isinstance(envelope.record, EndOfStream) and isinstance(
-                self, SingleAspectTransformer
+                self,
+                SingleAspectTransformer,
             ):
                 for urn, state in self.entity_map.items():
                     if "seen" in state:
@@ -105,8 +115,8 @@ class GenericAspectTransformer(
                             record_metadata = envelope.metadata.copy()
                             record_metadata.update(
                                 {
-                                    "workunit_id": f"txform-{simple_name}-{self.aspect_name()}"
-                                }
+                                    "workunit_id": f"txform-{simple_name}-{self.aspect_name()}",
+                                },
                             )
                             yield RecordEnvelope(
                                 record=MetadataChangeProposalClass(

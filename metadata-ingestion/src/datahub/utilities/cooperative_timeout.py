@@ -57,7 +57,7 @@ def cooperative_timeout(timeout: Optional[float] = None) -> Iterator[None]:
 
     if timeout is not None:
         token = _cooperation_deadline.set(
-            time.perf_counter_ns() + int(timeout * 1_000_000_000)
+            time.perf_counter_ns() + int(timeout * 1_000_000_000),
         )
         try:
             yield

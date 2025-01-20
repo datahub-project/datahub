@@ -26,8 +26,8 @@ def test_elasticsearch_throws_error_wrong_operation_config():
                     "operation_config": {
                         "lower_freq_profile_enabled": True,
                     },
-                }
-            }
+                },
+            },
         )
 
 
@@ -39,7 +39,8 @@ def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
 
 
 def assret_field_paths_match(
-    fields: List[SchemaField], expected_field_paths: List[str]
+    fields: List[SchemaField],
+    expected_field_paths: List[str],
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
@@ -2448,7 +2449,8 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
     ids=schema_test_cases.keys(),
 )
 def test_elastic_search_schema_conversion(
-    schema: str, expected_field_paths: List[str]
+    schema: str,
+    expected_field_paths: List[str],
 ) -> None:
     schema_dict: Dict[str, Any] = json.loads(schema)
     mappings: Dict[str, Any] = {"properties": schema_dict}
@@ -2495,7 +2497,7 @@ def test_collapse_urns() -> None:
             collapse_urns=CollapseUrns(
                 urns_suffix_regex=[
                     "-\\d+$",
-                ]
+                ],
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"
@@ -2507,7 +2509,7 @@ def test_collapse_urns() -> None:
             collapse_urns=CollapseUrns(
                 urns_suffix_regex=[
                     "-\\d{4}\\.\\d{2}\\.\\d{2}",
-                ]
+                ],
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"

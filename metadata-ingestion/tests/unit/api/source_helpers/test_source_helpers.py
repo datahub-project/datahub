@@ -92,8 +92,8 @@ def test_auto_status_aspect():
                         entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.staffing,PROD)",
                         aspect=models.StatusClass(removed=False),
                     ),
-                ]
-            )
+                ],
+            ),
         ),
     ]
     assert list(auto_status_aspect(initial_wu)) == expected
@@ -104,10 +104,14 @@ def test_auto_lowercase_aspects():
         [
             MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn(
-                    "bigquery", "myProject.mySchema.myTable", "PROD"
+                    "bigquery",
+                    "myProject.mySchema.myTable",
+                    "PROD",
                 ),
                 aspect=models.DatasetKeyClass(
-                    "urn:li:dataPlatform:bigquery", "myProject.mySchema.myTable", "PROD"
+                    "urn:li:dataPlatform:bigquery",
+                    "myProject.mySchema.myTable",
+                    "PROD",
                 ),
             ),
             MetadataChangeProposalWrapper(
@@ -128,7 +132,7 @@ def test_auto_lowercase_aspects():
                     ],
                 ),
             ),
-        ]
+        ],
     )
 
     expected = [
@@ -161,8 +165,8 @@ def test_auto_lowercase_aspects():
                             ],
                         ),
                     ),
-                ]
-            )
+                ],
+            ),
         ),
     ]
     assert list(auto_lowercase_urns(mcws)) == expected
@@ -179,12 +183,12 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
             aspect=models.DatasetUsageStatisticsClass(
                 timestampMillis=int(config.start_time.timestamp() * 1000),
                 eventGranularity=models.TimeWindowSizeClass(
-                    models.CalendarIntervalClass.DAY
+                    models.CalendarIntervalClass.DAY,
                 ),
                 uniqueUserCount=1,
                 totalSqlQueries=1,
             ),
-        ).as_workunit()
+        ).as_workunit(),
     ]
     caplog.clear()
     with caplog.at_level(logging.WARNING):
@@ -194,7 +198,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
                 dataset_urns={has_urn, empty_urn},
                 config=config,
                 all_buckets=False,
-            )
+            ),
         )
         assert not caplog.records
 
@@ -205,7 +209,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
             aspect=models.DatasetUsageStatisticsClass(
                 timestampMillis=int(datetime(2023, 1, 1).timestamp() * 1000),
                 eventGranularity=models.TimeWindowSizeClass(
-                    models.CalendarIntervalClass.DAY
+                    models.CalendarIntervalClass.DAY,
                 ),
                 uniqueUserCount=0,
                 totalSqlQueries=0,
@@ -229,12 +233,12 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
             aspect=models.DatasetUsageStatisticsClass(
                 timestampMillis=0,
                 eventGranularity=models.TimeWindowSizeClass(
-                    models.CalendarIntervalClass.DAY
+                    models.CalendarIntervalClass.DAY,
                 ),
                 uniqueUserCount=1,
                 totalSqlQueries=1,
             ),
-        ).as_workunit()
+        ).as_workunit(),
     ]
     caplog.clear()
     with caplog.at_level(logging.WARNING):
@@ -244,7 +248,7 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
                 dataset_urns={urn},
                 config=config,
                 all_buckets=True,
-            )
+            ),
         )
         assert len(caplog.records) == 1
         assert "1970-01-01 00:00:00+00:00" in caplog.records[0].msg
@@ -256,7 +260,7 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
             aspect=models.DatasetUsageStatisticsClass(
                 timestampMillis=int(config.start_time.timestamp() * 1000),
                 eventGranularity=models.TimeWindowSizeClass(
-                    models.CalendarIntervalClass.DAY
+                    models.CalendarIntervalClass.DAY,
                 ),
                 uniqueUserCount=0,
                 totalSqlQueries=0,
@@ -295,7 +299,8 @@ def get_sample_mcps(mcps_to_append: List = []) -> List[MetadataChangeProposalWra
 def to_patch_work_units(patch_builder: DatasetPatchBuilder) -> List[MetadataWorkUnit]:
     return [
         MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(patch_mcp), mcp_raw=patch_mcp
+            id=MetadataWorkUnit.generate_workunit_id(patch_mcp),
+            mcp_raw=patch_mcp,
         )
         for patch_mcp in patch_builder.build()
     ]
@@ -303,7 +308,7 @@ def to_patch_work_units(patch_builder: DatasetPatchBuilder) -> List[MetadataWork
 
 def get_auto_generated_wu() -> List[MetadataWorkUnit]:
     dataset_patch_builder = DatasetPatchBuilder(
-        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)"
+        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",
     ).set_last_modified(TimeStampClass(time=20))
 
     auto_generated_work_units = to_patch_work_units(dataset_patch_builder)
@@ -317,7 +322,7 @@ def test_auto_patch_last_modified_no_change():
         MetadataChangeProposalWrapper(
             entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
             aspect=models.StatusClass(removed=False),
-        )
+        ),
     ]
 
     initial_wu = list(auto_workunit(mcps))
@@ -349,7 +354,7 @@ def test_auto_patch_last_modified_multi_patch():
     mcps = get_sample_mcps()
 
     dataset_patch_builder = DatasetPatchBuilder(
-        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)"
+        urn="urn:li:dataset:(urn:li:dataPlatform:dbt,abc.foo.bar,PROD)",
     )
 
     dataset_patch_builder.set_display_name("foo")

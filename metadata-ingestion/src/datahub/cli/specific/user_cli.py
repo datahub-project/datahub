@@ -46,9 +46,9 @@ def upsert(file: Path, override_editable: bool) -> None:
                 emitter.emit_all(
                     datahub_user.generate_mcp(
                         generation_config=CorpUserGenerationConfig(
-                            override_editable=override_editable
-                        )
-                    )
+                            override_editable=override_editable,
+                        ),
+                    ),
                 )
                 click.secho(f"Update succeeded for urn {datahub_user.urn}.", fg="green")
             except Exception as e:

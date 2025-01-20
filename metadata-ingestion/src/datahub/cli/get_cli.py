@@ -72,5 +72,5 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
             aspect_data,
             sort_keys=True,
             indent=2,
-        )
+        ),
     )

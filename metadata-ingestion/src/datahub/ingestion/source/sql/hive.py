@@ -204,7 +204,7 @@ class HiveStorageLineageConfig:
     ):
         if hive_storage_lineage_direction.lower() not in ["upstream", "downstream"]:
             raise ValueError(
-                "hive_storage_lineage_direction must be either upstream or downstream"
+                "hive_storage_lineage_direction must be either upstream or downstream",
             )
 
         self.emit_storage_lineage = emit_storage_lineage
@@ -324,14 +324,14 @@ class HiveStorageLineage:
                             make_schema_field_urn(
                                 parent_urn=storage_urn,
                                 field_path=matching_field.fieldPath,
-                            )
+                            ),
                         ],
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                         downstreams=[
                             make_schema_field_urn(
                                 parent_urn=dataset_urn,
                                 field_path=dataset_path,
-                            )
+                            ),
                         ],
                     )
                 else:
@@ -341,14 +341,14 @@ class HiveStorageLineage:
                             make_schema_field_urn(
                                 parent_urn=dataset_urn,
                                 field_path=dataset_path,
-                            )
+                            ),
                         ],
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                         downstreams=[
                             make_schema_field_urn(
                                 parent_urn=storage_urn,
                                 field_path=matching_field.fieldPath,
-                            )
+                            ),
                         ],
                     )
 
@@ -366,7 +366,7 @@ class HiveStorageLineage:
 
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
-                UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY)
+                UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY),
             ],
             fineGrainedLineages=lineages_list,
         )
@@ -374,7 +374,8 @@ class HiveStorageLineage:
         yield MetadataWorkUnit(
             id=f"{source_urn}-{target_urn}-lineage",
             mcp=MetadataChangeProposalWrapper(
-                entityUrn=target_urn, aspect=upstream_lineage
+                entityUrn=target_urn,
+                aspect=upstream_lineage,
             ),
         )
 
@@ -430,7 +431,8 @@ class HiveStorageLineage:
             yield MetadataWorkUnit(
                 id=f"storage-{storage_urn}-platform",
                 mcp=MetadataChangeProposalWrapper(
-                    entityUrn=storage_urn, aspect=platform_instance_aspect
+                    entityUrn=storage_urn,
+                    aspect=platform_instance_aspect,
                 ),
             )
 
@@ -447,13 +449,14 @@ class HiveStorageLineage:
                 yield MetadataWorkUnit(
                     id=f"storage-{storage_urn}-schema",
                     mcp=MetadataChangeProposalWrapper(
-                        entityUrn=storage_urn, aspect=storage_schema
+                        entityUrn=storage_urn,
+                        aspect=storage_schema,
                     ),
                 )
 
         except Exception as e:
             logger.error(
-                f"Failed to create storage dataset MCPs for {storage_location}: {e}"
+                f"Failed to create storage dataset MCPs for {storage_location}: {e}",
             )
             return
 
@@ -516,7 +519,10 @@ class HiveStorageLineage:
             None
             if not (dataset_schema and storage_schema)
             else self._get_fine_grained_lineages(
-                dataset_urn, storage_urn, dataset_schema, storage_schema
+                dataset_urn,
+                storage_urn,
+                dataset_schema,
+                storage_schema,
             )
         )
 
@@ -598,8 +604,9 @@ try:
             except KeyError:
                 util.warn(
                     "Did not recognize type '{}' of column '{}'".format(
-                        col_type, col_name
-                    )
+                        col_type,
+                        col_name,
+                    ),
                 )
                 coltype = types.NullType  # type: ignore
             result.append(
@@ -610,7 +617,7 @@ try:
                     "default": None,
                     "full_type": orig_col_type,  # pass it through
                     "comment": _comment,
-                }
+                },
             )
         return result
 
@@ -678,7 +685,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
         """Validate the lineage direction."""
         if v.lower() not in ["upstream", "downstream"]:
             raise ValueError(
-                "storage_lineage_direction must be either upstream or downstream"
+                "storage_lineage_direction must be either upstream or downstream",
             )
         return v.lower()
 
@@ -744,8 +751,8 @@ class HiveSource(TwoTierSQLAlchemySource):
             if dataset_props and dataset_props.customProperties:
                 table = {
                     "StorageDescriptor": {
-                        "Location": dataset_props.customProperties.get("Location")
-                    }
+                        "Location": dataset_props.customProperties.get("Location"),
+                    },
                 }
 
                 if table.get("StorageDescriptor", {}).get("Location"):
@@ -780,17 +787,20 @@ class HiveSource(TwoTierSQLAlchemySource):
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(
-            fields[0].type.type, NullTypeClass
+            fields[0].type.type,
+            NullTypeClass,
         ):
             assert len(fields) == 1
             field = fields[0]
             # Get avro schema for subfields along with parent complex field
             avro_schema = get_avro_schema_for_hive_column(
-                column["name"], field.nativeDataType
+                column["name"],
+                field.nativeDataType,
             )
 
             new_fields = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=True
+                json.dumps(avro_schema),
+                default_nullable=True,
             )
 
             # First field is the parent complex field
@@ -832,7 +842,9 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         if view_definition:
             view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition
+                materialized=False,
+                viewLanguage="SQL",
+                viewLogic=view_definition,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,

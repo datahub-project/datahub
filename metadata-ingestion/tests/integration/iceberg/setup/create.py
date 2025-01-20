@@ -24,7 +24,7 @@ def main(table_name: str) -> None:
             StructField("trip_distance", FloatType(), True),
             StructField("fare_amount", DoubleType(), True),
             StructField("store_and_fwd_flag", StringType(), True),
-        ]
+        ],
     )
 
     data = [

@@ -148,19 +148,23 @@ class PowerBIPlatformDetail:
 
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = DataPlatformPair(
-        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
+        powerbi_data_platform_name="PostgreSQL",
+        datahub_data_platform_name="postgres",
     )
 
     ORACLE = DataPlatformPair(
-        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+        powerbi_data_platform_name="Oracle",
+        datahub_data_platform_name="oracle",
     )
 
     SNOWFLAKE = DataPlatformPair(
-        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
     )
 
     MS_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
+        powerbi_data_platform_name="Sql",
+        datahub_data_platform_name="mssql",
     )
 
     GOOGLE_BIGQUERY = DataPlatformPair(
@@ -174,7 +178,8 @@ class SupportedDataPlatform(Enum):
     )
 
     DATABRICKS_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
     )
 
     DatabricksMultiCloud_SQL = DataPlatformPair(
@@ -187,10 +192,10 @@ class SupportedDataPlatform(Enum):
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     all_workspace_count: int = 0
     filtered_workspace_names: LossyList[str] = dataclass_field(
-        default_factory=LossyList
+        default_factory=LossyList,
     )
     filtered_workspace_types: LossyList[str] = dataclass_field(
-        default_factory=LossyList
+        default_factory=LossyList,
     )
 
     dashboards_scanned: int = 0
@@ -244,7 +249,8 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=True,
+        description="Whether ingest PowerBI user as Datahub Corpuser",
     )
     use_powerbi_email: bool = pydantic.Field(
         # TODO: Deprecate and remove this config, since the non-email format
@@ -274,10 +280,12 @@ class PowerBiProfilingConfig(ConfigModel):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
 ):
     platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_docs=True
+        default=Constant.PLATFORM_NAME,
+        hidden_from_docs=True,
     )
 
     platform_urn: str = pydantic.Field(
@@ -315,7 +323,8 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str,
+        Union[PlatformDetail, DataBricksPlatformDetail],
     ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
@@ -334,7 +343,8 @@ class PowerBiDashboardSourceConfig(
     client_secret: str = pydantic.Field(description="Azure app client secret")
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
-        default=60, description="timeout for PowerBI metadata scanning"
+        default=60,
+        description="timeout for PowerBI metadata scanning",
     )
     scan_batch_size: int = pydantic.Field(
         default=1,
@@ -355,7 +365,8 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
+        default=True,
+        description="Whether reports should be ingested",
     )
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
@@ -393,7 +404,8 @@ class PowerBiDashboardSourceConfig(
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
-        default=True, description="Extract workspaces to DataHub containers"
+        default=True,
+        description="Extract workspaces to DataHub containers",
     )
     # Enable/Disable grouping PBI dataset tables into Datahub container (PBI Dataset)
     extract_datasets_to_containers: bool = pydantic.Field(
@@ -419,7 +431,8 @@ class PowerBiDashboardSourceConfig(
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="PowerBI Stateful Ingestion Config."
+        default=None,
+        description="PowerBI Stateful Ingestion Config.",
     )
     # Retrieve PowerBI Metadata using Admin API only
     admin_apis_only: bool = pydantic.Field(
@@ -471,7 +484,11 @@ class PowerBiDashboardSourceConfig(
 
     workspace_type_filter: List[
         Literal[
-            "Workspace", "PersonalGroup", "Personal", "AdminWorkspace", "AdminInsights"
+            "Workspace",
+            "PersonalGroup",
+            "Personal",
+            "AdminWorkspace",
+            "AdminInsights",
         ]
     ] = pydantic.Field(
         default=["Workspace"],
@@ -550,15 +567,15 @@ class PowerBiDashboardSourceConfig(
         if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
-                "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
+                "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead.",
             )
             values["workspace_id_pattern"] = AllowDenyPattern(
-                allow=[f"^{workspace_id}$"]
+                allow=[f"^{workspace_id}$"],
             )
         elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
             logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
-                "please use workspace_id_pattern only."
+                "please use workspace_id_pattern only.",
             )
             values.pop("workspace_id")
         return values
@@ -570,7 +587,7 @@ class PowerBiDashboardSourceConfig(
             and values.get("server_to_platform_instance") is not None
         ):
             raise ValueError(
-                "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
+                "dataset_type_mapping is deprecated. Use server_to_platform_instance only.",
             )
 
         return values

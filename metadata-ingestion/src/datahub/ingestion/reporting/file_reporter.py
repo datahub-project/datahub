@@ -20,7 +20,7 @@ class FileReporterConfig(ConfigModel):
     def only_json_supported(cls, v):
         if v and v.lower() != "json":
             raise ValueError(
-                f"Format {v} is not yet supported. Only json is supported at this time"
+                f"Format {v} is not yet supported. Only json is supported at this time",
             )
         return v
 

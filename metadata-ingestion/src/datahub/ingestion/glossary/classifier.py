@@ -33,7 +33,8 @@ class ClassificationConfig(ConfigModel):
     )
 
     sample_size: int = Field(
-        default=100, description="Number of sample values used for classification."
+        default=100,
+        description="Number of sample values used for classification.",
     )
 
     max_workers: int = Field(

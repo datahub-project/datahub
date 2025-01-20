@@ -89,7 +89,9 @@ job_type_to_info: Mapping[JobType, Any] = {
 
 def make_sagemaker_flow_urn(job_type: str, job_name: str, env: str) -> str:
     return mce_builder.make_data_flow_urn(
-        orchestrator="sagemaker", flow_id=f"{job_type}:{job_name}", cluster=env
+        orchestrator="sagemaker",
+        flow_id=f"{job_type}:{job_name}",
+        cluster=env,
     )
 
 
@@ -164,12 +166,12 @@ class JobProcessor:
 
     # map from model image file path to jobs referencing the model
     model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
-        default_factory=lambda: defaultdict(dict)
+        default_factory=lambda: defaultdict(dict),
     )
 
     # map from model name to jobs referencing the model
     model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
-        default_factory=lambda: defaultdict(dict)
+        default_factory=lambda: defaultdict(dict),
     )
 
     def get_jobs(self, job_type: JobType, job_spec: JobInfo) -> List[Any]:
@@ -273,7 +275,7 @@ class JobProcessor:
         describe_name_key = job_type_to_info[job_type].describe_name_key
 
         return getattr(self.sagemaker_client(), describe_command)(
-            **{describe_name_key: job_name}
+            **{describe_name_key: job_name},
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -300,7 +302,7 @@ class JobProcessor:
         #   - move output jobs to inputs
         #   - aggregate i/o datasets
         logger.info(
-            "second pass: move output jobs to inputs and aggregate i/o datasets"
+            "second pass: move output jobs to inputs and aggregate i/o datasets",
         )
         for job_urn in sorted(processed_jobs):
             processed_job = processed_jobs[job_urn]
@@ -322,7 +324,7 @@ class JobProcessor:
                 DatasetPropertiesClass(
                     customProperties={k: str(v) for k, v in dataset.items()},
                     tags=[],
-                )
+                ),
             )
             dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             yield MetadataWorkUnit(
@@ -338,7 +340,9 @@ class JobProcessor:
             job_snapshot = processed_job.job_snapshot
 
             flow_urn = make_sagemaker_flow_urn(
-                processed_job.job_type.value, processed_job.job_name, self.env
+                processed_job.job_type.value,
+                processed_job.job_name,
+                self.env,
             )
 
             # create flow for each job
@@ -350,7 +354,7 @@ class JobProcessor:
                             name=processed_job.job_name,
                         ),
                     ],
-                )
+                ),
             )
             yield MetadataWorkUnit(
                 id=flow_urn,
@@ -362,7 +366,7 @@ class JobProcessor:
                     inputDatasets=sorted(list(processed_job.input_datasets.keys())),
                     outputDatasets=sorted(list(processed_job.output_datasets.keys())),
                     inputDatajobs=sorted(list(processed_job.input_jobs)),
-                )
+                ),
             )
 
             job_mce = MetadataChangeEvent(proposedSnapshot=job_snapshot)
@@ -558,7 +562,7 @@ class JobProcessor:
                         training_job["DefinitionName"],
                         self.name_to_arn[full_job_name],
                         self.env,
-                    )
+                    ),
                 )
             else:
                 self.report.report_warning(
@@ -612,7 +616,7 @@ class JobProcessor:
         output_datasets = {}
 
         output_s3_uri: Optional[str] = job.get("LabelingJobOutput", {}).get(
-            "OutputDatasetS3Uri"
+            "OutputDatasetS3Uri",
         )
         if output_s3_uri is not None:
             output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
@@ -620,7 +624,7 @@ class JobProcessor:
                 "uri": output_s3_uri,
             }
         output_config_s3_uri: Optional[str] = job.get("OutputConfig", {}).get(
-            "S3OutputPath"
+            "S3OutputPath",
         )
         if output_config_s3_uri is not None:
             output_datasets[make_s3_urn(output_config_s3_uri, self.env)] = {
@@ -663,19 +667,26 @@ class JobProcessor:
             if auto_ml_type is not None and auto_ml_name is not None:
                 input_jobs.add(
                     make_sagemaker_job_urn(
-                        auto_ml_type, auto_ml_name, auto_ml_arn, self.env
-                    )
+                        auto_ml_type,
+                        auto_ml_name,
+                        auto_ml_arn,
+                        self.env,
+                    ),
                 )
 
         if training_arn is not None:
             training_type, training_name = self.arn_to_name.get(
-                training_arn, (None, None)
+                training_arn,
+                (None, None),
             )
             if training_type is not None and training_name is not None:
                 input_jobs.add(
                     make_sagemaker_job_urn(
-                        training_type, training_name, training_arn, self.env
-                    )
+                        training_type,
+                        training_name,
+                        training_arn,
+                        self.env,
+                    ),
                 )
 
         input_datasets = {}
@@ -712,7 +723,8 @@ class JobProcessor:
             # )
 
         outputs: List[Dict[str, Any]] = job.get("ProcessingOutputConfig", {}).get(
-            "Outputs", []
+            "Outputs",
+            [],
         )
 
         output_datasets = {}
@@ -729,12 +741,13 @@ class JobProcessor:
                 }
 
             output_feature_group = output.get("FeatureStoreOutput", {}).get(
-                "FeatureGroupName"
+                "FeatureGroupName",
             )
             if output_feature_group is not None:
                 output_datasets[
                     mce_builder.make_ml_feature_table_urn(
-                        "sagemaker", output_feature_group
+                        "sagemaker",
+                        output_feature_group,
                     )
                 ] = {
                     "dataset_type": "sagemaker_feature_group",
@@ -788,7 +801,7 @@ class JobProcessor:
         checkpoint_s3_uri = job.get("CheckpointConfig", {}).get("S3Uri")
         debug_s3_path = job.get("DebugHookConfig", {}).get("S3OutputPath")
         tensorboard_output_path = job.get("TensorBoardOutputConfig", {}).get(
-            "S3OutputPath"
+            "S3OutputPath",
         )
         profiler_output_path = job.get("ProfilerConfig", {}).get("S3OutputPath")
 
@@ -830,7 +843,9 @@ class JobProcessor:
         job_metrics = job.get("FinalMetricDataList", [])
         # sort first by metric name, then from latest -> earliest
         sorted_metrics = sorted(
-            job_metrics, key=lambda x: (x["MetricName"], x["Timestamp"]), reverse=True
+            job_metrics,
+            key=lambda x: (x["MetricName"], x["Timestamp"]),
+            reverse=True,
         )
         # extract the last recorded metric values
         latest_metrics = []
@@ -844,7 +859,7 @@ class JobProcessor:
             zip(
                 [metric["MetricName"] for metric in latest_metrics],
                 [metric["Value"] for metric in latest_metrics],
-            )
+            ),
         )
 
         if model_data_url is not None:
@@ -908,14 +923,18 @@ class JobProcessor:
 
         if labeling_arn is not None:
             labeling_type, labeling_name = self.arn_to_name.get(
-                labeling_arn, (None, None)
+                labeling_arn,
+                (None, None),
             )
 
             if labeling_type is not None and labeling_name is not None:
                 input_jobs.add(
                     make_sagemaker_job_urn(
-                        labeling_type, labeling_name, labeling_arn, self.env
-                    )
+                        labeling_type,
+                        labeling_name,
+                        labeling_arn,
+                        self.env,
+                    ),
                 )
 
         if auto_ml_arn is not None:
@@ -924,8 +943,11 @@ class JobProcessor:
             if auto_ml_type is not None and auto_ml_name is not None:
                 input_jobs.add(
                     make_sagemaker_job_urn(
-                        auto_ml_type, auto_ml_name, auto_ml_arn, self.env
-                    )
+                        auto_ml_type,
+                        auto_ml_name,
+                        auto_ml_arn,
+                        self.env,
+                    ),
                 )
 
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(

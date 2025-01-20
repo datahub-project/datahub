@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 
 
 def validate_parse_tree(
-    expression: str, native_query_enabled: bool = True
+    expression: str,
+    native_query_enabled: bool = True,
 ) -> Tuple[bool, Optional[str]]:
     """
     :param expression: M-Query expression to check if supported data-function is present in expression

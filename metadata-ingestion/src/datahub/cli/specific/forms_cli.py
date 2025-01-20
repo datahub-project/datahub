@@ -44,7 +44,7 @@ def get(urn: str, to_file: str) -> None:
         if graph.exists(urn):
             form: Forms = Forms.from_datahub(graph=graph, urn=urn)
             click.secho(
-                f"{json.dumps(form.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(form.dict(exclude_unset=True, exclude_none=True), indent=2)}",
             )
             if to_file:
                 form.to_yaml(Path(to_file))

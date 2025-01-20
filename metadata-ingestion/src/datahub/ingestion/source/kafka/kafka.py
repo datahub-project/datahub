@@ -131,7 +131,8 @@ class KafkaSourceConfig(
         description="Whether or not to strip email id while adding owners using meta mappings.",
     )
     tag_prefix: str = pydantic.Field(
-        default="", description="Prefix added to tags during ingestion."
+        default="",
+        description="Prefix added to tags during ingestion.",
     )
     ignore_warnings_on_schema_type: bool = pydantic.Field(
         default=False,
@@ -155,7 +156,7 @@ def get_kafka_consumer(
             "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
-        }
+        },
     )
 
     if CallableConsumerConfig.is_callable_config(connection.consumer_config):
@@ -176,7 +177,7 @@ def get_kafka_admin_client(
             "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
-        }
+        },
     )
     if CallableConsumerConfig.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
@@ -204,7 +205,7 @@ class KafkaConnectionTest:
         self.config = KafkaSourceConfig.parse_obj_allow_extras(config_dict)
         self.report = KafkaSourceReport()
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
-            self.config.connection
+            self.config.connection,
         )
 
     def get_connection_test(self) -> TestConnectionReport:
@@ -231,7 +232,7 @@ class KafkaConnectionTest:
                 {
                     "url": self.config.connection.schema_registry_url,
                     **self.config.connection.schema_registry_config,
-                }
+                },
             ).get_subjects()
             return CapabilityReport(capable=True)
         except Exception as e:
@@ -264,7 +265,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create_schema_registry(
-        cls, config: KafkaSourceConfig, report: KafkaSourceReport
+        cls,
+        config: KafkaSourceConfig,
+        report: KafkaSourceReport,
     ) -> KafkaSchemaRegistryBase:
         try:
             schema_registry_class: Type = import_path(config.schema_registry_class)
@@ -277,7 +280,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
-            self.source_config.connection
+            self.source_config.connection,
         )
         self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()
@@ -322,13 +325,15 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics(
-            timeout=self.source_config.connection.client_timeout_seconds
+            timeout=self.source_config.connection.client_timeout_seconds,
         ).topics
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
@@ -337,12 +342,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if self.source_config.topic_patterns.allowed(topic):
                 try:
                     yield from self._extract_record(
-                        topic, False, topic_detail, extra_topic_details.get(topic)
+                        topic,
+                        False,
+                        topic_detail,
+                        extra_topic_details.get(topic),
                     )
                 except Exception as e:
                     logger.warning(f"Failed to extract topic {topic}", exc_info=True)
                     self.report.report_warning(
-                        "topic", f"Exception while extracting topic {topic}: {e}"
+                        "topic",
+                        f"Exception while extracting topic {topic}: {e}",
                     )
             else:
                 self.report.report_dropped(topic)
@@ -352,14 +361,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             for subject in self.schema_registry_client.get_subjects():
                 try:
                     yield from self._extract_record(
-                        subject, True, topic_detail=None, extra_topic_config=None
+                        subject,
+                        True,
+                        topic_detail=None,
+                        extra_topic_config=None,
                     )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to extract subject {subject}", exc_info=True
+                        f"Failed to extract subject {subject}",
+                        exc_info=True,
                     )
                     self.report.report_warning(
-                        "subject", f"Exception while extracting topic {subject}: {e}"
+                        "subject",
+                        f"Exception while extracting topic {subject}: {e}",
                     )
 
     def _extract_record(
@@ -379,7 +393,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
         schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn, is_subject
+            topic,
+            platform_urn,
+            is_subject,
         )
 
         # topic can have no associated subject, but still it can be ingested without schema
@@ -417,11 +433,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         custom_props: Dict[str, str] = {}
         if not is_subject:
             custom_props = self.build_custom_properties(
-                topic, topic_detail, extra_topic_config
+                topic,
+                topic_detail,
+                extra_topic_config,
             )
             schema_name: Optional[str] = (
                 self.schema_registry_client._get_subject_for_topic(
-                    topic, is_key_schema=False
+                    topic,
+                    is_key_schema=False,
                 )
             )
             if schema_name is not None:
@@ -439,7 +458,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
 
             avro_schema = avro.schema.parse(
-                schema_metadata.platformSchema.documentSchema
+                schema_metadata.platformSchema.documentSchema,
             )
             description = getattr(avro_schema, "doc", None)
             # set the tags
@@ -448,7 +467,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 schema_tags = cast(
                     Iterable[str],
                     avro_schema.other_props.get(
-                        self.source_config.schema_tags_field, []
+                        self.source_config.schema_tags_field,
+                        [],
                     ),
                 )
                 for tag in schema_tags:
@@ -477,11 +497,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             if all_tags:
                 dataset_snapshot.aspects.append(
-                    mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
+                    mce_builder.make_global_tag_aspect_with_tag_list(all_tags),
                 )
 
         dataset_properties = DatasetPropertiesClass(
-            name=dataset_name, customProperties=custom_props, description=description
+            name=dataset_name,
+            customProperties=custom_props,
+            description=description,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -491,9 +513,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 DataPlatformInstanceClass(
                     platform=platform_urn,
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
+                        self.platform,
+                        self.source_config.platform_instance,
                     ),
-                )
+                ),
             )
 
         # 6. Emit the datasetSnapshot MCE
@@ -513,7 +536,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
+                    self.domain_registry.get_domain_urn(domain),
                 )
 
         if domain_urn:
@@ -531,7 +554,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         custom_props: Dict[str, str] = {}
         self.update_custom_props_with_topic_details(topic, topic_detail, custom_props)
         self.update_custom_props_with_topic_config(
-            topic, extra_topic_config, custom_props
+            topic,
+            extra_topic_config,
+            custom_props,
         )
         return custom_props
 
@@ -543,7 +568,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if topic_detail is None or topic_detail.partitions is None:
             logger.info(
-                f"Partitions and Replication Factor not available for topic {topic}"
+                f"Partitions and Replication Factor not available for topic {topic}",
             )
             return
 
@@ -589,7 +614,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         super().close()
 
     def _get_config_value_if_present(
-        self, config_dict: Dict[str, ConfigEntry], key: str
+        self,
+        config_dict: Dict[str, ConfigEntry],
+        key: str,
     ) -> Any:
         return
 
@@ -598,7 +625,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not hasattr(self, "admin_client"):
             logger.debug(
-                "Kafka Admin Client missing. Not fetching config details for topics."
+                "Kafka Admin Client missing. Not fetching config details for topics.",
             )
         else:
             try:
@@ -625,7 +652,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         topic_configurations: Dict[str, dict] = {}
         for config_resource, config_result_future in configs.items():
             self.process_topic_config_result(
-                config_resource, config_result_future, topic_configurations
+                config_resource,
+                config_result_future,
+                topic_configurations,
             )
         return topic_configurations
 
@@ -639,9 +668,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             topic_configurations[config_resource.name] = config_result_future.result()
         except Exception as e:
             logger.warning(
-                f"Config details for topic {config_resource.name} not fetched due to error {e}"
+                f"Config details for topic {config_resource.name} not fetched due to error {e}",
             )
         else:
             logger.info(
-                f"Config details for topic {config_resource.name} fetched successfully"
+                f"Config details for topic {config_resource.name} fetched successfully",
             )

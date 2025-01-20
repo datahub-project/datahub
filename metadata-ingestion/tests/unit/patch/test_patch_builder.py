@@ -36,7 +36,7 @@ from tests.test_helpers import mce_helpers
 
 def test_basic_dataset_patch_builder():
     patcher = DatasetPatchBuilder(
-        make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+        make_dataset_urn(platform="hive", name="fct_users_created", env="PROD"),
     ).add_tag(TagAssociationClass(tag=make_tag_urn("test_tag")))
 
     assert patcher.build() == [
@@ -54,11 +54,12 @@ def test_basic_dataset_patch_builder():
 
 
 def test_complex_dataset_patch(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
 ) -> None:
     patcher = (
         DatasetPatchBuilder(
-            make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+            make_dataset_urn(platform="hive", name="fct_users_created", env="PROD"),
         )
         .set_description("test description")
         .add_custom_property("test_key_1", "test_value_1")
@@ -67,18 +68,22 @@ def test_complex_dataset_patch(
         .add_upstream_lineage(
             upstream=UpstreamClass(
                 dataset=make_dataset_urn(
-                    platform="hive", name="fct_users_created_upstream", env="PROD"
+                    platform="hive",
+                    name="fct_users_created_upstream",
+                    env="PROD",
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
-            )
+            ),
         )
         .add_upstream_lineage(
             upstream=UpstreamClass(
                 dataset=make_dataset_urn(
-                    platform="s3", name="my-bucket/my-folder/my-file.txt", env="PROD"
+                    platform="s3",
+                    name="my-bucket/my-folder/my-file.txt",
+                    env="PROD",
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
-            )
+            ),
         )
         .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
@@ -91,7 +96,7 @@ def test_complex_dataset_patch(
                             env="PROD",
                         ),
                         field_path="foo",
-                    )
+                    ),
                 ],
                 upstreams=[
                     make_schema_field_urn(
@@ -101,12 +106,12 @@ def test_complex_dataset_patch(
                             env="PROD",
                         ),
                         field_path="bar",
-                    )
+                    ),
                 ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                 transformOperation="TRANSFORM",
                 confidenceScore=1.0,
-            )
+            ),
         )
         .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
@@ -119,7 +124,7 @@ def test_complex_dataset_patch(
                             env="PROD",
                         ),
                         field_path="foo",
-                    )
+                    ),
                 ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
                 downstreams=[
@@ -130,9 +135,9 @@ def test_complex_dataset_patch(
                             env="PROD",
                         ),
                         field_path="foo",
-                    )
+                    ),
                 ],
-            )
+            ),
         )
     )
     patcher.for_field("field1").add_tag(TagAssociationClass(tag=make_tag_urn("tag1")))
@@ -149,7 +154,7 @@ def test_complex_dataset_patch(
 
 def test_basic_chart_patch_builder():
     patcher = ChartPatchBuilder(
-        make_chart_urn(platform="hive", name="fct_users_created")
+        make_chart_urn(platform="hive", name="fct_users_created"),
     ).add_tag(TagAssociationClass(tag=make_tag_urn("test_tag")))
 
     assert patcher.build() == [
@@ -168,7 +173,7 @@ def test_basic_chart_patch_builder():
 
 def test_basic_dashboard_patch_builder():
     patcher = DashboardPatchBuilder(
-        make_dashboard_urn(platform="hive", name="fct_users_created")
+        make_dashboard_urn(platform="hive", name="fct_users_created"),
     ).add_tag(TagAssociationClass(tag=make_tag_urn("test_tag")))
 
     assert patcher.build() == [
@@ -246,27 +251,29 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
         return {"destinationUrn": str(urn)}
 
     flow_urn = make_data_flow_urn(
-        orchestrator="nifi", flow_id="252C34e5af19-0192-1000-b248-b1abee565b5d"
+        orchestrator="nifi",
+        flow_id="252C34e5af19-0192-1000-b248-b1abee565b5d",
     )
     job_urn = make_data_job_urn_with_flow(
-        flow_urn, "5ca6fee7-0192-1000-f206-dfbc2b0d8bfb"
+        flow_urn,
+        "5ca6fee7-0192-1000-f206-dfbc2b0d8bfb",
     )
     patcher = DataJobPatchBuilder(job_urn)
 
     patcher.add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
-        )
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)",
+        ),
     )
     patcher.add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
-        )
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)",
+        ),
     )
     patcher.add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
-        )
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)",
+        ),
     )
 
     assert patcher.build() == [
@@ -282,26 +289,26 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder1,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)",
                             ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder3,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)",
                             ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder2,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)",
                             ),
                         },
-                    ]
+                    ],
                 ).encode("utf-8"),
                 contentType="application/json-patch+json",
             ),
-        )
+        ),
     ]

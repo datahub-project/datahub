@@ -19,13 +19,18 @@ class SimpleRemoveDatasetOwnership(OwnershipTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "SimpleRemoveDatasetOwnership":
         config = ClearDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_ownership_aspect = cast(OwnershipClass, aspect)
         if in_ownership_aspect is None:

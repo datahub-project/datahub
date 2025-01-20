@@ -11,13 +11,17 @@ class PrefixGroup:
 
 
 def build_prefix_batches(
-    names: List[str], max_batch_size: int, max_groups_in_batch: int
+    names: List[str],
+    max_batch_size: int,
+    max_groups_in_batch: int,
 ) -> List[List[PrefixGroup]]:
     """Split the names into a list of batches, where each batch is a list of groups and each group is a list of names with a common prefix."""
 
     groups = _build_prefix_groups(names, max_batch_size=max_batch_size)
     batches = _batch_prefix_groups(
-        groups, max_batch_size=max_batch_size, max_groups_in_batch=max_groups_in_batch
+        groups,
+        max_batch_size=max_batch_size,
+        max_groups_in_batch=max_groups_in_batch,
     )
     return batches
 
@@ -53,7 +57,9 @@ def _build_prefix_groups(names: List[str], max_batch_size: int) -> List[PrefixGr
 
 
 def _batch_prefix_groups(
-    groups: List[PrefixGroup], max_batch_size: int, max_groups_in_batch: int
+    groups: List[PrefixGroup],
+    max_batch_size: int,
+    max_groups_in_batch: int,
 ) -> List[List[PrefixGroup]]:
     """Batch the groups together, so that no batch's total is larger than `max_batch_size`
     and no group in a batch is larger than `max_group_size`."""

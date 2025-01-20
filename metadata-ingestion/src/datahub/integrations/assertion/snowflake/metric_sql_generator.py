@@ -67,7 +67,7 @@ class SnowflakeMetricSQLGenerator:
             )  as metric from {entity_name} {where_clause}"""
         else:
             raise ValueError(
-                f"Unsupported freshness source type {assertion.source_type} "
+                f"Unsupported freshness source type {assertion.source_type} ",
             )
 
     @metric_sql.register

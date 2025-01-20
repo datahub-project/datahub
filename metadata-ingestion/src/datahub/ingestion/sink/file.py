@@ -65,7 +65,8 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
     ) -> None:
         record = record_envelope.record
         obj = _to_obj_for_file(
-            record, simplified_structure=not self.config.legacy_nested_json_string
+            record,
+            simplified_structure=not self.config.legacy_nested_json_string,
         )
 
         if self.wrote_something:

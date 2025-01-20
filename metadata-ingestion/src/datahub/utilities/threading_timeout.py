@@ -36,7 +36,7 @@ def threading_timeout(timeout: float) -> ContextManager[None]:
 
     if not _is_cpython():
         raise RuntimeError(
-            f"Timeout is only supported on CPython, not {platform.python_implementation()}"
+            f"Timeout is only supported on CPython, not {platform.python_implementation()}",
         )
 
     return _ThreadingTimeout(timeout, swallow_exc=False)

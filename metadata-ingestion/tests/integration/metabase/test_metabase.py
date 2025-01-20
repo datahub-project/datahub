@@ -29,7 +29,12 @@ test_resources_dir = pathlib.Path(__file__).parent
 
 class MockResponse:
     def __init__(
-        self, url, json_response_map=None, data=None, jsond=None, error_list=None
+        self,
+        url,
+        json_response_map=None,
+        data=None,
+        jsond=None,
+        error_list=None,
     ):
         self.json_data = data
         self.url = url
@@ -46,7 +51,7 @@ class MockResponse:
 
         if not pathlib.Path(response_json_path).exists():
             raise Exception(
-                f"mock response file not found {self.url} -> {mocked_response_file}"
+                f"mock response file not found {self.url} -> {mocked_response_file}",
             )
 
         with open(response_json_path) as file:
@@ -164,22 +169,26 @@ def test_pipeline(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_metabase_ingest_success(
-    pytestconfig, tmp_path, test_pipeline, mock_datahub_graph, default_json_response_map
+    pytestconfig,
+    tmp_path,
+    test_pipeline,
+    mock_datahub_graph,
+    default_json_response_map,
 ):
     with patch(
         "datahub.ingestion.source.metabase.requests.session",
         side_effect=MockResponse.build_mocked_requests_sucess(
-            default_json_response_map
+            default_json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.metabase.requests.post",
         side_effect=MockResponse.build_mocked_requests_session_post(
-            default_json_response_map
+            default_json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.metabase.requests.delete",
         side_effect=MockResponse.build_mocked_requests_session_delete(
-            default_json_response_map
+            default_json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -201,7 +210,9 @@ def test_metabase_ingest_success(
 
 @freeze_time(FROZEN_TIME)
 def test_stateful_ingestion(
-    test_pipeline, mock_datahub_graph, default_json_response_map
+    test_pipeline,
+    mock_datahub_graph,
+    default_json_response_map,
 ):
     json_response_map = default_json_response_map
     with patch(
@@ -213,7 +224,7 @@ def test_stateful_ingestion(
     ), patch(
         "datahub.ingestion.source.metabase.requests.delete",
         side_effect=MockResponse.build_mocked_requests_session_delete(
-            json_response_map
+            json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -245,17 +256,19 @@ def test_stateful_ingestion(
         state2 = checkpoint2.state
 
         difference_urns = list(
-            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
         )
 
         assert len(difference_urns) == 1
         assert difference_urns[0] == "urn:li:dashboard:(metabase,20)"
 
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
 
@@ -264,17 +277,17 @@ def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_m
     with patch(
         "datahub.ingestion.source.metabase.requests.session",
         side_effect=MockResponse.build_mocked_requests_failure(
-            default_json_response_map
+            default_json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.metabase.requests.post",
         side_effect=MockResponse.build_mocked_requests_session_post(
-            default_json_response_map
+            default_json_response_map,
         ),
     ), patch(
         "datahub.ingestion.source.metabase.requests.delete",
         side_effect=MockResponse.build_mocked_requests_session_delete(
-            default_json_response_map
+            default_json_response_map,
         ),
     ):
         pipeline = Pipeline.create(
@@ -294,7 +307,7 @@ def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_m
                         "filename": f"{tmp_path}/metabase_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         try:

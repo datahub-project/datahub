@@ -40,7 +40,8 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().dict()
+        type="duckdb",
+        config=DuckDBLiteConfigWrapper().dict(),
     )
 
 
@@ -86,11 +87,12 @@ class CompleteablePath(click.ParamType):
             return [
                 (
                     CompletionItem(
-                        browseable.auto_complete.suggested_path, type="plain"
+                        browseable.auto_complete.suggested_path,
+                        type="plain",
                     )
                     if browseable.auto_complete
                     else CompletionItem(
-                        f"{incomplete}/{browseable.name}".replace("//", "/")
+                        f"{incomplete}/{browseable.name}".replace("//", "/"),
                     )
                 )
                 for browseable in completions
@@ -127,7 +129,7 @@ def get(
     if urn is None and path is None:
         if not ctx.args:
             raise click.UsageError(
-                "Nothing for me to get. Maybe provide an urn or a path? Use ls if you want to explore me."
+                "Nothing for me to get. Maybe provide an urn or a path? Use ls if you want to explore me.",
             )
         urn_or_path = ctx.args[0]
         if urn_or_path.startswith("urn:"):
@@ -153,7 +155,7 @@ def get(
                             details=verbose,
                         ),
                         indent=2,
-                    )
+                    ),
                 )
             else:
                 parents.update(browseable.parents or [])
@@ -162,10 +164,13 @@ def get(
                 click.echo(
                     json.dumps(
                         lite.get(
-                            id=p, aspects=aspect, as_of=asof_millis, details=verbose
+                            id=p,
+                            aspects=aspect,
+                            as_of=asof_millis,
+                            details=verbose,
                         ),
                         indent=2,
-                    )
+                    ),
                 )
 
     if urn:
@@ -173,7 +178,7 @@ def get(
             json.dumps(
                 lite.get(id=urn, aspects=aspect, as_of=asof_millis, details=verbose),
                 indent=2,
-            )
+            ),
         )
     end_time = time.time()
     logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
@@ -186,7 +191,7 @@ def nuke(ctx: click.Context) -> None:
     """Nuke the instance"""
     lite = _get_datahub_lite()
     if click.confirm(
-        f"This will permanently delete the DataHub Lite instance at: {lite.location()}. Are you sure?"
+        f"This will permanently delete the DataHub Lite instance at: {lite.location()}. Are you sure?",
     ):
         lite.destroy()
         click.echo(f"DataHub Lite at {lite.location()} nuked!")
@@ -235,7 +240,7 @@ def ls(path: Optional[str]) -> None:
         if auto_complete:
             click.echo(
                 f"Path not found at {auto_complete[0].success_path}/".replace("//", "/")
-                + click.style(f"{auto_complete[0].failed_token}", fg="red")
+                + click.style(f"{auto_complete[0].failed_token}", fg="red"),
             )
             click.echo("Did you mean")
             for completable in auto_complete:
@@ -267,7 +272,8 @@ def ls(path: Optional[str]) -> None:
     "--flavor",
     required=False,
     type=click.Choice(
-        choices=[x.lower() for x in SearchFlavor._member_names_], case_sensitive=False
+        choices=[x.lower() for x in SearchFlavor._member_names_],
+        case_sensitive=False,
     ),
     default=SearchFlavor.FREE_TEXT.name.lower(),
     help="the flavor of the query, defaults to free text. Set to exact if you want to pass in a specific query to the database engine.",
@@ -295,14 +301,16 @@ def search(
         search_flavor = SearchFlavor[flavor.upper()]
     except KeyError:
         raise click.UsageError(
-            f"Failed to find a matching query flavor for {flavor}. Valid values are {[x.lower() for x in SearchFlavor._member_names_]}"
+            f"Failed to find a matching query flavor for {flavor}. Valid values are {[x.lower() for x in SearchFlavor._member_names_]}",
         )
     catalog = _get_datahub_lite(read_only=True)
     # sanitize query
     result_ids = set()
     try:
         for searchable in catalog.search(
-            query=query, flavor=search_flavor, aspects=aspect
+            query=query,
+            flavor=search_flavor,
+            aspects=aspect,
         ):
             result_str = searchable.id
             if details:
@@ -338,7 +346,7 @@ def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     new_lite_config = LiteLocalConfig.parse_obj(new_lite_config_dict)
     if lite_config != new_lite_config:
         if click.confirm(
-            f"Will replace datahub lite config {lite_config} with {new_lite_config}"
+            f"Will replace datahub lite config {lite_config} with {new_lite_config}",
         ):
             write_lite_config(new_lite_config)
 
@@ -354,7 +362,7 @@ def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
     if file is None:
         if not ctx.args:
             raise click.UsageError(
-                "Nothing for me to import. Maybe provide a metadata file?"
+                "Nothing for me to import. Maybe provide a metadata file?",
             )
         file = ctx.args[0]
 
@@ -377,20 +385,22 @@ def export(ctx: click.Context, file: str) -> None:
 
     current_time = int(time.time() * 1000.0)
     pipeline_ctx: PipelineContext = PipelineContext(
-        run_id=f"datahub-lite_{current_time}"
+        run_id=f"datahub-lite_{current_time}",
     )
     file = os.path.expanduser(file)
     base_dir = os.path.dirname(file)
     if base_dir:
         os.makedirs(base_dir, exist_ok=True)
     file_sink: FileSink = FileSink(
-        ctx=pipeline_ctx, config=FileSinkConfig(filename=file)
+        ctx=pipeline_ctx,
+        config=FileSinkConfig(filename=file),
     )
     datahub_lite = _get_datahub_lite(read_only=True)
     num_events = 0
     for mcp in datahub_lite.get_all_aspects():
         file_sink.write_record_async(
-            RecordEnvelope(record=mcp, metadata={}), write_callback=NoopWriteCallback()
+            RecordEnvelope(record=mcp, metadata={}),
+            write_callback=NoopWriteCallback(),
         )
         num_events += 1
 

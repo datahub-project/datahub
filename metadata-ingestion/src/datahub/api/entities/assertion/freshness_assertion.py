@@ -34,14 +34,14 @@ class CronFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
     freshness_type: Literal["cron"]
     cron: str = v1_Field(
-        description="The cron expression to use. See https://crontab.guru/ for help."
+        description="The cron expression to use. See https://crontab.guru/ for help.",
     )
     timezone: str = v1_Field(
         "UTC",
         description="The timezone to use for the cron schedule. Defaults to UTC.",
     )
     source_type: FreshnessSourceType = v1_Field(
-        default=FreshnessSourceType.LAST_MODIFIED_COLUMN
+        default=FreshnessSourceType.LAST_MODIFIED_COLUMN,
     )
     last_modified_field: str
     filters: Optional[DatasetFilter] = v1_Field(default=None)
@@ -69,7 +69,7 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
     lookback_interval: timedelta
     filters: Optional[DatasetFilter] = v1_Field(default=None)
     source_type: FreshnessSourceType = v1_Field(
-        default=FreshnessSourceType.LAST_MODIFIED_COLUMN
+        default=FreshnessSourceType.LAST_MODIFIED_COLUMN,
     )
     last_modified_field: str
 

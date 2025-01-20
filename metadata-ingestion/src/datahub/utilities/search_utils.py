@@ -73,7 +73,10 @@ class ElasticsearchQueryBuilder:
         return re.sub(f"([{re.escape(cls.SPECIAL_CHARACTERS)}])", r"\\\1", value)
 
     def _create_term(
-        self, field: SearchField, value: str, is_exact: bool = False
+        self,
+        field: SearchField,
+        value: str,
+        is_exact: bool = False,
     ) -> str:
         escaped_value = self.escape_special_characters(field.get_search_value(value))
         field_name: str = field.field_name
@@ -82,14 +85,20 @@ class ElasticsearchQueryBuilder:
         return f"{field_name}:{escaped_value}"
 
     def add_field_match(
-        self, field: SearchField, value: str, is_exact: bool = True
+        self,
+        field: SearchField,
+        value: str,
+        is_exact: bool = True,
     ) -> "ElasticsearchQueryBuilder":
         term = self._create_term(field, value, is_exact)
         self.root.add_child(term)
         return self
 
     def add_field_not_match(
-        self, field: SearchField, value: str, is_exact: bool = True
+        self,
+        field: SearchField,
+        value: str,
+        is_exact: bool = True,
     ) -> "ElasticsearchQueryBuilder":
         term = f"-{self._create_term(field, value, is_exact)}"
         self.root.add_child(term)
@@ -117,14 +126,20 @@ class ElasticsearchQueryBuilder:
         return self
 
     def add_fuzzy(
-        self, field: str, value: str, fuzziness: int = 2
+        self,
+        field: str,
+        value: str,
+        fuzziness: int = 2,
     ) -> "ElasticsearchQueryBuilder":
         fuzzy_query = f"{field}:{value}~{fuzziness}"
         self.root.add_child(fuzzy_query)
         return self
 
     def add_boost(
-        self, field: str, value: str, boost: float
+        self,
+        field: str,
+        value: str,
+        boost: float,
     ) -> "ElasticsearchQueryBuilder":
         boosted_query = f"{field}:{value}^{boost}"
         self.root.add_child(boosted_query)
@@ -144,7 +159,10 @@ class QueryGroup:
         self.parent.root.add_child(self.node)
 
     def add_field_match(
-        self, field: Union[str, SearchField], value: str, is_exact: bool = True
+        self,
+        field: Union[str, SearchField],
+        value: str,
+        is_exact: bool = True,
     ) -> "QueryGroup":
         if isinstance(field, str):
             field = SearchField.from_string_field(field)
@@ -153,7 +171,10 @@ class QueryGroup:
         return self
 
     def add_field_not_match(
-        self, field: Union[str, SearchField], value: str, is_exact: bool = True
+        self,
+        field: Union[str, SearchField],
+        value: str,
+        is_exact: bool = True,
     ) -> "QueryGroup":
         if isinstance(field, str):
             field = SearchField.from_string_field(field)
@@ -226,14 +247,18 @@ class ElasticDocumentQuery(Generic[SF]):
                     instance.add_field_match(field, value)
                 elif isinstance(field, str):
                     instance.add_field_match(
-                        SearchField.from_string_field(field), value
+                        SearchField.from_string_field(field),
+                        value,
                     )
                 else:
                     raise ValueError("Invalid field type {}".format(type(field)))
         return instance
 
     def add_field_match(
-        self, field: Union[str, SearchField], value: str, is_exact: bool = True
+        self,
+        field: Union[str, SearchField],
+        value: str,
+        is_exact: bool = True,
     ) -> "ElasticDocumentQuery":
         if isinstance(field, str):
             field = SearchField.from_string_field(field)
@@ -241,7 +266,10 @@ class ElasticDocumentQuery(Generic[SF]):
         return self
 
     def add_field_not_match(
-        self, field: SearchField, value: str, is_exact: bool = True
+        self,
+        field: SearchField,
+        value: str,
+        is_exact: bool = True,
     ) -> "ElasticDocumentQuery":
         self.query_builder.add_field_not_match(field, value, is_exact)
         return self
@@ -256,7 +284,11 @@ class ElasticDocumentQuery(Generic[SF]):
     ) -> "ElasticDocumentQuery":
         field_name: str = field.field_name  # type: ignore
         self.query_builder.add_range(
-            field_name, min_value, max_value, include_min, include_max
+            field_name,
+            min_value,
+            max_value,
+            include_min,
+            include_max,
         )
         return self
 
@@ -266,14 +298,20 @@ class ElasticDocumentQuery(Generic[SF]):
         return self
 
     def add_fuzzy(
-        self, field: SearchField, value: str, fuzziness: int = 2
+        self,
+        field: SearchField,
+        value: str,
+        fuzziness: int = 2,
     ) -> "ElasticDocumentQuery":
         field_name: str = field.field_name  # type: ignore
         self.query_builder.add_fuzzy(field_name, value, fuzziness)
         return self
 
     def add_boost(
-        self, field: SearchField, value: str, boost: float
+        self,
+        field: SearchField,
+        value: str,
+        boost: float,
     ) -> "ElasticDocumentQuery":
         self.query_builder.add_boost(field.field_name, value, boost)
         return self

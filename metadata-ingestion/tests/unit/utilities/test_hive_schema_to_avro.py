@@ -21,7 +21,8 @@ def test_get_avro_schema_for_struct_hive_column():
 
 def test_get_avro_schema_for_struct_hive_with_duplicate_column():
     schema_fields = get_schema_fields_for_hive_column(
-        "test", "struct<test:int, test2:int, test:int>"
+        "test",
+        "struct<test:int, test2:int, test:int>",
     )
     assert schema_fields[0].type.type == RecordTypeClass()
     # Len will be the struct + 2 key there which should remain after the deduplication
@@ -39,7 +40,8 @@ def test_get_avro_schema_for_struct_hive_with_duplicate_column2():
 
 def test_get_avro_schema_for_null_type_hive_column():
     schema_fields = get_schema_fields_for_hive_column(
-        hive_column_name="test", hive_column_type="unknown"
+        hive_column_name="test",
+        hive_column_type="unknown",
     )
     assert schema_fields[0].type.type == NullTypeClass()
     assert len(schema_fields) == 1

@@ -21,7 +21,7 @@ from datahub.utilities.urns._urn_base import URN_TYPES
 
 _UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
 ENTITY_REGISTRY_PATH = pathlib.Path(
-    "../metadata-models/src/main/resources/entity-registry.yml"
+    "../metadata-models/src/main/resources/entity-registry.yml",
 )
 
 
@@ -71,7 +71,7 @@ def test_urn_annotation():
         == "DatasetUrn"
     )
     assert not UpstreamClass.RECORD_SCHEMA.fields_dict["dataset"].get_prop(
-        "urn_is_array"
+        "urn_is_array",
     )
 
     assert (
@@ -79,7 +79,7 @@ def test_urn_annotation():
         == "Urn"
     )
     assert FineGrainedLineageClass.RECORD_SCHEMA.fields_dict["upstreams"].get_prop(
-        "urn_is_array"
+        "urn_is_array",
     )
 
 
@@ -96,7 +96,7 @@ def _add_to_registry(entity: str, aspect: str) -> None:
             break
     else:
         raise ValueError(
-            f'could not find entity "{entity}" in entity registry at {ENTITY_REGISTRY_PATH}'
+            f'could not find entity "{entity}" in entity registry at {ENTITY_REGISTRY_PATH}',
         )
 
     # Prevent line wrapping + preserve indentation.
@@ -116,14 +116,15 @@ def test_entity_registry_completeness():
         errors.append(msg)
 
     snapshot_classes: List[Type] = typing_inspect.get_args(
-        typing.get_type_hints(MetadataChangeEventClass.__init__)["proposedSnapshot"]
+        typing.get_type_hints(MetadataChangeEventClass.__init__)["proposedSnapshot"],
     )
 
     lowercase_entity_type_map = {name.lower(): name for name in KEY_ASPECTS}
 
     for snapshot_class in snapshot_classes:
         lowercase_entity_type: str = snapshot_class.__name__.replace(
-            "SnapshotClass", ""
+            "SnapshotClass",
+            "",
         ).lower()
         entity_type = lowercase_entity_type_map.get(lowercase_entity_type)
         if entity_type is None:
@@ -135,8 +136,8 @@ def test_entity_registry_completeness():
 
         snapshot_aspect_types: List[Type[_Aspect]] = typing_inspect.get_args(
             typing_inspect.get_args(
-                typing.get_type_hints(snapshot_class.__init__)["aspects"]
-            )[0]
+                typing.get_type_hints(snapshot_class.__init__)["aspects"],
+            )[0],
         )
 
         # print(f"Entity type: {entity_type}")
@@ -153,7 +154,7 @@ def test_entity_registry_completeness():
                     _add_to_registry(entity_type, aspect_name)
                 else:
                     _err(
-                        f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry"
+                        f"entity {entity_type}: aspect {aspect_name} is missing from the entity registry",
                     )
 
     assert not errors, (

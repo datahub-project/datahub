@@ -38,7 +38,10 @@ class LookerViewFileLoader:
         self.source_config = source_config
 
     def _load_viewfile(
-        self, project_name: str, path: str, reporter: LookMLSourceReport
+        self,
+        project_name: str,
+        path: str,
+        reporter: LookMLSourceReport,
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
@@ -49,7 +52,7 @@ class LookerViewFileLoader:
         if not matched_any_extension:
             # not a view file
             logger.debug(
-                f"Skipping file {path} because it doesn't appear to be a view file. Matched extensions {allowed_extensions}"
+                f"Skipping file {path} because it doesn't appear to be a view file. Matched extensions {allowed_extensions}",
             )
             return None
 

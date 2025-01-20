@@ -32,12 +32,14 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
                 "Datahub server is not capable of supporting stateful ingestion. "
-                "Please consider upgrading to the latest server version to use this feature."
+                "Please consider upgrading to the latest server version to use this feature.",
             )
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
     ) -> "DatahubIngestionCheckpointingProvider":
         config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
         if config.datahub_api is not None:
@@ -47,7 +49,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             return cls(ctx.graph)
         else:
             raise ValueError(
-                "A graph instance is required. Either pass one in the pipeline context, or set it explicitly in the stateful ingestion provider config."
+                "A graph instance is required. Either pass one in the pipeline context, or set it explicitly in the stateful ingestion provider config.",
             )
 
     def _is_server_stateful_ingestion_capable(self) -> bool:
@@ -63,11 +65,13 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     ) -> Optional[DatahubIngestionCheckpointClass]:
         logger.debug(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
-            f" job_name:'{job_name}'"
+            f" job_name:'{job_name}'",
         )
 
         data_job_urn = self.get_data_job_urn(
-            self.orchestrator_name, pipeline_name, job_name
+            self.orchestrator_name,
+            pipeline_name,
+            job_name,
         )
 
         latest_checkpoint: Optional[DatahubIngestionCheckpointClass] = (
@@ -83,13 +87,13 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" job_name:'{job_name}' found with start_time:"
-                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}"
+                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}",
             )
             return latest_checkpoint
         else:
             logger.debug(
                 f"No committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
-                f" job_name:'{job_name}' found"
+                f" job_name:'{job_name}' found",
             )
 
         return None
@@ -103,7 +107,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             # Emit the ingestion state for each job
             logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
-                f"job:'{job_name}'"
+                f"job:'{job_name}'",
             )
 
             self.committed = False
@@ -124,12 +128,12 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 MetadataChangeProposalWrapper(
                     entityUrn=datajob_urn,
                     aspect=checkpoint,
-                )
+                ),
             )
 
             self.committed = True
 
             logger.debug(
                 f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
-                f"job:'{job_name}'"
+                f"job:'{job_name}'",
             )

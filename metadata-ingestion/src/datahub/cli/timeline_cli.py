@@ -37,7 +37,7 @@ def pretty_id(id: Optional[str]) -> str:
     assert id is not None
     if id.startswith("urn:li:datasetField:") or id.startswith("urn:li:schemaField:"):
         schema_field_key = schema_field_urn_to_key(
-            id.replace("urn:li:datasetField", "urn:li:schemaField")
+            id.replace("urn:li:datasetField", "urn:li:schemaField"),
         )
         if schema_field_key:
             assert schema_field_key is not None
@@ -73,7 +73,7 @@ def get_timeline(
         encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
-            f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
+            f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)",
         )
     categories: str = ",".join([c.upper() for c in category])
     start_time_param: str = f"&startTime={start_time}" if start_time else ""
@@ -124,7 +124,11 @@ def get_timeline(
     help="The end time for the timeline query in milliseconds. Shorthand form like 7days is also supported. e.g. --end 7daysago implies a timestamp 7 days ago",
 )
 @click.option(
-    "--verbose", "-v", type=bool, is_flag=True, help="Show the underlying http response"
+    "--verbose",
+    "-v",
+    type=bool,
+    is_flag=True,
+    help="Show the underlying http response",
 )
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
@@ -151,7 +155,7 @@ def timeline(
     for c in category:
         if c.upper() not in all_categories:
             raise click.UsageError(
-                f"category: {c.upper()} is not one of {all_categories}"
+                f"category: {c.upper()} is not one of {all_categories}",
             )
 
     if urn is None:
@@ -187,7 +191,7 @@ def timeline(
     if isinstance(timeline, list) and not verbose:
         for change_txn in timeline:
             change_instant = str(
-                datetime.fromtimestamp(change_txn["timestamp"] // 1000)
+                datetime.fromtimestamp(change_txn["timestamp"] // 1000),
             )
             change_color = (
                 "green"
@@ -196,7 +200,7 @@ def timeline(
             )
 
             click.echo(
-                f"{click.style(change_instant, fg='cyan')} - {click.style(change_txn['semVer'], fg=change_color)}"
+                f"{click.style(change_instant, fg='cyan')} - {click.style(change_txn['semVer'], fg=change_color)}",
             )
             if change_txn["changeEvents"] is not None:
                 for change_event in change_txn["changeEvents"]:
@@ -213,10 +217,10 @@ def timeline(
                     target_string = pretty_id(
                         change_event.get("target")
                         or change_event.get("entityUrn")
-                        or ""
+                        or "",
                     )
                     click.echo(
-                        f"\t{click.style(change_event.get('changeType') or change_event.get('operation'), fg=event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                        f"\t{click.style(change_event.get('changeType') or change_event.get('operation'), fg=event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}",
                     )
     else:
         click.echo(
@@ -224,5 +228,5 @@ def timeline(
                 timeline,
                 sort_keys=True,
                 indent=2,
-            )
+            ),
         )

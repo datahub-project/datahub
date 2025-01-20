@@ -90,7 +90,7 @@ from datahub.configuration.config_loader import (
                                 "test_url$vanillavar",
                                 "test_urlstuff9vanillaVarstuff10",
                                 "${VAR11}",
-                            ]
+                            ],
                         },
                     ],
                 },
@@ -153,7 +153,7 @@ def test_load_strict_env_syntax() -> None:
     assert EnvResolver(
         environ={
             "BAR": "bar",
-        }
+        },
     ).resolve(config) == {
         "foo": "bar",
         "baz": "$BAZ",
@@ -237,7 +237,7 @@ def test_write_file_directive(pytestconfig):
                 -----BEGIN CERTIFICATE-----
                 thisisnotarealcert
                 -----END CERTIFICATE-----
-                """
+                """,
             ).lstrip()
         )
 

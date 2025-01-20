@@ -285,7 +285,8 @@ class MCPDiff:
     @staticmethod
     def report_diff_level(diff: DiffLevel, idx: int) -> str:
         return "\t" + deepdiff.serialization.pretty_print_diff(diff).replace(
-            f"root[{idx}].", ""
+            f"root[{idx}].",
+            "",
         )
 
 

@@ -29,5 +29,5 @@ def ensure_no_enum_mixin(dirs: List[pathlib.Path]) -> None:
                         raise ValueError(
                             f"Disallowed enum mixin found in {file}: `{line.rstrip()}`. "
                             "This enum mixin's behavior changed in Python 3.11, so it will work inconsistently across versions."
-                            "Use datahub.utilities.str_enum.StrEnum instead."
+                            "Use datahub.utilities.str_enum.StrEnum instead.",
                         )

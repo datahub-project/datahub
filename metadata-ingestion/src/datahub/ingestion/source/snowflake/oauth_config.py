@@ -14,7 +14,7 @@ class OAuthIdentityProvider(Enum):
 class OAuthConfiguration(ConfigModel):
     provider: OAuthIdentityProvider = Field(
         description="Identity provider for oauth."
-        "Supported providers are microsoft and okta."
+        "Supported providers are microsoft and okta.",
     )
     authority_url: str = Field(description="Authority url of your identity provider")
     client_id: str = Field(description="client id of your registered application")
@@ -24,11 +24,14 @@ class OAuthConfiguration(ConfigModel):
         default=False,
     )
     client_secret: Optional[SecretStr] = Field(
-        None, description="client secret of the application if use_certificate = false"
+        None,
+        description="client secret of the application if use_certificate = false",
     )
     encoded_oauth_public_key: Optional[str] = Field(
-        None, description="base64 encoded certificate content if use_certificate = true"
+        None,
+        description="base64 encoded certificate content if use_certificate = true",
     )
     encoded_oauth_private_key: Optional[str] = Field(
-        None, description="base64 encoded private key content if use_certificate = true"
+        None,
+        description="base64 encoded private key content if use_certificate = true",
     )

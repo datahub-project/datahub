@@ -49,7 +49,7 @@ def register_mock_api(request_mock, override_mock_data={}):
                         "HasSharedDataSets": True,
                         "HasParameters": True,
                     },
-                ]
+                ],
             },
         },
         "https://host_port/Reports/api/v2.0/LinkedReports": {
@@ -78,7 +78,7 @@ def register_mock_api(request_mock, override_mock_data={}):
                         "HasParameters": True,
                         "Link": "sjfgnk-7134-1234-abcd-ee5axvcv938b",
                     },
-                ]
+                ],
             },
         },
         "https://host_port/Reports/api/v2.0/PowerBIReports": {
@@ -105,7 +105,7 @@ def register_mock_api(request_mock, override_mock_data={}):
                         "HasDataSources": True,
                         "Roles": [],
                     },
-                ]
+                ],
             },
         },
     }
@@ -169,7 +169,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
     register_mock_api(request_mock=requests_mock)
 
     pipeline = Pipeline.create(
-        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json"),
     )
 
     add_mock_method_in_pipeline(pipeline=pipeline)
@@ -188,7 +188,11 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest_with_failure(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/powerbi_report_server"
@@ -201,12 +205,12 @@ def test_powerbi_ingest_with_failure(
                 "method": "GET",
                 "status_code": 404,
                 "json": {"error": "Request Failed"},
-            }
+            },
         },
     )
 
     pipeline = Pipeline.create(
-        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json"),
     )
 
     add_mock_method_in_pipeline(pipeline=pipeline)

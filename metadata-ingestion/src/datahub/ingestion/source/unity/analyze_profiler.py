@@ -30,7 +30,8 @@ class UnityCatalogAnalyzeProfiler:
     dataset_urn_builder: Callable[[TableReference], str]
 
     def get_workunits(
-        self, table_refs: Collection[TableReference]
+        self,
+        table_refs: Collection[TableReference],
     ) -> Iterable[MetadataWorkUnit]:
         try:
             tables = self._filter_tables(table_refs)
@@ -46,7 +47,8 @@ class UnityCatalogAnalyzeProfiler:
             return
 
     def _filter_tables(
-        self, table_refs: Collection[TableReference]
+        self,
+        table_refs: Collection[TableReference],
     ) -> Collection[TableReference]:
         return [
             ref
@@ -69,12 +71,15 @@ class UnityCatalogAnalyzeProfiler:
         except Exception as e:
             self.report.report_warning("profiling", str(e))
             logger.warning(
-                f"Unexpected error during profiling table {ref}: {e}", exc_info=True
+                f"Unexpected error during profiling table {ref}: {e}",
+                exc_info=True,
             )
         return None
 
     def gen_dataset_profile_workunit(
-        self, ref: TableReference, table_profile: TableProfile
+        self,
+        ref: TableReference,
+        table_profile: TableProfile,
     ) -> MetadataWorkUnit:
         row_count = table_profile.num_rows
         aspect = DatasetProfileClass(
@@ -99,7 +104,8 @@ class UnityCatalogAnalyzeProfiler:
 
     @staticmethod
     def _gen_dataset_field_profile(
-        num_rows: Optional[int], column_profile: ColumnProfile
+        num_rows: Optional[int],
+        column_profile: ColumnProfile,
     ) -> DatasetFieldProfileClass:
         unique_proportion: Optional[float] = None
         null_proportion: Optional[float] = None

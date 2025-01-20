@@ -24,7 +24,7 @@ class ConfluentS3SinkConnector(BaseConnector):
         bucket = connector_manifest.config.get("s3.bucket.name")
         if not bucket:
             raise ValueError(
-                "Could not find 's3.bucket.name' in connector configuration"
+                "Could not find 's3.bucket.name' in connector configuration",
             )
 
         # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#storage
@@ -66,7 +66,7 @@ class ConfluentS3SinkConnector(BaseConnector):
                         source_platform="kafka",
                         target_dataset=target_dataset,
                         target_platform=parser.target_platform,
-                    )
+                    ),
                 )
             return lineages
         except Exception as e:
@@ -113,7 +113,7 @@ class SnowflakeSinkConnector(BaseConnector):
         provided_topics_to_tables: Dict[str, str] = {}
         if connector_manifest.config.get("snowflake.topic2table.map"):
             for each in connector_manifest.config["snowflake.topic2table.map"].split(
-                ","
+                ",",
             ):
                 topic, table = each.split(":")
                 provided_topics_to_tables[topic.strip()] = table.strip()
@@ -163,7 +163,7 @@ class SnowflakeSinkConnector(BaseConnector):
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform="snowflake",
-                )
+                ),
             )
 
         return lineages
@@ -251,7 +251,9 @@ class BigQuerySinkConnector(BaseConnector):
         return table_name
 
     def get_dataset_table_for_topic(
-        self, topic: str, parser: BQParser
+        self,
+        topic: str,
+        parser: BQParser,
     ) -> Optional[str]:
         if parser.version == "v2":
             dataset = parser.defaultDataset
@@ -269,7 +271,7 @@ class BigQuerySinkConnector(BaseConnector):
             table = topic
             if parser.topicsToTables:
                 topicregex_table_map: Dict[str, str] = dict(
-                    self.get_list(parser.topicsToTables)  # type: ignore
+                    self.get_list(parser.topicsToTables),  # type: ignore
                 )
                 from java.util.regex import Pattern
 
@@ -284,7 +286,9 @@ class BigQuerySinkConnector(BaseConnector):
         return f"{dataset}.{table}"
 
     def apply_transformations(
-        self, topic: str, transforms: List[Dict[str, str]]
+        self,
+        topic: str,
+        transforms: List[Dict[str, str]],
     ) -> str:
         for transform in transforms:
             if transform["type"] == "org.apache.kafka.connect.transforms.RegexRouter":
@@ -331,7 +335,7 @@ class BigQuerySinkConnector(BaseConnector):
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
-                )
+                ),
             )
         return lineages
 

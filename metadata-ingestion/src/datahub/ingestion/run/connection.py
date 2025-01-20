@@ -23,7 +23,7 @@ class ConnectionManager:
             ):
                 # validate that the class overrides the base implementation
                 return source_class.test_connection(
-                    recipe_config_dict.get("source", {}).get("config", {})
+                    recipe_config_dict.get("source", {}).get("config", {}),
                 )
             else:
                 return TestConnectionReport(

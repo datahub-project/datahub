@@ -25,13 +25,18 @@ class DatasetTagDomainMapper(DatasetDomainTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "DatasetTagDomainMapper":
         config = DatasetTagDomainMapperConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         # Initialize the existing domain aspect
         existing_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
@@ -55,14 +60,17 @@ class DatasetTagDomainMapper(DatasetDomainTransformer):
                         domains_to_add.append(domain_mapping[tag])
 
                 mapped_domains = AddDatasetDomain.get_domain_class(
-                    self.ctx.graph, domains_to_add
+                    self.ctx.graph,
+                    domains_to_add,
                 )
                 domain_aspect.domains.extend(mapped_domains.domains)
                 if self.config.semantics == TransformerSemantics.PATCH:
                     # Try merging with server-side domains
                     patch_domain_aspect: Optional[DomainsClass] = (
                         AddDatasetDomain._merge_with_server_domains(
-                            self.ctx.graph, entity_urn, domain_aspect
+                            self.ctx.graph,
+                            entity_urn,
+                            domain_aspect,
                         )
                     )
                     return cast(Optional[Aspect], patch_domain_aspect)

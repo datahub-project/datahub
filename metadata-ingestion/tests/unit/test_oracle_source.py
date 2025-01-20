@@ -17,7 +17,7 @@ def test_oracle_config():
         {
             **base_config,
             "service_name": "svc01",
-        }
+        },
     )
     assert (
         config.get_sql_alchemy_url()
@@ -30,11 +30,11 @@ def test_oracle_config():
                 **base_config,
                 "database": "db",
                 "service_name": "svc01",
-            }
+            },
         )
 
     with unittest.mock.patch(
-        "datahub.ingestion.source.sql.sql_common.SQLAlchemySource.get_workunits"
+        "datahub.ingestion.source.sql.sql_common.SQLAlchemySource.get_workunits",
     ):
         OracleSource.create(
             {

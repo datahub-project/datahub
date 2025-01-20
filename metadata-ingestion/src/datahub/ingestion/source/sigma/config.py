@@ -72,10 +72,13 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 
 class SigmaSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
 ):
     api_url: str = pydantic.Field(
-        default=Constant.DEFAULT_API_URL, description="Sigma API hosted URL."
+        default=Constant.DEFAULT_API_URL,
+        description="Sigma API hosted URL.",
     )
     client_id: str = pydantic.Field(description="Sigma Client ID")
     client_secret: str = pydantic.Field(description="Sigma Client Secret")
@@ -107,5 +110,6 @@ class SigmaSourceConfig(
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Sigma Stateful Ingestion Config."
+        default=None,
+        description="Sigma Stateful Ingestion Config.",
     )

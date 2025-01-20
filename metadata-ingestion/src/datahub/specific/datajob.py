@@ -37,7 +37,9 @@ class DataJobPatchBuilder(
             audit_header: The Kafka audit header of the data job (optional).
         """
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     @classmethod
@@ -207,7 +209,8 @@ class DataJobPatchBuilder(
         return self
 
     def add_output_dataset(
-        self, output: Union[Edge, Urn, str]
+        self,
+        output: Union[Edge, Urn, str],
     ) -> "DataJobPatchBuilder":
         """
         Adds an output dataset to the DataJobPatchBuilder.
@@ -314,7 +317,8 @@ class DataJobPatchBuilder(
         return self
 
     def remove_input_dataset_field(
-        self, input: Union[str, Urn]
+        self,
+        input: Union[str, Urn],
     ) -> "DataJobPatchBuilder":
         """
         Removes an input dataset field from the DataJobPatchBuilder.
@@ -360,7 +364,8 @@ class DataJobPatchBuilder(
         return self
 
     def add_output_dataset_field(
-        self, output: Union[Urn, str]
+        self,
+        output: Union[Urn, str],
     ) -> "DataJobPatchBuilder":
         """
         Adds an output dataset field to the DataJobPatchBuilder.
@@ -386,7 +391,8 @@ class DataJobPatchBuilder(
         return self
 
     def remove_output_dataset_field(
-        self, output: Union[str, Urn]
+        self,
+        output: Union[str, Urn],
     ) -> "DataJobPatchBuilder":
         """
         Removes an output dataset field from the DataJobPatchBuilder.

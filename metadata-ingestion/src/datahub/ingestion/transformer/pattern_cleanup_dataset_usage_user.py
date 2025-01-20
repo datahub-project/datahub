@@ -36,21 +36,27 @@ class PatternCleanupDatasetUsageUser(DatasetUsageStatisticsTransformer):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternCleanupDatasetUsageUser":
         config = PatternCleanupDatasetUsageUserConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_dataset_properties_aspect: DatasetUsageStatisticsClass = cast(
-            DatasetUsageStatisticsClass, aspect
+            DatasetUsageStatisticsClass,
+            aspect,
         )
 
         if in_dataset_properties_aspect.userCounts is not None:
             out_dataset_properties_aspect: DatasetUsageStatisticsClass = copy.deepcopy(
-                in_dataset_properties_aspect
+                in_dataset_properties_aspect,
             )
 
             if out_dataset_properties_aspect.userCounts is not None:

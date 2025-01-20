@@ -9,7 +9,8 @@ from datahub.ingestion.api.source import (
 
 
 def run_test_connection(
-    source_cls: Type[TestableSource], config_dict: Dict
+    source_cls: Type[TestableSource],
+    config_dict: Dict,
 ) -> TestConnectionReport:
     return source_cls.test_connection(config_dict)
 
@@ -22,7 +23,8 @@ def assert_basic_connectivity_success(report: TestConnectionReport) -> None:
 
 
 def assert_basic_connectivity_failure(
-    report: TestConnectionReport, expected_reason: str
+    report: TestConnectionReport,
+    expected_reason: str,
 ) -> None:
     assert report is not None
     assert report.basic_connectivity

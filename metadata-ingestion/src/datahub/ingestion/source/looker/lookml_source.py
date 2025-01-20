@@ -114,12 +114,14 @@ class LookerView:
 
     @classmethod
     def determine_view_file_path(
-        cls, base_folder_path: str, absolute_file_path: str
+        cls,
+        base_folder_path: str,
+        absolute_file_path: str,
     ) -> str:
         splits: List[str] = absolute_file_path.split(base_folder_path, 1)
         if len(splits) != 2:
             logger.debug(
-                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching",
             )
             return ViewFieldValue.NOT_AVAILABLE.value
 
@@ -127,7 +129,7 @@ class LookerView:
         logger.debug(f"file_path={file_path}")
 
         return file_path.strip(
-            "/"
+            "/",
         )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
     @classmethod
@@ -168,7 +170,7 @@ class LookerView:
                 ViewFieldType.DIMENSION: view_context.dimensions(),
                 ViewFieldType.DIMENSION_GROUP: view_context.dimension_groups(),
                 ViewFieldType.MEASURE: view_context.measures(),
-            }
+            },
         )  # in order to maintain order in golden file
 
         view_fields: List[ViewField] = []
@@ -178,7 +180,7 @@ class LookerView:
                 upstream_column_ref: List[ColumnRef] = []
                 if extract_col_level_lineage:
                     upstream_column_ref = view_upstream.get_upstream_column_ref(
-                        field_context=LookerFieldContext(raw_field=field)
+                        field_context=LookerFieldContext(raw_field=field),
                     )
 
                 view_fields.append(
@@ -187,7 +189,7 @@ class LookerView:
                         upstream_column_ref=upstream_column_ref,
                         type_cls=field_type,
                         populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
-                    )
+                    ),
                 )
 
         # special case where view is defined as derived sql, however fields are not defined
@@ -221,7 +223,9 @@ class LookerView:
             materialized = view_context.is_materialized_derived_view()
 
             view_details = ViewProperties(
-                materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
+                materialized=materialized,
+                viewLogic=view_logic,
+                viewLanguage=view_lang,
             )
         else:
             view_details = ViewProperties(
@@ -306,7 +310,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             except SDKError as err:
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have "
-                    "manage_models permission enabled on this API key."
+                    "manage_models permission enabled on this API key.",
                 ) from err
 
     def _load_model(self, path: str) -> LookerModel:
@@ -329,7 +333,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         return looker_model
 
     def _get_upstream_lineage(
-        self, looker_view: LookerView
+        self,
+        looker_view: LookerView,
     ) -> Optional[UpstreamLineage]:
         upstream_dataset_urns = looker_view.upstream_dataset_urns
 
@@ -362,14 +367,15 @@ class LookMLSource(StatefulIngestionSourceBase):
                         make_schema_field_urn(
                             looker_view.id.get_urn(self.source_config),
                             field.name,
-                        )
+                        ),
                     ],
-                )
+                ),
             )
 
         if upstreams:
             return UpstreamLineage(
-                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+                upstreams=upstreams,
+                fineGrainedLineages=fine_grained_lineages or None,
             )
         else:
             return None
@@ -377,18 +383,19 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
         assert self.source_config.base_folder  # this is always filled out
         base_folder = self.base_projects_folder.get(
-            looker_view.id.project_name, self.source_config.base_folder
+            looker_view.id.project_name,
+            self.source_config.base_folder,
         )
         try:
             file_path = str(
                 pathlib.Path(looker_view.absolute_file_path).relative_to(
-                    base_folder.resolve()
-                )
+                    base_folder.resolve(),
+                ),
             )
         except Exception:
             file_path = None
             logger.warning(
-                f"Failed to resolve relative path for file {looker_view.absolute_file_path} w.r.t. folder {self.source_config.base_folder}"
+                f"Failed to resolve relative path for file {looker_view.absolute_file_path} w.r.t. folder {self.source_config.base_folder}",
             )
 
         custom_properties = {
@@ -396,7 +403,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             "looker.model": looker_view.id.model_name,
         }
         dataset_props = DatasetPropertiesClass(
-            name=looker_view.id.view_name, customProperties=custom_properties
+            name=looker_view.id.view_name,
+            customProperties=custom_properties,
         )
 
         maybe_git_info = self.source_config.project_dependencies.get(
@@ -415,7 +423,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         return dataset_props
 
     def _build_dataset_mcps(
-        self, looker_view: LookerView
+        self,
+        looker_view: LookerView,
     ) -> List[MetadataChangeProposalWrapper]:
         view_urn = looker_view.id.get_urn(self.source_config)
 
@@ -435,14 +444,14 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         container = ContainerClass(container=project_key.as_urn())
         events.append(
-            MetadataChangeProposalWrapper(entityUrn=view_urn, aspect=container)
+            MetadataChangeProposalWrapper(entityUrn=view_urn, aspect=container),
         )
 
         events.append(
             MetadataChangeProposalWrapper(
                 entityUrn=view_urn,
                 aspect=looker_view.id.get_browse_path_v2(self.source_config),
-            )
+            ),
         )
 
         return events
@@ -458,7 +467,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             aspects=[],  # we append to this list later on
         )
         browse_paths = BrowsePaths(
-            paths=[looker_view.id.get_browse_path(self.source_config)]
+            paths=[looker_view.id.get_browse_path(self.source_config)],
         )
 
         dataset_snapshot.aspects.append(browse_paths)
@@ -494,14 +503,15 @@ class LookMLSource(StatefulIngestionSourceBase):
         except SDKError:
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
-                f"in your config file"
+                f"in your config file",
             )
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
             manifest_dict = load_and_preprocess_file(
-                path=manifest_file, source_config=self.source_config
+                path=manifest_file,
+                source_config=self.source_config,
             )
 
             manifest = LookerManifest(
@@ -511,7 +521,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 ],
                 remote_dependencies=[
                     LookerRemoteDependency(
-                        name=x["name"], url=x["url"], ref=x.get("ref")
+                        name=x["name"],
+                        url=x["url"],
+                        ref=x.get("ref"),
                     )
                     for x in manifest_dict.get("remote_dependencys", [])
                 ],
@@ -524,7 +536,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -574,7 +588,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, BASE_PROJECT_NAME, visited_projects
+                tmp_dir,
+                BASE_PROJECT_NAME,
+                visited_projects,
             )
 
             yield from self.get_internal_workunits()
@@ -587,7 +603,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _recursively_check_manifests(
-        self, tmp_dir: str, project_name: str, project_visited: Set[str]
+        self,
+        tmp_dir: str,
+        project_name: str,
+        project_visited: Set[str],
     ) -> None:
         if project_name in project_visited:
             return
@@ -613,7 +632,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 logger.warning(
                     f"The project name in the manifest file '{manifest.project_name}'"
                     f"does not match the configured project name '{self.source_config.project_name}'. "
-                    "This can lead to failures in LookML include resolution and lineage generation."
+                    "This can lead to failures in LookML include resolution and lineage generation.",
                 )
             elif self.source_config.project_name is None:
                 self.source_config.project_name = manifest.project_name
@@ -663,7 +682,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_visited.add(project_name)
             else:
                 self._recursively_check_manifests(
-                    tmp_dir, remote_project.name, project_visited
+                    tmp_dir,
+                    remote_project.name,
+                    project_visited,
                 )
 
         for project in manifest.local_dependencies:
@@ -694,7 +715,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
-            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}")
+            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}"),
         )
         model_suffix_len = len(".model")
 
@@ -754,7 +775,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                         explore_dict = (
                             looker_refinement_resolver.apply_explore_refinement(
-                                explore_dict
+                                explore_dict,
                             )
                         )
                         explore: LookerExplore = LookerExplore.from_dict(
@@ -778,7 +799,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                         logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.setdefault(
-                model.connection, set()
+                model.connection,
+                set(),
             )
 
             project_name = self.get_project_name(model_name)
@@ -817,7 +839,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             and raw_view_name not in explore_reachable_views
                         ):
                             logger.debug(
-                                f"view {raw_view_name} is not reachable from an explore, skipping.."
+                                f"view {raw_view_name} is not reachable from an explore, skipping..",
                             )
                             self.reporter.report_unreachable_view_dropped(raw_view_name)
                             continue
@@ -840,7 +862,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 self.base_projects_folder.get(
                                     current_project_name,
                                     self.base_projects_folder[BASE_PROJECT_NAME],
-                                )
+                                ),
                             )
 
                             view_context: LookerViewContext = LookerViewContext(
@@ -879,13 +901,13 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                         if maybe_looker_view:
                             if self.source_config.view_pattern.allowed(
-                                maybe_looker_view.id.view_name
+                                maybe_looker_view.id.view_name,
                             ):
                                 view_urn = maybe_looker_view.id.get_urn(
-                                    self.source_config
+                                    self.source_config,
                                 )
                                 view_connection_mapping = view_connection_map.get(
-                                    view_urn
+                                    view_urn,
                                 )
                                 if not view_connection_mapping:
                                     view_connection_map[view_urn] = (
@@ -894,7 +916,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     )
                                     # first time we are discovering this view
                                     logger.debug(
-                                        f"Generating MCP for view {raw_view['name']}"
+                                        f"Generating MCP for view {raw_view['name']}",
                                     )
 
                                     if (
@@ -902,15 +924,15 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         not in self.processed_projects
                                     ):
                                         yield from self.gen_project_workunits(
-                                            maybe_looker_view.id.project_name
+                                            maybe_looker_view.id.project_name,
                                         )
 
                                         self.processed_projects.append(
-                                            maybe_looker_view.id.project_name
+                                            maybe_looker_view.id.project_name,
                                         )
 
                                     for mcp in self._build_dataset_mcps(
-                                        maybe_looker_view
+                                        maybe_looker_view,
                                     ):
                                         yield mcp.as_workunit()
                                     mce = self._build_dataset_mce(maybe_looker_view)
@@ -928,15 +950,15 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         # this view has previously been discovered and emitted using a different
                                         # connection
                                         logger.warning(
-                                            f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables"
+                                            f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables",
                                         )
                                         if not self.source_config.emit_reachable_views_only:
                                             logger.warning(
-                                                "Consider enabling the `emit_reachable_views_only` flag to handle this case."
+                                                "Consider enabling the `emit_reachable_views_only` flag to handle this case.",
                                             )
                             else:
                                 self.reporter.report_views_dropped(
-                                    str(maybe_looker_view.id)
+                                    str(maybe_looker_view.id),
                                 )
 
         if (
@@ -946,7 +968,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             # Emit tag MCEs for measures and dimensions:
             for tag_mce in LookerUtil.get_tag_mces():
                 yield MetadataWorkUnit(
-                    id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
+                    id=f"tag-{tag_mce.proposedSnapshot.urn}",
+                    mce=tag_mce,
                 )
 
     def gen_project_workunits(self, project_name: str) -> Iterable[MetadataWorkUnit]:

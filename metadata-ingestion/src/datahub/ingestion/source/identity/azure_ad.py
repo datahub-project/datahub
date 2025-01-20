@@ -60,19 +60,19 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Required
     client_id: str = Field(
-        description="Application ID. Found in your app registration on Azure AD Portal"
+        description="Application ID. Found in your app registration on Azure AD Portal",
     )
     tenant_id: str = Field(
-        description="Directory ID. Found in your app registration on Azure AD Portal"
+        description="Directory ID. Found in your app registration on Azure AD Portal",
     )
     client_secret: str = Field(
-        description="Client secret. Found in your app registration on Azure AD Portal"
+        description="Client secret. Found in your app registration on Azure AD Portal",
     )
     authority: str = Field(
-        description="The authority (https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from."
+        description="The authority (https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from.",
     )
     token_url: str = Field(
-        description="The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint."
+        description="The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint.",
     )
     # Optional: URLs for redirect and hitting the Graph API
     redirect: str = Field(
@@ -109,10 +109,12 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Optional: to ingest users, groups or both
     ingest_users: bool = Field(
-        default=True, description="Whether users should be ingested into DataHub."
+        default=True,
+        description="Whether users should be ingested into DataHub.",
     )
     ingest_groups: bool = Field(
-        default=True, description="Whether groups should be ingested into DataHub."
+        default=True,
+        description="Whether groups should be ingested into DataHub.",
     )
     ingest_group_membership: bool = Field(
         default=True,
@@ -150,7 +152,8 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description="Azure AD Stateful Ingestion Config."
+        default=None,
+        description="Azure AD Stateful Ingestion Config.",
     )
 
 
@@ -173,7 +176,8 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via stateful_ingestion",
 )
 class AzureADSource(StatefulIngestionSourceBase):
     """
@@ -267,11 +271,13 @@ class AzureADSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
-            filtered_tracking=self.config.filtered_tracking
+            filtered_tracking=self.config.filtered_tracking,
         )
         session = requests.Session()
         retries = Retry(
-            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+            total=5,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retries)
         session.mount("http://", adapter)
@@ -308,7 +314,9 @@ class AzureADSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -324,13 +332,13 @@ class AzureADSource(StatefulIngestionSourceBase):
             for azure_ad_groups in self._get_azure_ad_groups():
                 logger.info("Processing another groups batch...")
                 datahub_corp_group_snapshots = self._map_azure_ad_groups(
-                    azure_ad_groups
+                    azure_ad_groups,
                 )
                 for group_count, datahub_corp_group_snapshot in enumerate(
-                    datahub_corp_group_snapshots
+                    datahub_corp_group_snapshots,
                 ):
                     mce = MetadataChangeEvent(
-                        proposedSnapshot=datahub_corp_group_snapshot
+                        proposedSnapshot=datahub_corp_group_snapshot,
                     )
                     wu_id = (
                         f"group-{group_count + 1}"
@@ -383,10 +391,11 @@ class AzureADSource(StatefulIngestionSourceBase):
             # 3) the users
             # getting infos about the users belonging to the found groups
             datahub_corp_user_snapshots = self._map_azure_ad_users(
-                self.azure_ad_groups_users
+                self.azure_ad_groups_users,
             )
             yield from self.ingest_ad_users(
-                datahub_corp_user_snapshots, datahub_corp_user_urn_to_group_membership
+                datahub_corp_user_snapshots,
+                datahub_corp_user_urn_to_group_membership,
             )
 
         # Create MetadataWorkUnits for CorpUsers
@@ -429,7 +438,7 @@ class AzureADSource(StatefulIngestionSourceBase):
                 else:
                     # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
                     logger.warning(
-                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping...."
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping....",
                     )
 
     def _add_user_to_group_membership(
@@ -454,7 +463,7 @@ class AzureADSource(StatefulIngestionSourceBase):
         datahub_corp_user_urn_to_group_membership: dict,
     ) -> Generator[MetadataWorkUnit, Any, None]:
         for user_count, datahub_corp_user_snapshot in enumerate(
-            datahub_corp_user_snapshots
+            datahub_corp_user_snapshots,
         ):
             # TODO: Refactor common code between this and Okta to a common base class or utils
             # Add group membership aspect
@@ -529,11 +538,16 @@ class AzureADSource(StatefulIngestionSourceBase):
             result = func(id_to_extract)
         except Exception as e:
             error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to '{}'".format(
-                id_type, id_type, id_to_extract.get("displayName"), repr(e)
+                id_type,
+                id_type,
+                id_to_extract.get("displayName"),
+                repr(e),
             )
         if not result:
             error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unknown reason".format(
-                id_type, id_type, id_to_extract.get("displayName")
+                id_type,
+                id_type,
+                id_to_extract.get("displayName"),
             )
         if error_str is not None:
             logger.error(error_str)
@@ -603,7 +617,10 @@ class AzureADSource(StatefulIngestionSourceBase):
     def _map_azure_ad_users(self, azure_ad_users):
         for user in azure_ad_users:
             corp_user_urn, error_str = self._map_identity_to_urn(
-                self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping", "user"
+                self._map_azure_ad_user_to_urn,
+                user,
+                "azure_ad_user_mapping",
+                "user",
             )
             if error_str is not None:
                 continue
@@ -650,7 +667,10 @@ class AzureADSource(StatefulIngestionSourceBase):
         )
 
     def _extract_regex_match_from_dict_value(
-        self, str_dict: Dict[str, str], key: str, pattern: str
+        self,
+        str_dict: Dict[str, str],
+        key: str,
+        pattern: str,
     ) -> str:
         raw_value = str_dict.get(key)
         if raw_value is None:
@@ -658,6 +678,6 @@ class AzureADSource(StatefulIngestionSourceBase):
         match = re.search(pattern, raw_value)
         if match is None:
             raise ValueError(
-                f"Unable to extract a name from {raw_value} with the pattern {pattern}"
+                f"Unable to extract a name from {raw_value} with the pattern {pattern}",
             )
         return match.group()

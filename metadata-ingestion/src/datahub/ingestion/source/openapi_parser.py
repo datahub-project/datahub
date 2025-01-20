@@ -56,7 +56,9 @@ def request_call(
     headers = {"accept": "application/json"}
     if username is not None and password is not None:
         return requests.get(
-            url, headers=headers, auth=HTTPBasicAuth(username, password)
+            url,
+            headers=headers,
+            auth=HTTPBasicAuth(username, password),
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
@@ -75,7 +77,11 @@ def get_swag_json(
 ) -> Dict:
     tot_url = url + swagger_file
     response = request_call(
-        url=tot_url, token=token, username=username, password=password, proxies=proxies
+        url=tot_url,
+        token=token,
+        username=username,
+        password=password,
+        proxies=proxies,
     )
 
     if response.status_code != 200:
@@ -107,7 +113,7 @@ def check_sw_version(sw_dict: dict) -> None:
 
     if version[0] == 3 and version[1] > 0:
         logger.warning(
-            "This plugin has not been fully tested with Swagger version >3.0"
+            "This plugin has not been fully tested with Swagger version >3.0",
         )
 
 
@@ -177,7 +183,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                     data = res_cont["application/json"][ex_field][0]
             else:
                 logger.warning(
-                    f"Field in swagger file does not give consistent data --- {key}"
+                    f"Field in swagger file does not give consistent data --- {key}",
                 )
         elif "text/csv" in res_cont.keys():
             data = res_cont["text/csv"]["schema"]
@@ -294,7 +300,8 @@ def clean_url(url: str) -> str:
 
 
 def extract_fields(
-    response: requests.Response, dataset_name: str
+    response: requests.Response,
+    dataset_name: str,
 ) -> Tuple[List[Any], Dict[Any, Any]]:
     """
     Given a URL, this function will extract the fields contained in the
@@ -381,7 +388,9 @@ def get_tok(
 
 
 def set_metadata(
-    dataset_name: str, fields: List, platform: str = "api"
+    dataset_name: str,
+    fields: List,
+    platform: str = "api",
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
 

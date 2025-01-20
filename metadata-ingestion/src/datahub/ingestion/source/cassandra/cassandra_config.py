@@ -44,12 +44,15 @@ class CassandraCloudConfig(ConfigModel):
     )
 
     request_timeout: int = Field(
-        default=600, description="Timeout in seconds for individual Cassandra requests."
+        default=600,
+        description="Timeout in seconds for individual Cassandra requests.",
     )
 
 
 class CassandraSourceConfig(
-    PlatformInstanceConfigMixin, StatefulIngestionConfigBase, EnvConfigMixin
+    PlatformInstanceConfigMixin,
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
 ):
     """
     Configuration for connecting to a Cassandra or DataStax Astra DB source.
@@ -61,7 +64,8 @@ class CassandraSourceConfig(
     )
 
     port: int = Field(
-        default=9042, description="Port number to connect to the Cassandra instance."
+        default=9042,
+        description="Port number to connect to the Cassandra instance.",
     )
 
     username: Optional[str] = Field(
@@ -107,5 +111,5 @@ class CassandraSourceConfig(
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )

@@ -39,7 +39,9 @@ dataJob4.emit(emitter)
 
 # Hello World
 jobFlowRun: DataProcessInstance = DataProcessInstance(
-    orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{uuid.uuid4()}"
+    orchestrator="airflow",
+    cluster="prod",
+    id=f"{jobFlow.id}-{uuid.uuid4()}",
 )
 jobRun1: DataProcessInstance = DataProcessInstance(
     orchestrator="airflow",
@@ -49,7 +51,9 @@ jobRun1: DataProcessInstance = DataProcessInstance(
 jobRun1.parent_instance = jobFlowRun.urn
 jobRun1.template_urn = dataJob.urn
 jobRun1.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
+    emitter=emitter,
+    start_timestamp_millis=int(time.time() * 1000),
+    emit_template=False,
 )
 jobRun1.emit_process_end(
     emitter=emitter,
@@ -66,7 +70,9 @@ jobRun2.template_urn = dataJob2.urn
 jobRun2.parent_instance = jobFlowRun.urn
 jobRun2.upstream_urns = [jobRun1.urn]
 jobRun2.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
+    emitter=emitter,
+    start_timestamp_millis=int(time.time() * 1000),
+    emit_template=False,
 )
 jobRun2.emit_process_end(
     emitter=emitter,
@@ -84,7 +90,9 @@ jobRun3.parent_instance = jobFlowRun.urn
 jobRun3.template_urn = dataJob3.urn
 jobRun3.upstream_urns = [jobRun1.urn]
 jobRun3.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
+    emitter=emitter,
+    start_timestamp_millis=int(time.time() * 1000),
+    emit_template=False,
 )
 jobRun3.emit_process_end(
     emitter=emitter,
@@ -101,7 +109,9 @@ jobRun4.parent_instance = jobFlowRun.urn
 jobRun4.template_urn = dataJob4.urn
 jobRun4.upstream_urns = [jobRun2.urn, jobRun3.urn]
 jobRun4.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
+    emitter=emitter,
+    start_timestamp_millis=int(time.time() * 1000),
+    emit_template=False,
 )
 jobRun4.emit_process_end(
     emitter=emitter,

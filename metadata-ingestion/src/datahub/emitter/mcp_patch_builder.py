@@ -107,7 +107,7 @@ class MetadataPatchProposal:
                 aspectName=aspect_name,
                 aspect=GenericAspectClass(
                     value=json.dumps(
-                        pre_json_transform(_recursive_to_obj(patches))
+                        pre_json_transform(_recursive_to_obj(patches)),
                     ).encode(),
                     contentType=JSON_PATCH_CONTENT_TYPE,
                 ),
@@ -136,7 +136,10 @@ class MetadataPatchProposal:
 
     @classmethod
     def _ensure_urn_type(
-        cls, entity_type: str, edges: List[EdgeClass], context: str
+        cls,
+        entity_type: str,
+        edges: List[EdgeClass],
+        context: str,
     ) -> None:
         """
         Ensures that the destination URNs in the given edges have the specified entity type.
@@ -153,5 +156,5 @@ class MetadataPatchProposal:
             urn = Urn.from_string(e.destinationUrn)
             if not urn.entity_type == entity_type:
                 raise ValueError(
-                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
+                    f"{context}: {e.destinationUrn} is not of type {entity_type}",
                 )

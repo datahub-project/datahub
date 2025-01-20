@@ -141,11 +141,11 @@ def side_effect_group_data(*arg, **kwargs):
     mock_pagination.total_available = None
 
     group1: GroupItem = GroupItem(
-        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer"
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer",
     )
     group1._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1"
     group2: GroupItem = GroupItem(
-        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst"
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst",
     )
     group2._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2"
 
@@ -155,7 +155,8 @@ def side_effect_group_data(*arg, **kwargs):
 def side_effect_workbook_permissions(*arg, **kwargs):
     project_capabilities1 = {"Read": "Allow", "ViewComments": "Allow"}
     reference: ResourceReference = ResourceReference(
-        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group"
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1",
+        tag_name="group",
     )
     rule1 = PermissionsRule(grantee=reference, capabilities=project_capabilities1)
 
@@ -166,7 +167,8 @@ def side_effect_workbook_permissions(*arg, **kwargs):
         "Write": "Allow",
     }
     reference2: ResourceReference = ResourceReference(
-        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group"
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2",
+        tag_name="group",
     )
     rule2 = PermissionsRule(grantee=reference2, capabilities=project_capabilities2)
 
@@ -232,22 +234,26 @@ def side_effect_workbook_data(*arg, **kwargs):
     workbook1._id = "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
 
     workbook2: WorkbookItem = WorkbookItem(
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Dvdrental Workbook"
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+        name="Dvdrental Workbook",
     )
     workbook2._id = "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
 
     workbook3: WorkbookItem = WorkbookItem(
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Executive Dashboard"
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+        name="Executive Dashboard",
     )
     workbook3._id = "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
 
     workbook4: WorkbookItem = WorkbookItem(
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01", name="Workbook published ds"
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+        name="Workbook published ds",
     )
     workbook4._id = "a059a443-7634-4abf-9e46-d147b99168be"
 
     workbook5: WorkbookItem = WorkbookItem(
-        project_id="79d02655-88e5-45a6-9f9b-eeaf5fe54903", name="Deny Pattern WorkBook"
+        project_id="79d02655-88e5-45a6-9f9b-eeaf5fe54903",
+        name="Deny Pattern WorkBook",
     )
     workbook5._id = "b45eabfe-dc3d-4331-9324-cc1b14b0549b"
 
@@ -304,7 +310,7 @@ def mock_sdk_client(
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
     workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
     type(workbook_mock).permissions = mock.PropertyMock(
-        return_value=side_effect_workbook_permissions()
+        return_value=side_effect_workbook_permissions(),
     )
     mock_client.workbooks.get_by_id.return_value = workbook_mock
 
@@ -355,7 +361,7 @@ def tableau_ingest_common(
                             "filename": f"{tmp_path}/{output_file_name}",
                         },
                     },
-                }
+                },
             )
             pipeline.run()
             pipeline.raise_from_status()
@@ -410,7 +416,8 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 def test_tableau_test_connection_success():
     with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
-            TableauSource, config_source_default
+            TableauSource,
+            config_source_default,
         )
         test_connection_helpers.assert_basic_connectivity_success(report)
 
@@ -419,7 +426,8 @@ def test_tableau_test_connection_success():
 @pytest.mark.integration
 def test_tableau_test_connection_failure():
     report = test_connection_helpers.run_test_connection(
-        TableauSource, config_source_default
+        TableauSource,
+        config_source_default,
     )
     test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
 
@@ -565,7 +573,9 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
 
 
 def test_value_error_projects_and_project_pattern(
-    pytestconfig, tmp_path, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_datahub_graph,
 ):
     new_config = config_source_default.copy()
     new_config["projects"] = ["default"]
@@ -632,7 +642,9 @@ def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_with_platform_instance(
-    pytestconfig, tmp_path, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_datahub_graph,
 ):
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
@@ -689,7 +701,8 @@ def test_lineage_overrides():
             "test-table",
             "presto",
         ).make_dataset_urn(
-            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
+            env=DEFAULT_ENV,
+            platform_instance_map={"presto": "my_presto_instance"},
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
@@ -757,7 +770,7 @@ def test_database_hostname_to_platform_instance_map():
             env=DEFAULT_ENV,
             platform_instance_map={},
             database_hostname_to_platform_instance_map={
-                "test-hostname": "test-platform-instance"
+                "test-hostname": "test-platform-instance",
             },
             database_server_hostname_map={"test-database-id": "test-hostname"},
         )
@@ -802,10 +815,12 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
+        pipeline=pipeline_run1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
+        pipeline=pipeline_run2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted table should not be
@@ -814,7 +829,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     state2 = checkpoint2.state
 
     difference_dataset_urns = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
     )
 
     assert len(difference_dataset_urns) == 35
@@ -858,7 +873,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
     difference_chart_urns = list(
-        state1.get_urns_not_in(type="chart", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="chart", other_checkpoint_state=state2),
     )
     assert len(difference_chart_urns) == 24
     deleted_chart_urns = [
@@ -890,7 +905,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_chart_urns) == sorted(difference_chart_urns)
 
     difference_dashboard_urns = list(
-        state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
     )
     assert len(difference_dashboard_urns) == 4
     deleted_dashboard_urns = [
@@ -948,11 +963,14 @@ def test_tableau_unsupported_csql():
     config = TableauConfig.parse_obj(config_dict)
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
-        database_override_map={"production database": "prod"}
+        database_override_map={"production database": "prod"},
     )
 
     def check_lineage_metadata(
-        lineage, expected_entity_urn, expected_upstream_table, expected_cll
+        lineage,
+        expected_entity_urn,
+        expected_upstream_table,
+        expected_cll,
     ):
         mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
 
@@ -961,17 +979,17 @@ def test_tableau_unsupported_csql():
                 UpstreamClass(
                     dataset=expected_upstream_table,
                     type=DatasetLineageType.TRANSFORMED,
-                )
+                ),
             ],
             fineGrainedLineages=[
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
-                        make_schema_field_urn(expected_upstream_table, upstream_column)
+                        make_schema_field_urn(expected_upstream_table, upstream_column),
                     ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
-                        make_schema_field_urn(expected_entity_urn, downstream_column)
+                        make_schema_field_urn(expected_entity_urn, downstream_column),
                     ],
                 )
                 for upstream_column, downstream_column in expected_cll.items()
@@ -1278,7 +1296,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
         with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
             mock_sdk.return_value = mock_sdk_client(
                 side_effect_query_metadata_response=[
-                    read_response("permission_mode_switched_error.json")
+                    read_response("permission_mode_switched_error.json"),
                 ],
                 sign_out_side_effect=[{}],
                 datasources_side_effect=[{}],
@@ -1330,7 +1348,7 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
             mock_client = mock_sdk_client(
                 side_effect_query_metadata_response=[
                     NonXMLResponseError(
-                        """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}"""
+                        """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}""",
                     ),
                     *mock_data(),
                 ],
@@ -1340,8 +1358,9 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
             mock_client.users = mock.Mock()
             mock_client.users.get_by_id.side_effect = [
                 UserItem(
-                    name="name", site_role=UserItem.Roles.SiteAdministratorExplorer
-                )
+                    name="name",
+                    site_role=UserItem.Roles.SiteAdministratorExplorer,
+                ),
             ]
             mock_sdk.return_value = mock_client
 

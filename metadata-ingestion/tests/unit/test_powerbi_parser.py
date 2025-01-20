@@ -31,7 +31,7 @@ def creator():
         reporter=PowerBiDashboardSourceReport(),
         config=config,
         platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
-            config
+            config,
         ),
     )
 

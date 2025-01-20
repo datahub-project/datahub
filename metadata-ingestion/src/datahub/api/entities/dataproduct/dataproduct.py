@@ -155,7 +155,7 @@ class DataProduct(ConfigModel):
         else:
             assert isinstance(owner, Ownership)
             ownership_type, ownership_type_urn = builder.validate_ownership_type(
-                owner.type
+                owner.type,
             )
             return OwnerClass(
                 owner=builder.make_user_urn(owner.id),
@@ -164,7 +164,8 @@ class DataProduct(ConfigModel):
             )
 
     def _generate_properties_mcp(
-        self, upsert_mode: bool = False
+        self,
+        upsert_mode: bool = False,
     ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
         if upsert_mode:
             dataproduct_patch_builder = DataProductPatchBuilder(self.urn)
@@ -182,14 +183,14 @@ class DataProduct(ConfigModel):
                             created=self._mint_auditstamp("yaml"),
                         )
                         for asset in self.assets
-                    ]
+                    ],
                 )
             if self.properties is not None:
                 dataproduct_patch_builder.set_custom_properties(self.properties)
 
             if self.external_url is not None:
                 dataproduct_patch_builder.set_external_url(
-                    external_url=self.external_url
+                    external_url=self.external_url,
                 )
 
             yield from dataproduct_patch_builder.build()
@@ -213,11 +214,12 @@ class DataProduct(ConfigModel):
             yield mcp
 
     def generate_mcp(
-        self, upsert: bool
+        self,
+        upsert: bool,
     ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
         if self._resolved_domain_urn is None:
             raise Exception(
-                f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
+                f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn.",
             )
 
         yield from self._generate_properties_mcp(upsert_mode=upsert)
@@ -225,7 +227,7 @@ class DataProduct(ConfigModel):
         mcp = MetadataChangeProposalWrapper(
             entityUrn=self.urn,
             aspect=DomainsClass(
-                domains=[builder.make_domain_urn(self._resolved_domain_urn)]
+                domains=[builder.make_domain_urn(self._resolved_domain_urn)],
             ),
         )
         yield mcp
@@ -237,7 +239,7 @@ class DataProduct(ConfigModel):
                     tags=[
                         TagAssociationClass(tag=builder.make_tag_urn(tag))
                         for tag in self.tags
-                    ]
+                    ],
                 ),
             )
             yield mcp
@@ -259,7 +261,7 @@ class DataProduct(ConfigModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
                 aspect=OwnershipClass(
-                    owners=[self._mint_owner(o) for o in self.owners]
+                    owners=[self._mint_owner(o) for o in self.owners],
                 ),
             )
             yield mcp
@@ -275,14 +277,15 @@ class DataProduct(ConfigModel):
                             createStamp=self._mint_auditstamp("yaml"),
                         )
                         for element in self.institutional_memory.elements
-                    ]
+                    ],
                 ),
             )
             yield mcp
 
         # Finally emit status
         yield MetadataChangeProposalWrapper(
-            entityUrn=self.urn, aspect=StatusClass(removed=False)
+            entityUrn=self.urn,
+            aspect=StatusClass(removed=False),
         )
 
     def emit(
@@ -312,7 +315,8 @@ class DataProduct(ConfigModel):
             parsed_data_product = DataProduct.parse_obj_allow_extras(orig_dictionary)
             # resolve domains if needed
             domain_registry: DomainRegistry = DomainRegistry(
-                cached_domains=[parsed_data_product.domain], graph=graph
+                cached_domains=[parsed_data_product.domain],
+                graph=graph,
             )
             domain_urn = domain_registry.get_domain_urn(parsed_data_product.domain)
             parsed_data_product._resolved_domain_urn = domain_urn
@@ -338,7 +342,8 @@ class DataProduct(ConfigModel):
                 else:
                     yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
-            id, GlossaryTermsClass
+            id,
+            GlossaryTermsClass,
         )
         tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
         return DataProduct(
@@ -425,7 +430,7 @@ class DataProduct(ConfigModel):
                     patches_add.append(new_owner)
                 else:
                     patches_add.append(
-                        Ownership(id=new_owner, type=new_owner_type).dict()
+                        Ownership(id=new_owner, type=new_owner_type).dict(),
                     )
 
         mutation_needed = bool(patches_replace or patches_drop or patches_add)
@@ -460,7 +465,7 @@ class DataProduct(ConfigModel):
         this_dataproduct_dict = self.dict()
         for simple_field in ["display_name", "description", "external_url"]:
             if original_dataproduct_dict.get(simple_field) != this_dataproduct_dict.get(
-                simple_field
+                simple_field,
             ):
                 update_needed = True
                 orig_dictionary[simple_field] = this_dataproduct_dict.get(simple_field)
@@ -488,14 +493,21 @@ class DataProduct(ConfigModel):
                 orig_dictionary["assets"].append(asset_to_add)
 
         update_needed = update_needed or patch_list(
-            original_dataproduct.terms, self.terms, orig_dictionary, "terms"
+            original_dataproduct.terms,
+            self.terms,
+            orig_dictionary,
+            "terms",
         )
         update_needed = update_needed or patch_list(
-            original_dataproduct.tags, self.tags, orig_dictionary, "tags"
+            original_dataproduct.tags,
+            self.tags,
+            orig_dictionary,
+            "tags",
         )
 
         (ownership_update_needed, new_ownership_list) = self._patch_ownership(
-            original_dataproduct.owners, orig_dictionary.get("owners")
+            original_dataproduct.owners,
+            orig_dictionary.get("owners"),
         )
         if ownership_update_needed:
             update_needed = True
@@ -507,7 +519,7 @@ class DataProduct(ConfigModel):
                     orig_dictionary["owners"] = None
 
         if this_dataproduct_dict.get("properties") != original_dataproduct_dict.get(
-            "properties"
+            "properties",
         ):
             update_needed = True
             if self.properties is not None and original_dataproduct.properties is None:
@@ -546,7 +558,9 @@ class DataProduct(ConfigModel):
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> DataProductPatchBuilder:
         return DataProductPatchBuilder(
-            urn=urn, system_metadata=system_metadata, audit_header=audit_header
+            urn=urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
 

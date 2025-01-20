@@ -130,10 +130,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 yield optional_catalog
 
     def catalog(
-        self, catalog_name: str, metastore: Optional[Metastore]
+        self,
+        catalog_name: str,
+        metastore: Optional[Metastore],
     ) -> Optional[Catalog]:
         response = self._workspace_client.catalogs.get(
-            catalog_name, include_browse=True
+            catalog_name,
+            include_browse=True,
         )
         if not response:
             logger.info(f"Catalog {catalog_name} not found")
@@ -152,7 +155,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
             return
         response = self._workspace_client.schemas.list(
-            catalog_name=catalog.name, include_browse=True
+            catalog_name=catalog.name,
+            include_browse=True,
         )
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
@@ -181,7 +185,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             for table in response:
                 try:
                     optional_table = self._create_table(
-                        schema, cast(TableInfoWithGeneration, table)
+                        schema,
+                        cast(TableInfoWithGeneration, table),
                     )
                     if optional_table:
                         yield optional_table
@@ -234,7 +239,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 },
                 "statuses": [QueryStatus.FINISHED],
                 "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
-            }
+            },
         )
         for query_info in self._query_history(filter_by=filter_by):
             try:
@@ -266,7 +271,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         }
 
         response: dict = self._workspace_client.api_client.do(  # type: ignore
-            method, path, body={**body, "filter_by": filter_by.as_dict()}
+            method,
+            path,
+            body={**body, "filter_by": filter_by.as_dict()},
         )
         # we use default raw=False(default) in above request, therefore will always get dict
         while True:
@@ -277,11 +284,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if not response.get("next_page_token"):  # last page
                 return
             response = self._workspace_client.api_client.do(  # type: ignore
-                method, path, body={**body, "page_token": response["next_page_token"]}
+                method,
+                path,
+                body={**body, "page_token": response["next_page_token"]},
             )
 
     def list_lineages_by_table(
-        self, table_name: str, include_entity_lineage: bool
+        self,
+        table_name: str,
+        include_entity_lineage: bool,
     ) -> dict:
         """List table lineage by table name."""
         return self._workspace_client.api_client.do(  # type: ignore
@@ -315,13 +326,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             for item in response.get("upstreams") or []:
                 if "tableInfo" in item:
                     table_ref = TableReference.create_from_lineage(
-                        item["tableInfo"], table.schema.catalog.metastore
+                        item["tableInfo"],
+                        table.schema.catalog.metastore,
                     )
                     if table_ref:
                         table.upstreams[table_ref] = {}
                 elif "fileInfo" in item:
                     external_ref = ExternalTableReference.create_from_lineage(
-                        item["fileInfo"]
+                        item["fileInfo"],
                     )
                     if external_ref:
                         table.external_upstreams.add(external_ref)
@@ -334,7 +346,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     table.downstream_notebooks.add(notebook["notebook_id"])
         except Exception as e:
             logger.warning(
-                f"Error getting lineage on table {table.ref}: {e}", exc_info=True
+                f"Error getting lineage on table {table.ref}: {e}",
+                exc_info=True,
             )
 
     def get_column_lineage(self, table: Table, column_name: str) -> None:
@@ -345,11 +358,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             for item in response.get("upstream_cols") or []:
                 table_ref = TableReference.create_from_lineage(
-                    item, table.schema.catalog.metastore
+                    item,
+                    table.schema.catalog.metastore,
                 )
                 if table_ref:
                     table.upstreams.setdefault(table_ref, {}).setdefault(
-                        column_name, []
+                        column_name,
+                        [],
                     ).append(item["name"])
         except Exception as e:
             logger.warning(
@@ -379,7 +394,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _create_catalog(
-        self, metastore: Optional[Metastore], obj: CatalogInfo
+        self,
+        metastore: Optional[Metastore],
+        obj: CatalogInfo,
     ) -> Optional[Catalog]:
         if not obj.name:
             self.report.num_catalogs_missing_name += 1
@@ -423,7 +440,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _create_table(
-        self, schema: Schema, obj: TableInfoWithGeneration
+        self,
+        schema: Schema,
+        obj: TableInfoWithGeneration,
     ) -> Optional[Table]:
         if not obj.name:
             self.report.num_tables_missing_name += 1
@@ -454,7 +473,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _extract_columns(
-        self, columns: List[ColumnInfo], table_id: str
+        self,
+        columns: List[ColumnInfo],
+        table_id: str,
     ) -> Iterable[Column]:
         for column in columns:
             optional_column = self._create_column(table_id, column)
@@ -462,7 +483,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 yield optional_column
 
     def _create_service_principal(
-        self, obj: DatabricksServicePrincipal
+        self,
+        obj: DatabricksServicePrincipal,
     ) -> Optional[ServicePrincipal]:
         if not obj.display_name or not obj.application_id:
             return None

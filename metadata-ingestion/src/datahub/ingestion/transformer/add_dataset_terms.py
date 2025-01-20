@@ -60,16 +60,20 @@ class AddDatasetTerms(DatasetTermsTransformer):
                 {
                     **{term.urn: term for term in server_glossary_terms_aspect.terms},
                     **{term.urn: term for term in glossary_terms_aspect.terms},
-                }.values()
+                }.values(),
             )
 
         return glossary_terms_aspect
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_glossary_terms: Optional[GlossaryTermsClass] = cast(
-            Optional[GlossaryTermsClass], aspect
+            Optional[GlossaryTermsClass],
+            aspect,
         )
         out_glossary_terms: GlossaryTermsClass = GlossaryTermsClass(
             terms=[],
@@ -77,7 +81,8 @@ class AddDatasetTerms(DatasetTermsTransformer):
                 in_glossary_terms.auditStamp
                 if in_glossary_terms is not None
                 else AuditStampClass(
-                    time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                    time=builder.get_sys_time(),
+                    actor="urn:li:corpUser:restEmitter",
                 )
             ),
         )
@@ -94,7 +99,9 @@ class AddDatasetTerms(DatasetTermsTransformer):
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_glossary_terms = AddDatasetTerms._merge_with_server_glossary_terms(
-                self.ctx.graph, entity_urn, out_glossary_terms
+                self.ctx.graph,
+                entity_urn,
+                out_glossary_terms,
             )
             return cast(Optional[Aspect], patch_glossary_terms)
         else:
@@ -145,7 +152,9 @@ class PatternAddDatasetTerms(AddDatasetTerms):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+        cls,
+        config_dict: dict,
+        ctx: PipelineContext,
     ) -> "PatternAddDatasetTerms":
         config = PatternDatasetTermsConfig.parse_obj(config_dict)
         return cls(config, ctx)

@@ -88,9 +88,9 @@ def create_owner_entity_mce(owner: str) -> MetadataChangeEventClass:
                     displayName=owner,
                     fullName=owner,
                     email=f"{clean_name}-demo@example.com",
-                )
+                ),
             ],
-        )
+        ),
     )
 
 
@@ -111,9 +111,9 @@ def create_ownership_aspect_mce(directive: Directive) -> MetadataChangeEventClas
                         time=int(time.time() * 1000),
                         actor="urn:li:corpuser:datahub",
                     ),
-                )
+                ),
             ],
-        )
+        ),
     )
 
 
@@ -133,10 +133,10 @@ def create_lineage_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
                             ),
                         )
                         for upstream in directive.depends_on
-                    ]
-                )
+                    ],
+                ),
             ],
-        )
+        ),
     )
 
 
@@ -145,7 +145,7 @@ def create_global_tags_aspect_mce(directive: Directive) -> MetadataChangeEventCl
         proposedSnapshot=DatasetSnapshotClass(
             urn=dataset_name_to_urn(directive.table),
             aspects=[GlobalTagsClass(tags=[])],
-        )
+        ),
     )
 
 
@@ -166,9 +166,9 @@ def create_editable_schema_info_aspect_mce(
                         actor="urn:li:corpuser:datahub",
                     ),
                     editableSchemaFieldInfo=[],
-                )
+                ),
             ],
-        )
+        ),
     )
 
 

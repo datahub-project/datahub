@@ -17,7 +17,8 @@ def title_swapping_callback(self: JsonRef) -> dict:
         except Exception as e:
             raise self._error(f"{e.__class__.__name__}: {str(e)}", cause=e) from e
         base_doc = _replace_refs(
-            base_doc, **{**self._ref_kwargs, "base_uri": uri, "recursing": False}
+            base_doc,
+            **{**self._ref_kwargs, "base_uri": uri, "recursing": False},
         )
     else:
         base_doc = self.store[uri]

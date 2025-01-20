@@ -25,7 +25,7 @@ class CronFreshnessAssertion(BaseAssertion):
     type: Literal["cron"]
 
     cron: str = v1_Field(
-        description="The cron expression to use. See https://crontab.guru/ for help."
+        description="The cron expression to use. See https://crontab.guru/ for help.",
     )
     timezone: str = v1_Field(
         "UTC",
@@ -59,7 +59,7 @@ class FixedIntervalFreshnessAssertion(BaseAssertion):
 
 class FreshnessAssertion(v1_ConfigModel):
     __root__: Union[CronFreshnessAssertion, FixedIntervalFreshnessAssertion] = v1_Field(
-        discriminator="type"
+        discriminator="type",
     )
 
     @property
@@ -67,7 +67,9 @@ class FreshnessAssertion(v1_ConfigModel):
         return self.__root__.type
 
     def generate_mcp(
-        self, assertion_urn: str, entity_urn: str
+        self,
+        assertion_urn: str,
+        entity_urn: str,
     ) -> List[MetadataChangeProposalWrapper]:
         aspect = AssertionInfoClass(
             type=AssertionTypeClass.FRESHNESS,

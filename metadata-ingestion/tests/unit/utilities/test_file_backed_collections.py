@@ -291,7 +291,8 @@ def test_custom_column(cache_max_size: int, use_sqlite_on_conflict: bool) -> Non
     # Test param binding.
     assert (
         cache.sql_query(
-            f"SELECT sum(x) FROM {cache.tablename} WHERE x < ?", params=(50,)
+            f"SELECT sum(x) FROM {cache.tablename} WHERE x < ?",
+            params=(50,),
         )[0][0]
         == 31
     )
@@ -346,7 +347,7 @@ def test_shared_connection(use_sqlite_on_conflict: bool) -> None:
 
         # Test advanced SQL queries and sql_query_iterator.
         iterator = cache2.sql_query_iterator(
-            f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
+            f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y",
         )
         assert isinstance(iterator, sqlite3.Cursor)
         assert [tuple(r) for r in iterator] == [("a", 15), ("b", 11)]

@@ -22,7 +22,8 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def loaded_nifi(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "nifi"
+        test_resources_dir / "docker-compose.yml",
+        "nifi",
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -56,7 +57,10 @@ def loaded_nifi(docker_compose_runner, test_resources_dir):
 
 @freeze_time(FROZEN_TIME)
 def test_nifi_ingest_standalone(
-    loaded_nifi, pytestconfig, tmp_path, test_resources_dir
+    loaded_nifi,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
 ):
     # Wait for nifi standalone to execute all lineage processors, max wait time 120 seconds
     url = "http://localhost:9443/nifi-api/flow/process-groups/80404c81-017d-1000-e8e8-af7420af06c1"
@@ -92,7 +96,7 @@ def test_nifi_ingest_standalone(
                     "type": "file",
                     "config": {"filename": "./nifi_mces.json"},
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -150,7 +154,7 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
                     "type": "file",
                     "config": {"filename": "./nifi_mces_cluster.json"},
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()

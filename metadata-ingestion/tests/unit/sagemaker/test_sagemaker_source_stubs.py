@@ -122,7 +122,7 @@ describe_auto_ml_job_response = {
                 "S3DataSource": {
                     "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'
                     "S3Uri": "s3://auto-ml-job-input-bucket/file.txt",
-                }
+                },
             },
             "CompressionType": "None",  # 'None'|'Gzip'
         },
@@ -144,7 +144,7 @@ describe_auto_ml_job_response = {
         "AutoMLProblemTypeResolvedAttributes": {
             "TabularResolvedAttributes": {
                 "ProblemType": "BinaryClassification",  # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-            }
+            },
         },
     },
     "SecurityConfig": {
@@ -202,7 +202,7 @@ describe_auto_ml_job_response = {
         "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         "FailureReason": "string",
         "CandidateProperties": {
-            "CandidateArtifactLocations": {"Explainability": "string"}
+            "CandidateArtifactLocations": {"Explainability": "string"},
         },
     },
     "AutoMLJobStatus": "Completed",  # "Completed" | "InProgress" | "Failed" | "Stopped" | "Stopping"
@@ -229,9 +229,9 @@ describe_auto_ml_job_response = {
                     {
                         "AutoMLAlgorithms": [
                             "xgboost",  # 'xgboost'|'linear-learner'|'mlp'|'lightgbm'|'catboost'|'randomforest'|'extra-trees'|'nn-torch'|'fastai'
-                        ]
+                        ],
                     },
-                ]
+                ],
             },
             "CompletionCriteria": {
                 "MaxCandidates": 123,
@@ -247,7 +247,7 @@ describe_auto_ml_job_response = {
             # | "Regression",
             "TargetAttributeName": "ChannelType",  # ChannelType, ContentType, CompressionType, DataSource
             "SampleWeightAttributeName": "string",
-        }
+        },
     },
     "AutoMLJobArtifacts": {
         "CandidateDefinitionNotebookLocation": "string",
@@ -293,7 +293,7 @@ describe_compilation_job_response = {
     "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "FailureReason": "string",
     "ModelArtifacts": {
-        "S3ModelArtifacts": "s3://compilation-job-bucket/model-artifacts.tar.gz"
+        "S3ModelArtifacts": "s3://compilation-job-bucket/model-artifacts.tar.gz",
     },
     "ModelDigests": {"ArtifactDigest": "string"},
     "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
@@ -688,7 +688,7 @@ list_labeling_jobs_response = {
                     "ContentClassifiers": [
                         "FreeOfPersonallyIdentifiableInformation",
                         "FreeOfAdultContent",
-                    ]
+                    ],
                 },
             },
         },
@@ -719,7 +719,7 @@ describe_labeling_job_response = {
             "ContentClassifiers": [
                 "FreeOfPersonallyIdentifiableInformation",
                 "FreeOfAdultContent",
-            ]
+            ],
         },
     },
     "OutputConfig": {
@@ -756,7 +756,7 @@ describe_labeling_job_response = {
         "MaxConcurrentTaskCount": 123,
         "AnnotationConsolidationConfig": {"AnnotationConsolidationLambdaArn": "string"},
         "PublicWorkforceTaskPrice": {
-            "AmountInUsd": {"Dollars": 123, "Cents": 123, "TenthFractionsOfACent": 123}
+            "AmountInUsd": {"Dollars": 123, "Cents": 123, "TenthFractionsOfACent": 123},
         },
     },
     "Tags": [
@@ -1037,7 +1037,7 @@ describe_processing_job_response = {
             "InstanceType": "ml.t3.medium",
             "VolumeSizeInGB": 123,
             "VolumeKmsKeyId": "string",
-        }
+        },
     },
     "StoppingCondition": {"MaxRuntimeInSeconds": 123},
     "AppSpecification": {
@@ -1117,7 +1117,7 @@ describe_transform_job_response = {
             "S3DataSource": {
                 "S3DataType": "ManifestFile",  # "ManifestFile" | "S3Prefix" | "AugmentedManifestFile"
                 "S3Uri": "s3://transform-job/input-data-source.tar.gz",
-            }
+            },
         },
         "ContentType": "string",
         "CompressionType": "None",  # "None" | "Gzip"
@@ -1254,7 +1254,7 @@ describe_endpoint_response_1 = {
         "AutoRollbackConfiguration": {
             "Alarms": [
                 {"AlarmName": "string"},
-            ]
+            ],
         },
     },
 }
@@ -1305,7 +1305,7 @@ describe_endpoint_response_2 = {
         "AutoRollbackConfiguration": {
             "Alarms": [
                 {"AlarmName": "string"},
-            ]
+            ],
         },
     },
 }
@@ -1492,7 +1492,7 @@ list_first_endpoint_outgoing_response = {
             "DestinationName": "the-first-endpoint-artifact",
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
-        }
+        },
     ],
 }
 
@@ -1534,7 +1534,7 @@ list_second_endpoint_outgoing_response = {
             "DestinationName": "the-second-endpoint-artifact",
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
-        }
+        },
     ],
 }
 
@@ -1615,7 +1615,7 @@ list_contexts_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
-    ]
+    ],
 }
 
 get_model_group_incoming_response = {
@@ -1640,7 +1640,7 @@ get_model_group_incoming_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
         },
-    ]
+    ],
 }
 
 get_first_model_package_incoming_response = {
@@ -1663,7 +1663,7 @@ get_first_model_package_incoming_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
         },
-    ]
+    ],
 }
 
 get_second_model_package_incoming_response = {
@@ -1686,7 +1686,7 @@ get_second_model_package_incoming_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
         },
-    ]
+    ],
 }
 
 list_groups_response = {
@@ -1698,7 +1698,7 @@ list_groups_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "ModelPackageGroupStatus": "Completed",  # 'Pending'|'InProgress'|'Completed'|'Failed'|'Deleting'|'DeleteFailed'
         },
-    ]
+    ],
 }
 
 describe_group_response = {

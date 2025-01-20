@@ -55,7 +55,7 @@ class EntityConfig(EnvConfigMixin):
         allowed_types = ["dataset"]
         if v not in allowed_types:
             raise ValueError(
-                f"Type must be one of {allowed_types}, {v} is not yet supported."
+                f"Type must be one of {allowed_types}, {v} is not yet supported.",
             )
         return v
 
@@ -63,7 +63,7 @@ class EntityConfig(EnvConfigMixin):
     def validate_name(cls, v: str) -> str:
         if v.startswith("urn:li:"):
             raise ValueError(
-                "Name should not start with urn:li: - use a plain name, not an urn"
+                "Name should not start with urn:li: - use a plain name, not an urn",
             )
         return v
 
@@ -85,7 +85,7 @@ class FineGrainedLineageConfig(ConfigModel):
         ]
         if v not in allowed_types:
             raise ValueError(
-                f"Upstream Type must be one of {allowed_types}, {v} is not yet supported."
+                f"Upstream Type must be one of {allowed_types}, {v} is not yet supported.",
             )
         return v
 
@@ -97,7 +97,7 @@ class FineGrainedLineageConfig(ConfigModel):
         ]
         if v not in allowed_types:
             raise ValueError(
-                f"Downstream Type must be one of {allowed_types}, {v} is not yet supported."
+                f"Downstream Type must be one of {allowed_types}, {v} is not yet supported.",
             )
         return v
 
@@ -145,7 +145,9 @@ class LineageFileSource(Source):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
     ) -> "LineageFileSource":
         config = LineageFileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
@@ -189,7 +191,8 @@ def _get_entity_urn(entity_config: EntityConfig) -> Optional[str]:
 
 
 def _get_lineage_mcp(
-    entity_node: EntityNodeConfig, preserve_upstream: bool
+    entity_node: EntityNodeConfig,
+    preserve_upstream: bool,
 ) -> Optional[MetadataChangeProposalWrapper]:
     new_upstreams: List[models.UpstreamClass] = []
     new_fine_grained_lineages: List[models.FineGrainedLineageClass] = []
@@ -204,7 +207,7 @@ def _get_lineage_mcp(
     if not entity_urn:
         logger.warning(
             f"Entity type: {entity.type} is unsupported. "
-            f"Entity node {entity.name} and its upstream lineages will be skipped"
+            f"Entity node {entity.name} and its upstream lineages will be skipped",
         )
         return None
 
@@ -234,14 +237,15 @@ def _get_lineage_mcp(
                     dataset=upstream_entity_urn,
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
                     auditStamp=models.AuditStampClass(
-                        time=get_sys_time(), actor="urn:li:corpUser:ingestion"
+                        time=get_sys_time(),
+                        actor="urn:li:corpUser:ingestion",
                     ),
-                )
+                ),
             )
         else:
             logger.warning(
                 f"Entity type: {upstream_entity.type} is unsupported. "
-                f"Upstream lineage will be skipped for {upstream_entity.name}->{entity.name}"
+                f"Upstream lineage will be skipped for {upstream_entity.name}->{entity.name}",
             )
     for fine_grained_lineage in entity_node.fineGrainedLineages or []:
         new_fine_grained_lineages.append(
@@ -252,7 +256,7 @@ def _get_lineage_mcp(
                 downstreamType=fine_grained_lineage.downstreamType,
                 confidenceScore=fine_grained_lineage.confidenceScore,
                 transformOperation=fine_grained_lineage.transformOperation,
-            )
+            ),
         )
 
     return MetadataChangeProposalWrapper(

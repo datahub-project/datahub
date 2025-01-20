@@ -20,7 +20,8 @@ data_platform = "hive-metastore"
 def hive_metastore_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive-metastore"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "hive-metastore"
+        test_resources_dir / "docker-compose.yml",
+        "hive-metastore",
     ) as docker_services:
         wait_for_port(docker_services, "presto", 8080)
         wait_for_port(docker_services, "hiveserver2", 10000, timeout=120)
@@ -147,7 +148,11 @@ def test_hive_metastore_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_hive_metastore_instance_ingest(
-    loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_hive_metastore,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
 ):
     instance = "production_warehouse"
     platform = "hive"
@@ -185,7 +190,7 @@ def test_hive_metastore_instance_ingest(
 
     # Assert that all events generated have instance specific urns
     urn_pattern = "^" + re.escape(
-        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{instance}."
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{instance}.",
     )
     assert (
         mce_helpers.assert_mce_entity_urn(
@@ -214,7 +219,7 @@ def test_hive_metastore_instance_ingest(
             entity_type="dataset",
             aspect_name="dataPlatformInstance",
             aspect_field_matcher={
-                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{platform},{instance})"
+                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{platform},{instance})",
             },
             file=events_file,
         )

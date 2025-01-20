@@ -25,7 +25,8 @@ def unquote_and_decode_unicode_escape_seq(
         # Replace the Unicode escape sequence with the decoded character
         try:
             string = string.replace(
-                unicode_seq, unicode_seq.encode("utf-8").decode("unicode-escape")
+                unicode_seq,
+                unicode_seq.encode("utf-8").decode("unicode-escape"),
             )
         except UnicodeDecodeError:
             # Skip decoding if is not possible to decode the Unicode escape sequence

@@ -79,7 +79,9 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
 
 
 class LookMLSourceConfig(
-    LookerCommonConfig, StatefulIngestionConfigBase, EnvConfigMixin
+    LookerCommonConfig,
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
 ):
     git_info: Optional[GitInfo] = Field(
         None,
@@ -151,7 +153,8 @@ class LookMLSourceConfig(
         description="When enabled, sql parsing will be executed in a separate process to prevent memory leaks.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
+        default=None,
+        description="",
     )
     process_refinements: bool = Field(
         False,
@@ -189,10 +192,12 @@ class LookMLSourceConfig(
                 else:
                     logger.warning(
                         f"Connection map for {key} provides platform {platform} but does not provide a default "
-                        f"database name. This might result in failed resolution"
+                        f"database name. This might result in failed resolution",
                     )
                     conn_map[key] = LookerConnectionDefinition(
-                        platform=platform, default_db="", default_schema=""
+                        platform=platform,
+                        default_db="",
+                        default_schema="",
                     )
         return conn_map
 
@@ -200,11 +205,12 @@ class LookMLSourceConfig(
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
-            "api", {}
+            "api",
+            {},
         ):
             raise ValueError(
                 "Neither api not connection_to_platform_map config was found. LookML source requires either api "
-                "credentials for Looker or a map of connection names to platform identifiers to work correctly"
+                "credentials for Looker or a map of connection names to platform identifiers to work correctly",
             )
         return values
 
@@ -214,13 +220,15 @@ class LookMLSourceConfig(
         if not values.get("project_name") and not values.get("api"):
             raise ValueError(
                 "Neither project_name not an API credential was found. LookML source requires either api credentials "
-                "for Looker or a project_name to accurately name views and models."
+                "for Looker or a project_name to accurately name views and models.",
             )
         return values
 
     @validator("base_folder", always=True)
     def check_base_folder_if_not_provided(
-        cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
+        cls,
+        v: Optional[pydantic.DirectoryPath],
+        values: Dict[str, Any],
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
             git_info: Optional[GitInfo] = values.get("git_info")
@@ -228,7 +236,7 @@ class LookMLSourceConfig(
                 if not git_info.deploy_key:
                     logger.warning(
                         "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to "
-                        "clone it."
+                        "clone it.",
                     )
             else:
                 raise ValueError("Neither base_folder nor git_info has been provided.")

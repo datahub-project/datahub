@@ -90,7 +90,7 @@ def make_usage_workunit(
     if query_freq is not None:
         if top_n_queries < len(query_freq):
             logger.warning(
-                f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
+                f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}.",
             )
             query_freq = query_freq[0:top_n_queries]
 
@@ -212,14 +212,16 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
 
     top_n_queries: pydantic.PositiveInt = Field(
-        default=10, description="Number of top queries to save to each table."
+        default=10,
+        description="Number of top queries to save to each table.",
     )
     user_email_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for user emails to filter in usage.",
     )
     include_operational_stats: bool = Field(
-        default=True, description="Whether to display operational stats."
+        default=True,
+        description="Whether to display operational stats.",
     )
 
     include_read_operational_stats: bool = Field(
@@ -228,10 +230,12 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
 
     format_sql_queries: bool = Field(
-        default=False, description="Whether to format sql queries"
+        default=False,
+        description="Whether to format sql queries",
     )
     include_top_n_queries: bool = Field(
-        default=True, description="Whether to ingest the top_n_queries."
+        default=True,
+        description="Whether to ingest the top_n_queries.",
     )
 
     @pydantic.validator("top_n_queries")
@@ -241,7 +245,7 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         max_queries = int(values["queries_character_limit"] / minimum_query_size)
         if v > max_queries:
             raise ValueError(
-                f"top_n_queries is set to {v} but it can be maximum {max_queries}"
+                f"top_n_queries is set to {v} but it can be maximum {max_queries}",
             )
         return v
 
@@ -252,7 +256,8 @@ class UsageAggregator(Generic[ResourceType]):
     def __init__(self, config: BaseUsageConfig):
         self.config = config
         self.aggregation: Dict[
-            datetime, Dict[ResourceType, GenericAggregatedDataset[ResourceType]]
+            datetime,
+            Dict[ResourceType, GenericAggregatedDataset[ResourceType]],
         ] = defaultdict(dict)
 
     def aggregate_event(
@@ -306,7 +311,7 @@ def convert_usage_aggregation_class(
         aspect = DatasetUsageStatistics(
             timestampMillis=obj.bucket,
             eventGranularity=TimeWindowSizeClass(
-                unit=convert_window_to_interval(obj.duration)
+                unit=convert_window_to_interval(obj.duration),
             ),
             uniqueUserCount=obj.metrics.uniqueUserCount,
             totalSqlQueries=obj.metrics.totalSqlQueries,
@@ -314,7 +319,9 @@ def convert_usage_aggregation_class(
             userCounts=(
                 [
                     DatasetUserUsageCountsClass(
-                        user=u.user, count=u.count, userEmail=u.userEmail
+                        user=u.user,
+                        count=u.count,
+                        userEmail=u.userEmail,
                     )
                     for u in obj.metrics.users
                     if u.user is not None
@@ -334,7 +341,7 @@ def convert_usage_aggregation_class(
         return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
     else:
         raise Exception(
-            f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
+            f"Skipping unsupported usage aggregation - invalid entity type: {obj}",
         )
 
 

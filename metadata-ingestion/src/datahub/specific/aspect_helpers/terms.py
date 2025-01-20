@@ -22,7 +22,10 @@ class HasTermsPatch(MetadataPatchProposal):
         """
         # TODO: Make this support raw strings, in addition to Term objects.
         self._add_patch(
-            GlossaryTermsClass.ASPECT_NAME, "add", path=("terms", term.urn), value=term
+            GlossaryTermsClass.ASPECT_NAME,
+            "add",
+            path=("terms", term.urn),
+            value=term,
         )
         return self
 
@@ -38,6 +41,9 @@ class HasTermsPatch(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = GlossaryTermUrn(term)
         self._add_patch(
-            GlossaryTermsClass.ASPECT_NAME, "remove", path=("terms", term), value={}
+            GlossaryTermsClass.ASPECT_NAME,
+            "remove",
+            path=("terms", term),
+            value={},
         )
         return self

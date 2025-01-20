@@ -88,7 +88,10 @@ class Neo4jSource(Source):
         return SchemaFieldDataType(type=type_class())
 
     def get_schema_field_class(
-        self, col_name: str, col_type: str, **kwargs: Any
+        self,
+        col_name: str,
+        col_type: str,
+        **kwargs: Any,
     ) -> SchemaFieldClass:
         if kwargs["obj_type"] == self.NODE and col_type == self.RELATIONSHIP:
             col_type = self.NODE
@@ -102,7 +105,8 @@ class Neo4jSource(Source):
             if col_type in (self.NODE, self.RELATIONSHIP)
             else col_type,
             lastModified=AuditStampClass(
-                time=round(time.time() * 1000), actor="urn:li:corpuser:ingestion"
+                time=round(time.time() * 1000),
+                actor="urn:li:corpuser:ingestion",
             ),
         )
 
@@ -118,13 +122,18 @@ class Neo4jSource(Source):
         )
         return MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
-                platform=self.PLATFORM, name=dataset, env=self.config.env
+                platform=self.PLATFORM,
+                name=dataset,
+                env=self.config.env,
             ),
             aspect=dataset_properties,
         )
 
     def generate_neo4j_object(
-        self, dataset: str, columns: list, obj_type: Optional[str] = None
+        self,
+        dataset: str,
+        columns: list,
+        obj_type: Optional[str] = None,
     ) -> MetadataChangeProposalWrapper:
         try:
             fields = [
@@ -134,7 +143,9 @@ class Neo4jSource(Source):
             ]
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn(
-                    platform=self.PLATFORM, name=dataset, env=self.config.env
+                    platform=self.PLATFORM,
+                    name=dataset,
+                    env=self.config.env,
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
@@ -157,7 +168,8 @@ class Neo4jSource(Source):
 
     def get_neo4j_metadata(self, query: str) -> pd.DataFrame:
         driver = GraphDatabase.driver(
-            self.config.uri, auth=(self.config.username, self.config.password)
+            self.config.uri,
+            auth=(self.config.username, self.config.password),
         )
         """
         This process retrieves the metadata for Neo4j objects using an APOC query, which returns a dictionary
@@ -204,19 +216,20 @@ class Neo4jSource(Source):
             columns=["key", "value"],
         )
         node_df["obj_type"] = node_df["value"].apply(
-            lambda record: self.get_obj_type(record)
+            lambda record: self.get_obj_type(record),
         )
         node_df["relationships"] = node_df["value"].apply(
-            lambda record: self.get_relationships(record)
+            lambda record: self.get_relationships(record),
         )
         node_df["properties"] = node_df["value"].apply(
-            lambda record: self.get_properties(record)
+            lambda record: self.get_properties(record),
         )
         node_df["property_data_types"] = node_df["properties"].apply(
-            lambda record: self.get_property_data_types(record)
+            lambda record: self.get_property_data_types(record),
         )
         node_df["description"] = node_df.apply(
-            lambda record: self.get_node_description(record, node_df), axis=1
+            lambda record: self.get_node_description(record, node_df),
+            axis=1,
         )
         return node_df
 
@@ -226,16 +239,17 @@ class Neo4jSource(Source):
         ]
         rel_df = pd.DataFrame(rels, columns=["key", "value"])
         rel_df["obj_type"] = rel_df["value"].apply(
-            lambda record: self.get_obj_type(record)
+            lambda record: self.get_obj_type(record),
         )
         rel_df["properties"] = rel_df["value"].apply(
-            lambda record: self.get_properties(record)
+            lambda record: self.get_properties(record),
         )
         rel_df["property_data_types"] = rel_df["properties"].apply(
-            lambda record: self.get_property_data_types(record)
+            lambda record: self.get_property_data_types(record),
         )
         rel_df["description"] = rel_df.apply(
-            lambda record: self.get_rel_descriptions(record, node_df), axis=1
+            lambda record: self.get_rel_descriptions(record, node_df),
+            axis=1,
         )
         return rel_df
 
@@ -251,7 +265,7 @@ class Neo4jSource(Source):
                     if props["direction"] == "in":
                         for prop in props["labels"]:
                             descriptions.append(
-                                f"({row['key']})-[{record['key']}]->({prop})"
+                                f"({row['key']})-[{record['key']}]->({prop})",
                             )
         return "\n".join(descriptions)
 
@@ -264,11 +278,11 @@ class Neo4jSource(Source):
                     for node in set(props["labels"]):
                         if direction == "in":
                             descriptions.append(
-                                f"({row['key']})<-[{relationship}]-({node})"
+                                f"({row['key']})<-[{relationship}]-({node})",
                             )
                         elif direction == "out":
                             descriptions.append(
-                                f"({row['key']})-[{relationship}]->({node})"
+                                f"({row['key']})-[{relationship}]->({node})",
                             )
 
         return "\n".join(descriptions)
@@ -284,7 +298,7 @@ class Neo4jSource(Source):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         df = self.get_neo4j_metadata(
-            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
+            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;",
         )
         for _, row in df.iterrows():
             try:
@@ -309,8 +323,8 @@ class Neo4jSource(Source):
                             typeNames=[
                                 DatasetSubTypes.NEO4J_NODE
                                 if row["obj_type"] == self.NODE
-                                else DatasetSubTypes.NEO4J_RELATIONSHIP
-                            ]
+                                else DatasetSubTypes.NEO4J_RELATIONSHIP,
+                            ],
                         ),
                     ),
                 )

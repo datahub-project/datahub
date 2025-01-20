@@ -236,7 +236,9 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         return f"where {where_clause}" if where_clause else ""
 
     def _setup_field_transform(
-        self, field: str, transform: Optional[FieldTransform]
+        self,
+        field: str,
+        transform: Optional[FieldTransform],
     ) -> str:
         if transform is None:
             return field
@@ -266,14 +268,18 @@ class SnowflakeFieldValuesMetricSQLGenerator:
             [
                 dataset_filter,
                 f"{assertion.field} is not null" if assertion.exclude_nulls else None,
-            ]
+            ],
         )
         transformed_field = self._setup_field_transform(
-            assertion.field, assertion.field_transform
+            assertion.field,
+            assertion.field_transform,
         )
         # this sql would return boolean value for each table row.  1 if fail and 0 if pass.
         sql = self.values_metric_sql(
-            assertion.operator, entity_name, transformed_field, where_clause
+            assertion.operator,
+            entity_name,
+            transformed_field,
+            where_clause,
         )
 
         # metric would be number of failing rows OR percentage of failing rows.

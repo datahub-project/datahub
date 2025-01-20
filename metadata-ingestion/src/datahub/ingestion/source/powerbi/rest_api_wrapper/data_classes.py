@@ -15,7 +15,11 @@ from datahub.metadata.schema_classes import (
 FIELD_TYPE_MAPPING: Dict[
     str,
     Union[
-        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+        BooleanTypeClass,
+        DateTypeClass,
+        NullTypeClass,
+        NumberTypeClass,
+        StringTypeClass,
     ],
 ] = {
     "Int64": NumberTypeClass(),
@@ -133,7 +137,11 @@ class Column:
     dataType: str
     isHidden: bool
     datahubDataType: Union[
-        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+        BooleanTypeClass,
+        DateTypeClass,
+        NullTypeClass,
+        NumberTypeClass,
+        StringTypeClass,
     ]
     columnType: Optional[str] = None
     expression: Optional[str] = None
@@ -148,7 +156,11 @@ class Measure:
     isHidden: bool
     dataType: str = "measure"
     datahubDataType: Union[
-        BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
+        BooleanTypeClass,
+        DateTypeClass,
+        NullTypeClass,
+        NumberTypeClass,
+        StringTypeClass,
     ] = dataclasses.field(default_factory=NullTypeClass)
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None

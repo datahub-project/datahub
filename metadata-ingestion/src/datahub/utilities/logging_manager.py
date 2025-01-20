@@ -96,7 +96,7 @@ def extract_name_from_filename(filename: str, fallback_name: str) -> str:
                     if "metadata-ingestion" in part
                 ),
                 [None],
-            )
+            ),
         )
         if src_dir_index is not None:
             # Join the parts after 'src' with '.'

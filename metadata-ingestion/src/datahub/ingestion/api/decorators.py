@@ -31,7 +31,9 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
 
 
 def platform_name(
-    platform_name: str, id: Optional[str] = None, doc_order: Optional[int] = None
+    platform_name: str,
+    id: Optional[str] = None,
+    doc_order: Optional[int] = None,
 ) -> Callable[[Type], Type]:
     """Adds a get_platform_name method to the decorated class"""
 
@@ -44,7 +46,7 @@ def platform_name(
 
     if id and " " in id:
         raise Exception(
-            f'Platform id "{id}" contains white-space, please use a platform id without spaces.'
+            f'Platform id "{id}" contains white-space, please use a platform id without spaces.',
         )
 
     return wrapper
@@ -89,7 +91,9 @@ class CapabilitySetting:
 
 
 def capability(
-    capability_name: SourceCapability, description: str, supported: bool = True
+    capability_name: SourceCapability,
+    description: str,
+    supported: bool = True,
 ) -> Callable[[Type], Type]:
     """
     A decorator to mark a source as having a certain capability
@@ -111,7 +115,9 @@ def capability(
                     cls.__capabilities.update(base_caps)
 
         cls.__capabilities[capability_name] = CapabilitySetting(
-            capability=capability_name, description=description, supported=supported
+            capability=capability_name,
+            description=description,
+            supported=supported,
         )
         return cls
 

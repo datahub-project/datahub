@@ -56,7 +56,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
     operator: Operators = v1_Field(discriminator="type", alias="condition")
     filters: Optional[DatasetFilter] = v1_Field(default=None)
     failure_threshold: FieldValuesFailThreshold = v1_Field(
-        default=FieldValuesFailThreshold()
+        default=FieldValuesFailThreshold(),
     )
     exclude_nulls: bool = v1_Field(default=True)
 

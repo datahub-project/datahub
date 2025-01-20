@@ -37,7 +37,7 @@ def get_s3_tags(
                 [
                     make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
                     for tag in bucket.Tagging().tag_set
-                ]
+                ],
             )
         except s3.meta.client.exceptions.ClientError:
             logger.warning(f"No tags found for bucket={bucket_name}")
@@ -48,7 +48,7 @@ def get_s3_tags(
         tag_set = object_tagging["TagSet"]
         if tag_set:
             tags_to_add.extend(
-                [make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""") for tag in tag_set]
+                [make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""") for tag in tag_set],
             )
         else:
             # Unlike bucket tags, if an object does not have tags, it will just return an empty array
@@ -69,13 +69,14 @@ def get_s3_tags(
     # Remove duplicate tags
     tags_to_add = sorted(list(set(tags_to_add)))
     new_tags = GlobalTagsClass(
-        tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add],
     )
     return new_tags
 
 
 def list_folders_path(
-    s3_uri: str, aws_config: Optional[AwsConnectionConfig]
+    s3_uri: str,
+    aws_config: Optional[AwsConnectionConfig],
 ) -> Iterable[str]:
     if not is_s3_uri(s3_uri):
         raise ValueError("Not a s3 URI: " + s3_uri)
@@ -87,7 +88,9 @@ def list_folders_path(
 
 
 def list_folders(
-    bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
+    bucket_name: str,
+    prefix: str,
+    aws_config: Optional[AwsConnectionConfig],
 ) -> Iterable[str]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")

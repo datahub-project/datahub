@@ -48,7 +48,10 @@ DATABASE_1 = Container("database_1")
 DATABASE_2 = Container("database_2")
 TABLE_1 = Table("table_1", DATABASE_1, columns=["id", "name", "age"], upstreams=[])
 TABLE_2 = Table(
-    "table_2", DATABASE_1, columns=["id", "table_1_id", "value"], upstreams=[]
+    "table_2",
+    DATABASE_1,
+    columns=["id", "table_1_id", "value"],
+    upstreams=[],
 )
 VIEW_1 = View(
     name="view_1",
@@ -175,7 +178,8 @@ def make_usage_workunit(
 
 
 def make_operational_workunit(
-    resource_urn: str, operation: OperationClass
+    resource_urn: str,
+    operation: OperationClass,
 ) -> MetadataWorkUnit:
     return MetadataChangeProposalWrapper(
         entityUrn=resource_urn,
@@ -232,7 +236,8 @@ def make_zero_usage_workunit(
 
 
 def compare_workunits(
-    output: Iterable[MetadataWorkUnit], expected: Iterable[MetadataWorkUnit]
+    output: Iterable[MetadataWorkUnit],
+    expected: Iterable[MetadataWorkUnit],
 ) -> None:
     assert not diff_metadata_json(
         [wu.metadata.to_obj() for wu in output],
@@ -266,7 +271,8 @@ def test_usage_counts_single_bucket_resource_project(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=len(queries),
                 topSqlQueries=[query_table_1_a().text, query_table_1_b().text],
@@ -346,7 +352,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=6,
                 topSqlQueries=[
@@ -389,7 +396,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=3,
                 topSqlQueries=[
@@ -417,7 +425,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=3,
                 topSqlQueries=[
@@ -429,7 +438,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                         user=ACTOR_1_URN,
                         count=3,
                         userEmail=ACTOR_1,
-                    )
+                    ),
                 ],
                 fieldCounts=[
                     DatasetFieldUsageCountsClass(
@@ -450,7 +459,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_2.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=5,
                 topSqlQueries=[
@@ -494,7 +504,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_2.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=2,
                 topSqlQueries=[query_view_1().text, query_view_1_and_table_1().text],
@@ -515,7 +526,8 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_2.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=2,
                 topSqlQueries=[query_tables_1_and_2().text, query_table_2().text],
@@ -525,7 +537,7 @@ def test_usage_counts_multiple_buckets_and_resources_view_usage(
                         user=ACTOR_2_URN,
                         count=2,
                         userEmail=ACTOR_2,
-                    )
+                    ),
                 ],
                 fieldCounts=[
                     DatasetFieldUsageCountsClass(
@@ -592,7 +604,8 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=9,
                 topSqlQueries=[
@@ -640,7 +653,8 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_1.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=6,
                 topSqlQueries=[query_tables_1_and_2().text, query_view_1().text],
@@ -684,7 +698,8 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_2.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=6,
                 topSqlQueries=[
@@ -733,7 +748,8 @@ def test_usage_counts_multiple_buckets_and_resources_no_view_usage(
             dataset_usage_statistics=DatasetUsageStatisticsClass(
                 timestampMillis=int(TS_2.timestamp() * 1000),
                 eventGranularity=TimeWindowSizeClass(
-                    unit=BucketDuration.DAY, multiple=1
+                    unit=BucketDuration.DAY,
+                    multiple=1,
                 ),
                 totalSqlQueries=4,
                 topSqlQueries=[
@@ -803,7 +819,7 @@ def test_usage_counts_no_query_event(
                 fieldsRead=["id", "name", "total"],
                 readReason="JOB",
                 payload=None,
-            )
+            ),
         )
         workunits = usage_extractor._get_workunits_internal([event], [str(ref)])
         expected = [
@@ -812,7 +828,8 @@ def test_usage_counts_no_query_event(
                 aspect=DatasetUsageStatisticsClass(
                     timestampMillis=int(TS_1.timestamp() * 1000),
                     eventGranularity=TimeWindowSizeClass(
-                        unit=BucketDuration.DAY, multiple=1
+                        unit=BucketDuration.DAY,
+                        multiple=1,
                     ),
                     totalSqlQueries=0,
                     uniqueUserCount=0,
@@ -820,7 +837,7 @@ def test_usage_counts_no_query_event(
                     userCounts=[],
                     fieldCounts=[],
                 ),
-            ).as_workunit()
+            ).as_workunit(),
         ]
         compare_workunits(workunits, expected)
         assert not caplog.records
@@ -833,7 +850,7 @@ def test_usage_counts_no_columns(
 ) -> None:
     job_name = "job_name"
     ref = BigQueryTableRef(
-        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name)
+        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name),
     )
     events = [
         AuditEvent.create(
@@ -859,13 +876,14 @@ def test_usage_counts_no_columns(
                 referencedTables=[ref],
                 referencedViews=[],
                 payload=None,
-            )
+            ),
         ),
     ]
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         workunits = usage_extractor._get_workunits_internal(
-            events, [TABLE_REFS[TABLE_1.name]]
+            events,
+            [TABLE_REFS[TABLE_1.name]],
         )
         expected = [
             make_usage_workunit(
@@ -873,7 +891,8 @@ def test_usage_counts_no_columns(
                 dataset_usage_statistics=DatasetUsageStatisticsClass(
                     timestampMillis=int(TS_1.timestamp() * 1000),
                     eventGranularity=TimeWindowSizeClass(
-                        unit=BucketDuration.DAY, multiple=1
+                        unit=BucketDuration.DAY,
+                        multiple=1,
                     ),
                     totalSqlQueries=1,
                     topSqlQueries=["SELECT * FROM table_1"],
@@ -888,7 +907,7 @@ def test_usage_counts_no_columns(
                     fieldCounts=[],
                 ),
                 identifiers=usage_extractor.identifiers,
-            )
+            ),
         ]
         compare_workunits(workunits, expected)
         assert not caplog.records
@@ -903,7 +922,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
 
     job_name = "job_name"
     ref = BigQueryTableRef(
-        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name)
+        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name),
     )
     events = [
         AuditEvent.create(
@@ -951,7 +970,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                 referencedTables=[ref],
                 referencedViews=[],
                 payload=None,
-            )
+            ),
         ),
         AuditEvent.create(
             QueryEvent(
@@ -965,7 +984,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                 referencedTables=[ref],
                 referencedViews=[],
                 payload=None,
-            )
+            ),
         ),
         AuditEvent.create(
             QueryEvent(
@@ -979,13 +998,14 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                 referencedTables=[ref],
                 referencedViews=[],
                 payload=None,
-            )
+            ),
         ),
     ]
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         workunits = usage_extractor._get_workunits_internal(
-            events, [TABLE_REFS[TABLE_1.name]]
+            events,
+            [TABLE_REFS[TABLE_1.name]],
         )
         expected = [
             make_usage_workunit(
@@ -993,7 +1013,8 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                 dataset_usage_statistics=DatasetUsageStatisticsClass(
                     timestampMillis=int(TS_1.timestamp() * 1000),
                     eventGranularity=TimeWindowSizeClass(
-                        unit=BucketDuration.DAY, multiple=1
+                        unit=BucketDuration.DAY,
+                        multiple=1,
                     ),
                     totalSqlQueries=3,
                     topSqlQueries=["SELECT * FROM table_1"],
@@ -1008,7 +1029,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
                     fieldCounts=[],
                 ),
                 identifiers=usage_extractor.identifiers,
-            )
+            ),
         ]
         compare_workunits(workunits, expected)
         assert not caplog.records
@@ -1046,7 +1067,7 @@ def test_operational_stats(
             num_operations=20,
             num_unique_queries=10,
             num_users=3,
-        )
+        ),
     )
 
     events = generate_events(queries, projects, table_to_project, config=config)
@@ -1055,8 +1076,8 @@ def test_operational_stats(
         make_operational_workunit(
             usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
                 BigQueryTableRef.from_string_name(
-                    table_refs[query.object_modified.name]
-                )
+                    table_refs[query.object_modified.name],
+                ),
             ),
             OperationClass(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
@@ -1076,22 +1097,22 @@ def test_operational_stats(
                     dict.fromkeys(  # Preserve order
                         usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
                             BigQueryTableRef.from_string_name(
-                                table_refs[field.table.name]
-                            )
+                                table_refs[field.table.name],
+                            ),
                         )
                         for field in query.fields_accessed
                         if not field.table.is_view()
-                    )
+                    ),
                 )
                 + list(
                     dict.fromkeys(  # Preserve order
                         usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(table_refs[parent.name])
+                            BigQueryTableRef.from_string_name(table_refs[parent.name]),
                         )
                         for field in query.fields_accessed
                         if field.table.is_view()
                         for parent in field.table.upstreams
-                    )
+                    ),
                 ),
             ),
         )
@@ -1111,22 +1132,24 @@ def test_operational_stats(
 
 def test_get_tables_from_query(usage_extractor):
     assert usage_extractor.get_tables_from_query(
-        "SELECT * FROM project-1.database_1.view_1", default_project=PROJECT_1
+        "SELECT * FROM project-1.database_1.view_1",
+        default_project=PROJECT_1,
     ) == [
-        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
     ]
 
     assert usage_extractor.get_tables_from_query(
-        "SELECT * FROM database_1.view_1", default_project=PROJECT_1
+        "SELECT * FROM database_1.view_1",
+        default_project=PROJECT_1,
     ) == [
-        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
+        BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
     ]
 
     assert sorted(
         usage_extractor.get_tables_from_query(
             "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
             default_project=PROJECT_1,
-        )
+        ),
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
@@ -1136,7 +1159,7 @@ def test_get_tables_from_query(usage_extractor):
         usage_extractor.get_tables_from_query(
             "CREATE TABLE database_1.new_table AS SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
             default_project=PROJECT_1,
-        )
+        ),
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),

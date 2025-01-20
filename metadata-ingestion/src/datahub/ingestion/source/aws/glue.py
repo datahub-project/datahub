@@ -121,7 +121,9 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -134,14 +136,16 @@ class GlueSourceConfig(
         description="When enabled, extracts ownership from Glue table property and overwrites existing owners (DATAOWNER). When disabled, ownership is left empty for datasets. Expects a corpGroup urn, a corpuser urn or only the identifier part for the latter. Not used in the normal course of AWS Glue operations.",
     )
     extract_transforms: Optional[bool] = Field(
-        default=True, description="Whether to extract Glue transform jobs."
+        default=True,
+        description="Whether to extract Glue transform jobs.",
     )
     ignore_unsupported_connectors: Optional[bool] = Field(
         default=True,
         description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
     )
     emit_s3_lineage: bool = Field(
-        default=False, description="Whether to emit S3-to-Glue lineage."
+        default=False,
+        description="Whether to emit S3-to-Glue lineage.",
     )
     glue_s3_lineage_direction: str = Field(
         default="upstream",
@@ -173,7 +177,8 @@ class GlueSourceConfig(
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
-        default=None, description=""
+        default=None,
+        description="",
     )
     extract_delta_schema_from_parameters: Optional[bool] = Field(
         default=False,
@@ -187,7 +192,7 @@ class GlueSourceConfig(
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
+            self.profiling.operation_config,
         )
 
     @property
@@ -202,7 +207,7 @@ class GlueSourceConfig(
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
             raise ValueError(
-                "glue_s3_lineage_direction must be either upstream or downstream"
+                "glue_s3_lineage_direction must be either upstream or downstream",
             )
         return v.lower()
 
@@ -212,7 +217,7 @@ class GlueSourceConfig(
             return v
         else:
             raise ValueError(
-                f"'platform' can only take following values: {VALID_PLATFORMS}"
+                f"'platform' can only take following values: {VALID_PLATFORMS}",
             )
 
 
@@ -249,7 +254,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_s3_lineage` config field"
+    SourceCapability.LINEAGE_FINE,
+    "Support via the `emit_s3_lineage` config field",
 )
 class GlueSource(StatefulIngestionSourceBase):
     """
@@ -321,7 +327,10 @@ class GlueSource(StatefulIngestionSourceBase):
         self.env = config.env
 
     def get_glue_arn(
-        self, account_id: str, database: str, table: Optional[str] = None
+        self,
+        account_id: str,
+        database: str,
+        table: Optional[str] = None,
     ) -> str:
         prefix = f"arn:aws:glue:{self.source_config.aws_region}:{account_id}"
         if table:
@@ -352,7 +361,9 @@ class GlueSource(StatefulIngestionSourceBase):
         return jobs
 
     def get_dataflow_graph(
-        self, script_path: str, flow_urn: str
+        self,
+        script_path: str,
+        flow_urn: str,
     ) -> Optional[Dict[str, Any]]:
         """
         Get the DAG of transforms and data sources/sinks for a job.
@@ -420,7 +431,8 @@ class GlueSource(StatefulIngestionSourceBase):
         return s3_uri
 
     def get_dataflow_s3_names(
-        self, dataflow_graph: Dict[str, Any]
+        self,
+        dataflow_graph: Dict[str, Any],
     ) -> Iterator[Tuple[str, Optional[str]]]:
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
@@ -500,11 +512,11 @@ class GlueSource(StatefulIngestionSourceBase):
                     DatasetPropertiesClass(
                         customProperties={k: str(v) for k, v in node_args.items()},
                         tags=[],
-                    )
+                    ),
                 )
 
                 new_dataset_mces.append(
-                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot),
                 )
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
@@ -521,7 +533,8 @@ class GlueSource(StatefulIngestionSourceBase):
         # otherwise, a node represents a transformation
         else:
             node_urn = mce_builder.make_data_job_urn_with_flow(
-                flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
+                flow_urn,
+                job_id=f"{node['NodeType']}-{node['Id']}",
             )
 
         return {
@@ -559,7 +572,11 @@ class GlueSource(StatefulIngestionSourceBase):
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
             processed_node = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
+                node,
+                flow_urn,
+                new_dataset_ids,
+                new_dataset_mces,
+                s3_formats,
             )
 
             if processed_node is not None:
@@ -636,7 +653,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         customProperties=custom_props,
                     ),
                 ],
-            )
+            ),
         )
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
@@ -676,7 +693,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         inputDatajobs=node["inputDatajobs"],
                     ),
                 ],
-            )
+            ),
         )
 
         return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
@@ -688,7 +705,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if self.source_config.catalog_id:
             paginator_response = paginator.paginate(
-                CatalogId=self.source_config.catalog_id
+                CatalogId=self.source_config.catalog_id,
             )
         else:
             paginator_response = paginator.paginate()
@@ -717,7 +734,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if self.source_config.catalog_id:
             paginator_response = paginator.paginate(
-                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+                DatabaseName=database_name,
+                CatalogId=self.source_config.catalog_id,
             )
         else:
             paginator_response = paginator.paginate(DatabaseName=database_name)
@@ -746,7 +764,8 @@ class GlueSource(StatefulIngestionSourceBase):
         return all_databases, all_tables
 
     def get_lineage_if_enabled(
-        self, mce: MetadataChangeEventClass
+        self,
+        mce: MetadataChangeEventClass,
     ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_s3_lineage:
             # extract dataset properties aspect
@@ -762,7 +781,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
                     s3_dataset_urn = make_s3_urn_for_lineage(
-                        location, self.source_config.env
+                        location,
+                        self.source_config.env,
                     )
                     assert self.ctx.graph
                     schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
@@ -787,7 +807,7 @@ class GlueSource(StatefulIngestionSourceBase):
                                 UpstreamClass(
                                     dataset=s3_dataset_urn,
                                     type=DatasetLineageTypeClass.COPY,
-                                )
+                                ),
                             ],
                             fineGrainedLineages=fine_grained_lineages or None,
                         )
@@ -802,8 +822,8 @@ class GlueSource(StatefulIngestionSourceBase):
                                 UpstreamClass(
                                     dataset=mce.proposedSnapshot.urn,
                                     type=DatasetLineageTypeClass.COPY,
-                                )
-                            ]
+                                ),
+                            ],
                         )
                         return MetadataChangeProposalWrapper(
                             entityUrn=s3_dataset_urn,
@@ -839,17 +859,18 @@ class GlueSource(StatefulIngestionSourceBase):
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
                                 mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
+                                    dataset_urn,
+                                    field_path_v1,
+                                ),
                             ],
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
                                 mce_builder.make_schema_field_urn(
                                     s3_dataset_urn,
                                     simplify_field_path(matching_s3_field.fieldPath),
-                                )
+                                ),
                             ],
-                        )
+                        ),
                     )
             return fine_grained_lineages
         return None
@@ -869,11 +890,11 @@ class GlueSource(StatefulIngestionSourceBase):
         # Inject table level stats
         if self.source_config.profiling.row_count in table_stats:
             dataset_profile.rowCount = int(
-                float(table_stats[self.source_config.profiling.row_count])
+                float(table_stats[self.source_config.profiling.row_count]),
             )
         if self.source_config.profiling.column_count in table_stats:
             dataset_profile.columnCount = int(
-                float(table_stats[self.source_config.profiling.column_count])
+                float(table_stats[self.source_config.profiling.column_count]),
             )
 
         # inject column level stats
@@ -894,19 +915,19 @@ class GlueSource(StatefulIngestionSourceBase):
             if not self.source_config.profiling.profile_table_level_only:
                 if self.source_config.profiling.unique_count in column_params:
                     column_profile.uniqueCount = int(
-                        float(column_params[self.source_config.profiling.unique_count])
+                        float(column_params[self.source_config.profiling.unique_count]),
                     )
                 if self.source_config.profiling.unique_proportion in column_params:
                     column_profile.uniqueProportion = float(
-                        column_params[self.source_config.profiling.unique_proportion]
+                        column_params[self.source_config.profiling.unique_proportion],
                     )
                 if self.source_config.profiling.null_count in column_params:
                     column_profile.nullCount = int(
-                        float(column_params[self.source_config.profiling.null_count])
+                        float(column_params[self.source_config.profiling.null_count]),
                     )
                 if self.source_config.profiling.null_proportion in column_params:
                     column_profile.nullProportion = float(
-                        column_params[self.source_config.profiling.null_proportion]
+                        column_params[self.source_config.profiling.null_proportion],
                     )
                 if self.source_config.profiling.min in column_params:
                     column_profile.min = column_params[self.source_config.profiling.min]
@@ -941,7 +962,10 @@ class GlueSource(StatefulIngestionSourceBase):
         return mcp
 
     def get_profile_if_enabled(
-        self, mce: MetadataChangeEventClass, database_name: str, table_name: str
+        self,
+        mce: MetadataChangeEventClass,
+        database_name: str,
+        table_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         if self.source_config.is_profiling_enabled():
             # for cross-account ingestion
@@ -951,7 +975,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 CatalogId=self.source_config.catalog_id,
             )
             response = self.glue_client.get_table(
-                **{k: v for k, v in kwargs.items() if v}
+                **{k: v for k, v in kwargs.items() if v},
             )
 
             # check if this table is partitioned
@@ -965,7 +989,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     CatalogId=self.source_config.catalog_id,
                 )
                 response = self.glue_client.get_partitions(
-                    **{k: v for k, v in kwargs.items() if v}
+                    **{k: v for k, v in kwargs.items() if v},
                 )
 
                 partitions = response["Partitions"]
@@ -979,10 +1003,13 @@ class GlueSource(StatefulIngestionSourceBase):
                     partition_spec = str({partition_keys[0]: p["Values"][0]})
 
                     if self.source_config.profiling.partition_patterns.allowed(
-                        partition_spec
+                        partition_spec,
                     ):
                         yield self._create_profile_mcp(
-                            mce, table_stats, column_stats, partition_spec
+                            mce,
+                            table_stats,
+                            column_stats,
+                            partition_spec,
                         ).as_workunit()
                     else:
                         continue
@@ -991,7 +1018,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
                 yield self._create_profile_mcp(
-                    mce, table_stats, column_stats
+                    mce,
+                    table_stats,
+                    column_stats,
                 ).as_workunit()
 
     def gen_database_key(self, database: str) -> DatabaseKey:
@@ -1004,7 +1033,8 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def gen_database_containers(
-        self, database: Mapping[str, Any]
+        self,
+        database: Mapping[str, Any],
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
@@ -1021,13 +1051,16 @@ class GlueSource(StatefulIngestionSourceBase):
             domain_urn=domain_urn,
             description=database.get("Description"),
             qualified_name=self.get_glue_arn(
-                account_id=database["CatalogId"], database=database["Name"]
+                account_id=database["CatalogId"],
+                database=database["Name"],
             ),
             extra_properties=parameters,
         )
 
     def add_table_to_database_container(
-        self, dataset_urn: str, db_name: str
+        self,
+        dataset_urn: str,
+        db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(db_name)
         yield from add_dataset_to_container(
@@ -1043,7 +1076,9 @@ class GlueSource(StatefulIngestionSourceBase):
         return None
 
     def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str
+        self,
+        dataset_name: str,
+        entity_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
@@ -1056,7 +1091,9 @@ class GlueSource(StatefulIngestionSourceBase):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
+                self,
+                self.source_config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -1085,7 +1122,7 @@ class GlueSource(StatefulIngestionSourceBase):
         full_table_name = f"{database_name}.{table_name}"
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
-            database_name
+            database_name,
         ) or not self.source_config.table_pattern.allowed(full_table_name):
             self.report.report_table_dropped(full_table_name)
             return
@@ -1112,7 +1149,8 @@ class GlueSource(StatefulIngestionSourceBase):
             entity_urn=dataset_urn,
         )
         yield from self.add_table_to_database_container(
-            dataset_urn=dataset_urn, db_name=database_name
+            dataset_urn=dataset_urn,
+            db_name=database_name,
         )
 
         wu = self.get_lineage_if_enabled(mce)
@@ -1133,7 +1171,9 @@ class GlueSource(StatefulIngestionSourceBase):
         flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
             flow_urn = mce_builder.make_data_flow_urn(
-                self.platform, job["Name"], self.env
+                self.platform,
+                job["Name"],
+                self.env,
             )
 
             yield self.get_dataflow_wu(flow_urn, job)
@@ -1164,7 +1204,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue
 
             nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                dag, flow_urn, s3_formats
+                dag,
+                flow_urn,
+                s3_formats,
             )
 
             if not nodes:
@@ -1184,10 +1226,13 @@ class GlueSource(StatefulIngestionSourceBase):
 
     # flake8: noqa: C901
     def _extract_record(
-        self, dataset_urn: str, table: Dict, table_name: str
+        self,
+        dataset_urn: str,
+        table: Dict,
+        table_name: str,
     ) -> MetadataChangeEvent:
         logger.debug(
-            f"extract record from table={table_name} for dataset={dataset_urn}"
+            f"extract record from table={table_name} for dataset={dataset_urn}",
         )
 
         def get_dataset_properties() -> DatasetPropertiesClass:
@@ -1217,7 +1262,7 @@ class GlueSource(StatefulIngestionSourceBase):
             if table.get("StorageDescriptor", {}).get("Location") is None:
                 return None
             bucket_name = s3_util.get_bucket_name(
-                table["StorageDescriptor"]["Location"]
+                table["StorageDescriptor"]["Location"],
             )
             tags_to_add = []
             if self.source_config.use_s3_bucket_tags:
@@ -1227,16 +1272,17 @@ class GlueSource(StatefulIngestionSourceBase):
                         [
                             make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
                             for tag in bucket_tags["TagSet"]
-                        ]
+                        ],
                     )
                 except self.s3_client.exceptions.ClientError:
                     logger.warning(f"No tags found for bucket={bucket_name}")
             if self.source_config.use_s3_object_tags:
                 key_prefix = s3_util.get_key_prefix(
-                    table["StorageDescriptor"]["Location"]
+                    table["StorageDescriptor"]["Location"],
                 )
                 object_tagging = self.s3_client.get_object_tagging(
-                    Bucket=bucket_name, Key=key_prefix
+                    Bucket=bucket_name,
+                    Key=key_prefix,
                 )
                 tag_set = object_tagging["TagSet"]
                 if tag_set:
@@ -1244,19 +1290,19 @@ class GlueSource(StatefulIngestionSourceBase):
                         [
                             make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
                             for tag in tag_set
-                        ]
+                        ],
                     )
                 else:
                     # Unlike bucket tags, if an object does not have tags, it will just return an empty array
                     # as opposed to an exception.
                     logger.warning(
-                        f"No tags found for bucket={bucket_name} key={key_prefix}"
+                        f"No tags found for bucket={bucket_name} key={key_prefix}",
                     )
             if len(tags_to_add) == 0:
                 return None
             if self.ctx.graph is not None:
                 logger.debug(
-                    "Connected to DatahubApi, grabbing current tags to maintain."
+                    "Connected to DatahubApi, grabbing current tags to maintain.",
                 )
                 current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect(
                     entity_urn=dataset_urn,
@@ -1264,21 +1310,23 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 if current_tags:
                     tags_to_add.extend(
-                        [current_tag.tag for current_tag in current_tags.tags]
+                        [current_tag.tag for current_tag in current_tags.tags],
                     )
             else:
                 logger.warning(
-                    "Could not connect to DatahubApi. No current tags to maintain"
+                    "Could not connect to DatahubApi. No current tags to maintain",
                 )
             # Remove duplicate tags
             tags_to_add = sorted(list(set(tags_to_add)))
             new_tags = GlobalTagsClass(
-                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add],
             )
             return new_tags
 
         def _is_delta_schema(
-            provider: str, num_parts: int, columns: Optional[List[Mapping[str, Any]]]
+            provider: str,
+            num_parts: int,
+            columns: Optional[List[Mapping[str, Any]]],
         ) -> bool:
             return (
                 (self.source_config.extract_delta_schema_from_parameters is True)
@@ -1297,8 +1345,9 @@ class GlueSource(StatefulIngestionSourceBase):
             provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
             num_parts = int(
                 table.get("Parameters", {}).get(
-                    "spark.sql.sources.schema.numParts", "0"
-                )
+                    "spark.sql.sources.schema.numParts",
+                    "0",
+                ),
             )
             columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
 
@@ -1356,7 +1405,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     [
                         table["Parameters"][f"spark.sql.sources.schema.part.{i}"]
                         for i in range(numParts)
-                    ]
+                    ],
                 )
                 schema_json = json.loads(schema_str)
                 fields: List[SchemaField] = []
@@ -1394,7 +1443,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 platform=make_data_platform_urn(self.platform),
                 instance=(
                     make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
+                        self.platform,
+                        self.source_config.platform_instance,
                     )
                     if self.source_config.platform_instance
                     else None
@@ -1408,7 +1458,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     OwnerClass(
                         owner=mce_builder.make_user_urn(owner),
                         type=OwnershipTypeClass.DATAOWNER,
-                    )
+                    ),
                 ]
                 return OwnershipClass(
                     owners=owners,

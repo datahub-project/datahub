@@ -20,8 +20,9 @@ def get_output_variable(root: Tree) -> Optional[str]:
     # Remove any spaces
     return "".join(
         strip_char_from_list(
-            remove_whitespaces_from_list(token_values(in_expression_tree)), " "
-        )
+            remove_whitespaces_from_list(token_values(in_expression_tree)),
+            " ",
+        ),
     )
 
 

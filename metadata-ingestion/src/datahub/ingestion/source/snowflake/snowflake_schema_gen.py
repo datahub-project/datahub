@@ -184,14 +184,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
-            connection=self.connection
+            connection=self.connection,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report
+            config,
+            self.data_dictionary,
+            self.report,
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
@@ -231,14 +233,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             for snowflake_db in self.databases:
                 with self.report.new_stage(
-                    f"{snowflake_db.name}: {METADATA_EXTRACTION}"
+                    f"{snowflake_db.name}: {METADATA_EXTRACTION}",
                 ):
                     yield from self._process_database(snowflake_db)
 
             with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
                 discovered_tables: List[str] = [
                     self.identifiers.get_dataset_identifier(
-                        table_name, schema.name, db.name
+                        table_name,
+                        schema.name,
+                        db.name,
                     )
                     for db in self.databases
                     for schema in db.schemas
@@ -279,7 +283,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return ischema_databases
 
     def get_databases_from_ischema(
-        self, databases: List[SnowflakeDatabase]
+        self,
+        databases: List[SnowflakeDatabase],
     ) -> List[SnowflakeDatabase]:
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
@@ -291,19 +296,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # This is okay, because `show databases` query lists all databases irrespective of permission,
                 # if role has `MANAGE GRANTS` privilege. (not advisable)
                 logger.debug(
-                    f"Failed to list databases {database.name} information_schema"
+                    f"Failed to list databases {database.name} information_schema",
                 )
                 # SNOWFLAKE database always shows up even if permissions are missing
                 if database == SNOWFLAKE_DATABASE:
                     continue
                 logger.info(
-                    f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
+                    f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required.",
                 )
 
         return ischema_databases
 
     def _process_database(
-        self, snowflake_db: SnowflakeDatabase
+        self,
+        snowflake_db: SnowflakeDatabase,
     ) -> Iterable[MetadataWorkUnit]:
         db_name = snowflake_db.name
 
@@ -325,13 +331,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     exc_info=e,
                 )
                 self.structured_reporter.warning(
-                    "Failed to get schemas for database", db_name, exc=e
+                    "Failed to get schemas for database",
+                    db_name,
+                    exc=e,
                 )
             return
 
         if self.config.extract_tags != TagOption.skip:
             snowflake_db.tags = self.tag_extractor.get_tags_on_object(
-                domain="database", db_name=db_name
+                domain="database",
+                db_name=db_name,
             )
 
         if self.config.include_technical_schema:
@@ -360,7 +369,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             snowflake_schema: SnowflakeSchema,
         ) -> Iterable[MetadataWorkUnit]:
             for wu in self._process_schema(
-                snowflake_schema, snowflake_db.name, db_tables
+                snowflake_schema,
+                snowflake_db.name,
+                db_tables,
             ):
                 yield wu
 
@@ -374,7 +385,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield wu
 
     def fetch_schemas_for_database(
-        self, snowflake_db: SnowflakeDatabase, db_name: str
+        self,
+        snowflake_db: SnowflakeDatabase,
+        db_name: str,
     ) -> None:
         schemas: List[SnowflakeSchema] = []
         try:
@@ -419,7 +432,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if self.config.extract_tags != TagOption.skip:
             snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
-                schema_name=schema_name, db_name=db_name, domain="schema"
+                schema_name=schema_name,
+                db_name=db_name,
+                domain="schema",
             )
 
         if self.config.include_technical_schema:
@@ -428,7 +443,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # We need to do this first so that we can use it when fetching columns.
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
-                snowflake_schema, db_name, schema_name
+                snowflake_schema,
+                db_name,
+                schema_name,
             )
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
@@ -440,7 +457,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 data_reader = self.make_data_reader()
                 for table in tables:
                     table_wu_generator = self._process_table(
-                        table, snowflake_schema, db_name
+                        table,
+                        snowflake_schema,
+                        db_name,
                     )
 
                     yield from classification_workunit_processor(
@@ -454,11 +473,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if self.aggregator:
                 for view in views:
                     view_identifier = self.identifiers.get_dataset_identifier(
-                        view.name, schema_name, db_name
+                        view.name,
+                        schema_name,
+                        db_name,
                     )
                     if view.is_secure and not view.view_definition:
                         view.view_definition = self.fetch_secure_view_definition(
-                            view.name, schema_name, db_name
+                            view.name,
+                            schema_name,
+                            db_name,
                         )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
@@ -486,7 +509,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
     def fetch_secure_view_definition(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> Optional[str]:
         try:
             view_definitions = self.data_dictionary.get_secure_view_definitions()
@@ -505,13 +531,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return None
 
     def fetch_views_for_schema(
-        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+        self,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
     ) -> List[SnowflakeView]:
         try:
             views: List[SnowflakeView] = []
             for view in self.get_views_for_schema(schema_name, db_name):
                 view_name = self.identifiers.get_dataset_identifier(
-                    view.name, schema_name, db_name
+                    view.name,
+                    schema_name,
+                    db_name,
                 )
 
                 self.report.report_entity_scanned(view_name, "view")
@@ -537,17 +568,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 return []
 
     def fetch_tables_for_schema(
-        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+        self,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
     ) -> List[SnowflakeTable]:
         try:
             tables: List[SnowflakeTable] = []
             for table in self.get_tables_for_schema(schema_name, db_name):
                 table_identifier = self.identifiers.get_dataset_identifier(
-                    table.name, schema_name, db_name
+                    table.name,
+                    schema_name,
+                    db_name,
                 )
                 self.report.report_entity_scanned(table_identifier)
                 if not self.filters.filter_config.table_pattern.allowed(
-                    table_identifier
+                    table_identifier,
                 ):
                     self.report.report_dropped(table_identifier)
                 else:
@@ -570,7 +606,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def make_data_reader(self) -> Optional[SnowflakeDataReader]:
         if self.classification_handler.is_classification_enabled() and self.connection:
             return SnowflakeDataReader.create(
-                self.connection, self.snowflake_identifier
+                self.connection,
+                self.snowflake_identifier,
             )
 
         return None
@@ -583,21 +620,29 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
         table_identifier = self.identifiers.get_dataset_identifier(
-            table.name, schema_name, db_name
+            table.name,
+            schema_name,
+            db_name,
         )
 
         try:
             table.columns = self.get_columns_for_table(
-                table.name, snowflake_schema, db_name
+                table.name,
+                snowflake_schema,
+                db_name,
             )
             table.column_count = len(table.columns)
             if self.config.extract_tags != TagOption.skip:
                 table.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    table.name, schema_name, db_name
+                    table.name,
+                    schema_name,
+                    db_name,
                 )
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to get columns for table", table_identifier, exc=e
+                "Failed to get columns for table",
+                table_identifier,
+                exc=e,
             )
 
         if self.config.extract_tags != TagOption.skip:
@@ -614,7 +659,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             if self.config.include_foreign_keys:
                 self.fetch_foreign_keys_for_table(
-                    table, schema_name, db_name, table_identifier
+                    table,
+                    schema_name,
+                    db_name,
+                    table_identifier,
                 )
 
             yield from self.gen_dataset_workunits(table, schema_name, db_name)
@@ -628,11 +676,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> None:
         try:
             table.foreign_keys = self.get_fk_constraints_for_table(
-                table.name, schema_name, db_name
+                table.name,
+                schema_name,
+                db_name,
             )
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to get foreign keys for table", table_identifier, exc=e
+                "Failed to get foreign keys for table",
+                table_identifier,
+                exc=e,
             )
 
     def fetch_pk_for_table(
@@ -644,11 +696,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> None:
         try:
             table.pk = self.get_pk_constraints_for_table(
-                table.name, schema_name, db_name
+                table.name,
+                schema_name,
+                db_name,
             )
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to get primary key for table", table_identifier, exc=e
+                "Failed to get primary key for table",
+                table_identifier,
+                exc=e,
             )
 
     def _process_view(
@@ -659,20 +715,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
         view_name = self.identifiers.get_dataset_identifier(
-            view.name, schema_name, db_name
+            view.name,
+            schema_name,
+            db_name,
         )
 
         try:
             view.columns = self.get_columns_for_table(
-                view.name, snowflake_schema, db_name
+                view.name,
+                snowflake_schema,
+                db_name,
             )
             if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    view.name, schema_name, db_name
+                    view.name,
+                    schema_name,
+                    db_name,
                 )
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to get columns for view", view_name, exc=e
+                "Failed to get columns for view",
+                view_name,
+                exc=e,
             )
 
         if self.config.extract_tags != TagOption.skip:
@@ -704,11 +768,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self.gen_tag_workunits(tag)
 
     def _format_tags_as_structured_properties(
-        self, tags: List[SnowflakeTag]
+        self,
+        tags: List[SnowflakeTag],
     ) -> Dict[StructuredPropertyUrn, str]:
         return {
             StructuredPropertyUrn(
-                self.snowflake_identifier(tag.structured_property_identifier())
+                self.snowflake_identifier(tag.structured_property_identifier()),
             ): tag.value
             for tag in tags
         }
@@ -727,25 +792,30 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_tag(tag)
 
         dataset_name = self.identifiers.get_dataset_identifier(
-            table.name, schema_name, db_name
+            table.name,
+            schema_name,
+            db_name,
         )
         dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=status
+            entityUrn=dataset_urn,
+            aspect=status,
         ).as_workunit()
 
         schema_metadata = self.gen_schema_metadata(table, schema_name, db_name)
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=schema_metadata
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
         ).as_workunit()
 
         dataset_properties = self.get_dataset_properties(table, schema_name, db_name)
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
         ).as_workunit()
 
         schema_container_key = gen_schema_key(
@@ -776,11 +846,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 [DatasetSubTypes.VIEW]
                 if isinstance(table, SnowflakeView)
                 else [DatasetSubTypes.TABLE]
-            )
+            ),
         )
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=subTypes
+            entityUrn=dataset_urn,
+            aspect=subTypes,
         ).as_workunit()
 
         if self.domain_registry:
@@ -801,14 +872,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 tag_associations = [
                     TagAssociation(
                         tag=make_tag_urn(
-                            self.snowflake_identifier(tag.tag_identifier())
-                        )
+                            self.snowflake_identifier(tag.tag_identifier()),
+                        ),
                     )
                     for tag in table.tags
                 ]
                 global_tags = GlobalTags(tag_associations)
                 yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=global_tags
+                    entityUrn=dataset_urn,
+                    aspect=global_tags,
                 ).as_workunit()
 
         if isinstance(table, SnowflakeView) and table.view_definition is not None:
@@ -823,7 +895,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=view_properties_aspect
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
             ).as_workunit()
 
     def get_dataset_properties(
@@ -890,11 +963,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=tag_urn, aspect=tag_properties_aspect
+            entityUrn=tag_urn,
+            aspect=tag_properties_aspect,
         ).as_workunit()
 
     def gen_tag_as_structured_property_workunits(
-        self, tag: SnowflakeTag
+        self,
+        tag: SnowflakeTag,
     ) -> Iterable[MetadataWorkUnit]:
         identifier = self.snowflake_identifier(tag.structured_property_identifier())
         urn = StructuredPropertyUrn(identifier).urn()
@@ -908,7 +983,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
             ],
             lastModified=AuditStamp(
-                time=get_sys_time(), actor="urn:li:corpuser:datahub"
+                time=get_sys_time(),
+                actor="urn:li:corpuser:datahub",
             ),
         )
         yield MetadataChangeProposalWrapper(
@@ -917,14 +993,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         ).as_workunit()
 
     def gen_column_tags_as_structured_properties(
-        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView]
+        self,
+        dataset_urn: str,
+        table: Union[SnowflakeTable, SnowflakeView],
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
             yield from add_structured_properties_to_entity_wu(
                 schema_field_urn,
                 self._format_tags_as_structured_properties(
-                    table.column_tags[column_name]
+                    table.column_tags[column_name],
                 ),
             )
 
@@ -935,7 +1013,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
     ) -> SchemaMetadata:
         dataset_name = self.identifiers.get_dataset_identifier(
-            table.name, schema_name, db_name
+            table.name,
+            schema_name,
+            db_name,
         )
         dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
@@ -953,7 +1033,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 SchemaField(
                     fieldPath=self.snowflake_identifier(col.name),
                     type=SchemaFieldDataType(
-                        SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
+                        SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)(),
                     ),
                     # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.get_precise_native_type(),
@@ -969,11 +1049,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             [
                                 TagAssociation(
                                     make_tag_urn(
-                                        self.snowflake_identifier(tag.tag_identifier())
-                                    )
+                                        self.snowflake_identifier(tag.tag_identifier()),
+                                    ),
                                 )
                                 for tag in table.column_tags[col.name]
-                            ]
+                            ],
                         )
                         if col.name in table.column_tags
                         and not self.config.extract_tags_as_structured_properties
@@ -991,14 +1071,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return schema_metadata
 
     def build_foreign_keys(
-        self, table: SnowflakeTable, dataset_urn: str
+        self,
+        table: SnowflakeTable,
+        dataset_urn: str,
     ) -> List[ForeignKeyConstraint]:
         foreign_keys = []
         for fk in table.foreign_keys:
             foreign_dataset = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=self.identifiers.get_dataset_identifier(
-                    fk.referred_table, fk.referred_schema, fk.referred_database
+                    fk.referred_table,
+                    fk.referred_schema,
+                    fk.referred_database,
                 ),
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
@@ -1021,12 +1105,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         )
                         for col in fk.column_names
                     ],
-                )
+                ),
             )
         return foreign_keys
 
     def gen_database_containers(
-        self, database: SnowflakeDatabase
+        self,
+        database: SnowflakeDatabase,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             self.snowflake_identifier(database.name),
@@ -1079,7 +1164,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
     def gen_schema_containers(
-        self, schema: SnowflakeSchema, db_name: str
+        self,
+        schema: SnowflakeSchema,
+        db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = self.snowflake_identifier(schema.name)
         database_container_key = gen_database_key(
@@ -1109,7 +1196,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             description=schema.comment,
             external_url=(
                 self.snowsight_url_builder.get_external_url_for_schema(
-                    schema.name, db_name
+                    schema.name,
+                    db_name,
                 )
                 if self.snowsight_url_builder
                 else None
@@ -1137,7 +1225,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> List[SnowflakeTable]:
         tables = self.data_dictionary.get_tables_for_database(db_name)
 
@@ -1151,7 +1241,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return tables.get(schema_name, [])
 
     def get_views_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
@@ -1159,14 +1251,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return views.get(schema_name, [])
 
     def get_columns_for_table(
-        self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str
+        self,
+        table_name: str,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
     ) -> List[SnowflakeColumn]:
         schema_name = snowflake_schema.name
         columns = self.data_dictionary.get_columns_for_schema(
             schema_name,
             db_name,
             cache_exclude_all_objects=itertools.chain(
-                snowflake_schema.tables, snowflake_schema.views
+                snowflake_schema.tables,
+                snowflake_schema.views,
             ),
         )
 
@@ -1174,20 +1270,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return columns.get(table_name, [])
 
     def get_pk_constraints_for_table(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> Optional[SnowflakePK]:
         constraints = self.data_dictionary.get_pk_constraints_for_schema(
-            schema_name, db_name
+            schema_name,
+            db_name,
         )
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name)
 
     def get_fk_constraints_for_table(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
     ) -> List[SnowflakeFK]:
         constraints = self.data_dictionary.get_fk_constraints_for_schema(
-            schema_name, db_name
+            schema_name,
+            db_name,
         )
 
         # Access to table but none of its constraints - is this possible ?
@@ -1196,13 +1300,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
     def _external_tables_ddl_lineage(
-        self, discovered_tables: List[str]
+        self,
+        discovered_tables: List[str],
     ) -> Iterable[KnownLineageMapping]:
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.connection.query(external_tables_query):
                 key = self.identifiers.get_dataset_identifier(
-                    db_row["name"], db_row["schema_name"], db_row["database_name"]
+                    db_row["name"],
+                    db_row["schema_name"],
+                    db_row["database_name"],
                 )
 
                 if key not in discovered_tables:
@@ -1210,7 +1317,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if db_row["location"].startswith("s3://"):
                     yield KnownLineageMapping(
                         upstream_urn=make_s3_urn_for_lineage(
-                            db_row["location"], self.config.env
+                            db_row["location"],
+                            self.config.env,
                         ),
                         downstream_urn=self.identifiers.gen_dataset_urn(key),
                     )

@@ -37,10 +37,13 @@ def test_get_sources_from_query():
         select * from my_schema.my_table
     """
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
+        config,
+        report,
+        PipelineContext(run_id="foo"),
     )
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
-        db_name="test", query=test_query
+        db_name="test",
+        query=test_query,
     )
     assert len(lineage_datasets) == 1
 
@@ -60,10 +63,13 @@ def test_get_sources_from_query_with_only_table_name():
         select * from my_table
     """
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
+        config,
+        report,
+        PipelineContext(run_id="foo"),
     )
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
-        db_name="test", query=test_query
+        db_name="test",
+        query=test_query,
     )
     assert len(lineage_datasets) == 1
 
@@ -83,10 +89,13 @@ def test_get_sources_from_query_with_database():
         select * from test.my_schema.my_table
     """
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
+        config,
+        report,
+        PipelineContext(run_id="foo"),
     )
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
-        db_name="test", query=test_query
+        db_name="test",
+        query=test_query,
     )
     assert len(lineage_datasets) == 1
 
@@ -106,10 +115,13 @@ def test_get_sources_from_query_with_non_default_database():
         select * from test2.my_schema.my_table
     """
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
+        config,
+        report,
+        PipelineContext(run_id="foo"),
     )
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
-        db_name="test", query=test_query
+        db_name="test",
+        query=test_query,
     )
     assert len(lineage_datasets) == 1
 
@@ -129,10 +141,13 @@ def test_get_sources_from_query_with_only_table():
         select * from my_table
     """
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
+        config,
+        report,
+        PipelineContext(run_id="foo"),
     )
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
-        db_name="test", query=test_query
+        db_name="test",
+        query=test_query,
     )
     assert len(lineage_datasets) == 1
 
@@ -151,7 +166,8 @@ def test_parse_alter_table_rename():
         "bar",
     )
     assert parse_alter_table_rename(
-        "public", "alter table second_schema.storage_v2_stg rename to storage_v2; "
+        "public",
+        "alter table second_schema.storage_v2_stg rename to storage_v2; ",
     ) == (
         "second_schema",
         "storage_v2_stg",
@@ -170,7 +186,9 @@ def get_lineage_extractor() -> RedshiftLineageExtractor:
     report = RedshiftReport()
 
     lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo", graph=mock_graph())
+        config,
+        report,
+        PipelineContext(run_id="foo", graph=mock_graph()),
     )
 
     return lineage_extractor
@@ -247,7 +265,9 @@ def test_collapse_temp_lineage():
         query="select * from test_collapse_temp_lineage",
         database=lineage_extractor.config.database,
         all_tables_set={
-            lineage_extractor.config.database: {"public": {"player_price_with_hike_v6"}}
+            lineage_extractor.config.database: {
+                "public": {"player_price_with_hike_v6"},
+            },
         },
         connection=connection,
         lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
@@ -294,10 +314,10 @@ def test_collapse_temp_recursive_cll_lineage():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -312,7 +332,7 @@ def test_collapse_temp_recursive_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -327,7 +347,7 @@ def test_collapse_temp_recursive_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="price_usd",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -346,10 +366,10 @@ def test_collapse_temp_recursive_cll_lineage():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -364,7 +384,7 @@ def test_collapse_temp_recursive_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -379,7 +399,7 @@ def test_collapse_temp_recursive_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
                             column="price",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -406,10 +426,10 @@ def test_collapse_temp_recursive_cll_lineage():
                 sqlglot_l.ColumnRef(
                     table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
                     column="price_usd",
-                )
+                ),
             ],
             logic=None,
-        )
+        ),
     ]
 
     datasets = lineage_extractor._get_upstream_lineages(
@@ -417,7 +437,7 @@ def test_collapse_temp_recursive_cll_lineage():
             LineageDataset(
                 platform=LineageDatasetPlatform.REDSHIFT,
                 urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
+            ),
         ],
         target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
         raw_db_name="dev",
@@ -425,7 +445,7 @@ def test_collapse_temp_recursive_cll_lineage():
         all_tables_set={
             "dev": {
                 "public": set(),
-            }
+            },
         },
         connection=MagicMock(),
         target_dataset_cll=target_dataset_cll,
@@ -457,10 +477,10 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -475,7 +495,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -513,10 +533,10 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -531,7 +551,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -546,7 +566,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
                             column="price",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -561,7 +581,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
                             column="tax",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -587,7 +607,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                 sqlglot_l.ColumnRef(
                     table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
                     column="price_usd",
-                )
+                ),
             ],
             logic=None,
         ),
@@ -602,7 +622,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
                 sqlglot_l.ColumnRef(
                     table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
                     column="player_id",
-                )
+                ),
             ],
             logic=None,
         ),
@@ -613,7 +633,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
             LineageDataset(
                 platform=LineageDatasetPlatform.REDSHIFT,
                 urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
+            ),
         ],
         target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
         raw_db_name="dev",
@@ -621,7 +641,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
         all_tables_set={
             "dev": {
                 "public": set(),
-            }
+            },
         },
         connection=MagicMock(),
         target_dataset_cll=target_dataset_cll,
@@ -655,10 +675,10 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -673,7 +693,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -688,7 +708,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="price_usd",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -707,10 +727,10 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
         parsed_result=SqlParsingResult(
             query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
             ],
             out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
             ],
             debug_info=SqlParsingDebugInfo(),
             column_lineage=[
@@ -725,7 +745,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="player_id",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -740,7 +760,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
                         sqlglot_l.ColumnRef(
                             table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
                             column="price_usd",
-                        )
+                        ),
                     ],
                     logic=None,
                 ),
@@ -767,10 +787,10 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
                 sqlglot_l.ColumnRef(
                     table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
                     column="price_usd",
-                )
+                ),
             ],
             logic=None,
-        )
+        ),
     ]
 
     datasets = lineage_extractor._get_upstream_lineages(
@@ -778,7 +798,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
             LineageDataset(
                 platform=LineageDatasetPlatform.REDSHIFT,
                 urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
+            ),
         ],
         target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
         raw_db_name="dev",
@@ -786,7 +806,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
         all_tables_set={
             "dev": {
                 "public": set(),
-            }
+            },
         },
         connection=MagicMock(),
         target_dataset_cll=target_dataset_cll,

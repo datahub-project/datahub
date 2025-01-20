@@ -536,7 +536,8 @@ def tableau_field_to_schema_field(field, ingest_tags):
         fieldPath=field["name"],
         type=SchemaFieldDataType(type=TypeClass()),
         description=make_description_from_params(
-            field.get("description", ""), field.get("formula")
+            field.get("description", ""),
+            field.get("formula"),
         ),
         nativeDataType=nativeDataType,
         globalTags=(
@@ -545,7 +546,7 @@ def tableau_field_to_schema_field(field, ingest_tags):
                     field.get("role", ""),
                     field.get("__typename", ""),
                     field.get("aggregation", ""),
-                ]
+                ],
             )
             if ingest_tags
             else None
@@ -620,12 +621,12 @@ def get_fully_qualified_table_name(
     if platform in ("athena", "hive", "mysql", "clickhouse"):
         # it two tier database system (athena, hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
-            fully_qualified_table_name.split(".")[-2:]
+            fully_qualified_table_name.split(".")[-2:],
         )
     else:
         # if there are more than 3 tokens, just take the final 3
         fully_qualified_table_name = ".".join(
-            fully_qualified_table_name.split(".")[-3:]
+            fully_qualified_table_name.split(".")[-3:],
         )
 
     return fully_qualified_table_name
@@ -642,7 +643,9 @@ class TableauUpstreamReference:
 
     @classmethod
     def create(
-        cls, d: Dict, default_schema_map: Optional[Dict[str, str]] = None
+        cls,
+        d: Dict,
+        default_schema_map: Optional[Dict[str, str]] = None,
     ) -> "TableauUpstreamReference":
         if d is None:
             raise ValueError("TableauUpstreamReference.create: d is None")
@@ -676,17 +679,17 @@ class TableauUpstreamReference:
         if database != t_database:
             logger.debug(
                 f"Upstream urn generation ({t_id}):"
-                f" replacing database {t_database} with {database} from full name {t_full_name}"
+                f" replacing database {t_database} with {database} from full name {t_full_name}",
             )
         if schema != t_schema:
             logger.debug(
                 f"Upstream urn generation ({t_id}):"
-                f" replacing schema {t_schema} with {schema} from full name {t_full_name}"
+                f" replacing schema {t_schema} with {schema} from full name {t_full_name}",
             )
         if table != t_table:
             logger.debug(
                 f"Upstream urn generation ({t_id}):"
-                f" replacing table {t_table} with {table} from full name {t_full_name}"
+                f" replacing table {t_table} with {table} from full name {t_full_name}",
             )
 
         # TODO: See if we can remove this -- made for redshift
@@ -698,7 +701,7 @@ class TableauUpstreamReference:
             and schema in t_table
         ):
             logger.debug(
-                f"Omitting schema for upstream table {t_id}, schema included in table name"
+                f"Omitting schema for upstream table {t_id}, schema included in table name",
             )
             schema = ""
 
@@ -756,7 +759,10 @@ class TableauUpstreamReference:
         )
 
         return builder.make_dataset_urn_with_platform_instance(
-            platform, table_name, platform_instance, env
+            platform,
+            table_name,
+            platform_instance,
+            env,
         )
 
 
@@ -833,7 +839,7 @@ def make_upstream_class(
 
     for dataset_urn in parsed_result.in_tables:
         upstream_tables.append(
-            UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn)
+            UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn),
         )
     return upstream_tables
 
@@ -870,7 +876,7 @@ def make_fine_grained_lineage_class(
                         cll_info.downstream.column.lower(),
                         cll_info.downstream.column,
                     ),
-                )
+                ),
             ]
             if cll_info.downstream is not None
             and cll_info.downstream.column is not None
@@ -887,7 +893,7 @@ def make_fine_grained_lineage_class(
                 downstreams=downstream,
                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                 upstreams=upstreams,
-            )
+            ),
         )
 
     return fine_grained_lineages
@@ -999,7 +1005,7 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
                     start : (
                         start + page_size if start + page_size < len(ids) else len(ids)
                     )
-                ]
+                ],
             }
             for start in range(0, len(ids), page_size)
         ]
@@ -1018,6 +1024,6 @@ def optimize_query_filter(query_filter: dict) -> dict:
         optimized_query[c.ID_WITH_IN] = list(OrderedSet(query_filter[c.ID_WITH_IN]))
     if query_filter.get(c.PROJECT_NAME_WITH_IN):
         optimized_query[c.PROJECT_NAME_WITH_IN] = list(
-            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
+            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN]),
         )
     return optimized_query

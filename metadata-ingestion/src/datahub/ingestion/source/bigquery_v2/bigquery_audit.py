@@ -102,13 +102,13 @@ class BigqueryTableIdentifier:
         if matches:
             shortened_table_name = matches.group(1)
             logger.debug(
-                f"Found table snapshot. Using {shortened_table_name} as the table name."
+                f"Found table snapshot. Using {shortened_table_name} as the table name.",
             )
 
         if "$" in shortened_table_name:
             shortened_table_name = shortened_table_name.split("$", maxsplit=1)[0]
             logger.debug(
-                f"Found partitioned table. Using {shortened_table_name} as the table name."
+                f"Found partitioned table. Using {shortened_table_name} as the table name.",
             )
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)
@@ -151,7 +151,7 @@ class BigQueryTableRef:
     # Handle table time travel. See https://cloud.google.com/bigquery/docs/time-travel
     # See https://cloud.google.com/bigquery/docs/table-decorators#time_decorators
     SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(
-        "^(.+)@(-?\\d{1,13})(-(-?\\d{1,13})?)?$"
+        "^(.+)@(-?\\d{1,13})(-(-?\\d{1,13})?)?$",
     )
 
     table_identifier: BigqueryTableIdentifier
@@ -159,7 +159,7 @@ class BigQueryTableRef:
     @classmethod
     def from_bigquery_table(cls, table: BigqueryTableIdentifier) -> "BigQueryTableRef":
         return cls(
-            BigqueryTableIdentifier(table.project_id, table.dataset, table.table)
+            BigqueryTableIdentifier(table.project_id, table.dataset, table.table),
         )
 
     @classmethod
@@ -171,8 +171,10 @@ class BigQueryTableRef:
         return cls(
             # spec dict always has to have projectId, datasetId, tableId otherwise it is an invalid spec
             BigqueryTableIdentifier(
-                spec["projectId"], spec["datasetId"], spec["tableId"]
-            )
+                spec["projectId"],
+                spec["datasetId"],
+                spec["tableId"],
+            ),
         )
 
     @classmethod
@@ -209,7 +211,7 @@ class BigQueryTableRef:
         sanitized_table = self.table_identifier.get_table_name()
         # Handle partitioned and sharded tables.
         return BigQueryTableRef(
-            BigqueryTableIdentifier.from_string_name(sanitized_table)
+            BigqueryTableIdentifier.from_string_name(sanitized_table),
         )
 
     def __str__(self) -> str:
@@ -246,13 +248,15 @@ class QueryEvent:
     @staticmethod
     def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
         return get_first_missing_key(
-            inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
+            inp_dict=entry.payload,
+            keys=["serviceData", "jobCompletedEvent", "job"],
         )
 
     @staticmethod
     def get_missing_key_entry_v2(entry: AuditLogEntry) -> Optional[str]:
         return get_first_missing_key(
-            inp_dict=entry.payload, keys=["metadata", "jobChange", "job"]
+            inp_dict=entry.payload,
+            keys=["metadata", "jobChange", "job"],
         )
 
     @staticmethod
@@ -272,7 +276,9 @@ class QueryEvent:
 
     @classmethod
     def from_entry(
-        cls, entry: AuditLogEntry, debug_include_full_payloads: bool = False
+        cls,
+        entry: AuditLogEntry,
+        debug_include_full_payloads: bool = False,
     ) -> "QueryEvent":
         job: Dict = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
         job_query_conf: Dict = job["jobConfiguration"]["query"]
@@ -313,7 +319,7 @@ class QueryEvent:
         raw_dest_table = job_query_conf.get("destinationTable")
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_spec_obj(
-                raw_dest_table
+                raw_dest_table,
             ).get_sanitized_table_ref()
         # statementType
         # referencedTables
@@ -341,7 +347,7 @@ class QueryEvent:
         if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
-                "Auditlog entry - {logEntry}".format(logEntry=entry)
+                "Auditlog entry - {logEntry}".format(logEntry=entry),
             )
 
         return query_event
@@ -351,17 +357,21 @@ class QueryEvent:
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
         missing_key = get_first_missing_key_any(
-            row._xxx_field_to_index, ["timestamp", "protoPayload", "metadata"]
+            row._xxx_field_to_index,
+            ["timestamp", "protoPayload", "metadata"],
         )
         if not missing_key:
             missing_key = get_first_missing_key_any(
-                json.loads(row["metadata"]), ["jobChange"]
+                json.loads(row["metadata"]),
+                ["jobChange"],
             )
         return missing_key
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
+        cls,
+        row: BigQueryAuditMetadata,
+        debug_include_full_payloads: bool = False,
     ) -> "QueryEvent":
         payload: Dict = row["protoPayload"]
         metadata: Dict = json.loads(row["metadata"])
@@ -404,7 +414,7 @@ class QueryEvent:
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
-                raw_dest_table
+                raw_dest_table,
             ).get_sanitized_table_ref()
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
@@ -428,7 +438,7 @@ class QueryEvent:
         if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
-                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
+                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row),
             )
 
         if query_stats.get("totalBilledBytes"):
@@ -438,7 +448,9 @@ class QueryEvent:
 
     @classmethod
     def from_entry_v2(
-        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
+        cls,
+        row: BigQueryAuditMetadata,
+        debug_include_full_payloads: bool = False,
     ) -> "QueryEvent":
         payload: Dict = row.payload
         metadata: Dict = payload["metadata"]
@@ -480,7 +492,7 @@ class QueryEvent:
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
             query_event.destinationTable = BigQueryTableRef.from_string_name(
-                raw_dest_table
+                raw_dest_table,
             ).get_sanitized_table_ref()
         # statementType
         # referencedTables
@@ -505,7 +517,7 @@ class QueryEvent:
         if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
-                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
+                "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row),
             )
 
         if query_stats.get("totalBilledBytes"):
@@ -541,10 +553,12 @@ class ReadEvent:
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
         return (
             get_first_missing_key(
-                inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
+                inp_dict=entry.payload,
+                keys=["metadata", "tableDataRead"],
             )
             or get_first_missing_key(
-                inp_dict=entry.payload, keys=["authenticationInfo", "principalEmail"]
+                inp_dict=entry.payload,
+                keys=["authenticationInfo", "principalEmail"],
             )
             or get_first_missing_key(inp_dict=entry.payload, keys=["resourceName"])
         )
@@ -562,7 +576,9 @@ class ReadEvent:
 
     @classmethod
     def from_entry(
-        cls, entry: AuditLogEntry, debug_include_full_payloads: bool = False
+        cls,
+        entry: AuditLogEntry,
+        debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
@@ -577,7 +593,7 @@ class ReadEvent:
             jobName = readInfo.get("jobName")
 
         resource = BigQueryTableRef.from_string_name(
-            resourceName
+            resourceName,
         ).get_sanitized_table_ref()
 
         readEvent = ReadEvent(
@@ -592,7 +608,7 @@ class ReadEvent:
         if readReason == "JOB" and not jobName:
             logger.debug(
                 "jobName from read events is absent when readReason is JOB. "
-                "Auditlog entry - {logEntry}".format(logEntry=entry)
+                "Auditlog entry - {logEntry}".format(logEntry=entry),
             )
         return readEvent
 
@@ -616,7 +632,9 @@ class ReadEvent:
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
+        cls,
+        row: BigQueryAuditMetadata,
+        debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
         payload = row["protoPayload"]
         user = payload["authenticationInfo"]["principalEmail"]
@@ -633,7 +651,7 @@ class ReadEvent:
             jobName = readInfo.get("jobName")
 
         resource = BigQueryTableRef.from_string_name(
-            resourceName
+            resourceName,
         ).get_sanitized_table_ref()
 
         readEvent = ReadEvent(
@@ -648,7 +666,7 @@ class ReadEvent:
         if readReason == "JOB" and not jobName:
             logger.debug(
                 "jobName from read events is absent when readReason is JOB. "
-                "Auditlog entry - {logEntry}".format(logEntry=row)
+                "Auditlog entry - {logEntry}".format(logEntry=row),
             )
         return readEvent
 

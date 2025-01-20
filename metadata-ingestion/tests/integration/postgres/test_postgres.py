@@ -30,7 +30,8 @@ def is_postgres_up(container_name: str) -> bool:
 @pytest.fixture(scope="module")
 def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "postgres"
+        test_resources_dir / "docker-compose.yml",
+        "postgres",
     ) as docker_services:
         wait_for_port(
             docker_services,
@@ -45,7 +46,11 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_postgres_ingest_with_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner,
+    pytestconfig,
+    test_resources_dir,
+    tmp_path,
+    mock_time,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (
@@ -66,7 +71,11 @@ def test_postgres_ingest_with_db(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_postgres_ingest_with_all_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner,
+    pytestconfig,
+    test_resources_dir,
+    tmp_path,
+    mock_time,
 ):
     # Run the metadata ingestion pipeline.
     config_file = (

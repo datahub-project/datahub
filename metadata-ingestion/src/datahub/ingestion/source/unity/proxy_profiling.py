@@ -78,7 +78,8 @@ class UnityCatalogProxyProfilingMixin:
             if call_analyze:
                 response = self._analyze_table(ref, include_columns=include_columns)
                 success = self._check_analyze_table_statement_status(
-                    response, max_wait_secs=max_wait_secs
+                    response,
+                    max_wait_secs=max_wait_secs,
                 )
                 if not success:
                     self.report.profile_table_timeouts.append(str(ref))
@@ -90,7 +91,7 @@ class UnityCatalogProxyProfilingMixin:
             idx = (str(msg).find("`") + 1) or (str(msg).find("'") + 1) or len(str(msg))
             base_msg = msg[:idx]
             self.report.profile_table_errors.setdefault(base_msg, LossyList()).append(
-                (str(ref), msg)
+                (str(ref), msg),
             )
             logger.warning(
                 f"Failure during profiling {ref}, {e.kwargs}: ({e.error_code}) {e}",
@@ -112,18 +113,22 @@ class UnityCatalogProxyProfilingMixin:
                 return None
 
     def _should_retry_unsupported_column(
-        self, ref: TableReference, e: DatabricksError
+        self,
+        ref: TableReference,
+        e: DatabricksError,
     ) -> bool:
         if "[UNSUPPORTED_FEATURE.ANALYZE_UNSUPPORTED_COLUMN_TYPE]" in str(e):
             logger.info(
-                f"Attempting to profile table without columns due to unsupported column type: {ref}"
+                f"Attempting to profile table without columns due to unsupported column type: {ref}",
             )
             self.report.num_profile_failed_unsupported_column_type += 1
             return True
         return False
 
     def _analyze_table(
-        self, ref: TableReference, include_columns: bool
+        self,
+        ref: TableReference,
+        include_columns: bool,
     ) -> StatementResponse:
         statement = f"ANALYZE TABLE {ref.schema}.{ref.table} COMPUTE STATISTICS"
         if include_columns:
@@ -138,7 +143,9 @@ class UnityCatalogProxyProfilingMixin:
         return response
 
     def _check_analyze_table_statement_status(
-        self, execute_response: StatementResponse, max_wait_secs: int
+        self,
+        execute_response: StatementResponse,
+        max_wait_secs: int,
     ) -> bool:
         if not execute_response.statement_id or not execute_response.status:
             return False
@@ -155,7 +162,7 @@ class UnityCatalogProxyProfilingMixin:
             backoff_sec *= 2
 
             response = self._workspace_client.statement_execution.get_statement(
-                statement_id
+                statement_id,
             )
             self._raise_if_error(response, "get-statement")
             status = response.status  # type: ignore
@@ -163,7 +170,9 @@ class UnityCatalogProxyProfilingMixin:
         return status.state == StatementState.SUCCEEDED
 
     def _get_table_profile(
-        self, ref: TableReference, include_columns: bool
+        self,
+        ref: TableReference,
+        include_columns: bool,
     ) -> Optional[TableProfile]:
         if self.hive_metastore_proxy and ref.catalog == HIVE_METASTORE:
             return self.hive_metastore_proxy.get_table_profile(ref, include_columns)
@@ -171,7 +180,9 @@ class UnityCatalogProxyProfilingMixin:
         return self._create_table_profile(table_info, include_columns=include_columns)
 
     def _create_table_profile(
-        self, table_info: TableInfo, include_columns: bool
+        self,
+        table_info: TableInfo,
+        include_columns: bool,
     ) -> TableProfile:
         # Warning: this implementation is brittle -- dependent on properties that can change
         columns_names = (
@@ -195,23 +206,27 @@ class UnityCatalogProxyProfilingMixin:
         )
 
     def _create_column_profile(
-        self, column: str, table_info: TableInfo
+        self,
+        column: str,
+        table_info: TableInfo,
     ) -> ColumnProfile:
         tblproperties = table_info.properties or {}
         return ColumnProfile(
             name=column,
             null_count=self._get_int(
-                table_info, f"spark.sql.statistics.colStats.{column}.nullCount"
+                table_info,
+                f"spark.sql.statistics.colStats.{column}.nullCount",
             ),
             distinct_count=self._get_int(
-                table_info, f"spark.sql.statistics.colStats.{column}.distinctCount"
+                table_info,
+                f"spark.sql.statistics.colStats.{column}.distinctCount",
             ),
             min=tblproperties.get(f"spark.sql.statistics.colStats.{column}.min"),
             max=tblproperties.get(f"spark.sql.statistics.colStats.{column}.max"),
             avg_len=tblproperties.get(f"spark.sql.statistics.colStats.{column}.avgLen"),
             max_len=tblproperties.get(f"spark.sql.statistics.colStats.{column}.maxLen"),
             version=tblproperties.get(
-                f"spark.sql.statistics.colStats.{column}.version"
+                f"spark.sql.statistics.colStats.{column}.version",
             ),
         )
 
@@ -223,7 +238,7 @@ class UnityCatalogProxyProfilingMixin:
                 return int(value)
             except ValueError:
                 logger.warning(
-                    f"Failed to parse int for {table_info.name} - {field}: {value}"
+                    f"Failed to parse int for {table_info.name} - {field}: {value}",
                 )
                 self.report.num_profile_failed_int_casts += 1
         return None

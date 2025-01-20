@@ -21,7 +21,8 @@ def test_correct_url_when_gms_host_in_old_format():
 
 
 @mock.patch.dict(
-    os.environ, {"DATAHUB_GMS_HOST": "localhost", "DATAHUB_GMS_PORT": "8080"}
+    os.environ,
+    {"DATAHUB_GMS_HOST": "localhost", "DATAHUB_GMS_PORT": "8080"},
 )
 def test_correct_url_when_gms_host_and_port_set():
     assert _get_config_from_env() == ("http://localhost:8080", None)

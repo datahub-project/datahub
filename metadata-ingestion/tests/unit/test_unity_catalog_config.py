@@ -18,12 +18,13 @@ def test_within_thirty_days():
             "include_usage_statistics": True,
             "include_hive_metastore": False,
             "start_time": FROZEN_TIME - timedelta(days=30),
-        }
+        },
     )
     assert config.start_time == FROZEN_TIME - timedelta(days=30)
 
     with pytest.raises(
-        ValueError, match="Query history is only maintained for 30 days."
+        ValueError,
+        match="Query history is only maintained for 30 days.",
     ):
         UnityCatalogSourceConfig.parse_obj(
             {
@@ -31,7 +32,7 @@ def test_within_thirty_days():
                 "workspace_url": "https://workspace_url",
                 "include_usage_statistics": True,
                 "start_time": FROZEN_TIME - timedelta(days=31),
-            }
+            },
         )
 
 
@@ -46,7 +47,7 @@ def test_profiling_requires_warehouses_id():
                 "method": "ge",
                 "warehouse_id": "my_warehouse_id",
             },
-        }
+        },
     )
     assert config.profiling.enabled is True
 
@@ -56,7 +57,7 @@ def test_profiling_requires_warehouses_id():
             "workspace_url": "https://workspace_url",
             "include_hive_metastore": False,
             "profiling": {"enabled": False, "method": "ge"},
-        }
+        },
     )
     assert config.profiling.enabled is False
 
@@ -66,7 +67,7 @@ def test_profiling_requires_warehouses_id():
                 "token": "token",
                 "include_hive_metastore": False,
                 "workspace_url": "workspace_url",
-            }
+            },
         )
 
 
@@ -78,7 +79,7 @@ def test_workspace_url_should_start_with_https():
                 "token": "token",
                 "workspace_url": "workspace_url",
                 "profiling": {"enabled": True},
-            }
+            },
         )
 
 
@@ -92,7 +93,7 @@ def test_global_warehouse_id_is_set_from_profiling():
                 "enabled": True,
                 "warehouse_id": "my_warehouse_id",
             },
-        }
+        },
     )
     assert config.profiling.warehouse_id == "my_warehouse_id"
     assert config.warehouse_id == "my_warehouse_id"
@@ -113,7 +114,7 @@ def test_set_different_warehouse_id_from_profiling():
                     "enabled": True,
                     "warehouse_id": "my_warehouse_id",
                 },
-            }
+            },
         )
 
 
@@ -127,7 +128,7 @@ def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
                 "token": "token",
                 "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
                 "include_hive_metastore": True,
-            }
+            },
         )
 
 
@@ -152,6 +153,6 @@ def test_set_profiling_warehouse_id_from_global():
                 "method": "ge",
                 "enabled": True,
             },
-        }
+        },
     )
     assert config.profiling.warehouse_id == "my_global_warehouse_id"

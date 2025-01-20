@@ -18,7 +18,7 @@ class GitReference(ConfigModel):
     """Reference to a hosted Git repository. Used to generate "view source" links."""
 
     repo: str = Field(
-        description="Name of your Git repo e.g. https://github.com/datahub-project/datahub or https://gitlab.com/gitlab-org/gitlab. If organization/repo is provided, we assume it is a GitHub repo."
+        description="Name of your Git repo e.g. https://github.com/datahub-project/datahub or https://gitlab.com/gitlab-org/gitlab. If organization/repo is provided, we assume it is a GitHub repo.",
     )
     branch: str = Field(
         "main",
@@ -67,7 +67,7 @@ class GitReference(ConfigModel):
             return _GITLAB_URL_TEMPLATE
         else:
             raise ValueError(
-                "Unable to infer URL template from repo. Please set url_template manually."
+                "Unable to infer URL template from repo. Please set url_template manually.",
             )
 
     def get_url_for_file_path(self, file_path: str) -> str:
@@ -75,7 +75,9 @@ class GitReference(ConfigModel):
         if self.url_subdir:
             file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
-            repo_url=self.repo, branch=self.branch, file_path=file_path
+            repo_url=self.repo,
+            branch=self.branch,
+            file_path=file_path,
         )
 
 
@@ -102,7 +104,9 @@ class GitInfo(GitReference):
 
     @validator("deploy_key", pre=True, always=True)
     def deploy_key_filled_from_deploy_key_file(
-        cls, v: Optional[SecretStr], values: Dict[str, Any]
+        cls,
+        v: Optional[SecretStr],
+        values: Dict[str, Any],
     ) -> Optional[SecretStr]:
         if v is None:
             deploy_key_file = values.get("deploy_key_file")
@@ -114,7 +118,9 @@ class GitInfo(GitReference):
 
     @validator("repo_ssh_locator", always=True)
     def infer_repo_ssh_locator(
-        cls, repo_ssh_locator: Optional[str], values: dict
+        cls,
+        repo_ssh_locator: Optional[str],
+        values: dict,
     ) -> str:
         if repo_ssh_locator is not None:
             return repo_ssh_locator
@@ -126,7 +132,7 @@ class GitInfo(GitReference):
             return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
         else:
             raise ValueError(
-                "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."
+                "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually.",
             )
 
     @property

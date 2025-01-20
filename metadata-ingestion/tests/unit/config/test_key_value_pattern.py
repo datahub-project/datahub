@@ -28,7 +28,8 @@ def test_no_fallthrough_pattern() -> None:
 
 def test_fallthrough_pattern() -> None:
     pattern = KeyValuePattern(
-        rules={"foo.*": ["bar", "baz"], ".*": ["qux"]}, first_match_only=False
+        rules={"foo.*": ["bar", "baz"], ".*": ["qux"]},
+        first_match_only=False,
     )
     assert pattern.value("foo") == ["bar", "baz", "qux"]
     assert pattern.value("foo.bar") == ["bar", "baz", "qux"]

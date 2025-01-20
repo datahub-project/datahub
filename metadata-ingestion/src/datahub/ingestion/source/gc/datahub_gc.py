@@ -113,7 +113,10 @@ class DataHubGcSource(Source):
         self.report.event_not_produced_warn = False
         self.graph = ctx.require_graph("The DataHubGc source")
         self.dataprocess_cleanup = DataProcessCleanup(
-            ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
+            ctx,
+            self.config.dataprocess_cleanup,
+            self.report,
+            self.config.dry_run,
         )
         self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
             ctx,
@@ -157,7 +160,8 @@ class DataHubGcSource(Source):
                     self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
             except Exception as e:
                 self.report.failure(
-                    "While trying to cleanup soft deleted entities ", exc=e
+                    "While trying to cleanup soft deleted entities ",
+                    exc=e,
                 )
         if self.config.dataprocess_cleanup.enabled:
             try:
@@ -176,28 +180,39 @@ class DataHubGcSource(Source):
     def truncate_indices(self) -> None:
         self._truncate_timeseries_helper(aspect_name="operation", entity_type="dataset")
         self._truncate_timeseries_helper(
-            aspect_name="datasetusagestatistics", entity_type="dataset"
+            aspect_name="datasetusagestatistics",
+            entity_type="dataset",
         )
         self._truncate_timeseries_helper(
-            aspect_name="chartUsageStatistics", entity_type="chart"
+            aspect_name="chartUsageStatistics",
+            entity_type="chart",
         )
         self._truncate_timeseries_helper(
-            aspect_name="dashboardUsageStatistics", entity_type="dashboard"
+            aspect_name="dashboardUsageStatistics",
+            entity_type="dashboard",
         )
         self._truncate_timeseries_helper(
-            aspect_name="queryusagestatistics", entity_type="query"
+            aspect_name="queryusagestatistics",
+            entity_type="query",
         )
 
     def _truncate_timeseries_helper(self, aspect_name: str, entity_type: str) -> None:
         self._truncate_timeseries_with_watch_optional(
-            aspect_name=aspect_name, entity_type=entity_type, watch=False
+            aspect_name=aspect_name,
+            entity_type=entity_type,
+            watch=False,
         )
         self._truncate_timeseries_with_watch_optional(
-            aspect_name=aspect_name, entity_type=entity_type, watch=True
+            aspect_name=aspect_name,
+            entity_type=entity_type,
+            watch=True,
         )
 
     def _truncate_timeseries_with_watch_optional(
-        self, aspect_name: str, entity_type: str, watch: bool
+        self,
+        aspect_name: str,
+        entity_type: str,
+        watch: bool,
     ) -> None:
         graph = self.graph
         assert graph is not None
@@ -238,7 +253,7 @@ class DataHubGcSource(Source):
 
     def x_days_ago_millis(self, days: int) -> int:
         x_days_ago_datetime = datetime.datetime.now(
-            datetime.timezone.utc
+            datetime.timezone.utc,
         ) - datetime.timedelta(days=days)
         return int(x_days_ago_datetime.timestamp() * 1000)
 
@@ -255,7 +270,7 @@ class DataHubGcSource(Source):
         gms_url = graph._gms_server
         if not dry_run:
             logger.info(
-                f"Going to truncate timeseries for {aspect} for {gms_url} older than {days_ago} days"
+                f"Going to truncate timeseries for {aspect} for {gms_url} older than {days_ago} days",
             )
         days_ago_millis = self.x_days_ago_millis(days_ago)
         url = f"{gms_url}/operations?action=truncateTimeseriesAspect"
@@ -342,9 +357,9 @@ class DataHubGcSource(Source):
                             "field": "expiresAt",
                             "values": [str(int(time.time() * 1000))],
                             "condition": "LESS_THAN",
-                        }
+                        },
                     ],
-                }
+                },
             },
         )
 

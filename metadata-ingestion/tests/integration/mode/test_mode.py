@@ -127,7 +127,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/mode_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -167,7 +167,7 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/mode_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         with pytest.raises(PipelineExecutionError) as exec_error:
@@ -186,7 +186,7 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
         side_effect=lambda *args, **kwargs: MockResponseJson(
-            json_empty_list=["https://app.mode.com/api/modeuser"]
+            json_empty_list=["https://app.mode.com/api/modeuser"],
         ),
     ):
         global test_resources_dir
@@ -210,7 +210,7 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/mode_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status(raise_warnings=True)
@@ -221,7 +221,7 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
         side_effect=lambda *args, **kwargs: MockResponseJson(
-            json_error_list=["https://app.mode.com/api/modeuser"]
+            json_error_list=["https://app.mode.com/api/modeuser"],
         ),
     ):
         global test_resources_dir
@@ -245,7 +245,7 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
                         "filename": f"{tmp_path}/mode_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status(raise_warnings=False)

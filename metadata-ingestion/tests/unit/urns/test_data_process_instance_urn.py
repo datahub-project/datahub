@@ -10,7 +10,7 @@ class TestDataProcessInstanceUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
         dataprocessinstance_urn_str = "urn:li:dataProcessInstance:abc"
         dataprocessinstance_urn = DataProcessInstanceUrn.create_from_string(
-            dataprocessinstance_urn_str
+            dataprocessinstance_urn_str,
         )
         assert dataprocessinstance_urn.get_type() == DataProcessInstanceUrn.ENTITY_TYPE
 

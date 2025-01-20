@@ -54,7 +54,7 @@ class SnowflakeUsageReport:
     stateful_usage_ingestion_enabled: bool = False
 
     usage_aggregation: SnowflakeUsageAggregationReport = field(
-        default_factory=SnowflakeUsageAggregationReport
+        default_factory=SnowflakeUsageAggregationReport,
     )
 
 

@@ -36,7 +36,8 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
     )
 
     _schema_pattern_deprecated = pydantic_renamed_field(
-        "schema_pattern", "database_pattern"
+        "schema_pattern",
+        "database_pattern",
     )
 
     def get_sql_alchemy_url(
@@ -100,7 +101,9 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         )
 
     def get_allowed_schemas(
-        self, inspector: Inspector, db_name: str
+        self,
+        inspector: Inspector,
+        db_name: str,
     ) -> typing.Iterable[str]:
         # This method returns schema names but for 2 tier databases there is no schema layer at all hence passing
         # dbName itself as an allowed schema

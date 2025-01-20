@@ -14,10 +14,11 @@ class TestDataJobUrn(unittest.TestCase):
         )
         data_job_urn = DataJobUrn.create_from_string(data_job_urn_str)
         assert data_job_urn.get_data_flow_urn() == DataFlowUrn.create_from_string(
-            "urn:li:dataFlow:(airflow,flow_id,prod)"
+            "urn:li:dataFlow:(airflow,flow_id,prod)",
         )
         assert data_job_urn.get_job_id() == "job_id"
         assert data_job_urn.__str__() == data_job_urn_str
         assert data_job_urn == DataJobUrn(
-            "urn:li:dataFlow:(airflow,flow_id,prod)", "job_id"
+            "urn:li:dataFlow:(airflow,flow_id,prod)",
+            "job_id",
         )

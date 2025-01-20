@@ -49,7 +49,7 @@ class SigmaAPI:
             {
                 "Authorization": f"Bearer {response_dict[Constant.ACCESS_TOKEN]}",
                 "Content-Type": "application/json",
-            }
+            },
         )
 
     def _log_http_error(self, message: str) -> Any:
@@ -79,11 +79,11 @@ class SigmaAPI:
                 {
                     "Authorization": f"Bearer {response_dict[Constant.ACCESS_TOKEN]}",
                     "Content-Type": "application/json",
-                }
+                },
             )
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to refresh access token. Exception: {e}"
+                message=f"Unable to refresh access token. Exception: {e}",
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
@@ -101,7 +101,7 @@ class SigmaAPI:
                 return self.workspaces[workspace_id]
             else:
                 response = self._get_api_call(
-                    f"{self.config.api_url}/workspaces/{workspace_id}"
+                    f"{self.config.api_url}/workspaces/{workspace_id}",
                 )
                 if response.status_code == 403:
                     logger.debug(f"Workspace {workspace_id} not accessible.")
@@ -113,7 +113,7 @@ class SigmaAPI:
                 return workspace
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
+                message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}",
             )
         return None
 
@@ -157,7 +157,7 @@ class SigmaAPI:
             return users
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch users details. Exception: {e}"
+                message=f"Unable to fetch users details. Exception: {e}",
             )
             return {}
 
@@ -166,13 +166,15 @@ class SigmaAPI:
 
     @functools.lru_cache()
     def get_workspace_id_from_file_path(
-        self, parent_id: str, path: str
+        self,
+        parent_id: str,
+        path: str,
     ) -> Optional[str]:
         try:
             path_list = path.split("/")
             while len(path_list) != 1:  # means current parent id is folder's id
                 response = self._get_api_call(
-                    f"{self.config.api_url}/files/{parent_id}"
+                    f"{self.config.api_url}/files/{parent_id}",
                 )
                 response.raise_for_status()
                 parent_id = response.json()[Constant.PARENTID]
@@ -180,7 +182,7 @@ class SigmaAPI:
             return parent_id
         except Exception as e:
             logger.error(
-                f"Unable to find workspace id using file path '{path}'. Exception: {e}"
+                f"Unable to find workspace id using file path '{path}'. Exception: {e}",
             )
             return None
 
@@ -197,7 +199,8 @@ class SigmaAPI:
                 for file_dict in response_dict[Constant.ENTRIES]:
                     file = File.parse_obj(file_dict)
                     file.workspaceId = self.get_workspace_id_from_file_path(
-                        file.parentId, file.path
+                        file.parentId,
+                        file.path,
                     )
                     files_metadata[file_dict[Constant.ID]] = file
                 if response_dict[Constant.NEXTPAGE]:
@@ -208,7 +211,7 @@ class SigmaAPI:
             return files_metadata
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch files metadata. Exception: {e}"
+                message=f"Unable to fetch files metadata. Exception: {e}",
             )
             return {}
 
@@ -237,7 +240,7 @@ class SigmaAPI:
                             workspace = self.get_workspace(dataset.workspaceId)
                             if workspace:
                                 if self.config.workspace_pattern.allowed(
-                                    workspace.name
+                                    workspace.name,
                                 ):
                                     datasets.append(dataset)
                             elif self.config.ingest_shared_entities:
@@ -253,12 +256,14 @@ class SigmaAPI:
             return datasets
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sigma datasets. Exception: {e}"
+                message=f"Unable to fetch sigma datasets. Exception: {e}",
             )
             return []
 
     def _get_element_upstream_sources(
-        self, element: Element, workbook: Workbook
+        self,
+        element: Element,
+        workbook: Workbook,
     ) -> Dict[str, str]:
         """
         Returns upstream dataset sources with keys as id and values as name of that dataset
@@ -266,16 +271,16 @@ class SigmaAPI:
         try:
             upstream_sources: Dict[str, str] = {}
             response = self._get_api_call(
-                f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}",
             )
             if response.status_code == 500:
                 logger.debug(
-                    f"Lineage metadata not present for element {element.name} of workbook '{workbook.name}'"
+                    f"Lineage metadata not present for element {element.name} of workbook '{workbook.name}'",
                 )
                 return upstream_sources
             if response.status_code == 403:
                 logger.debug(
-                    f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'"
+                    f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'",
                 )
                 return upstream_sources
 
@@ -292,20 +297,22 @@ class SigmaAPI:
             return upstream_sources
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch lineage for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
+                message=f"Unable to fetch lineage for element {element.name} of workbook '{workbook.name}'. Exception: {e}",
             )
             return {}
 
     def _get_element_sql_query(
-        self, element: Element, workbook: Workbook
+        self,
+        element: Element,
+        workbook: Workbook,
     ) -> Optional[str]:
         try:
             response = self._get_api_call(
-                f"{self.config.api_url}/workbooks/{workbook.workbookId}/elements/{element.elementId}/query"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/elements/{element.elementId}/query",
             )
             if response.status_code == 404:
                 logger.debug(
-                    f"Query not present for element {element.name} of workbook '{workbook.name}'"
+                    f"Query not present for element {element.name} of workbook '{workbook.name}'",
                 )
                 return None
             response.raise_for_status()
@@ -314,7 +321,7 @@ class SigmaAPI:
                 return response_dict["sql"]
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
+                message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}",
             )
         return None
 
@@ -322,7 +329,7 @@ class SigmaAPI:
         try:
             elements: List[Element] = []
             response = self._get_api_call(
-                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements",
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
@@ -339,14 +346,15 @@ class SigmaAPI:
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
                 ):
                     element.upstream_sources = self._get_element_upstream_sources(
-                        element, workbook
+                        element,
+                        workbook,
                     )
                     element.query = self._get_element_sql_query(element, workbook)
                 elements.append(element)
             return elements
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch elements of page '{page.name}', workbook '{workbook.name}'. Exception: {e}"
+                message=f"Unable to fetch elements of page '{page.name}', workbook '{workbook.name}'. Exception: {e}",
             )
             return []
 
@@ -354,7 +362,7 @@ class SigmaAPI:
         try:
             pages: List[Page] = []
             response = self._get_api_call(
-                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages",
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
@@ -364,7 +372,7 @@ class SigmaAPI:
             return pages
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
+                message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}",
             )
             return []
 
@@ -394,7 +402,7 @@ class SigmaAPI:
                             workspace = self.get_workspace(workbook.workspaceId)
                             if workspace:
                                 if self.config.workspace_pattern.allowed(
-                                    workspace.name
+                                    workspace.name,
                                 ):
                                     workbook.pages = self.get_workbook_pages(workbook)
                                     workbooks.append(workbook)
@@ -412,6 +420,6 @@ class SigmaAPI:
             return workbooks
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sigma workbooks. Exception: {e}"
+                message=f"Unable to fetch sigma workbooks. Exception: {e}",
             )
             return []

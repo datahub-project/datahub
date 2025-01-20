@@ -66,10 +66,11 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-            }
+            },
         )
         confluent_schema_registry = ConfluentSchemaRegistry.create(
-            kafka_source_config, KafkaSourceReport()
+            kafka_source_config,
+            KafkaSourceReport(),
         )
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
@@ -93,14 +94,16 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
                         schema_type="AVRO",
                         references=[
                             SchemaReference(
-                                name="TestTopic1", subject="schema_subject_1", version=1
-                            )
+                                name="TestTopic1",
+                                subject="schema_subject_1",
+                                version=1,
+                            ),
                         ],
-                    )
+                    ),
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
-                schema_str_final
+                schema_str_final,
             )
 
         with patch.object(
@@ -116,14 +119,16 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
                         schema_type="AVRO",
                         references=[
                             SchemaReference(
-                                name="schema_subject_1", subject="TestTopic1", version=1
-                            )
+                                name="schema_subject_1",
+                                subject="TestTopic1",
+                                version=1,
+                            ),
                         ],
-                    )
+                    ),
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
-                schema_str_final
+                schema_str_final,
             )
 
 

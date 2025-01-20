@@ -61,23 +61,27 @@ class PowerBiReportServerAPIConfig(EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
-        default="localhost", description="Workstation name"
+        default="localhost",
+        description="Workstation name",
     )
     host_port: str = pydantic.Field(description="Power BI Report Server host URL")
     server_alias: str = pydantic.Field(
-        default="", description="Alias for Power BI Report Server host URL"
+        default="",
+        description="Alias for Power BI Report Server host URL",
     )
     graphql_url: Optional[str] = pydantic.Field(
-        default=None, description="[deprecated] Not used"
+        default=None,
+        description="[deprecated] Not used",
     )
     report_virtual_directory_name: str = pydantic.Field(
-        description="Report Virtual Directory URL name"
+        description="Report Virtual Directory URL name",
     )
     report_server_virtual_directory_name: str = pydantic.Field(
-        description="Report Server Virtual Directory URL name"
+        description="Report Server Virtual Directory URL name",
     )
     extract_ownership: bool = pydantic.Field(
-        default=True, description="Whether ownership should be ingested"
+        default=True,
+        description="Whether ownership should be ingested",
     )
     ownership_type: str = pydantic.Field(
         default=OwnershipTypeClass.NONE,
@@ -87,19 +91,22 @@ class PowerBiReportServerAPIConfig(EnvConfigMixin):
     @property
     def get_base_api_http_url(self):
         return "http://{}/{}/api/v2.0".format(
-            self.host_port, self.report_virtual_directory_name
+            self.host_port,
+            self.report_virtual_directory_name,
         )
 
     @property
     def get_base_api_https_url(self):
         return "https://{}/{}/api/v2.0".format(
-            self.host_port, self.report_virtual_directory_name
+            self.host_port,
+            self.report_virtual_directory_name,
         )
 
     @property
     def get_base_url(self):
         return "http://{}/{}/".format(
-            self.host_port, self.report_virtual_directory_name
+            self.host_port,
+            self.report_virtual_directory_name,
         )
 
     @property
@@ -250,7 +257,8 @@ class Mapper:
         )
 
     def __to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
+        self,
+        mcp: MetadataChangeProposalWrapper,
     ) -> EquableMetadataWorkUnit:
         return Mapper.EquableMetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
@@ -268,7 +276,7 @@ class Mapper:
                 mcp.entityUrn
                 for mcp in mcps
                 if mcp is not None and mcp.entityUrn is not None
-            ]
+            ],
         )
 
     def to_ownership_set(
@@ -282,7 +290,7 @@ class Mapper:
         for mcp in mcps:
             if mcp is not None and mcp.entityUrn is not None:
                 ownership.append(
-                    Owner(owner=mcp.entityUrn, type=self.__config.ownership_type)
+                    Owner(owner=mcp.entityUrn, type=self.__config.ownership_type),
                 )
         return deduplicate_list(ownership)
 
@@ -296,12 +304,14 @@ class Mapper:
         Map PowerBI Report Server report to Datahub Dashboard
         """
         dashboard_urn = builder.make_dashboard_urn(
-            self.__config.platform_name, report.get_urn_part()
+            self.__config.platform_name,
+            report.get_urn_part(),
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
         user_urn_list: List[Owner] = self.to_ownership_set(
-            mcps=user_mcps, existing_owners=report.user_info.existing_owners
+            mcps=user_mcps,
+            existing_owners=report.user_info.existing_owners,
         )
 
         def custom_properties(
@@ -381,8 +391,8 @@ class Mapper:
                     self.__config.host,
                     self.__config.env,
                     self.__config.report_virtual_directory_name,
-                )
-            ]
+                ),
+            ],
         )
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
@@ -517,7 +527,9 @@ class PowerBiReportServerDashboardSource(Source):
     accessed_dashboards: int = 0
 
     def __init__(
-        self, config: PowerBiReportServerDashboardSourceConfig, ctx: PipelineContext
+        self,
+        config: PowerBiReportServerDashboardSourceConfig,
+        ctx: PipelineContext,
     ):
         super().__init__(ctx)
         self.source_config = config
@@ -545,7 +557,9 @@ class PowerBiReportServerDashboardSource(Source):
                 report.user_info = self.get_user_info(report)
             except pydantic.ValidationError as e:
                 message = "Error ({}) occurred while loading User {}(id={})".format(
-                    e, report.name, report.id
+                    e,
+                    report.name,
+                    report.id,
                 )
                 LOGGER.exception(message, e)
                 self.report.report_warning(report.id, message)
@@ -561,7 +575,8 @@ class PowerBiReportServerDashboardSource(Source):
         if not self.source_config.extract_ownership:
             return OwnershipData(existing_owners=[], owner_to_add=None)
         dashboard_urn = builder.make_dashboard_urn(
-            self.source_config.platform_name, report.get_urn_part()
+            self.source_config.platform_name,
+            report.get_urn_part(),
         )
         user_urn = builder.make_user_urn(report.display_name)
 
@@ -570,10 +585,12 @@ class PowerBiReportServerDashboardSource(Source):
         if ownership:
             existing_ownership = ownership.owners
         if self.ctx.graph.get_aspect_v2(
-            entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
+            entity_urn=user_urn,
+            aspect="corpUserInfo",
+            aspect_type=CorpUserInfoClass,
         ):
             existing_ownership.append(
-                OwnerClass(owner=user_urn, type=self.source_config.ownership_type)
+                OwnerClass(owner=user_urn, type=self.source_config.ownership_type),
             )
             return OwnershipData(existing_owners=existing_ownership)
         user_data = dict(
@@ -584,7 +601,8 @@ class PowerBiReportServerDashboardSource(Source):
         )
         owner_to_add = CorpUser(**user_data)
         return OwnershipData(
-            existing_owners=existing_ownership, owner_to_add=owner_to_add
+            existing_owners=existing_ownership,
+            owner_to_add=owner_to_add,
         )
 
     def get_report(self) -> SourceReport:

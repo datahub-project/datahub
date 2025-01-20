@@ -15,11 +15,11 @@ try:
 except ImportError:
     pass
 lastUpdatedResponseBeforeLastAssertion = {
-    "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]}
+    "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]},
 }
 
 lastUpdatedResponseAfterLastAssertion = {
-    "dataset": {"operations": [{"lastUpdatedTimestamp": 1652450039000}]}
+    "dataset": {"operations": [{"lastUpdatedTimestamp": 1652450039000}]},
 }
 
 
@@ -37,7 +37,7 @@ def test_operation_circuit_breaker_with_empty_response(pytestconfig):
         cb = OperationCircuitBreaker(config)
 
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD))"
+            urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD))",
         )
         assert result is True
 
@@ -57,7 +57,7 @@ def test_operation_circuit_breaker_with_valid_response(pytestconfig):
         cb = OperationCircuitBreaker(config)
 
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)",
         )
         assert result is False
 
@@ -77,7 +77,7 @@ def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
         cb = OperationCircuitBreaker(config)
 
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)",
         )
         assert result is True
 
@@ -96,7 +96,7 @@ def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
         cb = AssertionCircuitBreaker(config)
 
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
         )
         assert result is True
 
@@ -115,7 +115,7 @@ def test_assertion_circuit_breaker_with_no_error(pytestconfig):
         cb = AssertionCircuitBreaker(config)
 
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
         )
         assert result is False
 
@@ -133,7 +133,7 @@ def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig)
         config = AssertionCircuitBreakerConfig(datahub_host="dummy")
         cb = AssertionCircuitBreaker(config)
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
         )
         assert result is True
 
@@ -150,6 +150,6 @@ def test_assertion_circuit_breaker_assertion_with_active_assertion(pytestconfig)
         config = AssertionCircuitBreakerConfig(datahub_host="dummy")
         cb = AssertionCircuitBreaker(config)
         result = cb.is_circuit_breaker_active(
-            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)"
+            urn="urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
         )
         assert result is True  # add assertion here

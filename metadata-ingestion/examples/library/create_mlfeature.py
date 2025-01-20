@@ -7,7 +7,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
 
 dataset_urn = builder.make_dataset_urn(
-    name="fct_users_created", platform="hive", env="PROD"
+    name="fct_users_created",
+    platform="hive",
+    env="PROD",
 )
 feature_urn = builder.make_ml_feature_urn(
     feature_table_name="users_feature_table",

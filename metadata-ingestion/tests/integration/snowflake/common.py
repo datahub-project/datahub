@@ -201,7 +201,7 @@ def default_query_results(  # noqa: C901
                 "name": "TEST_DB",
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for TEST_DB",
-            }
+            },
         ]
     elif query == SnowflakeQuery.get_databases("TEST_DB"):
         return [
@@ -210,7 +210,7 @@ def default_query_results(  # noqa: C901
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "COMMENT": "Comment for TEST_DB",
-            }
+            },
         ]
     elif query == SnowflakeQuery.schemas_for_database("TEST_DB"):
         return [
@@ -304,7 +304,7 @@ def default_query_results(  # noqa: C901
             {
                 "MIN_TIME": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "MAX_TIME": datetime(2022, 6, 7, 7, 17, 0, 0),
-            }
+            },
         ]
     elif query == snowflake_query.SnowflakeQuery.operational_data_for_time_window(
         1654473600000,
@@ -313,10 +313,10 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "QUERY_START_TIME": datetime(2022, 6, 2, 4, 41, 1, 367000).replace(
-                    tzinfo=timezone.utc
+                    tzinfo=timezone.utc,
                 ),
                 "QUERY_TEXT": "create or replace table TABLE_{}  as select * from TABLE_2 left join TABLE_3 using COL_1 left join TABLE 4 using COL2".format(
-                    op_idx
+                    op_idx,
                 ),
                 "QUERY_TYPE": "CREATE_TABLE_AS_SELECT",
                 "ROWS_INSERTED": 0,
@@ -351,7 +351,7 @@ def default_query_results(  # noqa: C901
                             "objectId": 0,
                             "objectName": "TEST_DB.TEST_SCHEMA.TABLE_4",
                         },
-                    ]
+                    ],
                 ),
                 "DIRECT_OBJECTS_ACCESSED": json.dumps(
                     [
@@ -382,7 +382,7 @@ def default_query_results(  # noqa: C901
                             "objectId": 0,
                             "objectName": "TEST_DB.TEST_SCHEMA.TABLE_4",
                         },
-                    ]
+                    ],
                 ),
                 "OBJECTS_MODIFIED": json.dumps(
                     [
@@ -397,7 +397,7 @@ def default_query_results(  # noqa: C901
                                             "objectDomain": "Table",
                                             "objectId": 0,
                                             "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                        }
+                                        },
                                     ],
                                 }
                                 for col_idx in range(1, num_cols + 1)
@@ -405,8 +405,8 @@ def default_query_results(  # noqa: C901
                             "objectDomain": "Table",
                             "objectId": 0,
                             "objectName": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
-                        }
-                    ]
+                        },
+                    ],
                 ),
                 "USER_NAME": "SERVICE_ACCOUNT_TESTS_ADMIN",
                 "FIRST_NAME": None,
@@ -435,20 +435,20 @@ def default_query_results(  # noqa: C901
             {
                 "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
                 "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                    tzinfo=timezone.utc
+                    tzinfo=timezone.utc,
                 ),
                 "OBJECT_DOMAIN": "Table",
                 "TOTAL_QUERIES": 10,
                 "TOTAL_USERS": 1,
                 "TOP_SQL_QUERIES": json.dumps([large_sql_query for _ in range(10)]),
                 "FIELD_COUNTS": json.dumps(
-                    [{"col": f"col{c}", "total": 10} for c in range(num_cols)]
+                    [{"col": f"col{c}", "total": 10} for c in range(num_cols)],
                 ),
                 "USER_COUNTS": json.dumps(
                     [
                         {"email": f"abc{i}@xyz.com", "user_name": f"abc{i}", "total": 1}
                         for i in range(10)
-                    ]
+                    ],
                 ),
             }
             for i in range(num_usages)
@@ -471,7 +471,7 @@ def default_query_results(  # noqa: C901
                             "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                             "upstream_object_domain": "TABLE",
                             "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
-                        }
+                        },
                     ]
                     + (  # This additional upstream is only for TABLE_1
                         [
@@ -488,7 +488,7 @@ def default_query_results(  # noqa: C901
                         ]
                         if op_idx == 1
                         else []
-                    )
+                    ),
                 ),
                 "UPSTREAM_COLUMNS": json.dumps(
                     [
@@ -502,9 +502,9 @@ def default_query_results(  # noqa: C901
                                             "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                                             "object_domain": "Table",
                                             "column_name": f"COL_{col_idx}",
-                                        }
+                                        },
                                     ],
-                                }
+                                },
                             ],
                         }
                         for col_idx in range(1, num_cols + 1)
@@ -521,15 +521,15 @@ def default_query_results(  # noqa: C901
                                                 "object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
                                                 "object_domain": "Table",
                                                 "column_name": "COL_1",
-                                            }
+                                            },
                                         ],
-                                    }
+                                    },
                                 ],
-                            }
+                            },
                         ]
                         if op_idx == 1
                         else []
-                    )
+                    ),
                 ),
                 "QUERIES": json.dumps(
                     [
@@ -537,8 +537,8 @@ def default_query_results(  # noqa: C901
                             "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
                             "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                             "start_time": "06-06-2022",
-                        }
-                    ]
+                        },
+                    ],
                 ),
             }
             for op_idx in range(1, num_ops + 1)
@@ -572,7 +572,7 @@ def default_query_results(  # noqa: C901
                         ]
                         if op_idx == 1
                         else []
-                    )
+                    ),
                 ),
                 "QUERIES": json.dumps(
                     [
@@ -580,10 +580,10 @@ def default_query_results(  # noqa: C901
                             "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
                             "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                             "start_time": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                                tzinfo=timezone.utc
+                                tzinfo=timezone.utc,
                             ),
-                        }
-                    ]
+                        },
+                    ],
                 ),
             }
             for op_idx in range(1, num_ops + 1)
@@ -597,7 +597,7 @@ def default_query_results(  # noqa: C901
                 "REFERENCING_OBJECT_DOMAIN": "view",
                 "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
                 "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
-            }
+            },
         ]
     elif query in [
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
@@ -612,20 +612,22 @@ def default_query_results(  # noqa: C901
                         {
                             "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                             "upstream_object_domain": "table",
-                        }
-                    ]
+                        },
+                    ],
                 ),
-            }
+            },
         ]
     elif query in [
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
-            start_time_millis=1654473600000, end_time_millis=1654621200000
+            start_time_millis=1654473600000,
+            end_time_millis=1654621200000,
         ),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
-            start_time_millis=1654473600000, end_time_millis=1654586220000
+            start_time_millis=1654473600000,
+            end_time_millis=1654586220000,
         ),
     ]:
         return []
@@ -633,7 +635,7 @@ def default_query_results(  # noqa: C901
     elif (
         query
         == snowflake_query.SnowflakeQuery.get_all_tags_in_database_without_propagation(
-            "TEST_DB"
+            "TEST_DB",
         )
     ):
         return [

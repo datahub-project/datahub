@@ -12,7 +12,8 @@ _SupportsComparisonT = TypeVar("_SupportsComparisonT", bound=SupportsLT)
 
 
 def calculate_percentiles(
-    data: List[_SupportsComparisonT], percentiles: List[int]
+    data: List[_SupportsComparisonT],
+    percentiles: List[int],
 ) -> Dict[int, _SupportsComparisonT]:
     size = len(data)
 

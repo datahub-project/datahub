@@ -17,7 +17,9 @@ from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 
 
 def read_delta_table(
-    path: str, opts: Dict[str, str], delta_lake_config: DeltaLakeSourceConfig
+    path: str,
+    opts: Dict[str, str],
+    delta_lake_config: DeltaLakeSourceConfig,
 ) -> Optional[DeltaTable]:
     if not delta_lake_config.is_s3 and not pathlib.Path(path).exists():
         # The DeltaTable() constructor will create the path if it doesn't exist.

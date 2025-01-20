@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 class ConsoleSink(Sink[ConfigModel, SinkReport]):
     def write_record_async(
-        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
+        self,
+        record_envelope: RecordEnvelope,
+        write_callback: WriteCallback,
     ) -> None:
         print(f"{record_envelope}")
         if write_callback:

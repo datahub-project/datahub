@@ -15,7 +15,7 @@ def test_gcs_source_setup():
             {
                 "include": "gs://bucket_name/{table}/year={partition[0]}/month={partition[1]}/day={partition[1]}/*.parquet",
                 "table_name": "{table}",
-            }
+            },
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
@@ -23,7 +23,8 @@ def test_gcs_source_setup():
     assert gcs.s3_source.source_config.platform == PLATFORM_GCS
     assert (
         gcs.s3_source.create_s3_path(
-            "bucket-name", "food_parquet/year%3D2023/month%3D4/day%3D24/part1.parquet"
+            "bucket-name",
+            "food_parquet/year%3D2023/month%3D4/day%3D24/part1.parquet",
         )
         == "s3://bucket-name/food_parquet/year=2023/month=4/day=24/part1.parquet"
     )
@@ -46,7 +47,7 @@ def test_data_lake_incorrect_config_raises_error():
             {
                 "include": "gs://a/b/c/d/{table}/*.*",
                 "exclude": ["gs://a/b/c/d/a-{exclude}/**"],
-            }
+            },
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
@@ -58,7 +59,7 @@ def test_data_lake_incorrect_config_raises_error():
         "path_specs": [
             {
                 "include": "gs://a/b/c/d/{table}/*.hd5",
-            }
+            },
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
@@ -70,7 +71,7 @@ def test_data_lake_incorrect_config_raises_error():
         "path_specs": [
             {
                 "include": "gs://a/b/c/d/**/*.*",
-            }
+            },
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }

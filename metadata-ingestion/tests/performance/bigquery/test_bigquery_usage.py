@@ -67,11 +67,11 @@ def run_test():
                 num_unique_queries=50_000,
                 num_users=2000,
                 query_length=NormalDistribution(2000, 500),
-            )
+            ),
         )
         queries.sort(key=lambda q: q.timestamp)
         events = list(
-            generate_events(queries, projects, table_to_project, config=config)
+            generate_events(queries, projects, table_to_project, config=config),
         )
         print(f"Events generated: {len(events)}")
         pre_mem_usage = psutil.Process(os.getpid()).memory_info().rss
@@ -86,7 +86,7 @@ def run_test():
                     print(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
 
             print(
-                f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
+                f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}",
             )
             print(f"Disk Used: {report.processing_perf.usage_state_size}")
             print(f"Hash collisions: {report.num_usage_query_hash_collisions}")

@@ -109,7 +109,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
+                cached_domains=[k for k in self.config.domain],
+                graph=self.ctx.graph,
             )
 
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
@@ -178,7 +179,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
         self.profiler = BigqueryProfiler(
-            config, self.report, self.profiling_state_handler
+            config,
+            self.report,
+            self.profiling_state_handler,
         )
 
         self.bq_schema_extractor = BigQuerySchemaGenerator(
@@ -234,10 +237,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
+                auto_incremental_lineage,
+                self.config.incremental_lineage,
             ),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -296,7 +302,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
-                    [p.id for p in projects], self.bq_schema_extractor.table_refs
+                    [p.id for p in projects],
+                    self.bq_schema_extractor.table_refs,
                 )
 
             if self.config.include_table_lineage:
@@ -312,7 +319,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         ):
             for dataset_urn, table in self.bq_schema_extractor.external_tables.items():
                 yield from self.lineage_extractor.gen_lineage_workunits_for_external_table(
-                    dataset_urn, table.ddl, graph=self.ctx.graph
+                    dataset_urn,
+                    table.ddl,
+                    graph=self.ctx.graph,
                 )
 
     def get_report(self) -> BigQueryV2Report:

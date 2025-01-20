@@ -23,7 +23,7 @@ def test_trino_usage_config():
             audit_schema="xxxxx",
             include_views=True,
             include_tables=True,
-        )
+        ),
     )
 
     assert config.host_port == "xxxxx"
@@ -39,11 +39,11 @@ def test_trino_usage_config():
 @freeze_time(FROZEN_TIME)
 def test_trino_usage_source(pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/starburst-trino-usage"
+        pytestconfig.rootpath / "tests/integration/starburst-trino-usage",
     )
 
     with patch(
-        "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource._get_trino_history"
+        "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource._get_trino_history",
     ) as mock_event_history:
         access_events = load_access_events(test_resources_dir)
         mock_event_history.return_value = access_events

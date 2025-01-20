@@ -111,7 +111,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/looker_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -144,8 +144,8 @@ def setup_mock_external_project_view_explore(mocked_client):
                     label_short="Dimensions One Label",
                     view="faa_flights",
                     source_file="imported_projects/datahub-demo/views/datahub-demo/datasets/faa_flights.view.lkml",
-                )
-            ]
+                ),
+            ],
         ),
         source_file="test_source_file.lkml",
     )
@@ -179,7 +179,7 @@ def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/looker_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -220,7 +220,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/looker_mces_joins.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -256,7 +256,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
                         fields=["dim1"],
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
-                )
+                ),
             ],
         )
         setup_mock_explore_unaliased_with_joins(mocked_client)
@@ -281,7 +281,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/looker_mces_unaliased_joins.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.raise_from_status()
@@ -314,7 +314,7 @@ def setup_mock_dashboard(mocked_client):
                     view="my_view",
                     dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                 ),
-            )
+            ),
         ],
     )
 
@@ -355,7 +355,7 @@ def setup_mock_look(mocked_client):
                 ],
                 dynamic_fields=None,
                 filters=None,
-            )
+            ),
         ),
         LookWithQuery(
             query=Query(
@@ -367,7 +367,7 @@ def setup_mock_look(mocked_client):
                 ],
                 dynamic_fields=None,
                 filters=None,
-            )
+            ),
         ),
     ]
 
@@ -379,7 +379,7 @@ def setup_mock_soft_deleted_look(mocked_client):
             title="Soft Deleted",
             description="I am not part of any Dashboard",
             query_id="1",
-        )
+        ),
     ]
 
 
@@ -418,7 +418,8 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
 
 
 def setup_mock_dashboard_with_usage(
-    mocked_client: mock.MagicMock, skip_look: bool = False
+    mocked_client: mock.MagicMock,
+    skip_look: bool = False,
 ) -> None:
     mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
     mocked_client.dashboard.return_value = Dashboard(
@@ -471,8 +472,8 @@ def setup_mock_explore_with_joins(mocked_client):
                     type="string",
                     description="dimension one description",
                     label_short="Dimensions One Label",
-                )
-            ]
+                ),
+            ],
         ),
         source_file="test_source_file.lkml",
         joins=[
@@ -511,8 +512,8 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
                     dimension_group=None,
                     description="dimension one description",
                     label_short="Dimensions One Label",
-                )
-            ]
+                ),
+            ],
         ),
         source_file="test_source_file.lkml",
         joins=[
@@ -545,7 +546,7 @@ def setup_mock_explore(
             dimension_group=None,
             description="dimension one description",
             label_short="Dimensions One Label",
-        )
+        ),
     ]
     lkml_fields.extend(additional_lkml_fields)
 
@@ -590,7 +591,9 @@ def setup_mock_all_user(mocked_client):
 
 
 def side_effect_query_inline(
-    result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
+    result_format: str,
+    body: WriteQuery,
+    transport_options: Optional[TransportOptions],
 ) -> str:
     query_type: looker_usage.QueryId
     if result_format == "sql":
@@ -628,7 +631,7 @@ def side_effect_query_inline(
                     HistoryViewField.HISTORY_DASHBOARD_USER: 1,
                     HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
                 },
-            ]
+            ],
         ),
         looker_usage.QueryId.DASHBOARD_PER_USER_PER_DAY_USAGE_STAT: json.dumps(
             [
@@ -650,7 +653,7 @@ def side_effect_query_inline(
                     UserViewField.USER_ID: 1,
                     HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
                 },
-            ]
+            ],
         ),
         looker_usage.QueryId.LOOK_PER_DAY_USAGE_STAT: json.dumps(
             [
@@ -669,7 +672,7 @@ def side_effect_query_inline(
                     HistoryViewField.HISTORY_COUNT: 35,
                     LookViewField.LOOK_ID: 3,
                 },
-            ]
+            ],
         ),
         looker_usage.QueryId.LOOK_PER_USER_PER_DAY_USAGE_STAT: json.dumps(
             [
@@ -685,7 +688,7 @@ def side_effect_query_inline(
                     LookViewField.LOOK_ID: 3,
                     UserViewField.USER_ID: 2,
                 },
-            ]
+            ],
         ),
     }
 
@@ -725,7 +728,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
                         "filename": f"{tmp_path}/looker_mces.json",
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -772,7 +775,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
                         "filename": temp_output_file,
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -837,7 +840,7 @@ def test_looker_filter_usage_history(pytestconfig, tmp_path, mock_time):
                         "filename": temp_output_file,
                     },
                 },
-            }
+            },
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -964,10 +967,12 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     # Validate that all providers have committed successfully.
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
+        pipeline=pipeline_run1,
+        expected_providers=1,
     )
     validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
+        pipeline=pipeline_run2,
+        expected_providers=1,
     )
 
     # Perform all assertions on the states. The deleted table should not be
@@ -976,23 +981,23 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     state2 = cast(GenericCheckpointState, checkpoint2.state)
 
     difference_dataset_urns = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
     )
     assert len(difference_dataset_urns) == 1
     deleted_dataset_urns: List[str] = [
-        "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
     difference_chart_urns = list(
-        state1.get_urns_not_in(type="chart", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="chart", other_checkpoint_state=state2),
     )
     assert len(difference_chart_urns) == 1
     deleted_chart_urns = ["urn:li:chart:(looker,dashboard_elements.10)"]
     assert sorted(deleted_chart_urns) == sorted(difference_chart_urns)
 
     difference_dashboard_urns = list(
-        state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2),
     )
     assert len(difference_dashboard_urns) == 1
     deleted_dashboard_urns = ["urn:li:dashboard:(looker,dashboards.11)"]
@@ -1064,7 +1069,10 @@ def ingest_independent_looks(
 
 @freeze_time(FROZEN_TIME)
 def test_independent_looks_ingest_with_personal_folder(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     ingest_independent_looks(
         pytestconfig=pytestconfig,
@@ -1078,7 +1086,10 @@ def test_independent_looks_ingest_with_personal_folder(
 
 @freeze_time(FROZEN_TIME)
 def test_independent_looks_ingest_without_personal_folder(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     ingest_independent_looks(
         pytestconfig=pytestconfig,
@@ -1092,7 +1103,10 @@ def test_independent_looks_ingest_without_personal_folder(
 
 @freeze_time(FROZEN_TIME)
 def test_file_path_in_view_naming_pattern(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
@@ -1119,7 +1133,7 @@ def test_file_path_in_view_naming_pattern(
                     label_short="Dimensions One Label",
                     view="underlying_view",
                     source_file="views/underlying_view.view.lkml",
-                )
+                ),
             ],
         )
         setup_mock_look(mocked_client)
@@ -1156,7 +1170,7 @@ def test_independent_soft_deleted_looks(
                 base_url="https://fake.com",
                 client_id="foo",
                 client_secret="bar",
-            )
+            ),
         )
         looks: List[Look] = looker_api.all_looks(
             fields=["id"],
@@ -1319,7 +1333,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
                         fields=["dim1"],
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
-                )
+                ),
             ],
         )
 
@@ -1342,7 +1356,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
                         fields=["dim1"],
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
-                )
+                ),
             ],
         )
 
@@ -1365,7 +1379,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
                         fields=["dim1"],
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
-                )
+                ),
             ],
         )
 
@@ -1382,7 +1396,8 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
 
 
 def side_effect_function_folder_ancestors(
-    *args: Tuple[Any], **kwargs: Any
+    *args: Tuple[Any],
+    **kwargs: Any,
 ) -> Sequence[Folder]:
     assert args[0] in ["a", "b", "c"], "Invalid folder id"
 

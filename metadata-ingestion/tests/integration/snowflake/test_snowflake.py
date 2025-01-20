@@ -38,7 +38,7 @@ def random_email():
             [
                 random.choice(string.ascii_lowercase)
                 for i in range(random.randint(10, 15))
-            ]
+            ],
         )
         + "@xyz.com"
     )
@@ -52,7 +52,7 @@ def random_cloud_region():
             random.choice(["central", "north", "south", "east", "west"]),
             "-",
             str(random.randint(1, 2)),
-        ]
+        ],
     )
 
 
@@ -64,7 +64,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     golden_file = test_resources_dir / "snowflake_golden.json"
 
     with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
+        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table",
     ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -85,8 +85,11 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             info_types_config={
                 "Age": InfoTypeConfig(
                     prediction_factors_and_weights=PredictionFactorsAndWeights(
-                        name=0, values=1, description=0, datatype=0
-                    )
+                        name=0,
+                        values=1,
+                        description=0,
+                        datatype=0,
+                    ),
                 ),
                 "CloudRegion": InfoTypeConfig(
                     prediction_factors_and_weights=PredictionFactorsAndWeights(
@@ -98,7 +101,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                     values=ValuesFactorConfig(
                         prediction_type="regex",
                         regex=[
-                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
+                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+",
                         ],
                     ),
                 ),
@@ -124,20 +127,21 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         email_as_user_identifier=True,
                         incremental_lineage=False,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                            tzinfo=timezone.utc
+                            tzinfo=timezone.utc,
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
-                            tzinfo=timezone.utc
+                            tzinfo=timezone.utc,
                         ),
                         classification=ClassificationConfig(
                             enabled=True,
                             column_pattern=AllowDenyPattern(
-                                allow=[".*col_1$", ".*col_2$", ".*col_3$"]
+                                allow=[".*col_1$", ".*col_2$", ".*col_3$"],
                             ),
                             classifiers=[
                                 DynamicTypedClassifierConfig(
-                                    type="datahub", config=datahub_classifier_config
-                                )
+                                    type="datahub",
+                                    config=datahub_classifier_config,
+                                ),
                             ],
                             max_workers=1,
                         ),
@@ -152,9 +156,10 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                     ),
                 ),
                 sink=DynamicTypedConfig(
-                    type="file", config={"filename": str(output_file)}
+                    type="file",
+                    config={"filename": str(output_file)},
                 ),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -186,7 +191,10 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 
 def test_snowflake_tags_as_structured_properties(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -222,9 +230,10 @@ def test_snowflake_tags_as_structured_properties(
                     ),
                 ),
                 sink=DynamicTypedConfig(
-                    type="file", config={"filename": str(output_file)}
+                    type="file",
+                    config={"filename": str(output_file)},
                 ),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()
@@ -249,7 +258,10 @@ def test_snowflake_tags_as_structured_properties(
 
 @freeze_time(FROZEN_TIME)
 def test_snowflake_private_link_and_incremental_mcps(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mock_datahub_graph,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -284,17 +296,18 @@ def test_snowflake_private_link_and_incremental_mcps(
                         include_operational_stats=False,
                         platform_instance="instance1",
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                            tzinfo=timezone.utc
+                            tzinfo=timezone.utc,
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
-                            tzinfo=timezone.utc
+                            tzinfo=timezone.utc,
                         ),
                     ),
                 ),
                 sink=DynamicTypedConfig(
-                    type="file", config={"filename": str(output_file)}
+                    type="file",
+                    config={"filename": str(output_file)},
                 ),
-            )
+            ),
         )
         pipeline.run()
         pipeline.pretty_print_summary()

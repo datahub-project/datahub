@@ -86,7 +86,8 @@ def test_registry():
     fake_registry.register("console", ConsoleSink)
     fake_registry.register_disabled("disabled", ModuleNotFoundError("disabled sink"))
     fake_registry.register_disabled(
-        "disabled-exception", Exception("second disabled sink")
+        "disabled-exception",
+        Exception("second disabled sink"),
     )
 
     class DummyClass:
@@ -101,7 +102,8 @@ def test_registry():
 
     # Test lazy-loading capabilities.
     fake_registry.register_lazy(
-        "lazy-console", "datahub.ingestion.sink.console:ConsoleSink"
+        "lazy-console",
+        "datahub.ingestion.sink.console:ConsoleSink",
     )
     assert fake_registry.get("lazy-console") == ConsoleSink
 

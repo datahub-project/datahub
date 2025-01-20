@@ -137,7 +137,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=str(e),
             )
         return test_report
 
@@ -173,7 +174,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return allowed_workspaces
 
     def _gen_workspace_workunit(
-        self, workspace: Workspace
+        self,
+        workspace: Workspace,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workspace to Datahub container
@@ -202,11 +204,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _gen_entity_status_aspect(self, entity_urn: str) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityUrn=entity_urn, aspect=Status(removed=False)
+            entityUrn=entity_urn,
+            aspect=Status(removed=False),
         ).as_workunit()
 
     def _gen_dataset_properties(
-        self, dataset_urn: str, dataset: SigmaDataset
+        self,
+        dataset_urn: str,
+        dataset: SigmaDataset,
     ) -> MetadataWorkUnit:
         dataset_properties = DatasetProperties(
             name=dataset.name,
@@ -221,35 +226,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if dataset.path:
             dataset_properties.customProperties["path"] = dataset.path
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
         ).as_workunit()
 
     def _gen_dataplatform_instance_aspect(
-        self, entity_urn: str
+        self,
+        entity_urn: str,
     ) -> Optional[MetadataWorkUnit]:
         if self.config.platform_instance:
             aspect = DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(self.platform),
                 instance=builder.make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
+                    self.platform,
+                    self.config.platform_instance,
                 ),
             )
             return MetadataChangeProposalWrapper(
-                entityUrn=entity_urn, aspect=aspect
+                entityUrn=entity_urn,
+                aspect=aspect,
             ).as_workunit()
         else:
             return None
 
     def _gen_entity_owner_aspect(
-        self, entity_urn: str, user_name: str
+        self,
+        entity_urn: str,
+        user_name: str,
     ) -> MetadataWorkUnit:
         aspect = OwnershipClass(
             owners=[
                 OwnerClass(
                     owner=builder.make_user_urn(user_name),
                     type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
+                ),
+            ],
         )
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -263,7 +274,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths: List[str],
     ) -> MetadataWorkUnit:
         entries = [
-            BrowsePathEntryClass(id=parent_entity_urn, urn=parent_entity_urn)
+            BrowsePathEntryClass(id=parent_entity_urn, urn=parent_entity_urn),
         ] + [BrowsePathEntryClass(id=path) for path in paths]
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
@@ -271,7 +282,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_dataset_workunit(
-        self, dataset: SigmaDataset
+        self,
+        dataset: SigmaDataset,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_sigma_dataset_urn(dataset.get_urn_part())
 
@@ -305,7 +317,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._gen_entity_browsepath_aspect(
                     entity_urn=dataset_urn,
                     parent_entity_urn=builder.make_container_urn(
-                        self._gen_workspace_key(dataset.workspaceId)
+                        self._gen_workspace_key(dataset.workspaceId),
                     ),
                     paths=paths,
                 )
@@ -314,7 +326,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=GlobalTagsClass(
-                    tags=[TagAssociationClass(builder.make_tag_urn(dataset.badge))]
+                    tags=[TagAssociationClass(builder.make_tag_urn(dataset.badge))],
                 ),
             ).as_workunit()
 
@@ -322,7 +334,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
+                self,
+                self.config,
+                self.ctx,
             ).workunit_processor,
         ]
 
@@ -350,11 +364,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             customProperties={"ElementsCount": str(len(page.elements))},
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+            entityUrn=dashboard_urn,
+            aspect=dashboard_info_cls,
         ).as_workunit()
 
     def _get_element_data_source_platform_details(
-        self, full_path: str
+        self,
+        full_path: str,
     ) -> Optional[PlatformDetail]:
         data_source_platform_details: Optional[PlatformDetail] = None
         while full_path != "":
@@ -376,7 +392,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return data_source_platform_details
 
     def _get_element_input_details(
-        self, element: Element, workbook: Workbook
+        self,
+        element: Element,
+        workbook: Workbook,
     ) -> Dict[str, List[str]]:
         """
         Returns dict with keys as the all element input dataset urn and values as their all upstream dataset urns
@@ -385,7 +403,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         sql_parser_in_tables: List[str] = []
 
         data_source_platform_details = self._get_element_data_source_platform_details(
-            f"{workbook.path}/{workbook.name}/{element.name}"
+            f"{workbook.path}/{workbook.name}/{element.name}",
         )
 
         if element.query and data_source_platform_details:
@@ -447,7 +465,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_entity_status_aspect(chart_urn)
 
             inputs: Dict[str, List[str]] = self._get_element_input_details(
-                element, workbook
+                element,
+                workbook,
             )
 
             yield MetadataChangeProposalWrapper(
@@ -466,7 +485,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._gen_entity_browsepath_aspect(
                     entity_urn=chart_urn,
                     parent_entity_urn=builder.make_container_urn(
-                        self._gen_workspace_key(workbook.workspaceId)
+                        self._gen_workspace_key(workbook.workspaceId),
                     ),
                     paths=paths + [workbook.name],
                 )
@@ -501,7 +520,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
-        self, workbook: Workbook, paths: List[str]
+        self,
+        workbook: Workbook,
+        paths: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
@@ -523,13 +544,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._gen_entity_browsepath_aspect(
                     entity_urn=dashboard_urn,
                     parent_entity_urn=builder.make_container_urn(
-                        self._gen_workspace_key(workbook.workspaceId)
+                        self._gen_workspace_key(workbook.workspaceId),
                     ),
                     paths=paths + [workbook.name],
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths
+                page.elements,
+                workbook,
+                all_input_fields,
+                paths,
             )
 
             yield MetadataChangeProposalWrapper(
@@ -568,7 +592,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ],
             externalUrl=workbook.url,
             lastModified=ChangeAuditStampsClass(
-                created=created, lastModified=lastModified
+                created=created,
+                lastModified=lastModified,
             ),
             customProperties={
                 "path": workbook.path,
@@ -576,7 +601,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             },
         )
         yield MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+            entityUrn=dashboard_urn,
+            aspect=dashboard_info_cls,
         ).as_workunit()
 
         # Set subtype
@@ -612,7 +638,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_entity_browsepath_aspect(
                 entity_urn=dashboard_urn,
                 parent_entity_urn=builder.make_container_urn(
-                    self._gen_workspace_key(workbook.workspaceId)
+                    self._gen_workspace_key(workbook.workspaceId),
                 ),
                 paths=paths + [workbook.name],
             )
@@ -638,7 +664,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=UpstreamLineage(
                     upstreams=[
                         Upstream(
-                            dataset=upstream_dataset_urn, type=DatasetLineageType.COPY
+                            dataset=upstream_dataset_urn,
+                            type=DatasetLineageType.COPY,
                         )
                         for upstream_dataset_urn in upstream_dataset_urns
                     ],

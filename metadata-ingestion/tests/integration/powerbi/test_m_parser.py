@@ -95,7 +95,9 @@ def get_data_platform_tables_with_dummy_table(
 def get_default_instances(
     override_config: dict = {},
 ) -> Tuple[
-    PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
+    PipelineContext,
+    PowerBiDashboardSourceConfig,
+    AbstractDataPlatformInstanceResolver,
 ]:
     config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
         {
@@ -104,7 +106,7 @@ def get_default_instances(
             "client_secret": "bar",
             "enable_advance_lineage_sql_construct": False,
             **override_config,
-        }
+        },
     )
 
     platform_instance_resolver: AbstractDataPlatformInstanceResolver = (
@@ -608,7 +610,7 @@ def test_multi_source_table():
             ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
-        )
+        ),
     )
 
     assert len(data_platform_tables) == 2
@@ -643,7 +645,7 @@ def test_table_combine():
             ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
-        )
+        ),
     )
 
     assert len(data_platform_tables) == 2
@@ -758,11 +760,11 @@ def test_sqlglot_parser():
                 "bu10758.ap-unknown-2.fakecomputing.com": {
                     "platform_instance": "sales_deployment",
                     "env": "PROD",
-                }
+                },
             },
             "native_query_parsing": True,
             "enable_advance_lineage_sql_construct": True,
-        }
+        },
     )
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
@@ -863,9 +865,9 @@ def test_databricks_catalog_pattern_2():
                 "abc.cloud.databricks.com": {
                     "metastore": "central_metastore",
                     "platform_instance": "abc",
-                }
-            }
-        }
+                },
+            },
+        },
     )
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -897,11 +899,11 @@ def test_sqlglot_parser_2():
                 "0DD93C6BD5A6.snowflakecomputing.com": {
                     "platform_instance": "sales_deployment",
                     "env": "PROD",
-                }
+                },
             },
             "native_query_parsing": True,
             "enable_advance_lineage_sql_construct": True,
-        }
+        },
     )
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
@@ -1066,7 +1068,8 @@ def test_unsupported_data_platform():
     )
 
     info_entries: dict = reporter._structured_logs._entries.get(
-        StructuredLogLevel.INFO, {}
+        StructuredLogLevel.INFO,
+        {},
     )  # type :ignore
 
     is_entry_present: bool = False
@@ -1159,7 +1162,8 @@ def test_m_query_timeout(mock_get_lark_parser):
     )
 
     warn_entries: dict = reporter._structured_logs._entries.get(
-        StructuredLogLevel.WARN, {}
+        StructuredLogLevel.WARN,
+        {},
     )  # type :ignore
 
     is_entry_present: bool = False

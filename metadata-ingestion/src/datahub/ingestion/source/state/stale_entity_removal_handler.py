@@ -89,7 +89,7 @@ def auto_stale_entity_removal(
 
 
 class StaleEntityRemovalHandler(
-    StatefulIngestionUsecaseHandlerBase["GenericCheckpointState"]
+    StatefulIngestionUsecaseHandlerBase["GenericCheckpointState"],
 ):
     """
     The stateful ingestion helper class that handles stale entity removal.
@@ -143,7 +143,9 @@ class StaleEntityRemovalHandler(
 
     @classmethod
     def compute_job_id(
-        cls, platform: Optional[str], unique_id: Optional[str] = None
+        cls,
+        platform: Optional[str],
+        unique_id: Optional[str] = None,
     ) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
@@ -166,7 +168,7 @@ class StaleEntityRemovalHandler(
         return JobId(
             f"{platform}_{job_name_suffix}{unique_suffix}"
             if platform
-            else job_name_suffix
+            else job_name_suffix,
         )
 
     def _init_job_id(self, unique_id: Optional[str] = None) -> JobId:
@@ -247,7 +249,8 @@ class StaleEntityRemovalHandler(
             return
         logger.debug("Checking for stale entity removal.")
         last_checkpoint = self.state_provider.get_last_checkpoint(
-            self.job_id, self.state_type_class
+            self.job_id,
+            self.state_type_class,
         )
         if not last_checkpoint:
             return
@@ -283,7 +286,7 @@ class StaleEntityRemovalHandler(
 
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
-            last_checkpoint_state
+            last_checkpoint_state,
         )
         if not copy_previous_state_and_exit and (
             entity_difference_percent
@@ -312,7 +315,7 @@ stateful_ingestion:\
         if copy_previous_state_and_exit:
             logger.info(
                 f"Copying urns from last state (size {len(last_checkpoint_state.urns)}) to current state (size {len(cur_checkpoint_state.urns)}) "
-                "to ensure stale entities from previous runs are deleted on the next successful run."
+                "to ensure stale entities from previous runs are deleted on the next successful run.",
             )
             for urn in last_checkpoint_state.urns:
                 self.add_entity_to_state("", urn)
@@ -323,7 +326,8 @@ stateful_ingestion:\
 
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
-            type="*", other_checkpoint_state=cur_checkpoint_state
+            type="*",
+            other_checkpoint_state=cur_checkpoint_state,
         ):
             entity_type = guess_entity_type(urn)
             if (
@@ -336,7 +340,7 @@ stateful_ingestion:\
             if urn in self._urns_to_skip:
                 report.report_last_state_non_deletable_entities(urn)
                 logger.debug(
-                    f"Not soft-deleting entity {urn} since it is in urns_to_skip"
+                    f"Not soft-deleting entity {urn} since it is in urns_to_skip",
                 )
                 continue
             yield self._create_soft_delete_workunit(urn)

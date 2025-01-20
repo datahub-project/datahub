@@ -21,7 +21,7 @@ def test_default_datahub_classifier_config():
 
 def test_selective_datahub_classifier_config_override():
     simple_config_override = DataHubClassifier.create(
-        config_dict={"confidence_level_threshold": 0.7}
+        config_dict={"confidence_level_threshold": 0.7},
     ).config
     assert simple_config_override.info_types_config is not None
 
@@ -38,7 +38,7 @@ def test_selective_datahub_classifier_config_override():
                     },
                 },
             },
-        }
+        },
     ).config
 
     assert complex_config_override.info_types_config is not None
@@ -76,17 +76,17 @@ def test_custom_info_type_config():
                         "regex": [
                             ".*region.*id",
                             ".*cloud.*region.*",
-                        ]
+                        ],
                     },
                     "Values": {
                         "prediction_type": "regex",
                         "regex": [
-                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
+                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+",
                         ],
                     },
                 },
             },
-        }
+        },
     ).config
 
     assert custom_info_type_config.info_types_config
@@ -110,7 +110,8 @@ def test_custom_info_type_config():
 
 def test_incorrect_custom_info_type_config():
     with pytest.raises(
-        ValidationError, match="Missing Configuration for Prediction Factor"
+        ValidationError,
+        match="Missing Configuration for Prediction Factor",
     ):
         DataHubClassifierConfig.parse_obj(
             {
@@ -127,11 +128,11 @@ def test_incorrect_custom_info_type_config():
                             "regex": [
                                 ".*region.*id",
                                 ".*cloud.*region.*",
-                            ]
+                            ],
                         },
                     },
                 },
-            }
+            },
         )
 
     with pytest.raises(ValidationError, match="Invalid Prediction Type"):
@@ -150,12 +151,12 @@ def test_incorrect_custom_info_type_config():
                             "regex": [
                                 ".*region.*id",
                                 ".*cloud.*region.*",
-                            ]
+                            ],
                         },
                         "Values": {"prediction_type": "library", "library": ["spacy"]},
                     },
                 },
-            }
+            },
         )
 
 
@@ -180,14 +181,14 @@ def test_exclude_name_config():
                             "^.*add.*mail.*$",
                             "email",
                             "mail",
-                        ]
+                        ],
                     },
                     "Description": {"regex": []},
                     "Datatype": {"type": ["str"]},
                     "Values": {"prediction_type": "regex", "regex": [], "library": []},
-                }
+                },
             },
-        }
+        },
     ).config
     assert config.info_types_config["Email_Address"].ExcludeName is not None
     assert config.info_types_config["Email_Address"].ExcludeName == [
@@ -216,13 +217,13 @@ def test_no_exclude_name_config():
                             "^.*add.*mail.*$",
                             "email",
                             "mail",
-                        ]
+                        ],
                     },
                     "Description": {"regex": []},
                     "Datatype": {"type": ["str"]},
                     "Values": {"prediction_type": "regex", "regex": [], "library": []},
-                }
+                },
             },
-        }
+        },
     ).config
     assert config.info_types_config["Email_Address"].ExcludeName is None

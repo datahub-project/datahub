@@ -7,111 +7,162 @@ from datahub.integrations.assertion.common import get_entity_name
 
 class SnowflakeFieldMetricSQLGenerator:
     def unique_count_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select count(distinct {field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def unique_percentage_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select count(distinct {field_name})/count(*)
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def null_count_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         where_clause = self._setup_where_clause(
-            [dataset_filter, f"{field_name} is null"]
+            [dataset_filter, f"{field_name} is null"],
         )
         return f"""select count(*)
         from {entity_name} {where_clause}"""
 
     def null_percentage_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select ({self.null_count_sql(field_name, entity_name, dataset_filter)})/count(*)
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def min_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select min({field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def max_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select max({field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def mean_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select avg({field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def median_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select median({field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def stddev_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select stddev({field_name})
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def negative_count_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         where_clause = self._setup_where_clause([dataset_filter, f"{field_name} < 0"])
         return f"""select count(*)
         from {entity_name} {where_clause}"""
 
     def negative_percentage_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select ({self.negative_count_sql(field_name, entity_name, dataset_filter)})/count(*)
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def zero_count_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         where_clause = self._setup_where_clause([dataset_filter, f"{field_name} = 0"])
         return f"""select count(*)
         from {entity_name} {where_clause}"""
 
     def zero_percentage_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select ({self.zero_count_sql(field_name, entity_name, dataset_filter)})/count(*)
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def min_length_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select min(length({field_name}))
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def max_length_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select max(length({field_name}))
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""
 
     def empty_count_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         where_clause = self._setup_where_clause(
-            [dataset_filter, f"({field_name} is null or trim({field_name})='')"]
+            [dataset_filter, f"({field_name} is null or trim({field_name})='')"],
         )
         return f"""select count(*)
         from {entity_name} {where_clause}"""
 
     def empty_percentage_sql(
-        self, field_name: str, entity_name: str, dataset_filter: Optional[str]
+        self,
+        field_name: str,
+        entity_name: str,
+        dataset_filter: Optional[str],
     ) -> str:
         return f"""select ({self.empty_count_sql(field_name, entity_name, dataset_filter)})/count(*)
         from {entity_name} {self._setup_where_clause([dataset_filter])}"""

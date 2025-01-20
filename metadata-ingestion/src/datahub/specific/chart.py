@@ -39,7 +39,9 @@ class ChartPatchBuilder(
             audit_header: The Kafka audit header of the chart (optional).
         """
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            urn,
+            system_metadata=system_metadata,
+            audit_header=audit_header,
         )
 
     @classmethod
@@ -154,7 +156,8 @@ class ChartPatchBuilder(
         return self
 
     def set_last_modified(
-        self, last_modified: "ChangeAuditStampsClass"
+        self,
+        last_modified: "ChangeAuditStampsClass",
     ) -> "ChartPatchBuilder":
         if last_modified:
             self._add_patch(
@@ -188,7 +191,8 @@ class ChartPatchBuilder(
         return self
 
     def set_type(
-        self, type: Union[None, Union[str, "ChartTypeClass"]] = None
+        self,
+        type: Union[None, Union[str, "ChartTypeClass"]] = None,
     ) -> "ChartPatchBuilder":
         if type:
             self._add_patch(
@@ -201,7 +205,8 @@ class ChartPatchBuilder(
         return self
 
     def set_access(
-        self, access: Union[None, Union[str, "AccessLevelClass"]] = None
+        self,
+        access: Union[None, Union[str, "AccessLevelClass"]] = None,
     ) -> "ChartPatchBuilder":
         if access:
             self._add_patch(

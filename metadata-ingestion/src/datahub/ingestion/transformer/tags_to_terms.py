@@ -53,7 +53,7 @@ class TagsToTermMapper(TagsToTermTransformer):
                 {
                     **{term.urn: term for term in server_glossary_terms_aspect.terms},
                     **{term.urn: term for term in glossary_terms_aspect.terms},
-                }.values()
+                }.values(),
             )
 
         return glossary_terms_aspect
@@ -77,20 +77,24 @@ class TagsToTermMapper(TagsToTermTransformer):
         for field in schema_metadata.fields:
             if field.globalTags:
                 tags.update(
-                    TagsToTermMapper.get_tags_from_global_tags(field.globalTags)
+                    TagsToTermMapper.get_tags_from_global_tags(field.globalTags),
                 )
         return tags
 
     def transform_aspect(
-        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: Optional[Aspect],
     ) -> Optional[Aspect]:
         in_glossary_terms: Optional[GlossaryTermsClass] = cast(
-            Optional[GlossaryTermsClass], aspect
+            Optional[GlossaryTermsClass],
+            aspect,
         )
 
         assert self.ctx.graph
         in_global_tags_aspect: Optional[GlobalTagsClass] = self.ctx.graph.get_tags(
-            entity_urn
+            entity_urn,
         )
         in_schema_metadata_aspect: Optional[SchemaMetadataClass] = (
             self.ctx.graph.get_schema_metadata(entity_urn)
@@ -101,7 +105,7 @@ class TagsToTermMapper(TagsToTermTransformer):
 
         global_tags = TagsToTermMapper.get_tags_from_global_tags(in_global_tags_aspect)
         schema_metadata_tags = TagsToTermMapper.get_tags_from_schema_metadata(
-            in_schema_metadata_aspect
+            in_schema_metadata_aspect,
         )
 
         # Combine tags from both global and schema level
@@ -129,14 +133,17 @@ class TagsToTermMapper(TagsToTermTransformer):
         out_glossary_terms = GlossaryTermsClass(
             terms=[GlossaryTermAssociationClass(urn=term) for term in terms_to_add],
             auditStamp=AuditStampClass(
-                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+                time=builder.get_sys_time(),
+                actor="urn:li:corpUser:restEmitter",
             ),
         )
 
         if self.config.semantics == TransformerSemantics.PATCH:
             patch_glossary_terms: Optional[GlossaryTermsClass] = (
                 TagsToTermMapper._merge_with_server_glossary_terms(
-                    self.ctx.graph, entity_urn, out_glossary_terms
+                    self.ctx.graph,
+                    entity_urn,
+                    out_glossary_terms,
                 )
             )
             return cast(Optional[Aspect], patch_glossary_terms)

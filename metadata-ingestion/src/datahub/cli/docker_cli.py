@@ -143,7 +143,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
         if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
             click.echo(
                 "Datahub Neo4j volume found, starting with neo4j as graph service.\n"
-                "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.\n"
+                "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.\n",
             )
             return True
 
@@ -151,7 +151,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
             "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
             "`datahub docker quickstart --graph-service-impl neo4j`"
-            "\nfrom the root of the datahub repo\n"
+            "\nfrom the root of the datahub repo\n",
         )
         return False
 
@@ -169,7 +169,7 @@ def _set_environment_variables(
     if version is not None:
         if not version.startswith("v") and "." in version:
             logger.warning(
-                f"Version passed in '{version}' doesn't start with v, substituting with 'v{version}'"
+                f"Version passed in '{version}' doesn't start with v, substituting with 'v{version}'",
             )
             version = f"v{version}"
         os.environ["DATAHUB_VERSION"] = version
@@ -207,7 +207,8 @@ def _docker_compose_v2() -> List[str]:
     try:
         # Check for the docker compose v2 plugin.
         compose_version = subprocess.check_output(
-            ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
+            ["docker", "compose", "version", "--short"],
+            stderr=subprocess.STDOUT,
         ).decode()
         assert compose_version.startswith("2.") or compose_version.startswith("v2.")
         return ["docker", "compose"]
@@ -215,7 +216,8 @@ def _docker_compose_v2() -> List[str]:
         # We'll check for docker-compose as well.
         try:
             compose_version = subprocess.check_output(
-                ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
+                ["docker-compose", "version", "--short"],
+                stderr=subprocess.STDOUT,
             ).decode()
             if compose_version.startswith("2.") or compose_version.startswith("v2."):
                 # This will happen if docker compose v2 is installed in standalone mode
@@ -225,7 +227,7 @@ def _docker_compose_v2() -> List[str]:
             raise DockerComposeVersionError(
                 f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
                 "Please upgrade to Docker Compose v2. "
-                "See https://docs.docker.com/compose/compose-v2/ for more information."
+                "See https://docs.docker.com/compose/compose-v2/ for more information.",
             )
         except (OSError, subprocess.CalledProcessError):
             # docker-compose v1 is not installed either.
@@ -283,10 +285,10 @@ def _backup(backup_file: str) -> int:
             "bash",
             "-c",
             f"docker exec {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
-        ]
+        ],
     )
     logger.info(
-        f"Backup written to {resolved_backup_file} with status {result.returncode}"
+        f"Backup written to {resolved_backup_file} with status {result.returncode}",
     )
     return result.returncode
 
@@ -376,8 +378,8 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 # ELASTICSEARCH_SSL_KEYSTORE_FILE=
 # ELASTICSEARCH_SSL_KEYSTORE_TYPE=
 # ELASTICSEARCH_SSL_KEYSTORE_PASSWORD=
-            """
-                ).encode("utf-8")
+            """,
+                ).encode("utf-8"),
             )
             env_fp.flush()
             if logger.isEnabledFor(logging.DEBUG):
@@ -404,7 +406,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                 capture_output=True,
             )
             logger.info(
-                f"Index restore command finished with status {result.returncode}"
+                f"Index restore command finished with status {result.returncode}",
             )
         if result.returncode != 0:
             logger.info(result.stderr)
@@ -422,7 +424,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         matched_arch = [a for a in Architectures if arch.lower() == a.value]
         if not matched_arch:
             click.secho(
-                f"Failed to match arch {arch} with list of architectures supported {[a.value for a in Architectures]}"
+                f"Failed to match arch {arch} with list of architectures supported {[a.value for a in Architectures]}",
             )
         quickstart_arch = matched_arch[0]
         click.secho(f"Using architecture {quickstart_arch}", fg="yellow")
@@ -590,7 +592,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "standalone_consumers",
         "kafka_setup",
         "arch",
-    ]
+    ],
 )
 def quickstart(  # noqa: C901
     version: Optional[str],
@@ -644,7 +646,7 @@ def quickstart(  # noqa: C901
     quickstart_arch = detect_quickstart_arch(arch)
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
     quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
-        version
+        version,
     )
     logger.info(f"Using quickstart plan: {quickstart_execution_plan}")
 
@@ -653,7 +655,7 @@ def quickstart(  # noqa: C901
         run_quickstart_preflight_checks(client)
 
     quickstart_compose_file = list(
-        quickstart_compose_file
+        quickstart_compose_file,
     )  # convert to list from tuple
 
     auth_resources_folder = Path(DATAHUB_ROOT_FOLDER) / "plugins/auth/resources"
@@ -702,7 +704,8 @@ def quickstart(  # noqa: C901
         if pull_images:
             click.echo("\nPulling docker images... ")
             click.secho(
-                "This may take a while depending on your network bandwidth.", dim=True
+                "This may take a while depending on your network bandwidth.",
+                dim=True,
             )
 
             # docker compose v2 seems to spam the stderr when used in a non-interactive environment.
@@ -901,7 +904,7 @@ def download_compose_files(
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file_list.append(path)
             click.echo(
-                f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
+                f"Fetching consumer docker-compose file {consumer_github_file} from GitHub",
             )
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = request_session.get(consumer_github_file)
@@ -923,7 +926,7 @@ def download_compose_files(
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file_list.append(path)
             click.echo(
-                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub",
             )
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = request_session.get(kafka_setup_github_file)
@@ -933,11 +936,14 @@ def download_compose_files(
 
 
 def valid_restore_options(
-    restore: bool, restore_indices: bool, no_restore_indices: bool
+    restore: bool,
+    restore_indices: bool,
+    no_restore_indices: bool,
 ) -> bool:
     if no_restore_indices and not restore:
         click.secho(
-            "Using --no-restore-indices without a --restore isn't defined", fg="red"
+            "Using --no-restore-indices without a --restore isn't defined",
+            fg="red",
         )
         return False
     if no_restore_indices and restore_indices:
@@ -1012,18 +1018,19 @@ def nuke(keep_data: bool) -> None:
     with get_docker_client() as client:
         click.echo(f"Removing containers in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for container in client.containers.list(
-            all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
+            all=True,
+            filters=DATAHUB_COMPOSE_PROJECT_FILTER,
         ):
             container.remove(v=True, force=True)
 
         if keep_data:
             click.echo(
-                f"Skipping deleting data volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project"
+                f"Skipping deleting data volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project",
             )
         else:
             click.echo(f"Removing volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project")
             for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
-                DATAHUB_COMPOSE_PROJECT_FILTER
+                DATAHUB_COMPOSE_PROJECT_FILTER,
             ]:
                 for volume in client.volumes.list(filters=filter):
                     volume.remove(force=True)

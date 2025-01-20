@@ -70,7 +70,7 @@ class LineageEdge:
                 ),
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                 downstreams=[
-                    make_schema_field_urn(self.downstream_urn, downstream_col)
+                    make_schema_field_urn(self.downstream_urn, downstream_col),
                 ],
             )
 
@@ -87,7 +87,8 @@ class SqlParsingBuilder:
     # Maps downstream urn -> upstream urn -> LineageEdge
     # Builds up a single LineageEdge for each upstream -> downstream pair
     _lineage_map: FileBackedDict[Dict[DatasetUrn, LineageEdge]] = field(
-        default_factory=FileBackedDict, init=False
+        default_factory=FileBackedDict,
+        init=False,
     )
 
     # TODO: Replace with FileBackedDict approach like in BigQuery usage
@@ -213,12 +214,14 @@ class SqlParsingBuilder:
                 or None,
             )
             yield MetadataChangeProposalWrapper(
-                entityUrn=downstream_urn, aspect=upstream_lineage
+                entityUrn=downstream_urn,
+                aspect=upstream_lineage,
             )
 
     def _gen_usage_statistics_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self._usage_aggregator.generate_workunits(
-            resource_urn_builder=lambda urn: urn, user_urn_builder=lambda urn: urn
+            resource_urn_builder=lambda urn: urn,
+            user_urn_builder=lambda urn: urn,
         )
 
 
@@ -302,5 +305,6 @@ def _gen_operation_workunit(
         customOperationType=custom_operation_type,
     )
     yield MetadataChangeProposalWrapper(
-        entityUrn=downstream_urn, aspect=aspect
+        entityUrn=downstream_urn,
+        aspect=aspect,
     ).as_workunit()

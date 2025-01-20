@@ -54,12 +54,13 @@ def get(urn: str, to_file: str) -> None:
                 StructuredProperties.from_datahub(graph=graph, urn=urn)
             )
             click.secho(
-                f"{json.dumps(structuredproperties.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(structuredproperties.dict(exclude_unset=True, exclude_none=True), indent=2)}",
             )
             if to_file:
                 structuredproperties.to_yaml(Path(to_file))
                 click.secho(
-                    f"Structured property yaml written to {to_file}", fg="green"
+                    f"Structured property yaml written to {to_file}",
+                    fg="green",
                 )
         else:
             click.secho(f"Structured property {urn} does not exist")
@@ -120,7 +121,7 @@ def list(details: bool, to_file: str) -> None:
     with get_default_graph() as graph:
         if details:
             logger.info(
-                "Listing structured properties with details. Use --no-details for urns only"
+                "Listing structured properties with details. Use --no-details for urns only",
             )
             structuredproperties = StructuredProperties.list(graph)
             if to_file:
@@ -128,11 +129,11 @@ def list(details: bool, to_file: str) -> None:
             else:
                 for structuredproperty in structuredproperties:
                     click.secho(
-                        f"{json.dumps(structuredproperty.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                        f"{json.dumps(structuredproperty.dict(exclude_unset=True, exclude_none=True), indent=2)}",
                     )
         else:
             logger.info(
-                "Listing structured property urns only, use --details for more information"
+                "Listing structured property urns only, use --details for more information",
             )
             structured_property_urns = StructuredProperties.list_urns(graph)
             if to_file:
@@ -140,7 +141,8 @@ def list(details: bool, to_file: str) -> None:
                     for urn in structured_property_urns:
                         f.write(f"{urn}\n")
                 click.secho(
-                    f"Structured property urns written to {to_file}", fg="green"
+                    f"Structured property urns written to {to_file}",
+                    fg="green",
                 )
             else:
                 for urn in structured_property_urns:

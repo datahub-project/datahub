@@ -18,7 +18,7 @@ def determine_view_file_path(base_folder_path: str, absolute_file_path: str) -> 
     splits: List[str] = absolute_file_path.split(base_folder_path, 1)
     if len(splits) != 2:
         logger.debug(
-            f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+            f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching",
         )
         return ViewFieldValue.NOT_AVAILABLE.value
 
@@ -26,7 +26,7 @@ def determine_view_file_path(base_folder_path: str, absolute_file_path: str) -> 
     logger.debug(f"file_path={file_path}")
 
     return file_path.strip(
-        "/"
+        "/",
     )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
 
@@ -57,7 +57,8 @@ class LookerViewIdCache:
     model_name: str
     reporter: LookMLSourceReport
     looker_view_id_cache: Dict[
-        str, LookerViewId
+        str,
+        LookerViewId,
     ]  # Map of view-name as key, and LookerViewId instance as value
 
     def __init__(
@@ -98,7 +99,8 @@ class LookerViewIdCache:
             for view in included_looker_viewfile.views:
                 if view[NAME] == view_name:
                     file_path = determine_view_file_path(
-                        base_folder_path, included_looker_viewfile.absolute_file_path
+                        base_folder_path,
+                        included_looker_viewfile.absolute_file_path,
                     )
 
                     current_project_name: str = (

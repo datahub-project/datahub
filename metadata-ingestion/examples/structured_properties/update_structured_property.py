@@ -23,9 +23,10 @@ def get_emitter() -> Union[DataHubRestEmitter, DatahubKafkaEmitter]:
         return DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
-                    bootstrap=kafka_server, schema_registry_url=schema_registry_url
-                )
-            )
+                    bootstrap=kafka_server,
+                    schema_registry_url=schema_registry_url,
+                ),
+            ),
         )
 
 

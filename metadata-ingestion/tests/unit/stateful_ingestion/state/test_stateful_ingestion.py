@@ -67,7 +67,8 @@ class DummySourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Dummy source Ingestion Config."
+        default=None,
+        description="Dummy source Ingestion Config.",
     )
     report_failure: bool = Field(
         default=False,
@@ -78,7 +79,8 @@ class DummySourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Data process instance id to ingest.",
     )
     query_id_to_ingest: Optional[str] = Field(
-        default=None, description="Query id to ingest"
+        default=None,
+        description="Query id to ingest",
     )
 
 
@@ -96,7 +98,9 @@ class DummySource(StatefulIngestionSourceBase):
         self.reporter = DummySourceReport()
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
+            self,
+            self.source_config,
+            self.ctx,
         )
 
     @classmethod
@@ -149,7 +153,7 @@ class DummySource(StatefulIngestionSourceBase):
             yield MetadataChangeProposalWrapper(
                 entityUrn=QueryUrn(self.source_config.query_id_to_ingest).urn(),
                 aspect=DataPlatformInstanceClass(
-                    platform=DataPlatformUrn("bigquery").urn()
+                    platform=DataPlatformUrn("bigquery").urn(),
                 ),
             ).as_workunit()
 
@@ -163,7 +167,7 @@ class DummySource(StatefulIngestionSourceBase):
 @pytest.fixture(scope="module")
 def mock_generic_checkpoint_state():
     with mock.patch(
-        "datahub.ingestion.source.state.entity_removal_state.GenericCheckpointState"
+        "datahub.ingestion.source.state.entity_removal_state.GenericCheckpointState",
     ) as mock_checkpoint_state:
         checkpoint_state = mock_checkpoint_state.return_value
         checkpoint_state.serde.return_value = "utf-8"
@@ -215,7 +219,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     }
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj",
     ) as mock_state, mock.patch(
         "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
         {},
@@ -224,7 +228,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         pipeline_run1_config["sink"]["config"]["filename"] = (
             f"{tmp_path}/{output_file_name}"
@@ -250,12 +254,12 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         assert checkpoint1.state
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj",
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
@@ -288,10 +292,12 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
         # Perform all assertions on the states. The deleted table should not be
@@ -300,7 +306,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         state2 = cast(GenericCheckpointState, checkpoint2.state)
 
         difference_dataset_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2),
         )
         # the difference in dataset urns is the dataset which is not allowed to ingest
         assert len(difference_dataset_urns) == 1
@@ -317,7 +323,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
             "urn:li:query:query1",
         ]
         assert sorted(non_deletable_urns) == sorted(
-            report.last_state_non_deletable_entities
+            report.last_state_non_deletable_entities,
         )
 
 
@@ -365,12 +371,12 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
     }
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj",
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
         pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         pipeline_run1_config["sink"]["config"]["filename"] = (
             f"{tmp_path}/{output_file_name}"
@@ -396,12 +402,12 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         assert checkpoint1.state
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj",
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
         pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(
-            base_pipeline_config  # type: ignore
+            base_pipeline_config,  # type: ignore
         )
         pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
             "allow": ["dummy_dataset1", "dummy_dataset2"],
@@ -431,10 +437,12 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run1, expected_providers=1
+            pipeline=pipeline_run1,
+            expected_providers=1,
         )
         validate_all_providers_have_committed_successfully(
-            pipeline=pipeline_run2, expected_providers=1
+            pipeline=pipeline_run2,
+            expected_providers=1,
         )
 
         # Perform assertions on the states. The deleted table should be
