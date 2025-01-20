@@ -36,7 +36,7 @@ def test_ingestion_stage_context_report_handles_multiple_stages():
         for duration in report.ingestion_stage_durations.values()
     )
 
-    sorted_stages = list(sorted(report.ingestion_stage_durations.keys()))
+    sorted_stages = sorted(report.ingestion_stage_durations.keys())
     assert "Test Stage 1" in sorted_stages[0]
     assert "Test Stage 2" in sorted_stages[1]
     assert "Test Stage 3" in sorted_stages[2]

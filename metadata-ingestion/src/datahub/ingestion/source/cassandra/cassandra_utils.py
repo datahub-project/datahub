@@ -29,9 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 # we always skip over ingesting metadata about these keyspaces
-SYSTEM_KEYSPACE_LIST = set(
-    ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
-)
+SYSTEM_KEYSPACE_LIST = {
+    "system",
+    "system_auth",
+    "system_schema",
+    "system_distributed",
+    "system_traces",
+}
 
 
 @dataclass

@@ -429,11 +429,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         columns = []
         if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
-            columns = list(
-                sorted(
-                    [self._parse_into_dbt_column(column) for column in node["columns"]],
-                    key=lambda c: c.index,
-                )
+            columns = sorted(
+                [self._parse_into_dbt_column(column) for column in node["columns"]],
+                key=lambda c: c.index,
             )
 
         test_info = None
