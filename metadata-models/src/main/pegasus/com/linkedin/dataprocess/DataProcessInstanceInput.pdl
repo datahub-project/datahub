@@ -15,7 +15,7 @@ record DataProcessInstanceInput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ],
+      "entityTypes": [ "dataset", "mlModel" ],
       "isLineage": true
     }
   }
