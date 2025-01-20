@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from airflow.configuration import conf
 from pydantic.fields import Field
@@ -75,7 +75,7 @@ class DatahubLineageConfig(ConfigModel):
         return DatahubGenericHook(self.datahub_conn_id)
 
 
-def get_lineage_config() -> DatahubLineageConfig:
+def get_lineage_configs() -> List[DatahubLineageConfig]:
     """Load the DataHub plugin config from airflow.cfg."""
 
     enabled = conf.get("datahub", "enabled", fallback=True)
@@ -103,21 +103,44 @@ def get_lineage_config() -> DatahubLineageConfig:
     dag_filter_pattern = AllowDenyPattern.parse_raw(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
-
-    return DatahubLineageConfig(
-        enabled=enabled,
-        datahub_conn_id=datahub_conn_id,
-        cluster=cluster,
-        capture_ownership_info=capture_ownership_info,
-        capture_ownership_as_group=capture_ownership_as_group,
-        capture_tags_info=capture_tags_info,
-        capture_executions=capture_executions,
-        materialize_iolets=materialize_iolets,
-        enable_extractors=enable_extractors,
-        log_level=log_level,
-        debug_emitter=debug_emitter,
-        disable_openlineage_plugin=disable_openlineage_plugin,
-        datajob_url_link=datajob_url_link,
-        render_templates=render_templates,
-        dag_filter_pattern=dag_filter_pattern,
-    )
+    if isinstance(datahub_conn_id, List):
+        connection_ids = []
+        for conn_id in datahub_conn_id:
+            config = DatahubLineageConfig(
+                enabled=enabled,
+                datahub_conn_id=conn_id,
+                cluster=cluster,
+                capture_ownership_info=capture_ownership_info,
+                capture_ownership_as_group=capture_ownership_as_group,
+                capture_tags_info=capture_tags_info,
+                capture_executions=capture_executions,
+                materialize_iolets=materialize_iolets,
+                enable_extractors=enable_extractors,
+                log_level=log_level,
+                debug_emitter=debug_emitter,
+                disable_openlineage_plugin=disable_openlineage_plugin,
+                datajob_url_link=datajob_url_link,
+                render_templates=render_templates,
+                dag_filter_pattern=dag_filter_pattern,
+            )
+        connection_ids.append(config)
+        return connection_ids
+    return [
+        DatahubLineageConfig(
+            enabled=enabled,
+            datahub_conn_id=datahub_conn_id,
+            cluster=cluster,
+            capture_ownership_info=capture_ownership_info,
+            capture_ownership_as_group=capture_ownership_as_group,
+            capture_tags_info=capture_tags_info,
+            capture_executions=capture_executions,
+            materialize_iolets=materialize_iolets,
+            enable_extractors=enable_extractors,
+            log_level=log_level,
+            debug_emitter=debug_emitter,
+            disable_openlineage_plugin=disable_openlineage_plugin,
+            datajob_url_link=datajob_url_link,
+            render_templates=render_templates,
+            dag_filter_pattern=dag_filter_pattern,
+        )
+    ]
