@@ -13,6 +13,7 @@ import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
@@ -102,6 +103,13 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarOwnerSection,
         },
         {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: false,
+            },
+        },
+        {
             component: SidebarStructuredPropsSection,
         },
     ];
@@ -128,6 +136,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                globalTags={data.globalTags}
             />
         );
     };
@@ -149,6 +158,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.TAGS,
         ]);
     };
 

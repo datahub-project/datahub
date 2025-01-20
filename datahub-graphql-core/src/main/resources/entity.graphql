@@ -2281,6 +2281,12 @@ type GlossaryTerm implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+    globalTags: GlobalTags
 }
 
 """
@@ -2434,6 +2440,12 @@ type GlossaryNode implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+    globalTags: GlobalTags
 }
 
 """

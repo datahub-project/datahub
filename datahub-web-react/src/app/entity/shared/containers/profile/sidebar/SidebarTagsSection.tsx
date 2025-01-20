@@ -50,25 +50,29 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
                     fontSize={12}
                 />
             </span>
-            <StyledDivider />
-            <span id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
-                <SidebarHeader title="Glossary Terms" />
-                <TagTermGroup
-                    editableGlossaryTerms={
-                        properties?.customTermPath
-                            ? getNestedValue(entityData, properties?.customTermPath)
-                            : entityData?.glossaryTerms
-                    }
-                    canAddTerm={canAddTerm}
-                    canRemove
-                    showEmptyMessage
-                    entityUrn={mutationUrn}
-                    entityType={entityType}
-                    refetch={refetch}
-                    readOnly={readOnly}
-                    fontSize={12}
-                />
-            </span>
+            {canAddTerm && (
+                <>
+                    <StyledDivider />
+                    <span id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
+                        <SidebarHeader title="Glossary Terms" />
+                        <TagTermGroup
+                            editableGlossaryTerms={
+                                properties?.customTermPath
+                                    ? getNestedValue(entityData, properties?.customTermPath)
+                                    : entityData?.glossaryTerms
+                            }
+                            canAddTerm={canAddTerm}
+                            canRemove
+                            showEmptyMessage
+                            entityUrn={mutationUrn}
+                            entityType={entityType}
+                            refetch={refetch}
+                            readOnly={readOnly}
+                            fontSize={12}
+                        />
+                    </span>
+                </>
+            )}
         </div>
     );
 };
