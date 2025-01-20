@@ -1147,11 +1147,17 @@ class TableauSiteSource:
                 )
             # Set parent project name
             for _project_id, project in all_project_map.items():
-                if (
-                    project.parent_id is not None
-                    and project.parent_id in all_project_map
-                ):
+                if project.parent_id is None:
+                    continue
+
+                if project.parent_id in all_project_map:
                     project.parent_name = all_project_map[project.parent_id].name
+                else:
+                    self.report.warning(
+                        "Incomplete project hierarchy",
+                        f"Parent project {project.parent_id} missed. We need Site Administrator Explorer permissions. Therefore, removing references from child projects.",
+                    )
+                    project.parent_id = None
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
