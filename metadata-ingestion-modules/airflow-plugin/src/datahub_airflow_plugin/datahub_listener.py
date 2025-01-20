@@ -41,7 +41,7 @@ from datahub_airflow_plugin._airflow_shims import (
     get_task_inlets,
     get_task_outlets,
 )
-from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
+from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_configs
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
@@ -69,7 +69,7 @@ else:
 logger = logging.getLogger(__name__)
 
 _airflow_listener_initialized = False
-_airflow_listener: Optional["DataHubListener"] = None
+_airflow_listeners: Optional[List["DataHubListener"]] = None
 _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower() in (
     "true",
     "1",
@@ -82,33 +82,38 @@ _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
 
-def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
+def get_airflow_plugin_listeners() -> Optional[List["DataHubListener"]]:
     # Using globals instead of functools.lru_cache to make testing easier.
     global _airflow_listener_initialized
-    global _airflow_listener
+    global _airflow_listeners
 
     if not _airflow_listener_initialized:
         _airflow_listener_initialized = True
+        _airflow_listeners = []
+        plugin_configs = get_lineage_configs()
+        for plugin_config in plugin_configs:
+            if plugin_config.enabled:
+                telemetry_sent = False
+                _airflow_listeners.append(DataHubListener(config=plugin_config))
 
-        plugin_config = get_lineage_config()
-
-        if plugin_config.enabled:
-            _airflow_listener = DataHubListener(config=plugin_config)
-
-            telemetry.telemetry_instance.ping(
-                "airflow-plugin-init",
-                {
-                    "airflow-version": airflow.__version__,
-                    "datahub-airflow-plugin": "v2",
-                    "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
-                    "capture_executions": plugin_config.capture_executions,
-                    "capture_tags": plugin_config.capture_tags_info,
-                    "capture_ownership": plugin_config.capture_ownership_info,
-                    "enable_extractors": plugin_config.enable_extractors,
-                    "render_templates": plugin_config.render_templates,
-                    "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
-                },
-            )
+                if not telemetry_sent:
+                    telemetry.telemetry_instance.ping(
+                        "airflow-plugin-init",
+                        {
+                            "airflow-version": airflow.__version__,
+                            "datahub-airflow-plugin": "v2",
+                            "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                            "capture_executions": plugin_config.capture_executions,
+                            "capture_tags": plugin_config.capture_tags_info,
+                            "capture_ownership": plugin_config.capture_ownership_info,
+                            "enable_extractors": plugin_config.enable_extractors,
+                            "render_templates": plugin_config.render_templates,
+                            "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
+                        },
+                    )
+                    telemetry_sent = True
+        if len(_airflow_listeners) == 0:
+            _airflow_listeners = None
 
         if plugin_config.disable_openlineage_plugin:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
@@ -116,7 +121,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
             OpenLineagePlugin.listeners = []
 
-    return _airflow_listener
+    return _airflow_listeners
 
 
 def run_in_thread(f: _F) -> _F:
