@@ -37,7 +37,7 @@ def test_partitioned_executor():
         saw_keys_in_parallel = False
         while executing_tasks or not done_tasks:
             keys_executing = [key for key, _ in executing_tasks]
-            assert list(sorted(keys_executing)) == list(sorted(set(keys_executing))), (
+            assert sorted(keys_executing) == sorted(set(keys_executing)), (
                 "partitioning not working"
             )
 

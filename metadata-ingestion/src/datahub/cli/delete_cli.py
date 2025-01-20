@@ -615,7 +615,7 @@ def _validate_user_aspect_flags(
 ) -> None:
     # Check the aspect name.
     if aspect and aspect not in ASPECT_MAP:
-        logger.info(f"Supported aspects: {list(sorted(ASPECT_MAP.keys()))}")
+        logger.info(f"Supported aspects: {sorted(ASPECT_MAP.keys())}")
         raise click.UsageError(
             f"Unknown aspect {aspect}. Ensure the aspect is in the above list."
         )

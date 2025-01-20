@@ -65,15 +65,13 @@ def create_mocked_dbt_source() -> DBTCoreSource:
 
 
 def create_base_dbt_config() -> Dict:
-    return dict(
-        {
-            "manifest_path": "temp/",
-            "catalog_path": "temp/",
-            "sources_path": "temp/",
-            "target_platform": "postgres",
-            "enable_meta_mapping": False,
-        },
-    )
+    return {
+        "manifest_path": "temp/",
+        "catalog_path": "temp/",
+        "sources_path": "temp/",
+        "target_platform": "postgres",
+        "enable_meta_mapping": False,
+    }
 
 
 def test_dbt_source_patching_no_new():

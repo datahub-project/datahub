@@ -44,7 +44,7 @@ def test_generator_with_paused_timer() -> None:
 
     with PerfTimer() as outer_timer:
         seq = generator_function()
-        list([i for i in seq])
+        [i for i in seq]
         assert approx(outer_timer.elapsed_seconds()) == 1 + 0.2 * n + 0.2 * n
 
 

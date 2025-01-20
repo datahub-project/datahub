@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -> dict:
     # Attempt to resolve secret using by checking each configured secret store.
-    final_secret_values = dict({})
+    final_secret_values = {}
 
     for secret_store in secret_stores:
         try:

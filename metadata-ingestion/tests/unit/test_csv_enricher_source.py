@@ -57,14 +57,12 @@ def create_mocked_csv_enricher_source() -> CSVEnricherSource:
 
 
 def create_base_csv_enricher_config() -> Dict:
-    return dict(
-        {
-            "filename": "../integration/csv_enricher/csv_enricher_test_data.csv",
-            "write_semantics": "PATCH",
-            "delimiter": ",",
-            "array_delimiter": "|",
-        },
-    )
+    return {
+        "filename": "../integration/csv_enricher/csv_enricher_test_data.csv",
+        "write_semantics": "PATCH",
+        "delimiter": ",",
+        "array_delimiter": "|",
+    }
 
 
 def test_get_resource_glossary_terms_work_unit_no_terms():
