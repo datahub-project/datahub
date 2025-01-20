@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v2/timeseries")
+@RequestMapping("/openapi/v2/timeseries")
 @Slf4j
 @Tag(
     name = "Generic Timeseries Aspects",

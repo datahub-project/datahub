@@ -49,8 +49,6 @@ services:
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-    - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
-    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
     - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin

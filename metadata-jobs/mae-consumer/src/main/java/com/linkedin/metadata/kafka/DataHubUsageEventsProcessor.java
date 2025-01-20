@@ -49,7 +49,8 @@ public class DataHubUsageEventsProcessor {
   @KafkaListener(
       id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}",
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
-      containerFactory = "simpleKafkaConsumer")
+      containerFactory = "simpleKafkaConsumer",
+      autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());

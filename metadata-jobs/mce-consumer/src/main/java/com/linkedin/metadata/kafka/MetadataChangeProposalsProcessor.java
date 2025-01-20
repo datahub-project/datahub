@@ -80,7 +80,8 @@ public class MetadataChangeProposalsProcessor {
   @KafkaListener(
       id = CONSUMER_GROUP_ID_VALUE,
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = MCP_EVENT_CONSUMER_NAME)
+      containerFactory = MCP_EVENT_CONSUMER_NAME,
+      autoStartup = "false")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
