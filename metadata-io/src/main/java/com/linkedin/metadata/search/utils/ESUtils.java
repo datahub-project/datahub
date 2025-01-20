@@ -874,7 +874,7 @@ public class ESUtils {
                                         || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
       }
       if (!removedInOrFilter) {
-        filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+        filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
       }
     }
   }
