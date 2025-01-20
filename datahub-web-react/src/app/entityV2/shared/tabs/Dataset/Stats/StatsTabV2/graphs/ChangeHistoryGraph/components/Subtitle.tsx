@@ -1,43 +1,42 @@
-import React from 'react';
 import { OperationType } from '@src/types.generated';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
-import useOperationsSummary from '../hooks/useOperationsSummary';
+import { AnyOperationType, OperationsData } from '../types';
 import ChangeTypeSummaryPill from './ChangeTypeSummaryPill';
-import { ValueType } from '../hooks/useChangeHistoryData';
 
 const Container = styled.div`
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 4px;
 `;
 
 type SubtitleProps = {
-    data: CalendarData<ValueType>[];
-    onTypeClick?: (operationType: OperationType) => void;
+    summary?: OperationsData;
+    onTypeClick?: (operationType: string) => void;
+    selectedOperationTypes: AnyOperationType[];
 };
 
-export default function Subtitle({ data, onTypeClick }: SubtitleProps) {
-    const { inserts, updates, deletes } = useOperationsSummary(data);
+export default function Subtitle({ summary, onTypeClick, selectedOperationTypes }: SubtitleProps) {
+    const operations = useMemo(() => {
+        return Object.entries(summary?.operations || {})
+            .map(([_, value]) => value)
+            .filter((entry) => entry.type !== OperationType.Unknown)
+            .filter((entry) => entry.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }, [summary]);
 
     return (
         <Container>
-            <span>Insert update and delete operations made to this table:</span>
-            <ChangeTypeSummaryPill
-                numberOfOperations={updates}
-                operationType={OperationType.Update}
-                onClick={() => onTypeClick?.(OperationType.Update)}
-            />
-            <ChangeTypeSummaryPill
-                numberOfOperations={inserts}
-                operationType={OperationType.Insert}
-                onClick={() => onTypeClick?.(OperationType.Insert)}
-            />
-            <ChangeTypeSummaryPill
-                numberOfOperations={deletes}
-                operationType={OperationType.Delete}
-                onClick={() => onTypeClick?.(OperationType.Delete)}
-            />
+            <span>Operations made to this table:</span>
+            {operations.map((operation) => (
+                <ChangeTypeSummaryPill
+                    key={operation.key}
+                    operation={operation}
+                    onClick={() => onTypeClick?.(operation.key)}
+                    selected={selectedOperationTypes.includes(operation.key)}
+                />
+            ))}
         </Container>
     );
 }

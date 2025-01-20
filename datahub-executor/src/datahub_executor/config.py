@@ -94,8 +94,15 @@ DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT = env_to_int(
 )
 
 DATAHUB_EXECUTOR_SWEEPER_INTERVAL = env_to_int("DATAHUB_EXECUTOR_SWEEPER_INTERVAL", 60)
+# Time it takes for sweeper to consider a task stale and abort it
 DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD = env_to_int(
     "DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD", 3600
+)
+# If a task has an existing signal request pending for over CANCEL_THRESHOLD,
+# sweeper will forcibily write Cancelled status for the task. This may be necessary
+# to allow new requests to move forward, otherwise they may be cancelled as DUPLICATE
+DATAHUB_EXECUTOR_SWEEPER_CANCEL_THRESHOLD = env_to_int(
+    "DATAHUB_EXECUTOR_SWEEPER_CANCEL_THRESHOLD", 60
 )
 DATAHUB_EXECUTOR_SWEEPER_PENDING_THRESHOLD = env_to_int(
     "DATAHUB_EXECUTOR_SWEEPER_PENDING_THRESHOLD", 3600 * 24 * 2

@@ -14,8 +14,8 @@ const TimelineWrapper = styled.div`
 `;
 
 type ChangeHistoryTimelineProps = {
-    selectedDay?: string;
-    operations: Omit<Operation, 'lastUpdatedTimestamp'>[];
+    selectedDay?: string | null;
+    operations: Operation[];
     users: CorpUser[];
     loading?: boolean;
 };
@@ -28,7 +28,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
             const foundUser = users.filter((user) => user.urn === operation.actor)?.[0];
 
             return {
-                key: `operation-${operation.operationType}-${operation.timestampMillis}`,
+                key: `operation-${operation.operationType}-${operation.lastUpdatedTimestamp}`,
                 user: foundUser,
                 operation,
             };
@@ -38,14 +38,14 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
     const renderTimeline = () => {
         if (loading) return <TimelineSkeleton />;
 
-        if (operations.length === 0) return <Text color="gray">There are no any operations for the selected day</Text>;
+        if (operations.length === 0) return <Text color="gray">There are no operations for the selected day</Text>;
 
         return (
             <TimelineWrapper>
                 <Timeline
                     items={timelineItems}
                     renderContent={(item) => <TimelineContent operation={item.operation} user={item.user} />}
-                    renderDot={(item) => <TimelineDot user={item.user} /> || undefined}
+                    renderDot={(item) => <TimelineDot user={item.user} />}
                 />
             </TimelineWrapper>
         );

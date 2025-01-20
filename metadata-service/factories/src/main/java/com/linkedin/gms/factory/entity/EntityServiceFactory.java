@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
@@ -35,6 +36,8 @@ public class EntityServiceFactory {
       final List<ThrottleSensor> throttleSensors) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
+    EntityServiceConfiguration entityServiceConfiguration =
+        configurationProvider.getEntityService();
 
     EntityServiceImpl entityService =
         new EntityServiceImpl(
@@ -43,7 +46,8 @@ public class EntityServiceFactory {
             featureFlags.isAlwaysEmitChangeLog(),
             featureFlags.getPreProcessHooks(),
             _ebeanMaxTransactionRetry,
-            enableBrowsePathV2);
+            enableBrowsePathV2,
+            entityServiceConfiguration);
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

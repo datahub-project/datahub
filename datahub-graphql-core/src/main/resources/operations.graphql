@@ -3,6 +3,11 @@ input OperationsStatsInput {
     The time range you want to get operations stats for
     """
     range: TimeRange
+
+    """
+    The optional time zone for aggregating stats. Accepts standard IANA time zone identifier ie. America/New_York
+    """
+    timeZone: String
 }
 
 """

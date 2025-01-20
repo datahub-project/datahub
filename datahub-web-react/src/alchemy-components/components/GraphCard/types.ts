@@ -8,4 +8,5 @@ export type GraphCardProps = {
     renderControls?: () => React.ReactNode;
     isEmpty?: boolean;
     emptyContent?: React.ReactNode;
+    moreInfoModalContent?: React.ReactNode;
 };

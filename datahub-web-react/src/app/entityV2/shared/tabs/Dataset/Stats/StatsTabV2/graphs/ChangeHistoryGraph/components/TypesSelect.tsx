@@ -9,6 +9,9 @@ type TypesSelectProps = {
 };
 
 export default function TypesSelect({ options, values, loading, onUpdate }: TypesSelectProps) {
+    // Hide TypesSelect when there are only one option or less
+    if (options.length < 2) return null;
+
     return (
         <SimpleSelect
             placeholder="Change Type"

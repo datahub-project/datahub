@@ -42,7 +42,7 @@ export function groupTimeData<T>(
 export function addMonthOverMonthValue<T>(
     data: T[],
     timeAccessor: (d: T) => number | string,
-    valueAccessor: (d: T) => number,
+    valueAccessor: (d: T) => number | undefined,
 ) {
     return data.map((datum, index) => {
         const time = timeAccessor(datum);
@@ -55,7 +55,7 @@ export function addMonthOverMonthValue<T>(
         const lastMonthValue = lastMonthDatum && valueAccessor(lastMonthDatum);
 
         let mom: number | null = null;
-        if (lastMonthValue === undefined) {
+        if (lastMonthValue === undefined || value === undefined) {
             mom = null;
         } else if (lastMonthValue === 0) {
             mom = 100; // if the last month's value is 0, mom is 100 (like 100% increase)

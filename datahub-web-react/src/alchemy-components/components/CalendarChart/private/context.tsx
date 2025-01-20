@@ -12,8 +12,10 @@ export type CalendarContextState<ValueType = any> = {
     margin: Margin;
     countOfWeeks: number;
     countOfMonths: number;
+    showPopover?: boolean;
     popoverRenderer?: (day: DayData<ValueType>) => React.ReactNode;
     colorAccessor: (value?: ValueType) => string;
+    selectedDay?: string | null;
     onDayClick?: (day: DayData<ValueType>) => void;
 };
 
@@ -24,8 +26,10 @@ export type CalendarProviderProps<ValueType> = {
     width: number;
     height: number;
     margin?: Margin;
+    showPopover?: boolean;
     popoverRenderer?: (day: DayData<ValueType>) => React.ReactNode;
     colorAccessor: (value?: ValueType) => string;
+    selectedDay?: string | null;
     onDayClick?: (day: DayData<ValueType>) => void;
 };
 
@@ -35,8 +39,10 @@ export function CalendarProvider<ValueType>({
     width,
     height,
     margin,
+    showPopover,
     popoverRenderer,
     colorAccessor,
+    selectedDay,
     onDayClick,
 }: PropsWithChildren<CalendarProviderProps<ValueType>>) {
     const calendarMargin = useMemo(
@@ -84,8 +90,10 @@ export function CalendarProvider<ValueType>({
                 countOfWeeks,
                 countOfMonths,
                 colorAccessor,
+                showPopover,
                 popoverRenderer,
                 margin: calendarMargin,
+                selectedDay,
                 onDayClick,
             }}
         >

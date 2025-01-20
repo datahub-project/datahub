@@ -1,25 +1,10 @@
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import EntitySidebarContext from '@src/app/sharedV2/EntitySidebarContext';
-import {
-    GetDatasetQuery,
-    useGetLastMonthUsageAggregationsQuery,
-    useGetOperationsStatsQuery,
-} from '@src/graphql/dataset.generated';
-import { Dataset, TimeRange, UsageQueryResult } from '@src/types.generated';
 import React, { useContext, useEffect } from 'react';
 import styled from 'styled-components';
-import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
-import ColumnStatsV2 from './ColumnStatsV2';
-import ChangeHistoryGraph from './graphs/ChangeHistoryGraph/ChangeHistoryGraph';
-import QueryCountChart from './graphs/QueryCountGraph/QueryCountChart';
-import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
-import HistoricalSectionHeader from './HistoricalSectionHeader';
-import HistoricalStats from './HistoricalStats';
-import RowsAndUsers from './RowsAndUsers';
-import StatsHighlights from './StatsHighlights';
-import { useStatsSectionsContext } from './StatsSectionsContext';
-import { getIsSiblingsMode, SectionKeys } from './utils';
+import StatsHighlights from './highlights/StatsHighlights';
+import HistoricalSectionHeader from './historical/HistoricalSectionHeader';
+import HistoricalStats from './historical/HistoricalStats';
+import { useGetStatsSections } from './useGetStatsSections';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -29,101 +14,21 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabV2 = () => {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const { entityWithSchema } = useGetEntityWithSchema();
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
-    const { statsEntity, statsEntityUrn, setStatsEntityUrn } = useStatsSectionsContext();
-
-    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const isSiblingsMode = getIsSiblingsMode(baseEntity, isSeparateSiblingsMode);
-
-    const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
-        variables: { urn: statsEntityUrn as string },
-        skip: !statsEntityUrn,
-    });
-
-    const { data: operationsStats } = useGetOperationsStatsQuery({
-        variables: { urn: statsEntityUrn as string, range: TimeRange.Month },
-        skip: !statsEntityUrn,
-    });
-
-    const { sections, setSectionState } = useStatsSectionsContext();
-
-    const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
-    const usageStats = (hasUsageStats && (usageStatsData?.dataset?.usageStats as UsageQueryResult)) || undefined;
-
-    const latestFullTableProfile = (statsEntity as any)?.latestFullTableProfile?.[0];
-    const latestPartitionProfile = (statsEntity as any)?.latestPartitionProfile?.[0];
-
-    const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
-    const queryCountLast30Days = (statsEntity as any)?.statsSummary?.queryCountLast30Days;
-    const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations;
-
-    const latestProfile = latestFullTableProfile || latestPartitionProfile;
-
-    const scrollToSection = (sectionKey: string) => {
-        sections[sectionKey]?.ref?.current?.scrollIntoView({
-            behavior: 'smooth',
-        });
-    };
-
-    const users = usageStats?.aggregations?.users;
-    const queryCountBuckets = usageStats?.buckets;
-    const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
-    const hasColumnStats = columnStats?.length > 0;
-
-    const historicalSections: SectionKeys[] = [
-        SectionKeys.ROWS_AND_USERS,
-        SectionKeys.QUERIES,
-        SectionKeys.STORAGE,
-        SectionKeys.CHANGES,
-    ];
-    const hasHistoricalStats = historicalSections.some((key) => sections[key].hasData);
+    const { hasHistoricalStats } = useGetStatsSections();
 
     useEffect(() => {
         if (!isClosed) setSidebarClosed(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        if (!sections.columnStats.hasData && hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, true);
-    }, [hasColumnStats, setSectionState, sections.columnStats]);
-
-    useEffect(() => {
-        if (!sections.rowsAndUsers.hasData && users && users.length > 0)
-            setSectionState(SectionKeys.ROWS_AND_USERS, true);
-    }, [users, setSectionState, sections.rowsAndUsers]);
-
-    const sectionsList: Record<SectionKeys, React.ReactNode> = {
-        rowsAndUsers: <RowsAndUsers hasHistoricalStats={hasHistoricalStats} users={users || undefined} />,
-        queries: <QueryCountChart queryCountBuckets={queryCountBuckets || undefined} />,
-        storage: <StorageSizeGraph />,
-        changes: <ChangeHistoryGraph />,
-        columnStats: <>{hasColumnStats && <ColumnStatsV2 columnStats={columnStats} />}</>,
-    };
-    const sortedSections = Object.entries(sections).sort(([, a], [, b]) => Number(b.hasData) - Number(a.hasData));
-
     return (
         <>
             <TabContainer>
-                <StatsHighlights
-                    rowCount={latestProfile?.rowCount ?? undefined}
-                    columnCount={
-                        latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined
-                    }
-                    queryCount={queryCountLast30Days ?? totalSqlQueries ?? undefined}
-                    users={users || undefined}
-                    totalOperations={totalOperations ?? undefined}
-                    scrollToSection={scrollToSection}
-                    hasColumnStats={hasColumnStats}
-                    isSiblingsMode={isSiblingsMode}
-                    baseEntity={baseEntity.dataset as Dataset}
-                    statsEntityUrn={statsEntityUrn}
-                    setStatsEntityUrn={setStatsEntityUrn}
-                />
+                <StatsHighlights />
                 {hasHistoricalStats && <HistoricalSectionHeader />}
-                <HistoricalStats sortedSections={sortedSections} sectionsList={sectionsList} />
+                <HistoricalStats />
             </TabContainer>
         </>
     );

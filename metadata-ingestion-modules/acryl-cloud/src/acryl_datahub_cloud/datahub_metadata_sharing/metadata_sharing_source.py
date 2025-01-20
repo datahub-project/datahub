@@ -112,6 +112,8 @@ class DataHubMetadataSharingSource(Source):
 
                 if next_scroll_id is None:
                     break
+                else:
+                    scroll_id = next_scroll_id
 
                 time.sleep(self.config.batch_delay_ms / 1000.0)
 
@@ -193,8 +195,11 @@ class DataHubMetadataSharingSource(Source):
                 self.report.entities_failed += 1
 
     def _determine_lineage_direction(
-        self, share_config: Dict[str, Any]
+        self, share_config: Optional[Dict[str, Any]]
     ) -> Optional[str]:
+        if share_config is None:
+            return None
+
         """Determine lineage direction based on share config"""
         include_upstreams = share_config.get("enableUpstreamLineage", False)
         include_downstreams = share_config.get(

@@ -1337,6 +1337,7 @@ class ExecutionRequestStatus(PermissiveBaseModel):
     execution_request_urn: str
     ingestion_source_urn: str
     raw_input_aspect: Dict
+    raw_signal_aspect: Dict
 
     last_observed: int
     status: str

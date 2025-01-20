@@ -15,6 +15,7 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME,
+    DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
     DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME,
@@ -79,50 +80,33 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         self.emit_mcp(mcpw, async_flag=False)
 
+    def _get_aspect(self, entity: Dict, aspect: str, key: str = "value") -> Dict:
+        return entity.get("aspects", {}).get(aspect, {}).get(key, {})
+
     def _entity_to_execution_request_status(
         self, entity: Dict
     ) -> ExecutionRequestStatus:
-        result_aspect = (
-            entity.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {})
-            .get("value", {})
-        )
-        input_aspect = (
-            entity.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME, {})
-            .get("value", {})
-        )
-        key_aspect = (
-            entity.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME, {})
-            .get("value", {})
-        )
+        key = self._get_aspect(entity, DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME)
+        result = self._get_aspect(entity, DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+        input = self._get_aspect(entity, DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+        signal = self._get_aspect(entity, DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME)
 
-        ingestion_source_urn = input_aspect.get("source", {}).get("ingestionSource")
-        execution_request_id = key_aspect.get("id")
-        execution_request_status = result_aspect.get("status", "PENDING")
-        report = result_aspect.get("report", "")
-        request_time = input_aspect.get("requestedAt", 0)
-        start_time = result_aspect.get("startTimeMs", 0)
-
-        last_observed = (
-            entity.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {})
-            .get("systemMetadata", {})
-            .get("lastObserved", 0)
-        )
+        last_observed = self._get_aspect(
+            entity, DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, "systemMetadata"
+        ).get("lastObserved", 0)
 
         ers = ExecutionRequestStatus.parse_obj(
             {
                 "execution_request_urn": entity.get("urn"),
-                "execution_request_id": execution_request_id,
-                "ingestion_source_urn": ingestion_source_urn,
-                "status": execution_request_status,
+                "execution_request_id": key.get("id"),
+                "ingestion_source_urn": input.get("source", {}).get("ingestionSource"),
+                "status": result.get("status", "PENDING"),
                 "last_observed": last_observed,
-                "report": report,
-                "start_time": start_time,
-                "request_time": request_time,
-                "raw_input_aspect": input_aspect,
+                "report": result.get("report", ""),
+                "start_time": result.get("startTimeMs", 0),
+                "request_time": input.get("requestedAt", 0),
+                "raw_input_aspect": input,
+                "raw_signal_aspect": signal,
             }
         )
         return ers
@@ -163,6 +147,7 @@ class DataHubExecutorGraph(DataHubGraph):
             "aspectNames": [
                 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME,
                 DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
             ],
             "count": "10",
             "sort": "requestTimeMs",

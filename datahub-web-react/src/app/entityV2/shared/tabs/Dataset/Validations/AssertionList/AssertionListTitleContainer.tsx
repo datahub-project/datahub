@@ -38,7 +38,6 @@ export const AssertionListTitleContainer = ({
                 <AssertionListTitle level={4}>Assertions</AssertionListTitle>
                 <SubTitle>View and manage data quality checks for this table</SubTitle>
             </div>
-
             <CreateAssertionButton privileges={privileges} onCreateAssertion={onCreateAssertion} />
         </AssertionTitleContainer>
     );

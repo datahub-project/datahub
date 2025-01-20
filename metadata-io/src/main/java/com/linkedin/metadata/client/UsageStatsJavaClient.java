@@ -14,6 +14,7 @@ import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class UsageStatsJavaClient implements UsageClient {
 
@@ -35,7 +36,8 @@ public class UsageStatsJavaClient implements UsageClient {
                     return getUsageStatsNoCache(
                         operationContextMap.getIfPresent(cacheKey.getContextId()),
                         cacheKey.getResource(),
-                        cacheKey.getRange());
+                        cacheKey.getRange(),
+                        cacheKey.getTimeZone());
                   } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(e);
                   }
@@ -48,18 +50,22 @@ public class UsageStatsJavaClient implements UsageClient {
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
-      @Nonnull UsageTimeRange range) {
+      @Nonnull UsageTimeRange range,
+      @Nullable String timeZone) {
     operationContextMap.put(opContext.getEntityContextId(), opContext);
-    return usageClientCache.getUsageStats(opContext, resource, range);
+    return usageClientCache.getUsageStats(opContext, resource, range, timeZone);
   }
 
   @Nonnull
   @Override
   public UsageQueryResult getUsageStatsNoCache(
-      @Nonnull OperationContext opContext, @Nonnull String resource, @Nonnull UsageTimeRange range)
+      @Nonnull OperationContext opContext,
+      @Nonnull String resource,
+      @Nonnull UsageTimeRange range,
+      @Nullable String timeZone)
       throws RemoteInvocationException, URISyntaxException {
 
     return UsageServiceUtil.queryRange(
-        opContext, timeseriesAspectService, resource, WindowDuration.DAY, range);
+        opContext, timeseriesAspectService, resource, WindowDuration.DAY, range, timeZone);
   }
 }

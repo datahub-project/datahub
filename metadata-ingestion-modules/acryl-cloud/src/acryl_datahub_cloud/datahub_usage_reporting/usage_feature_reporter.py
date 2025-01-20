@@ -396,59 +396,30 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 continue
 
             yield {
-                "timestampMillis": doc["_source"]["timestampMillis"],
-                "lastObserved": doc["_source"]["systemMetadata"]["lastObserved"],
-                "urn": doc["_source"]["urn"],
-                "eventGranularity": (
-                    doc["_source"]["eventGranularity"]
-                    if "eventGranularity" in doc["_source"]
-                    else None
-                ),
-                "viewsCount": (
-                    doc["_source"]["viewsCount"]
-                    if "viewsCount" in doc["_source"]
-                    else 0
-                ),
-                "uniqueUserCount": (
-                    doc["_source"]["uniqueUserCount"]
-                    if "uniqueUserCount" in doc["_source"]
-                    else None
-                ),
-                "userCounts": (
-                    doc["_source"]["event"]["userCounts"]
-                    if "event" in doc["_source"]
-                    and "userCounts" in doc["_source"]["event"]
-                    else []
-                ),
+                "timestampMillis": doc["_source"].get("timestampMillis"),
+                "lastObserved": doc["_source"]
+                .get("systemMetadata", {})
+                .get("lastObserved"),
+                "urn": doc["_source"].get("urn"),
+                "eventGranularity": doc["_source"].get("eventGranularity"),
+                "viewsCount": doc["_source"].get("viewsCount", 0),
+                "uniqueUserCount": doc["_source"].get("uniqueUserCount"),
+                "userCounts": doc["_source"].get("event", {}).get("userCounts", []),
                 "platform": platform,
             }
 
     def process_query_usage(self, results: Iterable) -> Iterable[Dict]:
         for doc in results:
             yield {
-                "timestampMillis": doc["_source"]["timestampMillis"],
-                "lastObserved": doc["_source"]["systemMetadata"]["lastObserved"],
-                "urn": doc["_source"]["urn"],
-                "eventGranularity": (
-                    doc["_source"]["eventGranularity"]
-                    if "eventGranularity" in doc["_source"]
-                    else None
-                ),
-                "queryCount": (
-                    doc["_source"]["queryCount"]
-                    if "queryCount" in doc["_source"]
-                    else 0
-                ),
-                "uniqueUserCount": (
-                    doc["_source"]["uniqueUserCount"]
-                    if "uniqueUserCount" in doc["_source"]
-                    else None
-                ),
-                "userCounts": (
-                    doc["_source"]["event"]["userCounts"]
-                    if "userCounts" in doc["_source"]["event"]
-                    else []
-                ),
+                "timestampMillis": doc["_source"].get("timestampMillis"),
+                "lastObserved": doc["_source"]
+                .get("systemMetadata", {})
+                .get("lastObserved"),
+                "urn": doc["_source"].get("urn"),
+                "eventGranularity": doc["_source"].get("eventGranularity"),
+                "queryCount": doc["_source"].get("queryCount", 0),
+                "uniqueUserCount": doc["_source"].get("uniqueUserCount"),
+                "userCounts": doc["_source"].get("event", {}).get("userCounts", []),
             }
 
     def upstream_lineage_batch(self, results: Iterable) -> Iterable[Dict]:

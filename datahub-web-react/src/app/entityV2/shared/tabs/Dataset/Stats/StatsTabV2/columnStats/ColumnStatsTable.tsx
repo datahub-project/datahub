@@ -1,14 +1,14 @@
 import { Table, Text } from '@components';
-import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath, groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { DatasetFieldProfile } from '@src/types.generated';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import SchemaFieldDrawer from '../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
-import useKeyboardControls from '../../Schema/useKeyboardControls';
-import { decimalToPercentStr } from '../../Schema/utils/statsUtil';
+import SchemaFieldDrawer from '../../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { useGetEntityWithSchema } from '../../../Schema/useGetEntitySchema';
+import useKeyboardControls from '../../../Schema/useKeyboardControls';
+import { decimalToPercentStr } from '../../../Schema/utils/statsUtil';
+import { isPresent } from '../utils';
 import { useGetColumnStatsColumns } from './useGetColumnStatsColumns';
-import { isPresent } from './utils';
 
 const EmptyContainer = styled.div`
     display: flex;
@@ -34,7 +34,7 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
-                column: doc.fieldPath,
+                column: downgradeV2FieldPath(doc.fieldPath),
                 type: fields?.find((field) => field.fieldPath === doc.fieldPath)?.type,
                 nullPercentage: isPresent(doc.nullProportion) && decimalToPercentStr(doc.nullProportion, 2),
                 uniqueValues: isPresent(doc.uniqueCount) && doc.uniqueCount.toString(),
@@ -51,7 +51,7 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
     }, [fields]);
 
     const filteredData = columnStatsTableData.filter((columnStat) =>
-        columnStat.column.toLowerCase().includes(searchQuery.toLowerCase()),
+        columnStat.column?.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     const columnStatsColumns = useGetColumnStatsColumns({

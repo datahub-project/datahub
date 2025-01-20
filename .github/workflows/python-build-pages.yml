@@ -16,6 +16,7 @@ on:
       - "metadata-ingestion/**"
       - "metadata-ingestion-modules/**"
       - "metadata-models/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -52,7 +53,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build Python wheel site
         run: |
-          ./gradlew :python-build:buildSite
+          ./gradlew :python-build:buildSite --stacktrace
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
