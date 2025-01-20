@@ -32,7 +32,7 @@ export const TableHeader = styled.thead({
 
 export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?: boolean }>(
     ({ width, shouldAddRightBorder }) => ({
-        padding: `${spacing.sm} ${spacing.xsm}`,
+        padding: `${spacing.sm} ${spacing.md}`,
         color: colors.gray[600],
         fontSize: typography.fontSizes.sm,
         fontWeight: typography.fontWeights.medium,
@@ -71,11 +71,12 @@ export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolea
 export const TableCell = styled.td<{
     width?: string;
     alignment?: AlignmentOptions;
-    shouldUseMinimumPadding?: boolean;
-    isExpanded?: boolean;
-}>(({ width, alignment, shouldUseMinimumPadding, isExpanded }) => ({
-    padding: shouldUseMinimumPadding ? spacing.xsm : `${spacing.md} ${spacing.xsm}`,
-    borderBottom: isExpanded ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
+    isGroupHeader?: boolean;
+}>(({ width, alignment, isGroupHeader }) => ({
+    padding: isGroupHeader
+        ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
+        : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
+    borderBottom: isGroupHeader ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
     color: colors.gray[1700],
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,

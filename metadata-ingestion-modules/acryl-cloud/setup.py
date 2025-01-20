@@ -13,10 +13,14 @@ open_search_common = {"opensearch-py==2.4.2"}
 
 plugins = {
     "datahub-lineage-features": stats_common | open_search_common,
-    "datahub-reporting-forms": stats_common | aws_common,
+    "datahub-reporting-forms": stats_common 
+    | aws_common
+    | {
+        "termcolor==2.5.0",
+    },
     "datahub-reporting-extract-graph": stats_common | aws_common | open_search_common,
     "datahub-reporting-extract-sql": stats_common | aws_common,
-    "datahub-usage-feature-reporting": stats_common
+    "datahub-usage-reporting": stats_common
     | aws_common
     | {
         "opensearch-py==2.4.2",
@@ -25,6 +29,7 @@ plugins = {
         "numpy<2",
         "scipy<=1.14.1",
         "pyarrow<=18.0.0",
+        "termcolor==2.5.0",
     },
     "datahub-metadata-sharing": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
@@ -40,7 +45,7 @@ dev_requirements = {
             "datahub-reporting-extract-graph",
             "datahub-reporting-extract-sql",
             "datahub-lineage-features",
-            "datahub-usage-feature-reporting",
+            "datahub-usage-reporting",
             "datahub-metadata-sharing",
             "acryl-cs-issues",
         ]
@@ -71,6 +76,12 @@ setup(
         },
         "include_package_data": True,
         "package_data": {
+            "acryl_datahub_cloud": [
+                "*.json",
+                "metadata/*.avsc",
+                "metadata/schemas/*.avsc",
+
+            ],
             "acryl_datahub_cloud.datahub_metadata_sharing": [
                 "scroll_shared_entities.gql",
                 "share_entity.gql",

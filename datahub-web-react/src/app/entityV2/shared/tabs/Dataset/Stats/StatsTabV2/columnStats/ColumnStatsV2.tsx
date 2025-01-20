@@ -1,7 +1,9 @@
 import { PageTitle, SearchBar } from '@src/alchemy-components';
-import { DatasetFieldProfile } from '@src/types.generated';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useStatsSectionsContext } from '../StatsSectionsContext';
+import { useGetStatsData } from '../useGetStatsData';
+import { SectionKeys } from '../utils';
 import ColumnStatsTable from './ColumnStatsTable';
 
 const ColumnStatsContainer = styled.div`
@@ -10,16 +12,23 @@ const ColumnStatsContainer = styled.div`
     gap: 16px;
 `;
 
-interface Props {
-    columnStats: Array<DatasetFieldProfile>;
-}
-
-const ColumnStatsV2 = ({ columnStats }: Props) => {
+const ColumnStatsV2 = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const { columnStats } = useGetStatsData();
+    const { sections, setSectionState } = useStatsSectionsContext();
+
+    const hasColumnStats = columnStats?.length > 0;
+
+    useEffect(() => {
+        if (!sections.columnStats.hasData && hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, true);
+        else if (sections.columnStats.hasData && !hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, false);
+    }, [hasColumnStats, setSectionState, sections.columnStats]);
 
     const handleSearch = (value) => {
         setSearchQuery(value);
     };
+
+    if (!hasColumnStats) return null;
 
     return (
         <ColumnStatsContainer>

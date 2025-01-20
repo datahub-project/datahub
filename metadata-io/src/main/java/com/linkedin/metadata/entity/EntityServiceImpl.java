@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.entity.TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
@@ -50,6 +49,7 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -163,6 +163,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  private final Map<String, Boolean> applySyncMclForSources;
 
   private static final long DB_TIMER_LOG_THRESHOLD_MS = 50;
 
@@ -181,7 +182,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         alwaysEmitChangeLog,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
   }
 
   public EntityServiceImpl(
@@ -190,7 +192,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean alwaysEmitChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
-      final boolean enableBrowseV2) {
+      final boolean enableBrowseV2,
+      @Nonnull final EntityServiceConfiguration entityServiceConfiguration) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
@@ -198,6 +201,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+
+    if ((entityServiceConfiguration != null)
+        && (entityServiceConfiguration.getApplyMclSyncForSources() != null)) {
+      this.applySyncMclForSources = entityServiceConfiguration.getApplyMclSyncForSources();
+    } else {
+      this.applySyncMclForSources = Collections.emptyMap();
+    }
   }
 
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {
@@ -1428,8 +1438,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (preProcessHooks.isUiEnabled()) {
       if (metadataChangeLog.getSystemMetadata() != null) {
         if (metadataChangeLog.getSystemMetadata().getProperties() != null) {
-          if (UI_SOURCE.equals(
-              metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))) {
+          String eventAppSource =
+              metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE);
+          if (applySyncMclForSources.getOrDefault(eventAppSource, false)) {
             // Pre-process the update indices hook for UI updates to avoid perceived lag from Kafka
             if (updateIndicesService != null) {
               updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);

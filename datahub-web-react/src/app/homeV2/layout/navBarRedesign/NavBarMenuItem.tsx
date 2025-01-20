@@ -139,5 +139,9 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
         </Tooltip>
     );
 
+    if (item.href) {
+        return <a href={item.href}>{component}</a>;
+    }
+
     return component;
 }

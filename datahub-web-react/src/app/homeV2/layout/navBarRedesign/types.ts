@@ -21,6 +21,7 @@ export interface NavBarMenuBaseElement {
     isHidden?: boolean;
     onClick?: () => void;
     disabled?: boolean;
+    href?: string;
 }
 
 export type Badge = {

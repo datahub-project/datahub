@@ -4,6 +4,7 @@ import com.linkedin.common.Urn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
+import com.linkedin.common.TimeStamp
 
 /**
  * Properties associated with an ML Model Group
@@ -11,7 +12,18 @@ import com.linkedin.common.CustomProperties
 @Aspect = {
   "name": "mlModelGroupProperties"
 }
-record MLModelGroupProperties includes CustomProperties {
+record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo {
+
+  /**
+   * Display name of the MLModelGroup
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "queryByDefault": true,
+  }
+  name: optional string
 
   /**
    * Documentation of the MLModelGroup
@@ -25,7 +37,18 @@ record MLModelGroupProperties includes CustomProperties {
   /**
    * Date when the MLModelGroup was developed
    */
+  @deprecated
   createdAt: optional Time
+
+  /**
+   * Time and Actor who created the MLModelGroup
+   */
+  created: optional TimeStamp
+
+  /**
+   * Date when the MLModelGroup was last modified
+   */
+  lastModified: optional TimeStamp
 
   /**
    * Version of the MLModelGroup

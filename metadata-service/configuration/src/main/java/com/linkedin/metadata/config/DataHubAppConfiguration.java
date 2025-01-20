@@ -85,4 +85,7 @@ public class DataHubAppConfiguration {
 
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
+
+  /** EntityService configuration */
+  private EntityServiceConfiguration entityService;
 }

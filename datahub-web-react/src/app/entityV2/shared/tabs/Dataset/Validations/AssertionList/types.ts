@@ -38,7 +38,7 @@ export type AssertionListFilter = {
 };
 
 export type AssertionListTableRow = {
-    type?: AssertionType;
+    type?: AssertionType | string;
     lastUpdated?: AuditStamp;
     tags: TagAssociation[];
     descriptionHTML: JSX.Element | null;

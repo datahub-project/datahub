@@ -16,6 +16,9 @@ import {
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 
+const MIN_EXECUTION_COLUMN_WIDTH = 125;
+const PAGE_HEADER_HEIGHT = 395;
+
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
         td {
@@ -29,7 +32,7 @@ const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
 
     &&& .ant-table-body {
         overflow-y: auto;
-        height: calc(100vh - 450px);
+        height: calc(100vh - ${PAGE_HEADER_HEIGHT}px);
     }
 ` as typeof StyledSourceTable;
 
@@ -83,6 +86,7 @@ function IngestionSourceTable({
             title: 'Execution Count',
             dataIndex: 'execCount',
             key: 'execCount',
+            width: isShowNavBarRedesign ? MIN_EXECUTION_COLUMN_WIDTH : undefined,
             render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
         },
         {
@@ -153,7 +157,7 @@ function IngestionSourceTable({
             columns={tableColumns}
             onChange={handleTableChange}
             dataSource={tableData}
-            scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
+            scroll={isShowNavBarRedesign ? { y: 'max-content', x: 'max-content' } : {}}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{

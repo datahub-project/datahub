@@ -146,6 +146,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
       - lineageFeatures
   - name: chart
     category: core

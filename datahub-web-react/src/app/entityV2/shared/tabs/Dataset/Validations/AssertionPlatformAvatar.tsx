@@ -6,20 +6,21 @@ import { DataPlatform, EntityType } from '../../../../../../types.generated';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 
-const PlatformContainer = styled.div`
-    margin-right: 8px;
+const PlatformContainer = styled.div<{ noRightMargin?: boolean }>`
+    margin-right: ${(props) => (props.noRightMargin ? '0px' : '8px')};
 `;
 
 type Props = {
     platform: DataPlatform;
     externalUrl?: string;
+    noRightMargin?: boolean;
 };
 
-export const AssertionPlatformAvatar = ({ platform, externalUrl }: Props) => {
+export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
         <Tooltip title={`Run by ${entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}`}>
-            <PlatformContainer>
+            <PlatformContainer noRightMargin={noRightMargin}>
                 <LinkWrapper to={externalUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
                     {(platform.properties?.logoUrl && (
                         <Image

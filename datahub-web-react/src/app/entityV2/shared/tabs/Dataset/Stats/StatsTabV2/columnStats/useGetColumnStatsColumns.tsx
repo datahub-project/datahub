@@ -5,8 +5,8 @@ import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { percentStrToDecimal } from '../../Schema/utils/statsUtil';
-import { getItemKeySet } from './utils';
+import { percentStrToDecimal } from '../../../Schema/utils/statsUtil';
+import { getItemKeySet } from '../utils';
 
 const ColumnName = styled(Typography.Text)`
     color: ${colors.gray[600]};

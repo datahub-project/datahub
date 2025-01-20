@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { CardContainer } from '../Card/components';
 import { Loader } from '../Loader';
@@ -13,9 +13,17 @@ import {
     LoaderContainer,
 } from './components';
 import { GraphCardProps } from './types';
+import MoreInfoModal from './MoreInfoModal';
 
 const EmptyMessageWrapper = styled.div`
     text-align: center;
+`;
+
+const LinkText = styled(Text)`
+    display: inline;
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export function GraphCard({
@@ -28,7 +36,14 @@ export function GraphCard({
     renderControls,
     isEmpty,
     emptyContent,
+    moreInfoModalContent,
 }: GraphCardProps) {
+    const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
+
+    const handleModalClose = () => {
+        setShowInfoModal(false);
+    };
+
     return (
         <CardContainer maxWidth={width}>
             <GraphCardHeader>
@@ -55,7 +70,17 @@ export function GraphCard({
                                         No Data
                                     </Text>
                                     <Text color="gray">No stats collected for this asset at the moment.</Text>
+                                    {moreInfoModalContent && (
+                                        <LinkText color="violet" onClick={() => setShowInfoModal(true)}>
+                                            More info
+                                        </LinkText>
+                                    )}
                                 </EmptyMessageWrapper>
+                                <MoreInfoModal
+                                    showModal={showInfoModal}
+                                    handleClose={handleModalClose}
+                                    modalContent={moreInfoModalContent}
+                                />
                             </EmptyMessageContainer>
                         ))}
                 </GraphCardBody>

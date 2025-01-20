@@ -9,10 +9,12 @@ import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
-import useRowCountData from './useRowCountData';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
+import NoPermission from '../NoPermission';
+import useRowCountData from './useRowCountData';
 
 type RowCountGraphProps = {
     users?: Array<Maybe<UserUsageCounts>>;
@@ -24,6 +26,7 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
         statsEntityUrn,
+        permissions: { canViewDatasetProfile },
     } = useStatsSectionsContext();
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
         GRAPH_LOOKBACK_WINDOWS_OPTIONS,
@@ -49,7 +52,8 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
     return (
         <GraphCard
             title="Row Count"
-            isEmpty={data.length === 0}
+            isEmpty={data.length === 0 || !canViewDatasetProfile}
+            emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
             loading={loading}
             graphHeight="290px"
             width="70%"
@@ -82,6 +86,7 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
                     )}
                 />
             )}
+            moreInfoModalContent={<MoreInfoModalContent />}
         />
     );
 }

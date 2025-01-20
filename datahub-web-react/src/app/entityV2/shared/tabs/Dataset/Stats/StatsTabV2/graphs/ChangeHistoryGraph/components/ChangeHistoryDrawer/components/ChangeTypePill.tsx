@@ -1,18 +1,27 @@
 import { Pill } from '@src/alchemy-components';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
-import { OperationType } from '@src/types.generated';
+import { Operation, OperationType } from '@src/types.generated';
 import React, { useMemo } from 'react';
-import { AVAILABLE_OPERATION_TYPES } from '../../../constants';
 
 type ChangeTypePillProps = {
-    changeType: OperationType;
+    operation: Operation;
 };
 
-export default function ChangeTypePill({ changeType }: ChangeTypePillProps) {
-    const changeTypeName = useMemo(() => capitalizeFirstLetter(changeType) as string, [changeType]);
-    const colorSheme = useMemo(() => (changeType === OperationType.Delete ? 'red' : 'violet'), [changeType]);
+export default function ChangeTypePill({ operation }: ChangeTypePillProps) {
+    const changeTypeName = useMemo(() => {
+        if (operation.customOperationType) return operation.customOperationType;
+        return capitalizeFirstLetter(operation.operationType) as string;
+    }, [operation]);
 
-    if (!AVAILABLE_OPERATION_TYPES.includes(changeType)) return null;
+    const colorScheme = useMemo(() => {
+        switch (operation.operationType) {
+            case OperationType.Delete:
+            case OperationType.Drop:
+                return 'red';
+            default:
+                return 'violet';
+        }
+    }, [operation.operationType]);
 
-    return <Pill size="sm" label={changeTypeName} colorScheme={colorSheme} clickable={false} />;
+    return <Pill size="sm" label={changeTypeName} colorScheme={colorScheme} clickable={false} />;
 }

@@ -31,6 +31,15 @@ const meta = {
         colorAccessor: {
             description: "A function to get color by datum's value",
         },
+        showPopover: {
+            description: 'Enable to add popovers',
+            table: {
+                defaultValue: { summary: 'true' },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
         popoverRenderer: {
             description: "A function to render popover's content of datum's value",
         },
@@ -42,6 +51,12 @@ const meta = {
         },
         margin: {
             description: 'Margins for CalendarChart',
+        },
+        selectedDay: {
+            description: 'Set a date in format `YYYY-MM-DD` to select this day on calendar',
+            control: {
+                type: 'text',
+            },
         },
     },
 

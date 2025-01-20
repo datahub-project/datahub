@@ -346,6 +346,7 @@ export const NavSidebar = () => {
                 icon: <SignOut />,
                 key: 'signOut',
                 onClick: logout,
+                href: '/logOut',
             },
         ],
     };

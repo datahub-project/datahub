@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Empty, message } from 'antd';
+import styled from 'styled-components';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
@@ -18,6 +19,10 @@ import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 import { useSetFilterFromURLParams } from './hooks';
 import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
 import { useOpenAssertionBuilder } from '../assertion/builder/hooks';
+
+const AssertionListContainer = styled.div`
+    margin: 0px 20px;
+`;
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -120,34 +125,35 @@ export const AcrylAssertionList = () => {
                 privileges={privileges as EntityPrivileges}
                 onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
             />
-            {assertionMonitorData?.length > 0 && (
-                <AcrylAssertionListFilters
-                    filterOptions={visibleAssertions?.filterOptions}
-                    originalFilterOptions={visibleAssertions?.originalFilterOptions}
-                    setFilters={setFilters}
-                    filter={filter}
-                    filteredAssertions={visibleAssertions}
-                />
-            )}
-
-            {renderListTable()}
-            {authorAssertionForEntity && (
-                <AssertionMonitorBuilderDrawer
-                    entityUrn={authorAssertionForEntity.urn}
-                    entityType={authorAssertionForEntity.entityType}
-                    platform={authorAssertionForEntity.platform}
-                    onSubmit={(assertion) => {
-                        setAuthorAssertionForEntity(undefined);
-                        updateDatasetAssertionsCache(
-                            authorAssertionForEntity.urn,
-                            createCachedAssertionWithMonitor(assertion),
-                            client,
-                        );
-                        setTimeout(() => refetch(), 5000);
-                    }}
-                    onCancel={() => setAuthorAssertionForEntity(undefined)}
-                />
-            )}
+            <AssertionListContainer>
+                {assertionMonitorData?.length > 0 && (
+                    <AcrylAssertionListFilters
+                        filterOptions={visibleAssertions?.filterOptions}
+                        originalFilterOptions={visibleAssertions?.originalFilterOptions}
+                        setFilters={setFilters}
+                        filter={filter}
+                        filteredAssertions={visibleAssertions}
+                    />
+                )}
+                {renderListTable()}
+                {authorAssertionForEntity && (
+                    <AssertionMonitorBuilderDrawer
+                        entityUrn={authorAssertionForEntity.urn}
+                        entityType={authorAssertionForEntity.entityType}
+                        platform={authorAssertionForEntity.platform}
+                        onSubmit={(assertion) => {
+                            setAuthorAssertionForEntity(undefined);
+                            updateDatasetAssertionsCache(
+                                authorAssertionForEntity.urn,
+                                createCachedAssertionWithMonitor(assertion),
+                                client,
+                            );
+                            setTimeout(() => refetch(), 5000);
+                        }}
+                        onCancel={() => setAuthorAssertionForEntity(undefined)}
+                    />
+                )}
+            </AssertionListContainer>
         </>
     );
 };
