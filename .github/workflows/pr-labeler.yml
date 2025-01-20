@@ -29,7 +29,6 @@ jobs:
                 "chriscollins3456",
                 "david-leifker",
                 "shirshanka",
-                "sid-acryl",
                 "swaroopjagadish",
                 "treff7es",
                 "yoonhyejin",
@@ -50,7 +49,9 @@ jobs:
                 "kevinkarchacryl",
                 "sgomezvillamor",
                 "acrylJonny",
-                "chakru-r"
+                "chakru-r",
+                "brock-acryl",
+                "mminichino"
               ]'), 
               github.actor
             ) 
