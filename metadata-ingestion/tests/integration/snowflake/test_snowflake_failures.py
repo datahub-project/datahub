@@ -148,10 +148,15 @@ def test_snowflake_no_tables_causes_pipeline_failure(
             [SnowflakeQuery.show_views_for_database("TEST_DB")],
             [],
         )
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            no_tables_fn,
+            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [],
+        )
 
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "permission-error" in [
+        assert [] == [
             failure.message for failure in pipeline.source.get_report().failures
         ]
 

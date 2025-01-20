@@ -49,6 +49,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    ObservedQuery,
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
@@ -398,6 +399,36 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 pass
             else:
                 return None
+
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
+
+        # Check if any of the accessed objects are streams
+        has_stream_objects = any(
+            obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
+        )
+
+        # If a stream is used, default to query parsing.
+        if has_stream_objects:
+            logger.debug("Found matching stream object")
+            self.aggregator.add_observed_query(
+                observed=ObservedQuery(
+                    query=res["query_text"],
+                    session_id=res["session_id"],
+                    timestamp=res["query_start_time"].astimezone(timezone.utc),
+                    user=user,
+                    default_db=res["default_db"],
+                    default_schema=res["default_schema"],
+                    query_hash=get_query_fingerprint(
+                        res["query_text"], self.identifiers.platform, fast=True
+                    ),
+                ),
+            )
+            return None
+
         upstreams = []
         column_usage = {}
 
@@ -459,12 +490,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         ],
                     )
                 )
-
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
 
         timestamp: datetime = res["query_start_time"]
         timestamp = timestamp.astimezone(timezone.utc)
