@@ -60,7 +60,7 @@ class DatahubPlugin(AirflowPlugin):
                     get_airflow_plugin_listeners,
                 )
 
-                listeners: list = list(filter(None, [get_airflow_plugin_listeners()]))
+                listeners: list = list(filter(None, get_airflow_plugin_listeners()))
 
             else:
                 # On Airflow < 2.5, we need the listener to be a module.
