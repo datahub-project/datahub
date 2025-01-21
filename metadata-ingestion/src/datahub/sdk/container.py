@@ -60,6 +60,9 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
             urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
 
+        # This needs to come first to ensure that the display name is registered.
+        self._ensure_container_props(name=display_name)
+
         if isinstance(container_key, ContainerKey):
             # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
             self._set_aspect(
@@ -84,8 +87,6 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
             env = container_key.env if container_key.env in ALL_ENV_TYPES else None
             if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES and env is not None:
                 self._ensure_container_props().env = env
-
-        self._ensure_container_props(name=display_name)
 
         if description is not None:
             self.set_description(description)
