@@ -619,9 +619,7 @@ def test_emit_flow(
         mock_emitter.method_calls[11][1][0].entityUrn
         == "urn:li:dataProcessInstance:56231547bcc2781e0c14182ceab6c9ac"
     )
-    assert (
-        mock_emitter.method_calls[12][1][0].aspectName == "dataPlatformInstance"
-    )
+    assert mock_emitter.method_calls[12][1][0].aspectName == "dataPlatformInstance"
     assert (
         mock_emitter.method_calls[13][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
@@ -673,9 +671,7 @@ def test_emit_flow(
         mock_emitter.method_calls[21][1][0].entityUrn
         == "urn:li:dataProcessInstance:b048ba729c1403f229a0760f8765d691"
     )
-    assert (
-        mock_emitter.method_calls[22][1][0].aspectName == "dataPlatformInstance"
-    )
+    assert mock_emitter.method_calls[22][1][0].aspectName == "dataPlatformInstance"
     assert (
         mock_emitter.method_calls[23][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
@@ -730,9 +726,7 @@ def test_emit_flow(
         mock_emitter.method_calls[32][1][0].entityUrn
         == "urn:li:dataProcessInstance:e7df9fe09bb4da19687b8199e5ee5038"
     )
-    assert (
-        mock_emitter.method_calls[33][1][0].aspectName == "dataPlatformInstance"
-    )
+    assert mock_emitter.method_calls[33][1][0].aspectName == "dataPlatformInstance"
     assert (
         mock_emitter.method_calls[34][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
@@ -793,9 +787,7 @@ def test_emit_flow(
         mock_emitter.method_calls[43][1][0].entityUrn
         == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
     )
-    assert (
-        mock_emitter.method_calls[44][1][0].aspectName == "dataPlatformInstance"
-    )
+    assert mock_emitter.method_calls[44][1][0].aspectName == "dataPlatformInstance"
     assert (
         mock_emitter.method_calls[45][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
