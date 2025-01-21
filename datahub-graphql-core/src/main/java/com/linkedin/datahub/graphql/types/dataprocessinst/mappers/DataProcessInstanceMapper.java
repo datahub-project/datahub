@@ -79,10 +79,6 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
           DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(dataMap);
           dataProcessInstance.setDataPlatformInstance(
               DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
-          //          DataPlatform dataPlatform = new DataPlatform();
-          //          dataPlatform.setUrn(dataPlatformInstance.getPlatform().toString());
-          //          dataPlatform.setType(EntityType.DATA_PLATFORM);
-          //          dataProcessInstance.setPlatform(dataPlatform);
         });
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
