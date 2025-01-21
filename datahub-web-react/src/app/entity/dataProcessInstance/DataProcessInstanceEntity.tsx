@@ -202,7 +202,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
                 platformName={
-                    data?.dataPlatformInstance?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
+                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
                 }
                 platformLogo={data.dataPlatformInstance?.platform?.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
