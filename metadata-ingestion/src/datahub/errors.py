@@ -13,3 +13,11 @@ class AlreadyExistsError(SdkUsageError):
 
 class ItemNotFoundError(SdkUsageError):
     pass
+
+
+class SchemaFieldKeyError(SdkUsageError, KeyError):
+    pass
+
+
+class HiddenEditWarning(Warning):
+    pass

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -9,7 +10,7 @@ from typing_extensions import Self, TypeAlias, assert_never
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.errors import SdkUsageError
+from datahub.errors import HiddenEditWarning, SchemaFieldKeyError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
@@ -146,6 +147,78 @@ def _parse_upstream_lineage_input(
         assert_never(upstream_input)
 
 
+class SchemaField:
+    __slots__ = ("_parent", "_field_path")
+
+    def __init__(self, parent: Dataset, field_path: str):
+        self._parent = parent
+        self._field_path = field_path
+
+    @property
+    def _edit_mode(self) -> DatasetEditMode:
+        return self._parent._edit_mode
+
+    def _base_schema_field(self) -> models.SchemaFieldClass:
+        # This must exist - if it doesn't, we've got a larger bug.
+        # TODO make this throw a SchemaFieldKeyError
+        return self._parent.schema[self._field_path]
+
+    def _get_editable_schema_field(
+        self,
+    ) -> Optional[models.EditableSchemaFieldInfoClass]:
+        # This method does not make any mutations.
+        editable_schema = self._parent._get_aspect(models.EditableSchemaMetadataClass)
+        if editable_schema is None:
+            return None
+        for field in editable_schema.editableSchemaFieldInfo:
+            if field.fieldPath == self._field_path:
+                return field
+        return None
+
+    def _ensure_editable_schema_field(self) -> models.EditableSchemaFieldInfoClass:
+        editable_schema = self._parent._setdefault_aspect(
+            models.EditableSchemaMetadataClass()
+        )
+        for field in editable_schema.editableSchemaFieldInfo:
+            if field.fieldPath == self._field_path:
+                return field
+
+        # If we don't have an entry for this field yet, create one.
+        field = models.EditableSchemaFieldInfoClass(fieldPath=self._field_path)
+        editable_schema.editableSchemaFieldInfo.append(field)
+        return field
+
+    @property
+    def description(self) -> Optional[str]:
+        editable_field = self._get_editable_schema_field()
+        return first_non_null(
+            [
+                editable_field.description if editable_field is not None else None,
+                self._base_schema_field().description,
+            ]
+        )
+
+    def set_description(self, description: str) -> None:
+        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+            editable_field = self._get_editable_schema_field()
+            if editable_field and editable_field.description is not None:
+                warnings.warn(
+                    "The field description will be hidden by UI-based edits. "
+                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
+                )
+
+            self._base_schema_field().description = description
+        else:
+            self._ensure_editable_schema_field().description = description
+
+    # @property
+    # def tags(self) -> Optional[List[models.TagAssociationClass]]:
+    #     # Combine tags from schema field
+    #     return self._parent.tags
+
+
 class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
     __slots__ = ("_edit_mode",)
 
@@ -260,6 +333,9 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
     def _ensure_dataset_props(self) -> models.DatasetPropertiesClass:
         return self._setdefault_aspect(models.DatasetPropertiesClass())
 
+    def _get_editable_props(self) -> Optional[models.EditableDatasetPropertiesClass]:
+        return self._get_aspect(models.EditableDatasetPropertiesClass)
+
     def _ensure_editable_props(self) -> models.EditableDatasetPropertiesClass:
         # Note that most of the fields in this aspect are not used.
         # The only one that's relevant for us is the description.
@@ -267,9 +343,10 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
 
     @property
     def description(self) -> Optional[str]:
+        editable_props = self._get_editable_props()
         return first_non_null(
             [
-                self._ensure_editable_props().description,
+                editable_props.description if editable_props is not None else None,
                 self._ensure_dataset_props().description,
             ]
         )
@@ -278,10 +355,11 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
             editable_props = self._get_aspect(models.EditableDatasetPropertiesClass)
             if editable_props is not None and editable_props.description is not None:
-                # TODO does it make sense to throw here?
-                raise SdkUsageError(
-                    "Setting the description will be hidden by UI-based edits. "
-                    "Set the edit mode to OVERWRITE_UI to override this behavior."
+                warnings.warn(
+                    "The dataset description will be hidden by UI-based edits. "
+                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
                 )
 
             self._ensure_dataset_props().description = description
@@ -336,6 +414,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         if schema_metadata is None:
             # TODO throw instead?
             return {}
+        # TODO: Field path v2 is pretty annoying - ideally users don't need to deal with that.
         return {field.fieldPath: field for field in schema_metadata.fields}
 
     def _parse_schema_field_input(
@@ -391,6 +470,12 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
                     platformSchema=models.SchemalessClass(),
                 )
             )
+
+    def __getitem__(self, field_path: str) -> SchemaField:
+        # TODO: Automatically deal with field path v2?
+        if field_path not in self.schema:
+            raise SchemaFieldKeyError(f"Field {field_path} not found in schema")
+        return SchemaField(self, field_path)
 
     @property
     def upstreams(self) -> Optional[models.UpstreamLineageClass]:
