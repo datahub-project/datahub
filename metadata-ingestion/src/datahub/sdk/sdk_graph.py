@@ -22,16 +22,13 @@ class SDKGraph:
     # TODO: Make all of these methods sync by default.
 
     @overload
-    def get(self, urn: "ContainerUrn") -> "Container":
-        ...
+    def get(self, urn: "ContainerUrn") -> "Container": ...
 
     @overload
-    def get(self, urn: "DatasetUrn") -> "Dataset":
-        ...
+    def get(self, urn: "DatasetUrn") -> "Dataset": ...
 
     @overload
-    def get(self, urn: str) -> Entity:
-        ...
+    def get(self, urn: str) -> Entity: ...
 
     def get(self, urn: UrnOrStr) -> Entity:
         from datahub.sdk._all_entities import ENTITY_CLASSES

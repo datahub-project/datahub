@@ -89,4 +89,6 @@ class LineageClient:
                 cll_mapping=column_lineage,
             )
 
+        assert cll or True
+
         raise NotImplementedError("TODO")
