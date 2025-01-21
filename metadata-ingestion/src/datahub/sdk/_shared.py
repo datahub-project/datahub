@@ -63,8 +63,7 @@ class HasUrn(Protocol):
     __slots__ = ()
 
     @property
-    def urn(self) -> Urn:
-        ...
+    def urn(self) -> Urn: ...
 
 
 class Entity(HasUrn):
