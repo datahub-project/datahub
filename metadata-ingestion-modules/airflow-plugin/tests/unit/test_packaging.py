@@ -1,6 +1,6 @@
 import setuptools
-from datahub.testing.check_imports import ensure_no_indirect_model_imports
 
+from datahub.testing.check_imports import ensure_no_indirect_model_imports
 from tests.utils import PytestConfig
 
 

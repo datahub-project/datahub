@@ -76,8 +76,9 @@ class LoggingCallback(WriteCallback):
         failure_metadata: dict,
     ) -> None:
         logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {failure_exception} and info {failure_metadata}"
+            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}",
+            extra={"failure_metadata": failure_metadata},
+            exc_info=failure_exception,
         )
 
 
@@ -108,9 +109,9 @@ class DeadLetterQueueCallback(WriteCallback):
                         mcp.systemMetadata.properties = {}
                     if "workunit_id" not in mcp.systemMetadata.properties:
                         # update the workunit id
-                        mcp.systemMetadata.properties[
-                            "workunit_id"
-                        ] = record_envelope.metadata["workunit_id"]
+                        mcp.systemMetadata.properties["workunit_id"] = (
+                            record_envelope.metadata["workunit_id"]
+                        )
                 record_envelope.record = mcp
         self.file_sink.write_record_async(record_envelope, self.logging_callback)
 
@@ -700,7 +701,7 @@ class Pipeline:
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_failures_source+num_failures_sink} failures"
+                    status=f"with at least {num_failures_source + num_failures_sink} failures"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=True, warnings=False
@@ -718,7 +719,7 @@ class Pipeline:
             num_warn_global = len(global_warnings)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_warn_source+num_warn_sink+num_warn_global} warnings"
+                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True

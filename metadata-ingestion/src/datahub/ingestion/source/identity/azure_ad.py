@@ -354,9 +354,9 @@ class AzureADSource(StatefulIngestionSourceBase):
                     yield MetadataWorkUnit(id=group_status_wu_id, mcp=group_status_mcp)
 
         # Populate GroupMembership Aspects for CorpUsers
-        datahub_corp_user_urn_to_group_membership: Dict[
-            str, GroupMembershipClass
-        ] = defaultdict(lambda: GroupMembershipClass(groups=[]))
+        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = (
+            defaultdict(lambda: GroupMembershipClass(groups=[]))
+        )
         if (
             self.config.ingest_group_membership
             and len(self.selected_azure_ad_groups) > 0

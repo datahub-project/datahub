@@ -23,7 +23,6 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -212,9 +211,9 @@ class SnowflakeV2Source(
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[
-                RedundantUsageRunSkipHandler
-            ] = None
+            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
+                None
+            )
             if self.config.enable_stateful_usage_ingestion:
                 redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
                     source=self,
@@ -250,11 +249,6 @@ class SnowflakeV2Source(
             )
 
         self.add_config_to_report()
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = SnowflakeV2Config.parse_obj(config_dict)
-        return cls(ctx, config)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -302,7 +296,16 @@ class SnowflakeV2Source(
 
         _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
         privileges: List[SnowflakePrivilege] = []
-        capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
+        capabilities: List[SourceCapability] = [
+            c.capability
+            for c in SnowflakeV2Source.get_capabilities()  # type: ignore
+            if c.capability
+            not in (
+                SourceCapability.PLATFORM_INSTANCE,
+                SourceCapability.DOMAINS,
+                SourceCapability.DELETION_DETECTION,
+            )
+        ]
 
         cur = conn.query("select current_role()")
         current_role = [row["CURRENT_ROLE()"] for row in cur][0]

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import io.datahubproject.openapi.v3.OpenAPIV3Generator;
@@ -81,13 +82,15 @@ public class SpringWebConfig implements WebMvcConfigurer {
   }
 
   @Bean
-  public GroupedOpenApi v3OpenApiGroup(final EntityRegistry entityRegistry) {
+  public GroupedOpenApi v3OpenApiGroup(
+      final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
     return GroupedOpenApi.builder()
         .group("10-openapi-v3")
         .displayName("DataHub v3 (OpenAPI)")
         .addOpenApiCustomizer(
             openApi -> {
-              OpenAPI v3OpenApi = OpenAPIV3Generator.generateOpenApiSpec(entityRegistry);
+              OpenAPI v3OpenApi =
+                  OpenAPIV3Generator.generateOpenApiSpec(entityRegistry, configurationProvider);
               openApi.setInfo(v3OpenApi.getInfo());
               openApi.setTags(Collections.emptyList());
               openApi.getPaths().putAll(v3OpenApi.getPaths());

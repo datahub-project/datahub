@@ -41,9 +41,9 @@ class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointSt
         run_id: str,
     ):
         self.state_provider = source.state_provider
-        self.stateful_ingestion_config: Optional[
-            ProfilingStatefulIngestionConfig
-        ] = config.stateful_ingestion
+        self.stateful_ingestion_config: Optional[ProfilingStatefulIngestionConfig] = (
+            config.stateful_ingestion
+        )
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.checkpointing_enabled: bool = (
