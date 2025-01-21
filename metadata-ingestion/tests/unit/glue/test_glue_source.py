@@ -313,7 +313,7 @@ def test_config_without_platform():
 
 def test_get_databases_filters_by_catalog():
     def format_databases(databases):
-        return set(d["Name"] for d in databases)
+        return {d["Name"] for d in databases}
 
     all_catalogs_source: GlueSource = GlueSource(
         config=GlueSourceConfig(aws_region="us-west-2"),

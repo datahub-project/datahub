@@ -113,9 +113,9 @@ class DataLakeSourceConfig(
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the same platform.
-        guessed_platforms = set(
+        guessed_platforms = {
             "abs" if path_spec.is_abs else "file" for path_spec in path_specs
-        )
+        }
         if len(guessed_platforms) > 1:
             raise ValueError(
                 f"Cannot have multiple platforms in path_specs: {guessed_platforms}"

@@ -708,9 +708,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         )
         response.raise_for_status()
 
-        import_data_model_ids = set(
+        import_data_model_ids = {
             model["modelID"] for model in response.json()["models"]
-        )
+        }
         return import_data_model_ids
 
     def get_import_data_model_columns(

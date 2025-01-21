@@ -4486,7 +4486,7 @@ def test_tags_to_terms_transformation(mock_datahub_graph_instance):
     terms_aspect = output[0].record.aspect
     assert isinstance(terms_aspect, models.GlossaryTermsClass)
     assert len(terms_aspect.terms) == len(expected_terms)
-    assert set(term.urn for term in terms_aspect.terms) == {
+    assert {term.urn for term in terms_aspect.terms} == {
         "urn:li:glossaryTerm:example1",
         "urn:li:glossaryTerm:example2",
     }
