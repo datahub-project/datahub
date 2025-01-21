@@ -225,7 +225,7 @@ def generate_pipeline(
                 container_key=experiment.key, id=run_id
             )
 
-            data_process_instance.subtype = "Training Run"
+            data_process_instance.subtype = "ML Training Run"
             data_process_instance.inlets = [DatasetUrn.from_string(input_dataset.urn)]
 
             output_dataset = Dataset(
@@ -340,7 +340,7 @@ def generate_pipeline(
 
 
 if __name__ == "__main__":
-    token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6Ijg3MWEyZjU2LTY2MjUtNGRiMC04OTZhLTAyMzBmNmM0MmRkZCIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3Mzk2ODcwMDIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.HDGaXw8iBTXIEqKyIQl-jSlS8BquAXZHELP4hA9thOM"
+    token = ""
     graph_config = DatahubClientConfig(
         server="http://localhost:8080",
         token=token,

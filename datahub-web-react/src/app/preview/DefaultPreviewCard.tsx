@@ -419,7 +419,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                                       {startTime && (
+                    {startTime && (
                         <Popover 
                             content={<div style={popoverStyles.contentStyle}>{toLocalDateTimeString(startTime)}</div>}
                             title={<div style={popoverStyles.titleStyle}>Start Time</div>}

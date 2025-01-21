@@ -39,9 +39,10 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-}: // duration,
-// status,
-// startTime,
+    duration,
+    status,
+    startTime,
+}:
 {
     urn: string;
     name: string;
@@ -64,9 +65,9 @@ export const Preview = ({
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    // duration?: number | null;
-    // status?: string | null;
-    // startTime?: number | null;
+    duration?: number | null;
+    status?: string | null;
+    startTime?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -95,9 +96,9 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            // duration={duration}
-            // status={status}
-            // startTime={startTime}
+            duration={duration}
+            status={status}
+            startTime={startTime}
         />
     );
 };
