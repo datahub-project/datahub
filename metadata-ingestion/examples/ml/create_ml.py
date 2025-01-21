@@ -1,7 +1,7 @@
 import random
 import time
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -27,6 +27,13 @@ ORCHESTRATOR_AIRFLOW = "airflow"
 
 class ContainerKeyWithId(ContainerKey):
     id: str
+
+
+@dataclass
+class RunInfo:
+    start_time: int
+    duration: int
+    result: InstanceRunResult
 
 
 @dataclass
@@ -222,32 +229,32 @@ def generate_pipeline(
         start_time = end_time - (30 * 24 * 60 * 60 * 1000)
         run_timestamps = [start_time + (i * 5 * 24 * 60 * 60 * 1000) for i in range(5)]
 
-        run_dict = {
-            "run_1": {
-                "start_time": run_timestamps[0],
-                "duration": 45,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_2": {
-                "start_time": run_timestamps[1],
-                "duration": 60,
-                "result": InstanceRunResult.FAILURE,
-            },
-            "run_3": {
-                "start_time": run_timestamps[2],
-                "duration": 55,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_4": {
-                "start_time": run_timestamps[3],
-                "duration": 70,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_5": {
-                "start_time": run_timestamps[4],
-                "duration": 50,
-                "result": InstanceRunResult.FAILURE,
-            },
+        run_dict: Dict[str, RunInfo] = {
+            "run_1": RunInfo(
+                start_time=run_timestamps[0],
+                duration=45,
+                result=InstanceRunResult.SUCCESS,
+            ),
+            "run_2": RunInfo(
+                start_time=run_timestamps[1],
+                duration=60,
+                result=InstanceRunResult.FAILURE,
+            ),
+            "run_3": RunInfo(
+                start_time=run_timestamps[2],
+                duration=55,
+                result=InstanceRunResult.SUCCESS,
+            ),
+            "run_4": RunInfo(
+                start_time=run_timestamps[3],
+                duration=70,
+                result=InstanceRunResult.SUCCESS,
+            ),
+            "run_5": RunInfo(
+                start_time=run_timestamps[4],
+                duration=50,
+                result=InstanceRunResult.FAILURE,
+            ),
         }
 
         for i, (model_name, model_description) in enumerate(
@@ -340,25 +347,24 @@ def generate_pipeline(
             )
 
             # Generate start and end events
-            start_time_millis = int(run_dict[run_id]["start_time"])
-            duration_minutes = int(run_dict[run_id]["duration"])
+            run_info = run_dict[run_id]
+            start_time_millis = run_info.start_time
+            duration_minutes = run_info.duration
             end_time_millis = start_time_millis + (duration_minutes * 60000)
-            result = run_dict[run_id]["result"]
-            if not isinstance(result, InstanceRunResult):
-                raise TypeError(f"Expected InstanceRunResult, got {type(result)}")
+            result = run_info.result
 
             result_type = (
                 "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
             )
 
             yield from data_process_instance.start_event_mcp(
-                start_timestamp_millis=int(start_time_millis)
+                start_timestamp_millis=start_time_millis
             )
             yield from data_process_instance.end_event_mcp(
-                end_timestamp_millis=int(end_time_millis),
+                end_timestamp_millis=end_time_millis,
                 result=result,
                 result_type=result_type,
-                start_timestamp_millis=int(start_time_millis),
+                start_timestamp_millis=start_time_millis,
             )
 
             # Model
