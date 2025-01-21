@@ -8,7 +8,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -80,10 +79,10 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
           DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(dataMap);
           dataProcessInstance.setDataPlatformInstance(
               DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
-          DataPlatform dataPlatform = new DataPlatform();
-          dataPlatform.setUrn(dataPlatformInstance.getPlatform().toString());
-          dataPlatform.setType(EntityType.DATA_PLATFORM);
-          dataProcessInstance.setPlatform(dataPlatform);
+          //          DataPlatform dataPlatform = new DataPlatform();
+          //          dataPlatform.setUrn(dataPlatformInstance.getPlatform().toString());
+          //          dataPlatform.setType(EntityType.DATA_PLATFORM);
+          //          dataProcessInstance.setPlatform(dataPlatform);
         });
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,

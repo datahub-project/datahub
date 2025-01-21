@@ -3108,16 +3108,17 @@ public class GmsGraphQLEngine {
                               ? dataProcessInstance.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher(
-                    "platform",
-                    new LoadableTypeResolver<>(
-                        dataPlatformType,
-                        (env) -> {
-                          final DataProcessInstance dataProcessInstance = env.getSource();
-                          return dataProcessInstance.getPlatform() != null
-                              ? dataProcessInstance.getPlatform().getUrn()
-                              : null;
-                        }))
+                //                .dataFetcher(
+                //                    "platform",
+                //                    new LoadableTypeResolver<>(
+                //                        dataPlatformType,
+                //                        (env) -> {
+                //                          final DataProcessInstance dataProcessInstance =
+                // env.getSource();
+                //                          return dataProcessInstance.getPlatform() != null
+                //                              ? dataProcessInstance.getPlatform().getUrn()
+                //                              : null;
+                //                        }))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "container",
