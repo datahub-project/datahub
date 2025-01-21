@@ -64,7 +64,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
+from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
@@ -311,7 +311,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
-        self.manifest_constants: List[ManifestConstant] = []
+        self.manifest_constants: List[LookerConstant] = []
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
@@ -602,7 +602,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         tmp_dir: str,
         project_name: str,
         project_visited: Set[str],
-        manifest_constants: List[ManifestConstant],
+        manifest_constants: List[LookerConstant],
     ) -> None:
         if project_name in project_visited:
             return
@@ -621,7 +621,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         if manifest.constants:
             manifest_constants.extend(
-                ManifestConstant(
+                LookerConstant(
                     name=constant.get("name", ""),
                     value=constant.get("value", ""),
                 )

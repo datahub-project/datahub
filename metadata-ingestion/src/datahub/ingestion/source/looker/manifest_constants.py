@@ -2,6 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass
-class ManifestConstant:
+class LookerConstant:
     name: str
     value: str

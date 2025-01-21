@@ -24,7 +24,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
+from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -1069,8 +1069,8 @@ def test_lookml_constant_transformer(view, expected_result):
         source_config=config,
         reporter=MagicMock(),
         manifest_constants=[
-            ManifestConstant(name="constant1", value="manifest_value1"),
-            ManifestConstant(name="constant3", value="manifest_value3"),
+            LookerConstant(name="constant1", value="manifest_value1"),
+            LookerConstant(name="constant3", value="manifest_value3"),
         ],
     )
 

@@ -29,7 +29,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
+from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +207,7 @@ class LookMLViewTransformer(ABC):
         self,
         source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
-        manifest_constants: List[ManifestConstant] = [],
+        manifest_constants: List[LookerConstant] = [],
     ):
         self.source_config = source_config
         self.reporter = reporter
@@ -460,7 +460,7 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
     reporter: LookMLSourceReport,
-    manifest_constants: List[ManifestConstant] = [],
+    manifest_constants: List[LookerConstant] = [],
 ) -> None:
     if "views" not in view_lkml_file_dict:
         return
@@ -499,7 +499,7 @@ def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
     reporter: LookMLSourceReport,
-    manifest_constants: List[ManifestConstant] = [],
+    manifest_constants: List[LookerConstant] = [],
 ) -> dict:
     parsed = load_lkml(path)
 

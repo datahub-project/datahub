@@ -14,7 +14,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
+from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
-        manifest_constants: List[ManifestConstant] = [],
+        manifest_constants: List[LookerConstant] = [],
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
