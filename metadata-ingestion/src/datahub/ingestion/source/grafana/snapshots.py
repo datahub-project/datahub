@@ -34,6 +34,7 @@ def build_chart_mce(
     platform_instance: Optional[str],
     env: str,
     base_url: str,
+    ingest_tags: bool,
 ) -> Tuple[Optional[str], ChartSnapshotClass]:
     """Build chart metadata change event"""
     ds_urn = None
@@ -89,6 +90,21 @@ def build_chart_mce(
     )
     chart_snapshot.aspects.append(chart_info)
 
+    if dashboard.tags and ingest_tags:
+        tags = []
+        for tag in dashboard.tags:
+            if isinstance(tag, str):
+                # Handle both simple tags and key:value tags from Grafana
+                if ":" in tag:
+                    key, value = tag.split(":", 1)
+                    tag_urn = make_tag_urn(f"{key}.{value}")
+                else:
+                    tag_urn = make_tag_urn(tag)
+                tags.append(TagAssociationClass(tag=tag_urn))
+
+        if tags:
+            chart_snapshot.aspects.append(GlobalTagsClass(tags=tags))
+
     return ds_urn, chart_snapshot
 
 
@@ -98,6 +114,8 @@ def build_dashboard_mce(
     platform_instance: Optional[str],
     chart_urns: List[str],
     base_url: str,
+    ingest_owners: bool,
+    ingest_tags: bool,
 ) -> DashboardSnapshotClass:
     """Build dashboard metadata change event"""
     dashboard_urn = make_dashboard_urn(platform, dashboard.uid, platform_instance)
@@ -129,13 +147,13 @@ def build_dashboard_mce(
     dashboard_snapshot.aspects.append(dashboard_info)
 
     # Add ownership
-    if dashboard.uid:
+    if dashboard.uid and ingest_owners:
         owner = _build_ownership(dashboard)
         if owner:
             dashboard_snapshot.aspects.append(owner)
 
     # Add tags
-    if dashboard.tags:
+    if dashboard.tags and ingest_tags:
         tags = [
             TagAssociationClass(tag=make_tag_urn(tag))
             for tag in dashboard.tags

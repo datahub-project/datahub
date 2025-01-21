@@ -7,6 +7,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_dataset_to_container, gen_containers
@@ -47,6 +48,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata._schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
@@ -257,7 +259,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
             self.report.report_chart_scanned()
 
             # First emit the dataset for each panel's datasource
-            yield from self._process_panel_dataset(panel, dashboard.uid)
+            yield from self._process_panel_dataset(
+                panel, dashboard.uid, self.config.ingest_tags
+            )
 
             # Process lineage
             lineage = self.lineage_extractor.extract_panel_lineage(panel)
@@ -272,6 +276,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
                 base_url=self.config.url,
+                ingest_tags=self.config.ingest_tags,
             )
             chart_urns.append(chart_mce.urn)
 
@@ -307,6 +312,8 @@ class GrafanaSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             chart_urns=chart_urns,
             base_url=self.config.url,
+            ingest_owners=self.config.ingest_owners,
+            ingest_tags=self.config.ingest_tags,
         )
 
         yield MetadataWorkUnit(
@@ -364,7 +371,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def _process_panel_dataset(
-        self, panel: Panel, dashboard_uid: str
+        self, panel: Panel, dashboard_uid: str, ingest_tags: bool
     ) -> Iterable[MetadataWorkUnit]:
         """Process dataset metadata for a panel"""
         if not panel.datasource or not isinstance(panel.datasource, dict):
@@ -422,6 +429,23 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 platformSchema=OtherSchemaClass(rawSchema=""),
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+        if dashboard_uid and self.config.ingest_tags:
+            dashboard = self.client.get_dashboard(dashboard_uid)
+            if dashboard and dashboard.tags:
+                tags = []
+                for tag in dashboard.tags:
+                    if isinstance(tag, str):
+                        # Handle both simple tags and key:value tags from Grafana
+                        if ":" in tag:
+                            key, value = tag.split(":", 1)
+                            tag_urn = make_tag_urn(f"{key}.{value}")
+                        else:
+                            tag_urn = make_tag_urn(tag)
+                        tags.append(TagAssociationClass(tag=tag_urn))
+
+                if tags:
+                    dataset_snapshot.aspects.append(GlobalTagsClass(tags=tags))
 
         self.report.report_dataset_scanned()
         yield MetadataWorkUnit(

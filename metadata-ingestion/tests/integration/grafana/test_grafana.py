@@ -120,6 +120,46 @@ def wait_for_grafana(url: str, max_attempts: int = 30, sleep_time: int = 5) -> b
 
 
 @freeze_time(FROZEN_TIME)
+def test_grafana_basic_ingest(
+    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
+):
+    """Test ingestion with lineage enabled"""
+    wait_for_grafana("http://localhost:3000/api/health")
+
+    with fs_helpers.isolated_filesystem(tmp_path):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "grafana-test",
+                "source": {
+                    "type": "grafana",
+                    "config": {
+                        "url": "http://localhost:3000",
+                        "service_account_token": test_api_key,
+                        "ingest_tags": False,
+                        "ingest_owners": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": "./grafana_basic_mcps.json"},
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path="grafana_basic_mcps.json",
+            golden_path=test_resources_dir / "grafana_basic_mcps_golden.json",
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            ],
+        )
+
+
+@freeze_time(FROZEN_TIME)
 def test_grafana_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
@@ -135,8 +175,8 @@ def test_grafana_ingest(
                     "config": {
                         "url": "http://localhost:3000",
                         "service_account_token": test_api_key,
-                        "auto_tag_dimensions": True,
-                        "auto_tag_measures": True,
+                        "ingest_tags": True,
+                        "ingest_owners": True,
                         "connection_to_platform_map": {
                             "test-postgres": {
                                 "platform": "postgres",

@@ -35,6 +35,14 @@ class GrafanaSourceConfig(
         default=True,
         description="Verify SSL certificate for secure connections (https)",
     )
+    ingest_tags: bool = Field(
+        default=True,
+        description="Whether to ingest tags from Grafana dashboards and charts",
+    )
+    ingest_owners: bool = Field(
+        default=True,
+        description="Whether to ingest owners from Grafana dashboards and charts",
+    )
     platform_instance: Optional[str] = Field(
         default=None, description="Platform instance for DataHub"
     )
