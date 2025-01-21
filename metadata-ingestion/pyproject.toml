@@ -29,7 +29,6 @@ extend-select = [
     "G010", # logging.warn -> logging.warning
     "I",    # isort
     "TID",  # flake8-tidy-imports
-    "ANN20",# flake8-annotations
     "C4",   # flake8-comprehensions
 ]
 
@@ -42,9 +41,6 @@ extend-ignore = [
     "B019",  # Allow usages of functools.lru_cache
     "B008",  # Allow function call in argument defaults
     "COM812", # Avoid conflicts with formatter
-    "ANN204", # Missing return type annotation for special method `__init__`
-    "ANN206", # Missing return type annotation for classmethod
-    "ANN205", # Missing return type annotation for staticmethod
     "C400",  # Ignore Unnecessary generator
     "C410",  # Ignore Unnecessary list literal passed to `list()`
     "C414",  # Ignore Unnecessary `reversed()` call within `sorted()`
@@ -54,12 +50,10 @@ extend-ignore = [
     "B006",   # Mutable args
     "B017",   # Do not assert blind exception
     "B904",   # Checks for raise statements in exception handlers that lack a from clause
-    "ANN201", # Missing return type annotation for public function
-    "ANN202", # Missing return type annotation for private function
-    "C401",   # Unnecessary generator
-    "C403",   # Unnecessary list comprehension
-    "C408",   # Unnecessary `list()` call
-    "C416",   # Unnecessary Comprehension
+    "C401",   # Unnecessary generator (rewrite using set())
+    "C403",   # Unnecessary list comprehension (rewrite as a set comprehension)
+    "C408",   # Unnecessary {kind}() call (rewrite as a literal)
+    "C416",   # Unnecessary {kind} comprehension (rewrite using {kind}())
 ]
 
 [tool.ruff.lint.mccabe]
