@@ -622,8 +622,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         if manifest.constants:
             manifest_constants.extend(
                 LookerConstant(
-                    name=constant.get("name", ""),
-                    value=constant.get("value", ""),
+                    name=constant["name"],
+                    value=constant["value"],
                 )
                 for constant in manifest.constants
                 if constant.get("name") and constant.get("value")

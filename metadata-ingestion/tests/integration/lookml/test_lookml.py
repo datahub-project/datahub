@@ -993,7 +993,7 @@ def test_special_liquid_variables():
 
 
 @pytest.mark.parametrize(
-    "view, expected_result",
+    "view, expected_result, warning_expected",
     [
         # Case 1: Single constant replacement in sql_table_name
         (
@@ -1001,11 +1001,13 @@ def test_special_liquid_variables():
             {
                 "datahub_transformed_sql_table_name": "manifest_value1.kafka_streaming.events"
             },
+            False,
         ),
         # Case 2: Single constant replacement with config-defined constant
         (
             {"sql_table_name": "SELECT * FROM @{constant2}"},
             {"datahub_transformed_sql_table_name": "SELECT * FROM value2"},
+            False,
         ),
         # Case 3: Multiple constants in a derived_table SQL query
         (
@@ -1015,31 +1017,33 @@ def test_special_liquid_variables():
                     "datahub_transformed_sql": "SELECT manifest_value1, manifest_value3"
                 }
             },
+            False,
         ),
         # Case 4: Non-existent constant in sql_table_name
         (
             {"sql_table_name": "SELECT * FROM @{nonexistent}"},
             {"datahub_transformed_sql_table_name": "SELECT * FROM NULL"},
+            False,
         ),
         # Case 5: View with unsupported attribute
-        (
-            {"unsupported_attribute": "SELECT * FROM @{constant1}"},
-            {},
-        ),
+        ({"unsupported_attribute": "SELECT * FROM @{constant1}"}, {}, False),
         # Case 6: View with no transformable attributes
         (
             {"sql_table_name": "SELECT * FROM table_name"},
             {"datahub_transformed_sql_table_name": "SELECT * FROM table_name"},
+            False,
         ),
         # Case 7: Constants only in manifest_constants
         (
             {"sql_table_name": "SELECT @{constant3}"},
             {"datahub_transformed_sql_table_name": "SELECT manifest_value3"},
+            False,
         ),
         # Case 8: Constants only in lookml_constants
         (
             {"sql_table_name": "SELECT @{constant2}"},
             {"datahub_transformed_sql_table_name": "SELECT value2"},
+            False,
         ),
         # Case 9: Multiple unsupported attributes
         (
@@ -1048,15 +1052,23 @@ def test_special_liquid_variables():
                 "another_unsupported_attribute": "SELECT @{constant2}",
             },
             {},
+            False,
+        ),
+        # Case 10: Misplaced lookml constant
+        (
+            {"sql_table_name": "@{liquid1}.@{constant1}"},
+            {"datahub_transformed_sql_table_name": "@{liquid1}.manifest_value1"},
+            True,
         ),
     ],
 )
 @freeze_time(FROZEN_TIME)
-def test_lookml_constant_transformer(view, expected_result):
+def test_lookml_constant_transformer(view, expected_result, warning_expected):
     """
     Test LookmlConstantTransformer with various view structures.
     """
     config = MagicMock()
+    report = MagicMock()
     config.lookml_constants = {
         "constant1": "value1",
         "constant2": "value2",
@@ -1067,7 +1079,7 @@ def test_lookml_constant_transformer(view, expected_result):
 
     transformer = LookmlConstantTransformer(
         source_config=config,
-        reporter=MagicMock(),
+        reporter=report,
         manifest_constants=[
             LookerConstant(name="constant1", value="manifest_value1"),
             LookerConstant(name="constant3", value="manifest_value3"),
@@ -1076,6 +1088,12 @@ def test_lookml_constant_transformer(view, expected_result):
 
     result = transformer.transform(view)
     assert result == expected_result
+    if warning_expected:
+        report.report_warning.assert_called_once_with(
+            title="Misplaced lookml constant",
+            message="Misplaced lookml constant, Use 'lookml_constants' instead of 'liquid_variables'.",
+            context="Key liquid1",
+        )
 
 
 @freeze_time(FROZEN_TIME)
