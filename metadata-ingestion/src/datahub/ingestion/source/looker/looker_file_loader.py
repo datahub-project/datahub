@@ -14,6 +14,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
+from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +31,14 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
-        manifest_lookml_constant: Optional[List[Dict[str, str]]] = [],
+        manifest_constants: List[ManifestConstant] = [],
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
         self.source_config = source_config
-        self.manifest_lookml_constant = manifest_lookml_constant
+        self.manifest_constants = manifest_constants
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
@@ -77,7 +78,7 @@ class LookerViewFileLoader:
                 path=path,
                 reporter=self.reporter,
                 source_config=self.source_config,
-                manifest_lookml_constant=self.manifest_lookml_constant,
+                manifest_constants=self.manifest_constants,
             )
 
             looker_viewfile = LookerViewFile.from_looker_dict(

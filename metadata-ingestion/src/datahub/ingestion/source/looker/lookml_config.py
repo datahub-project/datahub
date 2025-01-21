@@ -160,7 +160,7 @@ class LookMLSourceConfig(
 
     liquid_variables: Dict[Any, Any] = Field(
         {},
-        description="A dictionary containing Liquid variables, Liquid logic, and LookML parameters with their corresponding values, utilized in SQL-defined "
+        description="A dictionary containing Liquid variables with their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
     )

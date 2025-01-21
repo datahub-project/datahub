@@ -19,8 +19,7 @@ source:
     #   source_region: "ap-south-1"
     #   db: "test-db"
 
-    # LookML Constant
+    # LookML Constants
     # lookml_constants:
     #   star_award_winner_year: "public.winner_2025"
-
 # sink configs

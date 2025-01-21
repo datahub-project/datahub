@@ -64,6 +64,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
+from datahub.ingestion.source.looker.manifest_constants import ManifestConstant
 from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
@@ -310,7 +311,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
-        self.manifest_lookml_constant: List[Dict[str, str]] = []
+        self.manifest_constants: List[ManifestConstant] = []
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
@@ -584,7 +585,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 tmp_dir,
                 BASE_PROJECT_NAME,
                 visited_projects,
-                self.manifest_lookml_constant,
+                self.manifest_constants,
             )
 
             yield from self.get_internal_workunits()
@@ -601,7 +602,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         tmp_dir: str,
         project_name: str,
         project_visited: Set[str],
-        manifest_lookml_constant: List[Dict[str, str]],
+        manifest_constants: List[ManifestConstant],
     ) -> None:
         if project_name in project_visited:
             return
@@ -619,8 +620,14 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         if manifest.constants:
-            manifest_lookml_constant.extend(manifest.constants)
-
+            manifest_constants.extend(
+                ManifestConstant(
+                    name=constant.get("name", ""),
+                    value=constant.get("value", ""),
+                )
+                for constant in manifest.constants
+                if constant.get("name") and constant.get("value")
+            )
         # Special case handling if the root project has a name in the manifest file.
         if project_name == BASE_PROJECT_NAME and manifest.project_name:
             if (
@@ -683,12 +690,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                     tmp_dir,
                     remote_project.name,
                     project_visited,
-                    manifest_lookml_constant,
+                    manifest_constants,
                 )
 
         for project in manifest.local_dependencies:
             self._recursively_check_manifests(
-                tmp_dir, project, project_visited, manifest_lookml_constant
+                tmp_dir, project, project_visited, manifest_constants
             )
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
@@ -698,7 +705,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.base_projects_folder,
             self.reporter,
             self.source_config,
-            self.manifest_lookml_constant,
+            self.manifest_constants,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
