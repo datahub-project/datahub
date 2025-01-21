@@ -503,7 +503,7 @@ class SweeperJob:
                 self._execute_restart_action(action)
             elif action.action in ["EXECUTOR_EXPIRE", "EXECUTOR_DELETE"]:
                 self._execute_executor_action(action)
-            elif action.action == "CANCELLED":
+            elif action.action in ["CANCELLED", "DUPLICATE"]:
                 self._execute_cancel_action(action)
             else:
                 raise ValueError(f"Unrecognized action: {action.action}")
