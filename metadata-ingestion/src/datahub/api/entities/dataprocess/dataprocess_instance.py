@@ -5,7 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatahubKey
+from datahub.emitter.mcp_builder import ContainerKey, DatahubKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
     DataProcessInstanceOutput,
@@ -15,21 +15,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DataPlatformInstanceClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
     SubTypesClass,
-    ContainerClass
 )
-from datahub.metadata.urns import DataPlatformInstanceUrn, DataPlatformUrn, ContainerUrn
+from datahub.metadata.urns import ContainerUrn, DataPlatformInstanceUrn, DataPlatformUrn
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.emitter.mcp_builder import ContainerKey
 
 
 class DataProcessInstanceKey(DatahubKey):
@@ -66,7 +65,9 @@ class DataProcessInstance:
     orchestrator: str
     cluster: Optional[str] = None
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
-    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn, ContainerUrn]] = None
+    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn, ContainerUrn]] = (
+        None
+    )
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
@@ -409,9 +410,11 @@ class DataProcessInstance:
         """
         dpi: DataProcessInstance = DataProcessInstance(
             id=id,
-            orchestrator=DataPlatformUrn.from_string(container_key.platform).platform_name,
+            orchestrator=DataPlatformUrn.from_string(
+                container_key.platform
+            ).platform_name,
             template_urn=None,
-            container_urn = container_key.as_urn(),
+            container_urn=container_key.as_urn(),
         )
 
         return dpi

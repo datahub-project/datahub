@@ -259,7 +259,10 @@ def generate_pipeline(
             )
 
             data_process_instance.subtype = "ML Training Run"
-            data_process_instance.inlets = [DatasetUrn.from_string(input_dataset.urn)]
+            if input_dataset.urn is not None:
+                data_process_instance.inlets = [
+                    DatasetUrn.from_string(input_dataset.urn)
+                ]
 
             output_dataset = Dataset(
                 id=f"passenger_forecast_24_12_0{i}",
@@ -270,8 +273,10 @@ def generate_pipeline(
                 schema=None,
             )
             yield from output_dataset.generate_mcp()
-
-            data_process_instance.outlets = [DatasetUrn.from_string(output_dataset.urn)]
+            if output_dataset.urn is not None:
+                data_process_instance.outlets = [
+                    DatasetUrn.from_string(output_dataset.urn)
+                ]
 
             # Training metrics and hyperparameters
             training_metrics = [
@@ -335,22 +340,25 @@ def generate_pipeline(
             )
 
             # Generate start and end events
-            start_time_millis = run_dict[run_id]["start_time"]
-            duration_minutes = run_dict[run_id]["duration"]
-            end_time_millis = start_time_millis + duration_minutes * 60000
+            start_time_millis = int(run_dict[run_id]["start_time"])
+            duration_minutes = int(run_dict[run_id]["duration"])
+            end_time_millis = start_time_millis + (duration_minutes * 60000)
             result = run_dict[run_id]["result"]
+            if not isinstance(result, InstanceRunResult):
+                raise TypeError(f"Expected InstanceRunResult, got {type(result)}")
+
             result_type = (
                 "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
             )
 
             yield from data_process_instance.start_event_mcp(
-                start_timestamp_millis=start_time_millis
+                start_timestamp_millis=int(start_time_millis)
             )
             yield from data_process_instance.end_event_mcp(
-                end_timestamp_millis=end_time_millis,
+                end_timestamp_millis=int(end_time_millis),
                 result=result,
                 result_type=result_type,
-                start_timestamp_millis=start_time_millis,
+                start_timestamp_millis=int(start_time_millis),
             )
 
             # Model
