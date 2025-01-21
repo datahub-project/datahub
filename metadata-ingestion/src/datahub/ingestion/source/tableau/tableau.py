@@ -1155,21 +1155,27 @@ class TableauSiteSource:
                 else:
                     self.report.warning(
                         "Incomplete project hierarchy",
-                        f"Parent project {project.parent_id} missed. We need Site Administrator Explorer permissions. Therefore, removing references from child projects.",
+                        f"Project details missing for {project.parent_id}. Child projects will be ingested without reference to parent project. We need Site Administrator Explorer permissions to extract complete project hierarchy.",
                     )
                     project.parent_id = None
+
+            # Post-condition
+            assert all(
+                [
+                    ((project.parent_id is None) == (project.parent_name is None))
+                    and (
+                        project.parent_id is None
+                        or project.parent_id in all_project_map
+                    )
+                    for project in all_project_map.values()
+                ]
+            ), "Parent project id and name should be consistent"
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
-                    if cur_proj.parent_id not in all_project_map:
-                        self.report.warning(
-                            "project-issue",
-                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
-                        )
-                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
