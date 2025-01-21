@@ -5,6 +5,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
@@ -120,7 +121,6 @@ def get_airflow_plugin_listeners() -> Optional[List["DataHubListener"]]:
             from openlineage.airflow.plugin import OpenLineagePlugin
 
             OpenLineagePlugin.listeners = []
-
     return _airflow_listeners
 
 
@@ -179,12 +179,15 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 
 
 class DataHubListener:
-    __name__ = "DataHubListener"
+    # __name__ = "DataHubListener"
 
-    def __init__(self, config: DatahubLineageConfig):
+    def __init__(
+        self,
+        config: DatahubLineageConfig,
+    ):
         self.config = config
         self._set_log_level()
-
+        self.__name__ = "DataHubListener" + "-" + str(uuid.uuid4())
         self._emitter = config.make_emitter_hook().make_emitter()
         self._graph: Optional[DataHubGraph] = None
         logger.info(f"DataHub plugin v2 using {repr(self._emitter)}")
@@ -400,7 +403,7 @@ class DataHubListener:
             return
 
         logger.debug(
-            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
+            f"DataHub listener {self.__name__} got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
         )
 
         if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
@@ -467,7 +470,7 @@ class DataHubListener:
         self.emitter.flush()
 
         logger.debug(
-            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+            f"DataHub listener {self.__name__} finished processing notification about task instance start for {task_instance.task_id}"
         )
 
         self.materialize_iolets(datajob)
@@ -488,15 +491,21 @@ class DataHubListener:
                 )
 
                 self.emitter.emit(operation_mcp)
-                logger.debug(f"Emitted Dataset Operation: {outlet}")
+                logger.debug(
+                    f"DataHub Listener {self.__name__}: Emitted Dataset Operation: {outlet}"
+                )
         else:
             if self.graph:
                 for outlet in datajob.outlets:
                     if not self.graph.exists(str(outlet)):
-                        logger.warning(f"Dataset {str(outlet)} not materialized")
+                        logger.warning(
+                            f"DataHub Listener {self.__name__}: Dataset {str(outlet)} not materialized"
+                        )
                 for inlet in datajob.inlets:
                     if not self.graph.exists(str(inlet)):
-                        logger.warning(f"Dataset {str(inlet)} not materialized")
+                        logger.warning(
+                            f"DataHub Listener {self.__name__}: Dataset {str(inlet)} not materialized"
+                        )
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
@@ -517,7 +526,9 @@ class DataHubListener:
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
         if not self.config.dag_filter_pattern.allowed(dag.dag_id):
-            logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
+            logger.debug(
+                f"DataHub Listener {self.__name__}: DAG {dag.dag_id} is not allowed by the pattern"
+            )
             return
 
         datajob = AirflowGenerator.generate_datajob(
@@ -536,7 +547,9 @@ class DataHubListener:
             materialize_iolets=self.config.materialize_iolets
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
+        logger.debug(
+            f"DataHub Listener {self.__name__}: Emitted DataHub Datajob finish w/ status {status}: {datajob}"
+        )
 
         if self.config.capture_executions:
             dpi = AirflowGenerator.complete_datajob(
@@ -550,7 +563,7 @@ class DataHubListener:
                 config=self.config,
             )
             logger.debug(
-                f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
+                f"DataHub Listener {self.__name__}: Emitted DataHub DataProcess Instance with status {status}: {dpi}"
             )
 
         self.emitter.flush()
@@ -566,11 +579,11 @@ class DataHubListener:
         self._set_log_level()
 
         logger.debug(
-            f"DataHub listener got notification about task instance success for {task_instance.task_id}"
+            f"DataHub Listener {self.__name__} got notification about task instance success for {task_instance.task_id}"
         )
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.SUCCESS)
         logger.debug(
-            f"DataHub listener finished processing task instance success for {task_instance.task_id}"
+            f"DataHub Listener {self.__name__} finished processing task instance success for {task_instance.task_id}"
         )
 
     @hookimpl
@@ -584,20 +597,20 @@ class DataHubListener:
         self._set_log_level()
 
         logger.debug(
-            f"DataHub listener got notification about task instance failure for {task_instance.task_id}"
+            f"DataHub Listener {self.__name__} got notification about task instance failure for {task_instance.task_id}"
         )
 
         # TODO: Handle UP_FOR_RETRY state.
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
         logger.debug(
-            f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
+            f"DataHub Listener {self.__name__} finished processing task instance failure for {task_instance.task_id}"
         )
 
     def on_dag_start(self, dag_run: "DagRun") -> None:
         dag = dag_run.dag
         if not dag:
             logger.warning(
-                f"DataHub listener could not find DAG for {dag_run.dag_id} - {dag_run.run_id}. Dag won't be captured"
+                f"DataHub Listener {self.__name__} could not find DAG for {dag_run.dag_id} - {dag_run.run_id}. Dag won't be captured"
             )
             return
 
@@ -606,7 +619,9 @@ class DataHubListener:
             dag=dag,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
-        logger.debug(f"Emitted DataHub DataFlow: {dataflow}")
+        logger.debug(
+            f"DataHub Listener {self.__name__}: Emitted DataHub DataFlow: {dataflow}"
+        )
 
         event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
             entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
@@ -644,7 +659,9 @@ class DataHubListener:
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
 
-            logger.debug("Initiating the cleanup of obsselete data from datahub")
+            logger.debug(
+                "DataHub Listener {self.__name__}: Initiating the cleanup of obsselete data from datahub"
+            )
 
             # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(
@@ -727,12 +744,14 @@ class DataHubListener:
             self._set_log_level()
 
             logger.debug(
-                f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
+                f"DataHub Listener {self.__name__} got notification about dag run start for {dag_run.dag_id}"
             )
 
             assert dag_run.dag_id
             if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
-                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+                logger.debug(
+                    f"DataHub Listener {self.__name__}: DAG {dag_run.dag_id} is not allowed by the pattern"
+                )
                 return
 
             self.on_dag_start(dag_run)
@@ -748,7 +767,7 @@ class DataHubListener:
             self._set_log_level()
 
             logger.debug(
-                f"DataHub listener got notification about dataset create for {dataset}"
+                f"DataHub Listener {self.__name__} got notification about dataset create for {dataset}"
             )
 
         @hookimpl
@@ -757,7 +776,7 @@ class DataHubListener:
             self._set_log_level()
 
             logger.debug(
-                f"DataHub listener got notification about dataset change for {dataset}"
+                f"DataHub Listener {self.__name__} got notification about dataset change for {dataset}"
             )
 
     async def _soft_delete_obsolete_urns(self, obsolete_urns):

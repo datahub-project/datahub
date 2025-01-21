@@ -125,4 +125,5 @@ def get_lineage_configs() -> List[DatahubLineageConfig]:
             dag_filter_pattern=dag_filter_pattern,
         )
         connection_ids.append(config)
+
     return connection_ids

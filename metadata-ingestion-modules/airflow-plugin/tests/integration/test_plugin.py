@@ -50,6 +50,7 @@ class AirflowInstance:
     password: str
 
     metadata_file: pathlib.Path
+    metadata_file2: pathlib.Path
 
     @property
     def airflow_url(self) -> str:
@@ -190,6 +191,7 @@ def _run_airflow(
 
     datahub_connection_name = "datahub_file_default"
     meta_file = tmp_path / "datahub_metadata.json"
+    meta_file2 = tmp_path / "datahub_metadata_2.json"
 
     environment = {
         **os.environ,
@@ -204,12 +206,17 @@ def _run_airflow(
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
-        "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
+        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name}_2",
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
             host=str(meta_file),
+        ).get_uri(),
+        f"AIRFLOW_CONN_{datahub_connection_name.upper()}_2": Connection(
+            conn_id="datahub_file_default2",
+            conn_type="datahub-file",
+            host=str(meta_file2),
         ).get_uri(),
         # Configure fake credentials for the Snowflake connection.
         "AIRFLOW_CONN_MY_SNOWFLAKE": Connection(
@@ -315,6 +322,7 @@ def _run_airflow(
             username=airflow_username,
             password=airflow_password,
             metadata_file=meta_file,
+            metadata_file2=meta_file2,
         )
 
         yield airflow_instance
@@ -355,10 +363,11 @@ class DagTestCase:
     success: bool = True
 
     v2_only: bool = False
+    multiple_connections: bool = False
 
 
 test_cases = [
-    DagTestCase("simple_dag"),
+    DagTestCase("simple_dag", multiple_connections=True),
     DagTestCase("basic_iolets"),
     DagTestCase("dag_to_skip", v2_only=True),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
@@ -490,6 +499,21 @@ def test_airflow_plugin(
                 r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
             ],
         )
+
+        if test_case.multiple_connections:
+            _sanitize_output_file(airflow_instance.metadata_file2)
+            check_golden_file(
+                pytestconfig=pytestconfig,
+                output_path=airflow_instance.metadata_file2,
+                golden_path=golden_path,
+                ignore_paths=[
+                    # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
+                ],
+            )
 
 
 def _sanitize_output_file(output_path: pathlib.Path) -> None:
