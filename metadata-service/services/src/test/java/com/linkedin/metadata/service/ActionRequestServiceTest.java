@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
@@ -11,6 +12,7 @@ import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_RESULT_ACCEPTED;
 import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_STATUS_COMPLETE;
 import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_STATUS_PENDING;
+import static com.linkedin.metadata.service.ActionRequestService.DOMAIN_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.TAG_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.TERM_ASSOCIATION_PROPOSAL_TYPE;
@@ -30,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
@@ -105,6 +108,7 @@ public class ActionRequestServiceTest {
   private TagService mockTagService;
   private GlossaryTermService mockGlossaryTermService;
   private StructuredPropertyService mockStructuredPropertyService;
+  private DomainService mockDomainService;
   private OpenApiClient mockOpenApiClient;
   private ObjectMapper mockObjectMapper;
   private ActionRequestService actionRequestService;
@@ -134,6 +138,8 @@ public class ActionRequestServiceTest {
       UrnUtils.getUrn("urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b");
   private static final Urn TEST_GLOSSARY_TERM_URN =
       UrnUtils.getUrn("urn:li:glossaryTerm:12372c2ec7754c308993202dc44f548b");
+  private static final Urn TEST_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:test-domain");
+  private static final Urn TEST_DOMAIN_URN_2 = UrnUtils.getUrn("urn:li:domain:test-domain-2");
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -145,6 +151,7 @@ public class ActionRequestServiceTest {
     mockTagService = mock(TagService.class);
     mockGlossaryTermService = mock(GlossaryTermService.class);
     mockStructuredPropertyService = mock(StructuredPropertyService.class);
+    mockDomainService = mock(DomainService.class);
     mockOpenApiClient = mock(OpenApiClient.class);
     mockObjectMapper = mock(ObjectMapper.class);
 
@@ -197,6 +204,10 @@ public class ActionRequestServiceTest {
             any(Optional.class)))
         .thenReturn(mockAuthorizedActors);
 
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType()), any(Optional.class)))
+        .thenReturn(mockAuthorizedActors);
+
     // Minimal default stubbing
     when(mockEntityClient.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
         .thenReturn(true);
@@ -236,6 +247,7 @@ public class ActionRequestServiceTest {
             mockTagService,
             mockGlossaryTermService,
             mockStructuredPropertyService,
+            mockDomainService,
             mockOpenApiClient,
             mockObjectMapper);
   }
@@ -1216,6 +1228,368 @@ public class ActionRequestServiceTest {
         someOtherEntityUrn,
         TEST_FIELD_PATH,
         Collections.singletonList(TEST_TERM_URN));
+  }
+
+  // ============================================================================
+  // TESTS FOR proposeEntityDomain(...)
+  // ============================================================================
+
+  @Test
+  public void testProposeEntityDomainSuccess() throws Exception {
+    // Given
+    when(mockDomainService.getEntityDomains(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.emptyList()); // No domains currently applied
+
+    // When
+    Urn result =
+        actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+
+    // Then
+    assertNotNull(result, "Returned URN from proposeEntityDomain should not be null.");
+
+    // 1) Capture the proposals passed to batchIngestProposals
+    ArgumentCaptor<List<MetadataChangeProposal>> batchMcpCaptor =
+        ArgumentCaptor.forClass((Class) List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(mockOpContext), batchMcpCaptor.capture(), eq(false));
+    List<MetadataChangeProposal> batchMcps = batchMcpCaptor.getValue();
+
+    assertEquals(batchMcps.size(), 2, "Expect 2 MCPs for ActionRequestInfo + ActionRequestStatus");
+
+    // Validate aspects
+    MetadataChangeProposal infoProposal = batchMcps.get(0);
+    MetadataChangeProposal statusProposal = batchMcps.get(1);
+
+    assertEquals(infoProposal.getAspectName(), Constants.ACTION_REQUEST_INFO_ASPECT_NAME);
+    assertEquals(statusProposal.getAspectName(), Constants.ACTION_REQUEST_STATUS_ASPECT_NAME);
+
+    // Check that the entityUrn is an actionRequest URN
+    assertEquals(infoProposal.getEntityUrn().getEntityType(), Constants.ACTION_REQUEST_ENTITY_NAME);
+
+    // Deserialize & check ActionRequestInfo
+    ActionRequestInfo info =
+        GenericRecordUtils.deserializeAspect(
+            infoProposal.getAspect().getValue(),
+            infoProposal.getAspect().getContentType(),
+            ActionRequestInfo.class);
+    assertEquals(info.getType(), DOMAIN_ASSOCIATION_PROPOSAL_TYPE);
+    assertTrue(info.getParams().getDomainProposal().hasDomains());
+    assertEquals(info.getParams().getDomainProposal().getDomains().size(), 1);
+    assertEquals(info.getParams().getDomainProposal().getDomains().get(0), TEST_DOMAIN_URN);
+
+    // Deserialize & check ActionRequestStatus
+    ActionRequestStatus status =
+        GenericRecordUtils.deserializeAspect(
+            statusProposal.getAspect().getValue(),
+            statusProposal.getAspect().getContentType(),
+            ActionRequestStatus.class);
+    assertEquals(status.getStatus(), ACTION_REQUEST_STATUS_PENDING);
+  }
+
+  @Test(expectedExceptions = EntityDoesNotExistException.class)
+  public void testProposeEntityDomainEntityDoesNotExist() throws Exception {
+    // Given
+    when(mockEntityClient.exists(eq(mockOpContext), eq(TEST_ENTITY_URN), eq(false)))
+        .thenReturn(false);
+
+    // When
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+  }
+
+  @Test(expectedExceptions = EntityDoesNotExistException.class)
+  public void testProposeEntityDomainDomainDoesNotExist() throws Exception {
+    // Given
+    when(mockEntityClient.exists(eq(mockOpContext), eq(TEST_DOMAIN_URN), eq(false)))
+        .thenReturn(false);
+
+    // When
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+  }
+
+  // =======================
+  // Filtering-Focused Tests
+  // =======================
+
+  @Test
+  public void testProposeEntityDomainSomeAlreadyApplied() throws Exception {
+    // Suppose we have 2 tags: TEST_DOMAIN_URN and TEST_DOMAIN_URN_2
+    // One is already applied, the other is new
+    Urn alreadyAppliedDomain = TEST_DOMAIN_URN_2;
+    when(mockDomainService.getEntityDomains(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.singletonList(alreadyAppliedDomain));
+
+    // Expect success, but only the new domain gets proposed
+    Urn result =
+        actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+
+    assertNotNull(result);
+
+    // Capture the batchIngestProposals
+    ArgumentCaptor<List<MetadataChangeProposal>> batchMcpCaptor =
+        ArgumentCaptor.forClass((Class) List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(mockOpContext), batchMcpCaptor.capture(), eq(false));
+    List<MetadataChangeProposal> batchMcps = batchMcpCaptor.getValue();
+
+    // The first MCP should be the ActionRequestInfo
+    MetadataChangeProposal infoProposal = batchMcps.get(0);
+    ActionRequestInfo info =
+        GenericRecordUtils.deserializeAspect(
+            infoProposal.getAspect().getValue(),
+            infoProposal.getAspect().getContentType(),
+            ActionRequestInfo.class);
+    List<Urn> domainsInProposal = info.getParams().getDomainProposal().getDomains();
+    assertEquals(domainsInProposal.size(), 1, "Should only propose the new domain");
+    assertEquals(domainsInProposal.get(0), TEST_DOMAIN_URN);
+  }
+
+  @Test(expectedExceptions = AlreadyAppliedException.class)
+  public void testProposeEntityDomainAllApplied() throws Exception {
+    // Both domain are already applied
+    when(mockDomainService.getEntityDomains(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.singletonList(TEST_DOMAIN_URN));
+
+    // No previously proposed domains
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+  }
+
+  @Test(expectedExceptions = AlreadyRequestedException.class)
+  public void testProposeEntityDomainsAllRequested() throws Exception {
+    // Suppose no domain are actually applied, but both domains are already proposed
+    when(mockDomainService.getEntityDomains(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.emptyList());
+
+    // Stub the search to return an action request with both domain
+    SearchResult mockSearchResult = new SearchResult();
+    SearchEntity searchEntity = new SearchEntity();
+    Urn existingActionRequestUrn = Urn.createFromString("urn:li:actionRequest:123");
+    searchEntity.setEntity(existingActionRequestUrn);
+    mockSearchResult.setEntities(new SearchEntityArray(Collections.singletonList(searchEntity)));
+    when(mockEntityClient.filter(
+            any(OperationContext.class),
+            eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            any(Filter.class),
+            any(),
+            anyInt(),
+            anyInt()))
+        .thenReturn(mockSearchResult);
+
+    EntityResponse mockEntityResponse = mock(EntityResponse.class);
+    Map<Urn, EntityResponse> mockBatchGetMap = new HashMap<>();
+    mockBatchGetMap.put(existingActionRequestUrn, mockEntityResponse);
+
+    when(mockEntityClient.batchGetV2(
+            eq(mockOpContext), eq(Constants.ACTION_REQUEST_ENTITY_NAME), anySet(), anySet()))
+        .thenReturn(mockBatchGetMap);
+
+    // The existing action request has both domain
+    ActionRequestInfo existingActionRequestInfo = new ActionRequestInfo();
+    DomainProposal domainProposal = new DomainProposal();
+    domainProposal.setDomains(new UrnArray(Arrays.asList(TEST_DOMAIN_URN, TEST_DOMAIN_URN_2)));
+    ActionRequestParams params = new ActionRequestParams().setDomainProposal(domainProposal);
+    existingActionRequestInfo.setParams(params);
+
+    ActionRequestStatus existingActionRequestStatus =
+        new ActionRequestStatus().setStatus(ACTION_REQUEST_STATUS_PENDING);
+
+    when(mockEntityResponse.hasAspects()).thenReturn(true);
+    when(mockEntityResponse.getAspects())
+        .thenReturn(
+            new EnvelopedAspectMap(
+                ActionRequestTestUtils.mockAspectsMapForActionRequest(
+                    existingActionRequestInfo, existingActionRequestStatus)));
+
+    // Now propose domains
+    actionRequestService.proposeEntityDomain(mockOpContext, TEST_ENTITY_URN, TEST_DOMAIN_URN);
+  }
+
+  // --------------------------------------------------------------------------------
+  // Tests for acceptDomainProposal(OperationContext, Urn)
+  // --------------------------------------------------------------------------------
+
+  @Test(
+      expectedExceptions = EntityDoesNotExistException.class,
+      expectedExceptionsMessageRegExp = "Action request with urn .* does not exist.")
+  public void testAcceptDomainProposalByUrnActionRequestNotFoundThrowsEntityDoesNotExist()
+      throws Exception {
+    // Given
+    Urn actionRequestUrn = Urn.createFromString("urn:li:actionRequest:123");
+
+    // getActionRequestInfo returns null -> simulating not found
+    doReturn(null)
+        .when(mockEntityClient)
+        .getV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            Mockito.eq(actionRequestUrn),
+            any());
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestUrn);
+
+    // Then -> Expect EntityDoesNotExistException
+  }
+
+  @Test
+  public void testAcceptDomainProposalSuccess() throws Exception {
+    AuditStamp auditStamp = new AuditStamp().setTime(1234L).setActor(TEST_ACTOR_URN);
+    Mockito.when(mockOpContext.getAuditStamp()).thenReturn(auditStamp);
+
+    // Given
+    Urn actionRequestUrn = Urn.createFromString("urn:li:actionRequest:123");
+
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+    actionRequestInfo.setResource(TEST_ENTITY_URN.toString());
+    actionRequestInfo.setParams(
+        new ActionRequestParams()
+            .setDomainProposal(
+                new DomainProposal().setDomains(new UrnArray(ImmutableList.of(TEST_DOMAIN_URN)))));
+
+    EntityResponse response = new EntityResponse();
+    response.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(actionRequestInfo.data())))));
+
+    // Set up the ActionRequestInfo as needed for the next method call
+    doReturn(response)
+        .when(mockEntityClient)
+        .getV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            Mockito.eq(actionRequestUrn),
+            any());
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestUrn);
+
+    // Just ensure that the mock domain service gets called
+    verify(mockDomainService, times(1))
+        .setDomain(
+            eq(mockOpContext),
+            eq(TEST_ENTITY_URN),
+            eq(actionRequestInfo.getParams().getDomainProposal().getDomains().get(0)));
+  }
+
+  @Test
+  public void testAcceptDomainProposalSuccessUnsetDomain() throws Exception {
+    AuditStamp auditStamp = new AuditStamp().setTime(1234L).setActor(TEST_ACTOR_URN);
+    Mockito.when(mockOpContext.getAuditStamp()).thenReturn(auditStamp);
+
+    // Given
+    Urn actionRequestUrn = Urn.createFromString("urn:li:actionRequest:123");
+
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+    actionRequestInfo.setResource(TEST_ENTITY_URN.toString());
+    actionRequestInfo.setParams(
+        new ActionRequestParams()
+            .setDomainProposal(
+                new DomainProposal().setDomains(new UrnArray(Collections.emptyList()))));
+
+    EntityResponse response = new EntityResponse();
+    response.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(actionRequestInfo.data())))));
+
+    // Set up the ActionRequestInfo as needed for the next method call
+    doReturn(response)
+        .when(mockEntityClient)
+        .getV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            Mockito.eq(actionRequestUrn),
+            any());
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestUrn);
+
+    // Just ensure that the mock domain service gets called
+    verify(mockDomainService, times(1)).unsetDomain(eq(mockOpContext), eq(TEST_ENTITY_URN));
+  }
+
+  // --------------------------------------------------------------------------------
+  // Tests for acceptDomainProposal(OperationContext, ActionRequestInfo)
+  // --------------------------------------------------------------------------------
+
+  @Test(
+      expectedExceptions = MalformedActionRequestException.class,
+      expectedExceptionsMessageRegExp = "Action request is not a Domain proposal")
+  public void testAcceptDomainProposalByInfoWrongTypeThrowsMalformedActionRequest()
+      throws Exception {
+    // Given
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType("SOME_OTHER_TYPE"); // not the domain proposal type
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestInfo);
+
+    // Then -> Expect MalformedActionRequestException
+  }
+
+  @Test(
+      expectedExceptions = MalformedActionRequestException.class,
+      expectedExceptionsMessageRegExp = "Action request does not contain domain proposal")
+  public void testAcceptDomainProposalByInfoNoDomainProposalThrowsMalformedActionRequest()
+      throws Exception {
+    // Given
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+    actionRequestInfo.setParams(new ActionRequestParams()); // Empty params
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestInfo);
+
+    // Then -> Expect MalformedActionRequestException
+  }
+
+  @Test(
+      expectedExceptions = MalformedActionRequestException.class,
+      expectedExceptionsMessageRegExp = "Action request does not contain domain proposal")
+  public void testAcceptDomainProposalByInfoNoParamsThrowsMalformedActionRequest()
+      throws Exception {
+    // Given
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestInfo);
+
+    // Then -> Expect MalformedActionRequestException
+  }
+
+  @Test(
+      expectedExceptions = MalformedActionRequestException.class,
+      expectedExceptionsMessageRegExp =
+          "Propose domain action request should contain only one domain urn")
+  public void testAcceptDomainProposalThrowsMalformedActionRequestMultipleDomains()
+      throws Exception {
+    AuditStamp auditStamp = new AuditStamp().setTime(1234L).setActor(TEST_ACTOR_URN);
+    Mockito.when(mockOpContext.getAuditStamp()).thenReturn(auditStamp);
+
+    ActionRequestInfo actionRequestInfo = new ActionRequestInfo();
+    actionRequestInfo.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+    actionRequestInfo.setResource(TEST_ENTITY_URN.toString());
+    actionRequestInfo.setParams(
+        new ActionRequestParams()
+            .setDomainProposal(
+                new DomainProposal()
+                    .setDomains(
+                        new UrnArray(ImmutableList.of(TEST_DOMAIN_URN, TEST_DOMAIN_URN_2)))));
+
+    EntityResponse response = new EntityResponse();
+    response.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(actionRequestInfo.data())))));
+
+    // When
+    actionRequestService.acceptDomainProposal(mockOpContext, actionRequestInfo);
   }
 
   // ============================================================================

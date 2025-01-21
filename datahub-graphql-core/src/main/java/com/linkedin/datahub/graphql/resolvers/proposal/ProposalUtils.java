@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
@@ -184,6 +185,21 @@ public class ProposalUtils {
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
+  public static boolean isAuthorizedToProposeDomains(@Nonnull QueryContext context, Urn targetUrn) {
+    // Decide whether the current principal should be allowed to update the Dataset.
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_DOMAINS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
   public static boolean isAuthorizedToAcceptProposal(
       @Nonnull QueryContext context, ActionRequestType type, Urn targetUrn, String subResource) {
     if (type.equals(ActionRequestType.TAG_ASSOCIATION)) {
@@ -200,6 +216,9 @@ public class ProposalUtils {
     }
     if (type.equals(ActionRequestType.STRUCTURED_PROPERTY_ASSOCIATION)) {
       return isAuthorizedToAcceptStructuredPropertyProposals(context, targetUrn, subResource);
+    }
+    if (type.equals(ActionRequestType.DOMAIN_ASSOCIATION)) {
+      return isAuthorizedToAcceptDomainProposals(context, targetUrn, subResource);
     }
     return false;
   }
@@ -308,6 +327,20 @@ public class ProposalUtils {
                         isTargetingSchema
                             ? PoliciesConfig.MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE.getType()
                             : PoliciesConfig.MANAGE_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedToAcceptDomainProposals(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
+    boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -1300,6 +1333,7 @@ public class ProposalUtils {
       case ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
       case ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL:
       case ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
+      case ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL:
         return ProposalUtils.isAuthorizedToAcceptProposal(
             context,
             ActionRequestType.valueOf(actionRequestType),

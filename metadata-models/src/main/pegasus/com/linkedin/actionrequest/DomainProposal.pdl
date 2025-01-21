@@ -13,5 +13,5 @@ record DomainProposal {
             "fieldName": "domains"
         }
     }
-    domains: optional array[Urn]
+    domains: array[Urn]
   }

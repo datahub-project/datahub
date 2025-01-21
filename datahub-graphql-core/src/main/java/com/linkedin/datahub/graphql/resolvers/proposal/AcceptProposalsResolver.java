@@ -7,6 +7,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
@@ -136,6 +137,10 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
           break;
         case ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
           acceptStructuredPropertyProposal(actionRequestSnapshot, context);
+          break;
+        case ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL:
+          acceptDomainProposal(actionRequestSnapshot, context);
+          break;
         default:
           log.warn(
               String.format(
@@ -279,6 +284,15 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
       @Nonnull final QueryContext context)
       throws Exception {
     _proposalService.acceptStructuredPropertyProposal(
+        context.getOperationContext(),
+        ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
+  }
+
+  private void acceptDomainProposal(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      @Nonnull final QueryContext context)
+      throws Exception {
+    _proposalService.acceptDomainProposal(
         context.getOperationContext(),
         ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
   }

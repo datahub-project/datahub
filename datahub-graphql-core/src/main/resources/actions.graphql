@@ -209,6 +209,10 @@ enum ActionRequestType {
     Requests to add a structured property to an entity
     """
     STRUCTURED_PROPERTY_ASSOCIATION
+    """
+    Requests to associate an entity with a domain
+    """
+    DOMAIN_ASSOCIATION
 }
 enum ActionRequestStatus {
     """
@@ -579,7 +583,7 @@ type DomainProposalParams {
     """
     The proposed domain. Currently only one domain is supported.
     """
-    domain: [Domain!]!
+    domain: Domain!
 }
 
 type OwnerProposalParams {
@@ -857,7 +861,7 @@ input ProposeDomainInput {
     """
     The urns of the Domain to add
     """
-    domainUrn: [String!]!
+    domainUrn: String!
 
     """
     Optional - the origin of the proposal. If not provided, this will be set to manual.

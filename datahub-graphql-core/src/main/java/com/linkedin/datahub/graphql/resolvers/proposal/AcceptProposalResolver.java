@@ -226,6 +226,18 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
               _proposalService.acceptStructuredPropertyProposal(
                   context.getOperationContext(),
                   ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
+            } else if (proposal.getType().equals(ActionRequestType.DOMAIN_ASSOCIATION)) {
+              if (!ProposalUtils.isAuthorizedToAcceptProposal(
+                  context,
+                  actionRequestType,
+                  Urn.createFromString(proposal.getEntity().getUrn()),
+                  subResource)) {
+                throw new AuthorizationException(
+                    "Unauthorized to perform this action. Please contact your DataHub administrator.");
+              }
+              _proposalService.acceptDomainProposal(
+                  context.getOperationContext(),
+                  ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
             } else {
               log.error("Cannot accept proposal- proposal is not acceptable");
               return false;

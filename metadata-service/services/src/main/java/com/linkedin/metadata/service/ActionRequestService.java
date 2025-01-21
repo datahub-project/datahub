@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_INFO_ASPECT_NAME;
@@ -37,6 +38,7 @@ import com.linkedin.actionrequest.CreateGlossaryTermProposal;
 import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
@@ -135,6 +137,7 @@ public class ActionRequestService extends BaseService {
   static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
   static final String TAG_ASSOCIATION_PROPOSAL_TYPE = "TAG_ASSOCIATION";
   static final String TERM_ASSOCIATION_PROPOSAL_TYPE = "TERM_ASSOCIATION";
+  static final String DOMAIN_ASSOCIATION_PROPOSAL_TYPE = "DOMAIN_ASSOCIATION";
   static final String STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE =
       "STRUCTURED_PROPERTY_ASSOCIATION";
   static final String CREATE_GLOSSARY_NODE_ACTION_REQUEST_TYPE = "CREATE_GLOSSARY_NODE";
@@ -152,6 +155,7 @@ public class ActionRequestService extends BaseService {
   private final TagService tagService;
   private final GlossaryTermService glossaryTermService;
   private final StructuredPropertyService structuredPropertyService;
+  private final DomainService domainService;
 
   public ActionRequestService(
       @Nonnull SystemEntityClient entityClient,
@@ -161,6 +165,7 @@ public class ActionRequestService extends BaseService {
       @Nonnull TagService tagService,
       @Nonnull GlossaryTermService glossaryTermService,
       @Nonnull StructuredPropertyService structuredPropertyService,
+      @Nonnull DomainService domainService,
       @Nonnull OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
@@ -170,6 +175,7 @@ public class ActionRequestService extends BaseService {
     this.tagService = tagService;
     this.glossaryTermService = glossaryTermService;
     this.structuredPropertyService = structuredPropertyService;
+    this.domainService = domainService;
   }
 
   /*--------------------------------------------------------------------------
@@ -397,6 +403,37 @@ public class ActionRequestService extends BaseService {
         finalPropertyAssignments,
         SubResourceType.DATASET_FIELD,
         schemaFieldPath);
+  }
+
+  /*--------------------------------------------------------------------------
+   *                   DOMAIN PROPOSAL METHODS
+   *------------------------------------------------------------------------*/
+  /**
+   * Propose glossary terms for a given asset. Note that authorization must be checked before
+   * calling this.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the asset to apply terms to
+   * @param domainUrn the urns of the domain to apply
+   * @return the urn of the action request
+   */
+  public Urn proposeEntityDomain(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn)
+      throws AlreadyRequestedException,
+          AlreadyAppliedException,
+          RemoteInvocationException,
+          URISyntaxException {
+
+    // Step 1: Validate inputs
+    validateProposeAssetDomain(opContext, entityUrn, domainUrn);
+
+    // Step 2: Verify domains that have already been applied and proposed
+    final Urn finalDomainUrn = filterEntityDomainToPropose(opContext, entityUrn, domainUrn);
+
+    // Step 3: Propose the domain change
+    return createDomainAssociationActionRequest(opContext, entityUrn, finalDomainUrn, null, null);
   }
 
   /*--------------------------------------------------------------------------
@@ -2369,6 +2406,223 @@ public class ActionRequestService extends BaseService {
         .getAuthorizer()
         .authorizedActors(
             PoliciesConfig.MANAGE_ENTITY_PROPERTIES_PRIVILEGE.getType(), Optional.of(spec));
+  }
+
+  /*--------------------------------------------------------------------------
+   *                   VALIDATION METHODS FOR DOMAINS
+   *------------------------------------------------------------------------*/
+  private void validateProposeAssetDomain(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn)
+      throws EntityDoesNotExistException, RemoteInvocationException {
+
+    // Step 1: Check if the entity exists
+    if (!this.entityClient.exists(opContext, entityUrn, false)) {
+      throw new EntityDoesNotExistException(String.format("Entity %s does not exist", entityUrn));
+    }
+
+    // Step 2: Check if the domain exist
+    if (!this.entityClient.exists(opContext, domainUrn, false)) {
+      throw new EntityDoesNotExistException(
+          String.format("Domain with urn %s does not exist", domainUrn));
+    }
+  }
+
+  /*--------------------------------------------------------------------------
+   *                     FILTER METHODS FOR DOMAINS
+   *------------------------------------------------------------------------*/
+  @Nonnull
+  private Urn filterEntityDomainToPropose(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn)
+      throws AlreadyAppliedException,
+          AlreadyRequestedException,
+          RemoteInvocationException,
+          URISyntaxException {
+
+    // Get the currently-applied Domain
+    final List<Urn> appliedDomains = this.domainService.getEntityDomains(opContext, entityUrn);
+
+    // Get the Domains already proposed
+    final List<Urn> proposedDomains = getProposedDomainsForEntity(opContext, entityUrn);
+
+    // Deep check whether all are already applied
+    if (appliedDomains.contains(domainUrn)) {
+      throw new AlreadyAppliedException("Domain is already applied to the entity");
+    }
+
+    // Deep check whether all are already proposed
+    if (proposedDomains.contains(domainUrn)) {
+      throw new AlreadyRequestedException("Domain is already proposed for the entity");
+    }
+
+    return domainUrn;
+  }
+
+  /*--------------------------------------------------------------------------
+   *             CREATION OF ACTION REQUESTS FOR DOMAIN
+   *------------------------------------------------------------------------*/
+  private Urn createDomainAssociationActionRequest(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn,
+      @Nullable final SubResourceType subResourceType,
+      @Nullable final String subResource)
+      throws RemoteInvocationException {
+
+    // First, get the assignees (authorized actors) for the domain change proposal.
+    final AuthorizedActors assignees =
+        getDomainAssociationAssignees(opContext, entityUrn, subResourceType);
+
+    // Then, create the action request
+    final List<MetadataChangeProposal> mcps =
+        createDomainAssociationActionRequestMcps(
+            entityUrn,
+            domainUrn,
+            subResourceType,
+            subResource,
+            assignees.getUsers(),
+            assignees.getGroups(),
+            assignees.getRoles(),
+            opContext.getAuditStamp().getActor());
+
+    // Ingest the aspects
+    this.entityClient.batchIngestProposals(opContext, mcps, false);
+
+    // Return the URN of the new action request.
+    return mcps.get(0).getEntityUrn();
+  }
+
+  @Nonnull
+  private List<MetadataChangeProposal> createDomainAssociationActionRequestMcps(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn,
+      @Nullable final SubResourceType subResourceType,
+      @Nullable final String subResource,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final Urn actorUrn) {
+
+    return createActionRequestMcps(
+        DOMAIN_ASSOCIATION_PROPOSAL_TYPE,
+        entityUrn,
+        subResourceType,
+        subResource,
+        createDomainAssociationActionRequestParams(domainUrn),
+        assignedUsers,
+        assignedGroups,
+        assignedRoles,
+        actorUrn);
+  }
+
+  @Nonnull
+  private ActionRequestParams createDomainAssociationActionRequestParams(
+      @Nonnull final Urn domainUrn) {
+    final ActionRequestParams params = new ActionRequestParams();
+    DomainProposal domainProposal = new DomainProposal();
+    domainProposal.setDomains(new UrnArray(ImmutableList.of(domainUrn)));
+    params.setDomainProposal(domainProposal);
+    return params;
+  }
+
+  /*--------------------------------------------------------------------------
+   *             GET PROPOSED DOMAIN HELPER METHODS
+   *------------------------------------------------------------------------*/
+
+  private List<Urn> getProposedDomainsForEntity(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn)
+      throws RemoteInvocationException, URISyntaxException {
+
+    final Filter filter =
+        createActionRequestFilter(
+            DOMAIN_ASSOCIATION_PROPOSAL_TYPE,
+            ACTION_REQUEST_STATUS_PENDING,
+            entityUrn.toString(),
+            null,
+            null);
+
+    return getActionRequestInfosFromFilter(opContext, filter, entityClient)
+        .flatMap(
+            actionRequestInfo ->
+                actionRequestInfo.getParams().getDomainProposal().getDomains().stream())
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private AuthorizedActors getDomainAssociationAssignees(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nullable final SubResourceType subResourceType) {
+
+    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    return opContext
+        .getAuthorizationContext()
+        .getAuthorizer()
+        .authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType(), Optional.of(spec));
+  }
+
+  /*--------------------------------------------------------------------------
+   *            ACCEPT DOMAIN PROPOSAL
+   *------------------------------------------------------------------------*/
+
+  /**
+   * Accept a domain proposal by urn. Assumes that the authorization has ALREADY been validated
+   * outside (e.g. in a resolver).
+   *
+   * @param opContext the operation context
+   * @param actionRequestUrn the action request urn
+   * @throws Exception if the proposal cannot be accepted
+   */
+  public void acceptDomainProposal(
+      @Nonnull OperationContext opContext, @Nonnull final Urn actionRequestUrn)
+      throws MalformedActionRequestException, RemoteInvocationException {
+    Objects.requireNonNull(actionRequestUrn, "actionRequestUrn cannot be null");
+    final ActionRequestInfo maybeInfo = getActionRequestInfo(opContext, actionRequestUrn);
+    if (maybeInfo == null) {
+      throw new EntityDoesNotExistException(
+          String.format("Action request with urn %s does not exist.", actionRequestUrn));
+    }
+    acceptDomainProposal(opContext, maybeInfo);
+  }
+
+  /**
+   * Accept a domain proposal. Assumes that the authorization has ALREADY been validated outside
+   * (e.g. in a resolver).
+   *
+   * @param opContext the operation context
+   * @param actionRequestInfo the action request info
+   */
+  public void acceptDomainProposal(
+      @Nonnull final OperationContext opContext, @Nonnull final ActionRequestInfo actionRequestInfo)
+      throws RemoteInvocationException, MalformedActionRequestException {
+
+    if (!ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL.equals(actionRequestInfo.getType())) {
+      throw new MalformedActionRequestException("Action request is not a Domain proposal");
+    }
+
+    if (!actionRequestInfo.hasParams() || !actionRequestInfo.getParams().hasDomainProposal()) {
+      throw new MalformedActionRequestException("Action request does not contain domain proposal");
+    }
+
+    final DomainProposal domainProposal = actionRequestInfo.getParams().getDomainProposal();
+    final List<Urn> domainUrns = domainProposal.getDomains();
+
+    if (domainUrns.size() > 1) {
+      throw new MalformedActionRequestException(
+          "Propose domain action request should contain only one domain urn");
+    }
+
+    final Urn entityUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
+
+    if (domainUrns.size() == 1) {
+      this.domainService.setDomain(opContext, entityUrn, domainUrns.get(0));
+    } else {
+      this.domainService.unsetDomain(opContext, entityUrn);
+    }
   }
 
   private static Criterion createStatusCriterion(String status) {

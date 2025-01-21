@@ -9,6 +9,7 @@ import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
 import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
@@ -33,6 +34,8 @@ import com.linkedin.datahub.graphql.generated.CreateGlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.DataContractProposalOperationType;
 import com.linkedin.datahub.graphql.generated.DataContractProposalParams;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -348,6 +351,9 @@ public class ActionRequestUtils {
           mapStructuredPropertyProposal(
               context, params.getStructuredPropertyProposal(), entityUrn));
     }
+    if (params.hasDomainProposal()) {
+      result.setDomainProposal(mapDomainProposal(params.getDomainProposal()));
+    }
     return result;
   }
 
@@ -481,6 +487,18 @@ public class ActionRequestUtils {
     }
     propertyProposalParams.setStructuredProperties(actualPropertyProposals);
     return propertyProposalParams;
+  }
+
+  public static DomainProposalParams mapDomainProposal(final DomainProposal proposal) {
+    final DomainProposalParams domainProposalParams = new DomainProposalParams();
+    if (proposal.hasDomains() && proposal.getDomains().size() > 0) {
+      // Extract the first domain for proposal
+      final Urn domainUrn = proposal.getDomains().get(0);
+      final Domain partialDomain = new Domain();
+      partialDomain.setUrn(domainUrn.toString());
+      domainProposalParams.setDomain(partialDomain);
+    }
+    return domainProposalParams;
   }
 
   public static Criterion createStatusCriterion(ActionRequestStatus status) {

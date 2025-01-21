@@ -5,6 +5,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTE
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_REJECTED;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_COMPLETE;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
@@ -14,6 +15,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
@@ -503,5 +505,59 @@ public class ActionRequestUtilsTest {
         "New description for my dataset field.");
     assertEquals(request.getCreated().getTime(), Long.valueOf(99999L));
     assertEquals(request.getCreated().getActor().getUrn(), "urn:li:corpuser:updateUser");
+  }
+
+  @Test
+  public void testMapActionRequestWithDomainProposal() throws Exception {
+    // -----------------------------------------
+    // Given: An ActionRequestInfo with a Domain
+    // -----------------------------------------
+    DomainProposal domainProposal = new DomainProposal();
+    domainProposal.setDomains(
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:domain:test"))));
+
+    ActionRequestParams requestParams = new ActionRequestParams();
+    requestParams.setDomainProposal(domainProposal);
+
+    ActionRequestInfo infoAspect = new ActionRequestInfo();
+    infoAspect.setType(ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL);
+    infoAspect.setResource("urn:li:dataset:(urn:li:dataPlatform:hive,myAnotherDataset,PROD)");
+    infoAspect.setCreated(34567L);
+    infoAspect.setCreatedBy(Urn.createFromString("urn:li:corpuser:structuredUser"));
+    infoAspect.setParams(requestParams);
+    infoAspect.setAssignedUsers(new UrnArray());
+    infoAspect.setAssignedGroups(new UrnArray());
+    infoAspect.setAssignedRoles(new UrnArray());
+
+    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
+
+    com.linkedin.actionrequest.ActionRequestStatus statusAspect =
+        new com.linkedin.actionrequest.ActionRequestStatus();
+    statusAspect.setStatus(ACTION_REQUEST_STATUS_PENDING);
+    ActionRequestAspect aspect2 = ActionRequestAspect.create(statusAspect);
+
+    Entity entity = buildEntity(aspect1, aspect2);
+
+    // -----------------------------------------
+    // When: We invoke the mapper
+    // -----------------------------------------
+    ActionRequest request =
+        ActionRequestUtils.mapActionRequest(
+            mockContext, entity.getValue().getActionRequestSnapshot());
+
+    // -----------------------------------------
+    // Then: The fields in the mapped request should match
+    // -----------------------------------------
+    assertNotNull(request);
+    assertEquals(request.getType(), ActionRequestType.DOMAIN_ASSOCIATION);
+    assertEquals(request.getStatus(), ActionRequestStatus.PENDING);
+    // Because result was an empty string
+    assertNull(request.getResult());
+    assertNotNull(request.getParams());
+    assertNotNull(request.getParams().getDomainProposal());
+
+    // Check the 2 assignments
+    assertEquals(
+        request.getParams().getDomainProposal().getDomain().getUrn(), "urn:li:domain:test");
   }
 }
