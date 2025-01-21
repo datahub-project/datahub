@@ -1,15 +1,16 @@
 import time
 from dataclasses import dataclass
 from typing import List, Optional
+
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, DatasetUrn, VersionSetUrn
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.urns import DatasetUrn, MlModelGroupUrn, MlModelUrn, VersionSetUrn
 
 
 class ContainerKeyWithId(ContainerKey):
@@ -40,7 +41,7 @@ class Container:
             ),
             customProperties={},
         )
-        browse_path = models.BrowsePathsV2Class(path=[])
+        # browse_path = models.BrowsePathsV2Class(path=[])
         dpi = models.DataPlatformInstanceClass(
             platform=self.key.platform,
             instance=self.key.instance,
@@ -203,34 +204,6 @@ def create_training_job(
             ),
         ]
     )
-
-    # Add run events
-    start_time = created_at
-    end_time = start_time + (45 * 60 * 1000)  # 45 minutes duration
-
-    # mcps.extend([
-    #     MetadataChangeProposalWrapper(
-    #         entityUrn=str(data_process_instance.urn),
-    #         entityType="dataProcessInstance",
-    #         aspectName="dataProcessInstanceRunEvent",
-    #         aspect=models.DataProcessInstanceRunEventClass(
-    #             timestampMillis=start_time,
-    #             eventGranularity="TASK"
-    #         ),
-    #         changeType=models.ChangeTypeClass.UPSERT
-    #     ),
-    #     MetadataChangeProposalWrapper(
-    #         entityUrn=str(data_process_instance.urn),
-    #         entityType="dataProcessInstance",
-    #         aspectName="dataProcessInstanceRunEvent",
-    #         aspect=models.DataProcessInstanceRunEventClass(
-    #             timestampMillis=end_time,
-    #             eventGranularity="TASK",
-    #             result=InstanceRunResult.SUCCESS
-    #         ),
-    #         changeType=models.ChangeTypeClass.UPSERT
-    #     )
-    # ])
 
     return data_process_instance, mcps
 
