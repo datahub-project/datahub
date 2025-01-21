@@ -13,7 +13,13 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
-from datahub.metadata.urns import DatasetUrn, DataPlatformUrn, MlModelGroupUrn, MlModelUrn, VersionSetUrn
+from datahub.metadata.urns import (
+    DatasetUrn,
+    DataPlatformUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
+    VersionSetUrn,
+)
 from datahub.emitter.mcp_builder import ContainerKey
 
 ORCHESTRATOR_MLFLOW = "mlflow"
@@ -32,7 +38,7 @@ class Container:
     description: Optional[str] = None
 
     def generate_mcp(
-            self,
+        self,
     ) -> Iterable[
         Union[models.MetadataChangeProposalClass, MetadataChangeProposalWrapper]
     ]:
@@ -56,16 +62,16 @@ class Container:
 
 
 def create_model(
-        model_name: str,
-        model_group_urn: str,
-        data_process_instance_urn: str,
-        tags: List[str],
-        version_aliases: List[str],
-        index: int,
-        training_metrics: List[models.MLMetricClass],
-        hyper_params: List[models.MLHyperParamClass],
-        model_description: str,
-        created_at: int,
+    model_name: str,
+    model_group_urn: str,
+    data_process_instance_urn: str,
+    tags: List[str],
+    version_aliases: List[str],
+    index: int,
+    training_metrics: List[models.MLMetricClass],
+    hyper_params: List[models.MLHyperParamClass],
+    model_description: str,
+    created_at: int,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     model_urn = MlModelUrn(platform="mlflow", name=model_name)
 
@@ -79,18 +85,16 @@ def create_model(
         tags=tags,
         trainingMetrics=training_metrics,
         hyperParams=hyper_params,
-        created=models.TimeStampClass(
-            time=created_at,
-            actor="urn:li:corpuser:datahub"
-        ),
+        created=models.TimeStampClass(time=created_at, actor="urn:li:corpuser:datahub"),
         lastModified=models.TimeStampClass(
-            time=created_at,
-            actor="urn:li:corpuser:datahub"
+            time=created_at, actor="urn:li:corpuser:datahub"
         ),
     )
 
     # Create version set
-    version_set_urn = VersionSetUrn(id=f"mlmodel_{model_name}_versions", entity_type="mlModel")
+    version_set_urn = VersionSetUrn(
+        id=f"mlmodel_{model_name}_versions", entity_type="mlModel"
+    )
     version_entity = models.VersionSetPropertiesClass(
         latest=str(model_urn),
         versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",
@@ -110,7 +114,7 @@ def create_model(
         entityType="versionSet",
         aspectName="versionSetProperties",
         aspect=version_entity,
-        changeType=models.ChangeTypeClass.UPSERT
+        changeType=models.ChangeTypeClass.UPSERT,
     )
 
     yield MetadataChangeProposalWrapper(
@@ -118,7 +122,7 @@ def create_model(
         entityType="mlModel",
         aspectName="versionProperties",
         aspect=model_version_info,
-        changeType=models.ChangeTypeClass.UPSERT
+        changeType=models.ChangeTypeClass.UPSERT,
     )
 
     yield MetadataChangeProposalWrapper(
@@ -126,13 +130,13 @@ def create_model(
         entityType="mlModel",
         aspectName="mlModelProperties",
         aspect=model_info,
-        changeType=models.ChangeTypeClass.UPSERT
+        changeType=models.ChangeTypeClass.UPSERT,
     )
 
 
 def generate_pipeline(
-        pipeline_name: str,
-        orchestrator: str,
+    pipeline_name: str,
+    orchestrator: str,
 ) -> Iterable[Union[models.MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
     data_flow = DataFlow(
         id=pipeline_name,
@@ -165,7 +169,9 @@ def generate_pipeline(
 
         yield from experiment.generate_mcp()
 
-        model_group_urn = MlModelGroupUrn(platform="mlflow", name="airline_forecast_models")
+        model_group_urn = MlModelGroupUrn(
+            platform="mlflow", name="airline_forecast_models"
+        )
         current_time = int(time.time() * 1000)
         model_group_info = models.MLModelGroupPropertiesClass(
             description="ML models for airline passenger forecasting",
@@ -174,12 +180,10 @@ def generate_pipeline(
                 "team": "data_science",
             },
             created=models.TimeStampClass(
-                time=current_time,
-                actor="urn:li:corpuser:datahub"
+                time=current_time, actor="urn:li:corpuser:datahub"
             ),
             lastModified=models.TimeStampClass(
-                time=current_time,
-                actor="urn:li:corpuser:datahub"
+                time=current_time, actor="urn:li:corpuser:datahub"
             ),
         )
 
@@ -188,12 +192,23 @@ def generate_pipeline(
             entityType="mlModelGroup",
             aspectName="mlModelGroupProperties",
             aspect=model_group_info,
-            changeType=models.ChangeTypeClass.UPSERT
+            changeType=models.ChangeTypeClass.UPSERT,
         )
 
-        model_aliases = ["challenger", "champion", "production", "experimental", "deprecated"]
-        model_tags = ["stage:production", "stage:development", "team:data_science", "team:ml_engineering",
-                      "team:analytics"]
+        model_aliases = [
+            "challenger",
+            "champion",
+            "production",
+            "experimental",
+            "deprecated",
+        ]
+        model_tags = [
+            "stage:production",
+            "stage:development",
+            "team:data_science",
+            "team:ml_engineering",
+            "team:analytics",
+        ]
 
         model_dict = {
             "arima_model_1": "ARIMA model for airline passenger forecasting",
@@ -206,20 +221,39 @@ def generate_pipeline(
         # Generate run timestamps within the last month
         end_time = int(time.time() * 1000)
         start_time = end_time - (30 * 24 * 60 * 60 * 1000)
-        run_timestamps = [
-            start_time + (i * 5 * 24 * 60 * 60 * 1000)
-            for i in range(5)
-        ]
+        run_timestamps = [start_time + (i * 5 * 24 * 60 * 60 * 1000) for i in range(5)]
 
         run_dict = {
-            "run_1": {"start_time": run_timestamps[0], "duration": 45, "result": InstanceRunResult.SUCCESS},
-            "run_2": {"start_time": run_timestamps[1], "duration": 60, "result": InstanceRunResult.FAILURE},
-            "run_3": {"start_time": run_timestamps[2], "duration": 55, "result": InstanceRunResult.SUCCESS},
-            "run_4": {"start_time": run_timestamps[3], "duration": 70, "result": InstanceRunResult.SUCCESS},
-            "run_5": {"start_time": run_timestamps[4], "duration": 50, "result": InstanceRunResult.FAILURE},
+            "run_1": {
+                "start_time": run_timestamps[0],
+                "duration": 45,
+                "result": InstanceRunResult.SUCCESS,
+            },
+            "run_2": {
+                "start_time": run_timestamps[1],
+                "duration": 60,
+                "result": InstanceRunResult.FAILURE,
+            },
+            "run_3": {
+                "start_time": run_timestamps[2],
+                "duration": 55,
+                "result": InstanceRunResult.SUCCESS,
+            },
+            "run_4": {
+                "start_time": run_timestamps[3],
+                "duration": 70,
+                "result": InstanceRunResult.SUCCESS,
+            },
+            "run_5": {
+                "start_time": run_timestamps[4],
+                "duration": 50,
+                "result": InstanceRunResult.FAILURE,
+            },
         }
 
-        for i, (model_name, model_description) in enumerate(model_dict.items(), start=1):
+        for i, (model_name, model_description) in enumerate(
+            model_dict.items(), start=1
+        ):
             run_id = f"run_{i}"
             data_process_instance = DataProcessInstance.from_container(
                 container_key=experiment.key, id=run_id
@@ -245,32 +279,34 @@ def generate_pipeline(
                 models.MLMetricClass(
                     name="accuracy",
                     value=str(random.uniform(0.7, 0.99)),
-                    description="Test accuracy"
+                    description="Test accuracy",
                 ),
                 models.MLMetricClass(
                     name="f1_score",
                     value=str(random.uniform(0.7, 0.99)),
-                    description="Test F1 score"
-                )
+                    description="Test F1 score",
+                ),
             ]
             hyper_params = [
                 models.MLHyperParamClass(
                     name="n_estimators",
                     value=str(random.randint(50, 200)),
-                    description="Number of trees"
+                    description="Number of trees",
                 ),
                 models.MLHyperParamClass(
                     name="max_depth",
                     value=str(random.randint(5, 15)),
-                    description="Maximum tree depth"
-                )
+                    description="Maximum tree depth",
+                ),
             ]
 
             # DPI properties
             created_at = int(time.time() * 1000)
             dpi_props = models.DataProcessInstancePropertiesClass(
                 name=f"Training {run_id}",
-                created=models.AuditStampClass(time=created_at, actor="urn:li:corpuser:datahub"),
+                created=models.AuditStampClass(
+                    time=created_at, actor="urn:li:corpuser:datahub"
+                ),
                 customProperties={
                     "framework": "statsmodels",
                     "python_version": "3.8",
@@ -304,7 +340,9 @@ def generate_pipeline(
             duration_minutes = run_dict[run_id]["duration"]
             end_time_millis = start_time_millis + duration_minutes * 60000
             result = run_dict[run_id]["result"]
-            result_type = "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
+            result_type = (
+                "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
+            )
 
             yield from data_process_instance.start_event_mcp(
                 start_timestamp_millis=start_time_millis
@@ -344,16 +382,15 @@ if __name__ == "__main__":
     graph_config = DatahubClientConfig(
         server="http://localhost:8080",
         token=token,
-        extra_headers={
-            "Authorization": f"Bearer {token}"}
+        extra_headers={"Authorization": f"Bearer {token}"},
     )
     graph = DataHubGraph(graph_config)
     with graph:
         for mcp in generate_pipeline(
-                "airline_forecast_pipeline_mlflow", orchestrator=ORCHESTRATOR_MLFLOW
+            "airline_forecast_pipeline_mlflow", orchestrator=ORCHESTRATOR_MLFLOW
         ):
             graph.emit(mcp)
         for mcp in generate_pipeline(
-                "airline_forecast_pipeline_airflow", orchestrator=ORCHESTRATOR_AIRFLOW
+            "airline_forecast_pipeline_airflow", orchestrator=ORCHESTRATOR_AIRFLOW
         ):
             graph.emit(mcp)
