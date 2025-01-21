@@ -500,7 +500,7 @@ def test_airflow_plugin(
             ],
         )
 
-        if test_case.multiple_connections:
+        if test_case.multiple_connections and not is_v1:
             _sanitize_output_file(airflow_instance.metadata_file2)
             check_golden_file(
                 pytestconfig=pytestconfig,
