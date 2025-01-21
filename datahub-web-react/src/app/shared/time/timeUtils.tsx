@@ -235,10 +235,10 @@ export function formatDetailedDuration(durationMs: number): string {
         parts.push(hours === 1 ? `${hours} hr` : `${hours} hrs`);
     }
     if (minutes > 0) {
-    parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
+        parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
     }
     if (seconds > 0) {
-    parts.push(`${seconds} secs`);
+        parts.push(`${seconds} secs`);
     }
     return parts.join(' ');
 }

@@ -982,7 +982,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         mlModelLineageInfo {
             trainingJobs
             downstreamJobs
-    }
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields

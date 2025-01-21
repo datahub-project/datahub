@@ -1,12 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { MlHyperParam, MlMetric, EntityType } from '../../../../types.generated';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { Link } from 'react-router-dom';
 import { notEmpty } from '../../shared/utils';
 
 const TabContent = styled.div`
@@ -49,7 +49,7 @@ export default function MLModelSummary() {
     const model = baseEntity?.mlModel;
     const entityRegistry = useEntityRegistry();
 
-    console.log("model", model);
+    console.log('model', model);
 
     const propertyTableColumns = [
         {
@@ -70,18 +70,22 @@ export default function MLModelSummary() {
     };
 
     const renderTrainingJobs = () => {
-        const trainingJobs = model?.trainedBy?.relationships
-            ?.map((relationship) => relationship.entity)
-            .filter(notEmpty) || [];
-        
+        const trainingJobs =
+            model?.trainedBy?.relationships?.map((relationship) => relationship.entity).filter(notEmpty) || [];
+
         if (trainingJobs.length === 0) return '-';
-    
+
         return (
             <div>
                 {trainingJobs.map((job, index) => (
-                    <span key={job?.urn}>
-                        <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, job.urn)}>
-                            {job?.name || job?.urn}
+                    <span key={(job as { urn: string }).urn}>
+                        <JobLink
+                            to={entityRegistry.getEntityUrl(
+                                EntityType.DataProcessInstance,
+                                (job as { urn: string }).urn,
+                            )}
+                        >
+                            {(job as { name?: string })?.name || (job as { urn: string }).urn}
                         </JobLink>
                         {index < trainingJobs.length - 1 && ', '}
                     </span>
@@ -93,7 +97,7 @@ export default function MLModelSummary() {
     return (
         <TabContent>
             <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <Typography.Title level={3}>Model Details</Typography.Title>
+                <Typography.Title level={3}>Model Details</Typography.Title>
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Version">
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
@@ -111,17 +115,13 @@ export default function MLModelSummary() {
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Aliases">
                         <InfoItemContent>
-                            {model?.versionProperties?.aliases?.map((alias, index) => (
-                                <VersionTagContainer key={`${alias.versionTag}-${index}`}>
-                                    {alias.versionTag}
-                                </VersionTagContainer>
+                            {model?.versionProperties?.aliases?.map((alias) => (
+                                <VersionTagContainer key={alias.versionTag}>{alias.versionTag}</VersionTagContainer>
                             ))}
                         </InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Source Run">
-                        <InfoItemContent>
-                            {renderTrainingJobs()}
-                        </InfoItemContent>
+                        <InfoItemContent>{renderTrainingJobs()}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <Typography.Title level={3}>Training Metrics</Typography.Title>

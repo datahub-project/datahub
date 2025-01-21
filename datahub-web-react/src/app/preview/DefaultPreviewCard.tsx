@@ -39,7 +39,12 @@ import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
 import { usePreviewData } from '../entity/shared/PreviewContext';
-import { toRelativeTimeString, formatDetailedDuration, toLocalDateTimeString, formatDuration } from '../shared/time/timeUtils';
+import {
+    toRelativeTimeString,
+    formatDetailedDuration,
+    toLocalDateTimeString,
+    formatDuration,
+} from '../shared/time/timeUtils';
 import { Pill } from '../../alchemy-components/components/Pills';
 import { Popover } from '../../alchemy-components/components/Popover';
 
@@ -162,12 +167,12 @@ const UserListTitle = styled(Typography.Text)`
     padding-right: 12px;
 `;
 
-const StatContainer = styled.div`;
+const StatContainer = styled.div`
     display: flex;
     margin-top: 40px;
     height: 25px;
     padding-left: 20px;
-    color: #5F6685;
+    color: #5f6685;
     width: 150px;
 `;
 
@@ -176,20 +181,19 @@ const popoverStyles = {
         borderRadius: '10px',
     },
     overlayStyle: {
-        margin: '5px'
+        margin: '5px',
     },
     contentStyle: {
         color: '#5F6685',
-        fontSize: '0.8rem'
+        fontSize: '0.8rem',
     },
     titleStyle: {
         color: '#5F6685',
         borderBottom: 'none',
         fontSize: '0.8rem',
         fontWeight: '600',
-    }
+    },
 };
-
 
 interface Props {
     name: string;
@@ -308,8 +312,9 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
-    const statusPillColor = (status === 'SUCCESS') ? 'green' : 'red';
-    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
+    const statusPillColor = status === 'SUCCESS' ? 'green' : 'red';
+    const shouldShowRightColumn =
+        (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
 
     return (
@@ -420,29 +425,25 @@ export default function DefaultPreviewCard({
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
                     {startTime && (
-                        <Popover 
+                        <Popover
                             content={<div style={popoverStyles.contentStyle}>{toLocalDateTimeString(startTime)}</div>}
                             title={<div style={popoverStyles.titleStyle}>Start Time</div>}
                             trigger="hover"
                             overlayInnerStyle={popoverStyles.overlayInnerStyle}
                             overlayStyle={popoverStyles.overlayStyle}
                         >
-                            <StatContainer>
-                                {toRelativeTimeString(startTime)}
-                            </StatContainer>
+                            <StatContainer>{toRelativeTimeString(startTime)}</StatContainer>
                         </Popover>
                     )}
                     {duration && (
-                        <Popover 
+                        <Popover
                             content={<div style={popoverStyles.contentStyle}>{formatDetailedDuration(duration)}</div>}
                             title={<div style={popoverStyles.titleStyle}>Duration</div>}
                             trigger="hover"
                             overlayInnerStyle={popoverStyles.overlayInnerStyle}
                             overlayStyle={popoverStyles.overlayStyle}
                         >
-                            <StatContainer>
-                                {formatDuration(duration)}
-                            </StatContainer>
+                            <StatContainer>{formatDuration(duration)}</StatContainer>
                         </Popover>
                     )}
                     {status && (

@@ -1,12 +1,13 @@
+import React from 'react';
 import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
-import { MlHyperParam, MlMetric, EntityType } from '../../../../types.generated';
-import { useBaseEntity } from '../../shared/EntityContext';
-import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
-import { Pill } from '../../../../alchemy-components/components/Pills';
 import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
 import { capitalize } from 'lodash';
+import { MlHyperParam, MlMetric } from '../../../../types.generated';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { InfoItem } from '../../shared/components/styled/InfoItem';
+import { GetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
+import { Pill } from '../../../../alchemy-components/components/Pills';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -36,12 +37,11 @@ const propertyTableColumns = [
     },
 ];
 
-
 export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
 
-    console.log("dpi", dpi);
+    console.log('dpi', dpi);
 
     const formatDate = (timestamp?: number) => {
         if (!timestamp) return '-';
@@ -50,16 +50,14 @@ export default function MLModelSummary() {
     };
 
     const formatStatus = (state) => {
-        if (!state || state.length === 0) return "-";
-        const result = state[0]?.result?.resultType; 
-        const statusColor = result === "SUCCESS" ? "green" : "red";
-        return (
-            <Pill label={capitalize(result)} colorScheme={statusColor}></Pill>
-        );
+        if (!state || state.length === 0) return '-';
+        const result = state[0]?.result?.resultType;
+        const statusColor = result === 'SUCCESS' ? 'green' : 'red';
+        return <Pill label={capitalize(result)} colorScheme={statusColor} />;
     };
 
     const formatDuration = (state) => {
-        if (!state || state.length === 0) return "-";
+        if (!state || state.length === 0) return '-';
         return formatDetailedDuration(state[0]?.durationMillis);
     };
 
@@ -75,7 +73,7 @@ export default function MLModelSummary() {
                         <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Duration">
-                        <InfoItemContent>{formatDuration(dpi?.state)}</InfoItemContent> 
+                        <InfoItemContent>{formatDuration(dpi?.state)}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Run ID">
                         <InfoItemContent>{dpi?.mlTrainingRunProperties?.id}</InfoItemContent>

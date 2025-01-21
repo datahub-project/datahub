@@ -21,7 +21,6 @@ const InfoItemContent = styled.div`
     width: 100px;
 `;
 
-
 const NameContainer = styled.div`
     display: flex;
     align-items: center;
@@ -42,7 +41,7 @@ const TagContainer = styled.div`
     margin-top: 3px;
     flex-wrap: wrap;
     margin-right: 8px;
-    backgroundColor: white;
+    backgroundcolor: white;
 `;
 
 const StyledTable = styled(Table)`
@@ -90,9 +89,10 @@ export default function MLGroupModels() {
     const entityRegistry = useEntityRegistry();
     const modelGroup = baseEntity?.mlModelGroup;
 
-    const models = baseEntity?.mlModelGroup?.incoming?.relationships
-        ?.map((relationship) => relationship.entity)
-        .filter(notEmpty) || [];
+    const models =
+        baseEntity?.mlModelGroup?.incoming?.relationships
+            ?.map((relationship) => relationship.entity)
+            .filter(notEmpty) || [];
 
     const formatDate = (timestamp?: number) => {
         if (!timestamp) return '-';
@@ -100,8 +100,8 @@ export default function MLGroupModels() {
         return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
     };
 
-    console.log("modelGroup", modelGroup);
-    console.log("models", models);
+    console.log('modelGroup', modelGroup);
+    console.log('models', models);
 
     const columns = [
         {
@@ -111,9 +111,7 @@ export default function MLGroupModels() {
             width: 300,
             render: (name, record) => (
                 <NameContainer>
-                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
-                        {name}
-                    </NameLink>
+                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>{name}</NameLink>
                 </NameContainer>
             ),
         },
@@ -121,7 +119,7 @@ export default function MLGroupModels() {
             title: 'Version',
             key: 'version',
             width: 70,
-            render: (_: any, record: EntityType.Mlmodel) => (
+            render: (_: any, record: any) => (
                 <VersionContainer>{record.versionProperties?.version?.versionTag || '-'}</VersionContainer>
             ),
         },
@@ -129,7 +127,7 @@ export default function MLGroupModels() {
             title: 'Created At',
             key: 'createdAt',
             width: 150,
-            render: (_: any, record: EntityType.Mlmodel) => (
+            render: (_: any, record: any) => (
                 <Typography.Text>{formatDate(record.properties?.createdTS?.time)}</Typography.Text>
             ),
         },
@@ -137,15 +135,13 @@ export default function MLGroupModels() {
             title: 'Aliases',
             key: 'aliases',
             width: 200,
-            render: (_: any, record: EntityType.Mlmodel) => {
+            render: (_: any, record: any) => {
                 const aliases = record.versionProperties?.aliases || [];
-        
+
                 return (
                     <TagContainer>
-                        {aliases.map((alias, index) => (
-                            <AliasPill key={`${alias.versionTag}-${index}`}>
-                                {alias.versionTag}
-                            </AliasPill>
+                        {aliases.map((alias) => (
+                            <AliasPill key={alias.versionTag}>{alias.versionTag}</AliasPill>
                         ))}
                     </TagContainer>
                 );
@@ -155,34 +151,28 @@ export default function MLGroupModels() {
             title: 'Tags',
             key: 'tags',
             width: 200,
-            render: (_: any, record: EntityType.Mlmodel) => {
+            render: (_: any, record: any) => {
                 const tags = record.properties?.tags || [];
 
                 return (
-                <TagContainer>
-                        {tags.map((tags, index) => (
-                            <TagPill key={`${tags}-${index}`}>
-                                {tags}
-                            </TagPill>
+                    <TagContainer>
+                        {tags.map((tag) => (
+                            <TagPill key={tag}>{tag}</TagPill>
                         ))}
-                </TagContainer>
-            );
-        },
+                    </TagContainer>
+                );
+            },
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
             width: 300,
-            render: (_: any, record: EntityType.Mlmodel) => {
+            render: (_: any, record: any) => {
                 const editableDesc = record.editableProperties?.description;
                 const originalDesc = record.description;
 
-                return (
-                    <Typography.Text>
-                        {editableDesc || originalDesc || '-'}
-                    </Typography.Text>
-                );
+                return <Typography.Text>{editableDesc || originalDesc || '-'}</Typography.Text>;
             },
         },
     ];
@@ -192,10 +182,16 @@ export default function MLGroupModels() {
             <Typography.Title level={3}>Model Group Details</Typography.Title>
             <InfoItemContainer justifyContent="left">
                 <InfoItem title="Created At">
-                    <InfoItemContent>{modelGroup?.properties?.created?.time ? formatDate(modelGroup.properties?.created?.time) : '-'}</InfoItemContent>
+                    <InfoItemContent>
+                        {modelGroup?.properties?.created?.time ? formatDate(modelGroup.properties?.created?.time) : '-'}
+                    </InfoItemContent>
                 </InfoItem>
                 <InfoItem title="Last Modified At">
-                    <InfoItemContent>{modelGroup?.properties?.lastModified?.time ? formatDate(modelGroup.properties?.lastModified?.time) : '-'}</InfoItemContent>
+                    <InfoItemContent>
+                        {modelGroup?.properties?.lastModified?.time
+                            ? formatDate(modelGroup.properties?.lastModified?.time)
+                            : '-'}
+                    </InfoItemContent>
                 </InfoItem>
                 {modelGroup?.properties?.created?.actor && (
                     <InfoItem title="Created By">
@@ -214,9 +210,7 @@ export default function MLGroupModels() {
                     expandRowByClick: true,
                 }}
                 locale={{
-                    emptyText: (
-                        <EmptyTab tab="mlModel" />
-                    )
+                    emptyText: <EmptyTab tab="mlModel" />,
                 }}
             />
         </ModelsContainer>

@@ -1,12 +1,6 @@
 import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import {
-    DataProcessInstance,
-    Entity as GeneratedEntity,
-    EntityType,
-    OwnershipType,
-    SearchResult,
-} from '../../../types.generated';
+import { DataProcessInstance, EntityType, OwnershipType, SearchResult, DataJob } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -25,22 +19,25 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import SummaryTab from './profile/DataProcessInstanceSummary';
 
-const getProcessPlatformName = (data?: DataProcessInstance): string => {
-    return (
-        data?.dataPlatformInstance?.platform?.properties?.displayName ||
-        capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-        ''
-    );
-};
+// const getProcessPlatformName = (data?: DataProcessInstance): string => {
+//     return (
+//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
+//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
+//         ''
+//     );
+// };
 
 const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    const containerEntity = data?.container?.entity;
+    if (!parentEntity || !parentEntity.entity) {
+        return [];
+    }
 
-    return parentEntity ? [parentEntity.entity as Entity<DataJob>] : []; // TODO: HACK
+    // First cast to unknown, then to Entity with proper type
+    return [parentEntity.entity as unknown as Entity<DataJob>];
 };
 
 /**
@@ -153,6 +150,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     renderPreview = (_: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
+        type PreviewEntity = {
+            urn: string;
+            type: EntityType;
+        };
         return (
             <Preview
                 urn={data.urn}
@@ -169,7 +170,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 parentContainers={data.parentContainers}
-                parentEntities={parentEntities}
+                parentEntities={parentEntities as unknown as PreviewEntity[]}
                 container={data.container || undefined}
                 // health={data.health}
             />
@@ -180,6 +181,13 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         const data = result.entity as DataProcessInstance;
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
+
+        const firstState = data?.state && data.state.length > 0 ? data.state[0] : undefined;
+        type PreviewEntity = {
+            urn: string;
+            type: EntityType;
+        };
+
         return (
             <Preview
                 urn={data.urn}
@@ -201,11 +209,11 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 parentContainers={data.parentContainers}
-                parentEntities={parentEntities}
+                parentEntities={parentEntities as unknown as PreviewEntity[]}
                 container={data.container || undefined}
-                duration={data?.state[0]?.durationMillis}
-                status={data?.state[0]?.result?.resultType}
-                startTime={data?.state[0]?.timestampMillis}
+                duration={firstState?.durationMillis}
+                status={firstState?.result?.resultType}
+                startTime={firstState?.timestampMillis}
                 //                health={data.health}
             />
         );

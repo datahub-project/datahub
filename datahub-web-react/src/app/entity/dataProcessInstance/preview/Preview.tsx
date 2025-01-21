@@ -42,8 +42,7 @@ export const Preview = ({
     duration,
     status,
     startTime,
-}:
-{
+}: {
     urn: string;
     name: string;
     subType?: string | null;

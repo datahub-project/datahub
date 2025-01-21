@@ -82,7 +82,7 @@ export const EMPTY_MESSAGES = {
         title: 'No business attributes added yet',
         description: 'Add business attributes to entities to classify their data.',
     },
-    mlModel : {
+    mlModel: {
         title: 'No ML models',
         description: 'Add ML models to entities to classify their data.',
     },
