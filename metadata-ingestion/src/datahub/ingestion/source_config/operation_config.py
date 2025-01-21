@@ -65,13 +65,13 @@ class OperationConfig(ConfigModel):
 def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     if operation_config.lower_freq_profile_enabled is False:
         return True
-    logger.info("Lower freq profiling setting is enabled.")
+    logger.debug("Lower freq profiling setting is enabled.")
     today = datetime.date.today()
     if (
         operation_config.profile_day_of_week is not None
         and operation_config.profile_day_of_week != today.weekday()
     ):
-        logger.info(
+        logger.debug(
             "Profiling won't be done because weekday does not match config profile_day_of_week.",
         )
         return False
@@ -79,7 +79,7 @@ def is_profiling_enabled(operation_config: OperationConfig) -> bool:
         operation_config.profile_date_of_month is not None
         and operation_config.profile_date_of_month != today.day
     ):
-        logger.info(
+        logger.debug(
             "Profiling won't be done because date of month does not match config profile_date_of_month.",
         )
         return False
