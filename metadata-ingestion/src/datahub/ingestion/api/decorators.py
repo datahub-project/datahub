@@ -1,3 +1,4 @@
+import abc
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
@@ -24,6 +25,8 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
         ):
             # add the create method only if it has not been overridden from the base Source.create method
             cls.create = classmethod(default_create)
+
+            abc.update_abstractmethods(cls)
 
         return cls
 
