@@ -1800,6 +1800,19 @@
   },
   {
     "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:airflow"
+      }
+    }
+  },
+  {
+    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)",
