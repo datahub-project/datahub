@@ -10,22 +10,56 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning
-      - ./default-dashboard.json:/var/lib/grafana/dashboards/default-dashboard.json
+      - ./dashboards:/var/lib/grafana/dashboards
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    networks:
+      - grafana-network
 
   postgres:
     image: postgres:13
-    container_name: grafana-postgres
+    container_name: postgres
     environment:
       POSTGRES_DB: grafana
       POSTGRES_USER: grafana
       POSTGRES_PASSWORD: grafana
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U grafana -d grafana" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres-storage:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - grafana-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - grafana-network
+
+networks:
+  grafana-network:
+    driver: bridge
 
 volumes:
   grafana-storage:

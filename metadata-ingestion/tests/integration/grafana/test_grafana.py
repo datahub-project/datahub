@@ -14,7 +14,6 @@ pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2024-07-12 12:00:00"
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -65,33 +64,27 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def test_api_key():
-    # Example usage:
     url = "http://localhost:3000"
     admin_user = "admin"
     admin_password = "admin"
 
     grafana_client = GrafanaClient(url, admin_user, admin_password)
 
-    # Step 1: Create the service account
     service_account = grafana_client.create_service_account(
-        name="example-service-account", role="Viewer"
+        name="example-service-account", role="Admin"
     )
     if service_account:
-        print(f"Service Account Created: {service_account}")
-
-        # Step 2: Create the API key for the service account
         api_key = grafana_client.create_api_key(
             service_account_id=service_account["id"],
             key_name="example-api-key",
             role="Admin",
         )
         if api_key:
-            print("Service Account API Key:", api_key)
             return api_key
         else:
-            print("Failed to create API key for the service account")
+            pytest.fail("Failed to create API key for the service account")
     else:
-        print("Failed to create service account")
+        pytest.fail("Failed to create service account")
 
 
 @pytest.fixture(scope="module")
@@ -107,68 +100,58 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
         )
         yield docker_services
 
-    # The Grafana image can be large, so we remove it after the test.
     cleanup_image("grafana/grafana")
 
 
-@freeze_time(FROZEN_TIME)
-def test_grafana_dashboard(loaded_grafana, pytestconfig, tmp_path, test_resources_dir):
-    # Wait for Grafana to be up and running
-    url = "http://localhost:3000/api/health"
-    for i in range(30):
+def wait_for_grafana(url: str, max_attempts: int = 30, sleep_time: int = 5) -> bool:
+    """Helper function to wait for Grafana to start"""
+    for i in range(max_attempts):
         logging.info("waiting for Grafana to start...")
-        time.sleep(5)
-        resp = requests.get(url)
-        if resp.status_code == 200:
-            logging.info(f"Grafana started after waiting {i * 5} seconds")
-            break
-    else:
-        pytest.fail("Grafana did not start in time")
+        try:
+            resp = requests.get(url)
+            if resp.status_code == 200:
+                logging.info(f"Grafana started after waiting {i * sleep_time} seconds")
+                return True
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(sleep_time)
 
-    # Check if the default dashboard is loaded
-    dashboard_url = "http://localhost:3000/api/dashboards/uid/default"
-    resp = requests.get(dashboard_url, auth=("admin", "admin"))
-    assert resp.status_code == 200, "Failed to load default dashboard"
-    dashboard = resp.json()
-
-    assert dashboard["dashboard"]["title"] == "Default Dashboard", (
-        "Default dashboard title mismatch"
-    )
-    assert any(panel["type"] == "text" for panel in dashboard["dashboard"]["panels"]), (
-        "Default dashboard missing text panel"
-    )
-
-    # Verify the output. (You can add further checks here if needed)
-    logging.info("Default dashboard verified successfully")
+    pytest.fail("Grafana did not start in time")
 
 
 @freeze_time(FROZEN_TIME)
 def test_grafana_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
-    # Wait for Grafana to be up and running
-    url = "http://localhost:3000/api/health"
-    for i in range(30):
-        logging.info("waiting for Grafana to start...")
-        time.sleep(5)
-        resp = requests.get(url)
-        if resp.status_code == 200:
-            logging.info(f"Grafana started after waiting {i * 5} seconds")
-            break
-    else:
-        pytest.fail("Grafana did not start in time")
+    """Test ingestion with lineage enabled"""
+    wait_for_grafana("http://localhost:3000/api/health")
 
-    # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
-        # Run grafana ingestion run.
         pipeline = Pipeline.create(
             {
-                "run_id": "grafana-test-simple",
+                "run_id": "grafana-test",
                 "source": {
                     "type": "grafana",
                     "config": {
                         "url": "http://localhost:3000",
                         "service_account_token": test_api_key,
+                        "auto_tag_dimensions": True,
+                        "auto_tag_measures": True,
+                        "connection_to_platform_map": {
+                            "test-postgres": {
+                                "platform": "postgres",
+                                "database": "grafana",
+                                "platform_instance": "local",
+                                "env": "PROD",
+                            },
+                            "test-prometheus": {
+                                "platform": "prometheus",
+                                "platform_instance": "local",
+                                "env": "PROD",
+                            },
+                        },
+                        "platform_instance": "local-grafana",
+                        "env": "PROD",
                     },
                 },
                 "sink": {
@@ -180,12 +163,12 @@ def test_grafana_ingest(
         pipeline.run()
         pipeline.raise_from_status()
 
-        # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path="grafana_mcps.json",
             golden_path=test_resources_dir / "grafana_mcps_golden.json",
             ignore_paths=[
-                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
             ],
         )

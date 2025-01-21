@@ -1,45 +1,1573 @@
 [
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,default)",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "customProperties": {
-                "displayName": "Default Dashboard",
-                "id": "1",
-                "uid": "default",
-                "title": "Default Dashboard",
-                "uri": "db/default-dashboard",
-                "type": "dash-db"
-            },
-            "externalUrl": "http://localhost:3000/d/default/default-dashboard",
-            "title": "Default Dashboard",
-            "description": "",
-            "charts": [],
-            "datasets": [],
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            }
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
         }
     },
     "systemMetadata": {
         "lastObserved": 1720785600000,
-        "runId": "grafana-test-simple",
+        "runId": "grafana-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,default)",
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "type": "postgres",
+                            "uid": "test-postgres",
+                            "full_path": "postgres.test-postgres.2"
+                        },
+                        "name": "test-postgres (Response Times by Dimension)",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgres.test-postgres.{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'description': 'Response times tracked across different dimensions', 'fieldConfig': {'defaults': {'color': {'mode': 'palette-classic'}, 'custom': {'drawStyle': 'line', 'lineInterpolation': 'smooth', 'spanNulls': False}, 'unit': 'ms'}}, 'gridPos': {'h': 8, 'w': 12, 'x': 0, 'y': 3}, 'id': 2, 'targets': [{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'editorMode': 'code', 'format': 'time_series', 'rawQuery': True, 'rawSql': \"SELECT time, value, dimension FROM test_metrics WHERE metric = 'response_time' AND time > NOW() - interval '1 hour' ORDER BY time ASC;\", 'refId': 'A', 'sql': {'columns': [{'parameters': [], 'type': 'time'}, {'parameters': [{'name': 'value', 'type': 'column'}], 'type': 'value'}]}}], 'title': 'Response Times by Dimension', 'type': 'timeseries'}",
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "value",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "value",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "time",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "sql_column",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dimension",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "sql_column",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "value_ms",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "value",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT time, value, dimension FROM test_metrics WHERE metric = 'response_time' AND time > NOW() - interval '1 hour' ORDER BY time ASC;",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "type": "postgres",
+                            "uid": "test-postgres",
+                            "full_path": "postgres.test-postgres.4"
+                        },
+                        "name": "test-postgres (Recent Metrics)",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgres.test-postgres.{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'description': 'Recent metrics from all sources', 'fieldConfig': {'defaults': {'custom': {'align': 'auto', 'displayMode': 'auto'}}, 'overrides': [{'matcher': {'id': 'byName', 'options': 'value'}, 'properties': [{'id': 'custom.width', 'value': 150}]}]}, 'gridPos': {'h': 8, 'w': 24, 'x': 0, 'y': 11}, 'id': 4, 'targets': [{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'editorMode': 'code', 'format': 'table', 'rawQuery': True, 'rawSql': \"SELECT time, metric, value, dimension FROM test_metrics WHERE time > NOW() - interval '1 hour' ORDER BY time DESC LIMIT 10;\", 'refId': 'A', 'sql': {'columns': [{'parameters': [], 'type': 'time'}, {'parameters': [{'name': 'metric', 'type': 'column'}], 'type': 'string'}, {'parameters': [{'name': 'value', 'type': 'column'}], 'type': 'number'}, {'parameters': [{'name': 'dimension', 'type': 'column'}], 'type': 'string'}]}}], 'title': 'Recent Metrics', 'type': 'table'}",
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "metric",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "value",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dimension",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "time",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "sql_column",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT time, metric, value, dimension FROM test_metrics WHERE time > NOW() - interval '1 hour' ORDER BY time DESC LIMIT 10;",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "type": "postgres",
+                            "uid": "test-postgres",
+                            "full_path": "postgres.test-postgres.5"
+                        },
+                        "name": "test-postgres (Total Metrics Count)",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgres.test-postgres.{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'description': 'Total number of metrics collected', 'fieldConfig': {'defaults': {'mappings': [], 'thresholds': {'mode': 'absolute', 'steps': [{'color': 'green', 'value': None}]}}}, 'gridPos': {'h': 8, 'w': 12, 'x': 12, 'y': 3}, 'id': 5, 'targets': [{'datasource': {'type': 'postgres', 'uid': 'test-postgres'}, 'editorMode': 'code', 'format': 'table', 'rawQuery': True, 'rawSql': \"SELECT COUNT(*) as count FROM test_metrics WHERE time > NOW() - interval '1 hour';\", 'refId': 'A', 'sql': {'columns': [{'parameters': [{'name': 'count', 'type': 'column'}], 'type': 'number'}]}}], 'title': 'Total Metrics Count', 'type': 'stat'}",
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "count",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "time",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamp",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT COUNT(*) as count FROM test_metrics WHERE time > NOW() - interval '1 hour';",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "type": "prometheus",
+                            "uid": "test-prometheus",
+                            "full_path": "prometheus.test-prometheus.6"
+                        },
+                        "name": "test-prometheus (System Metrics)",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "prometheus.test-prometheus.{'datasource': {'type': 'prometheus', 'uid': 'test-prometheus'}, 'description': 'Prometheus system metrics', 'fieldConfig': {'defaults': {'custom': {'drawStyle': 'line', 'fillOpacity': 10, 'lineWidth': 1}}}, 'gridPos': {'h': 8, 'w': 24, 'x': 0, 'y': 19}, 'id': 6, 'targets': [{'datasource': {'type': 'prometheus', 'uid': 'test-prometheus'}, 'editorMode': 'code', 'expr': 'rate(process_cpu_seconds_total[5m])', 'legendFormat': 'CPU Usage', 'range': True, 'refId': 'A'}, {'datasource': {'type': 'prometheus', 'uid': 'test-prometheus'}, 'editorMode': 'code', 'expr': 'go_memstats_alloc_bytes', 'legendFormat': 'Memory Usage', 'range': True, 'refId': 'B'}], 'title': 'System Metrics', 'type': 'timeseries'}",
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "CPU Usage",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "prometheus_metric",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Memory Usage",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "prometheus_metric",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Metrics"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(grafana,local-grafana.default.1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "type": "text"
+                        },
+                        "title": "Dashboard Information",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/d/default?viewPanel=1",
+                        "inputs": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "value",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value_ms)",
+                    "schemaField": {
+                        "fieldPath": "value_ms",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "value",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(grafana,local-grafana.default.2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "type": "timeseries",
+                            "datasourceType": "postgres",
+                            "datasourceUid": "test-postgres",
+                            "description": "Response times tracked across different dimensions",
+                            "queryCount": "1"
+                        },
+                        "title": "Response Times by Dimension",
+                        "description": "Response times tracked across different dimensions",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)"
+                            }
+                        ],
+                        "type": "LINE"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),metric)",
+                    "schemaField": {
+                        "fieldPath": "metric",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "number",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(grafana,local-grafana.default.4)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "type": "table",
+                            "datasourceType": "postgres",
+                            "datasourceUid": "test-postgres",
+                            "description": "Recent metrics from all sources",
+                            "queryCount": "1"
+                        },
+                        "title": "Recent Metrics",
+                        "description": "Recent metrics from all sources",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/d/default?viewPanel=4",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)"
+                            }
+                        ],
+                        "type": "TABLE"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "number",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.TimeType": {}
+                            }
+                        },
+                        "nativeDataType": "timestamp",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(grafana,local-grafana.default.5)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "type": "stat",
+                            "datasourceType": "postgres",
+                            "datasourceUid": "test-postgres",
+                            "description": "Total number of metrics collected",
+                            "queryCount": "1"
+                        },
+                        "title": "Total Metrics Count",
+                        "description": "Total number of metrics collected",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/d/default?viewPanel=5",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)"
+                            }
+                        ],
+                        "type": "TEXT"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:prometheus,local.test-prometheus,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),CPU Usage)",
+                    "schemaField": {
+                        "fieldPath": "CPU Usage",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "prometheus_metric",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),Memory Usage)",
+                    "schemaField": {
+                        "fieldPath": "Memory Usage",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "prometheus_metric",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(grafana,local-grafana.default.6)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "type": "timeseries",
+                            "datasourceType": "prometheus",
+                            "datasourceUid": "test-prometheus",
+                            "description": "Prometheus system metrics",
+                            "queryCount": "2"
+                        },
+                        "title": "System Metrics",
+                        "description": "Prometheus system metrics",
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/d/default?viewPanel=6",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)"
+                            },
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:prometheus,local.test-prometheus,PROD)"
+                            }
+                        ],
+                        "type": "LINE"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "grafana",
+                "instance": "local-grafana",
+                "dashboard_id": "default"
+            },
+            "name": "Test Integration Dashboard",
+            "description": "A comprehensive test dashboard for integration testing with various panel types and data sources"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -49,7 +1577,211 @@
     },
     "systemMetadata": {
         "lastObserved": 1720785600000,
-        "runId": "grafana-test-simple",
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(grafana,local-grafana.default)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:grafana",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {
+                            "version": "1",
+                            "schemaVersion": "36",
+                            "timezone": "browser",
+                            "refresh": "5s"
+                        },
+                        "title": "Test Integration Dashboard",
+                        "description": "A comprehensive test dashboard for integration testing with various panel types and data sources",
+                        "charts": [
+                            "urn:li:chart:(grafana,local-grafana.default.1)",
+                            "urn:li:chart:(grafana,local-grafana.default.2)",
+                            "urn:li:chart:(grafana,local-grafana.default.4)",
+                            "urn:li:chart:(grafana,local-grafana.default.5)",
+                            "urn:li:chart:(grafana,local-grafana.default.6)"
+                        ],
+                        "datasets": [],
+                        "dashboards": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/d/default"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:default",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:test-tag"
+                            },
+                            {
+                                "tag": "urn:li:tag:integration-test"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:integration-test",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "integration-test"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:test-tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "test-tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
         "lastRunId": "no-run-id-provided"
     }
 }
