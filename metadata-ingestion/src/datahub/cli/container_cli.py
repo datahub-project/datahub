@@ -10,7 +10,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.urns.urn import guess_entity_type, make_user_urn
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def apply_association_to_container(
         elif association_type == "owner":
             patches = builder.add_owner(
                 OwnerClass(
-                    owner=make_user_urn(association_urn),
+                    owner=association_urn,
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
             ).build()
