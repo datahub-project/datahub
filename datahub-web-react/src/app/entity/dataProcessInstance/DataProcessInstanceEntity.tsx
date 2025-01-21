@@ -161,6 +161,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         return {
             name,
             externalUrl,
+            platform: processInstance?.dataPlatformInstance?.platform,
         };
     };
 
@@ -201,9 +202,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data.dataPlatformInstance?.platform?.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={null}
                 globalTags={null}
@@ -231,8 +233,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             name: this.displayName(entity),
             type: EntityType.DataProcessInstance,
             subtype: entity?.subTypes?.typeNames?.[0],
-            icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform,
+            icon: entity?.dataPlatformInstance?.platform?.properties?.logoUrl || undefined,
+            platform: entity?.dataPlatformInstance?.platform,
             container: entity?.container,
             //            health: entity?.health || undefined,
         };
