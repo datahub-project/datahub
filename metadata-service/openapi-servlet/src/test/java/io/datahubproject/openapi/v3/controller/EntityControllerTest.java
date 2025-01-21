@@ -56,8 +56,10 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.GenericAspect;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.TraceContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.ServletException;
@@ -87,6 +89,7 @@ import org.testng.annotations.Test;
 @ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
 @Import({
   SpringWebConfig.class,
+  TracingInterceptor.class,
   EntityControllerTest.EntityControllerTestConfig.class,
   EntityVersioningServiceFactory.class
 })
@@ -398,6 +401,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     @MockBean public EntityServiceImpl entityService;
     @MockBean public SearchService searchService;
     @MockBean public TimeseriesAspectService timeseriesAspectService;
+    @MockBean public TraceContext traceContext;
 
     @Bean
     public ObjectMapper objectMapper() {

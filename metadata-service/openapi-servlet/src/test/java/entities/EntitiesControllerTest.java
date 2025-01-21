@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.IngestAspectsResult;
 import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
@@ -76,7 +77,7 @@ public class EntitiesControllerTest {
         .thenAnswer(
             i ->
                 List.of(
-                    ((Function<TransactionContext, List<UpdateAspectResult>>) i.getArgument(0))
+                    ((Function<TransactionContext, IngestAspectsResult>) i.getArgument(0))
                         .apply(TransactionContext.empty(Mockito.mock(Transaction.class), 0))));
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);

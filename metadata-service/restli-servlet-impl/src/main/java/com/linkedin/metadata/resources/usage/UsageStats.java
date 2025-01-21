@@ -44,7 +44,7 @@ import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -100,7 +100,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
@@ -141,7 +141,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
           Urn resourceUrn = UrnUtils.getUrn(resource);
@@ -186,7 +186,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 

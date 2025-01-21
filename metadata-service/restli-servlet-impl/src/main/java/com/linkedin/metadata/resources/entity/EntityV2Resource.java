@@ -27,7 +27,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,7 +83,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
 
-      return RestliUtils.toTask(
+      return RestliUtils.toTask(systemOperationContext,
         () -> {
           final String entityName = urnToEntityName(urn);
           final Set<String> projectedAspects =
@@ -133,7 +133,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       return Task.value(Collections.emptyMap());
     }
     final String entityName = urnToEntityName(urns.iterator().next());
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null

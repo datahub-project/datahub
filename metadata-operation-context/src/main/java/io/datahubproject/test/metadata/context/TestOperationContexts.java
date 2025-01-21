@@ -261,6 +261,7 @@ public class TestOperationContexts {
             indexConvention,
             retrieverContext,
             validationContext,
+            null,
             true);
 
     if (postConstruct != null) {

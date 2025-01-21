@@ -41,7 +41,9 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.change",
       "com.datahub.event.hook",
       "com.linkedin.gms.factory.notifications",
-      "com.linkedin.gms.factory.telemetry"
+      "com.linkedin.gms.factory.telemetry",
+      "com.linkedin.gms.factory.trace",
+      "com.linkedin.gms.factory.kafka.trace",
     })
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 @Configuration

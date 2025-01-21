@@ -1,9 +1,12 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -36,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.bucket.filter.ParsedFilter;
@@ -56,10 +60,10 @@ public class ElasticSearchSystemMetadataService
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
-  private static final String FIELD_URN = "urn";
-  private static final String FIELD_ASPECT = "aspect";
+  public static final String FIELD_URN = "urn";
+  public static final String FIELD_ASPECT = "aspect";
   private static final String FIELD_RUNID = "runId";
-  private static final String FIELD_LAST_UPDATED = "lastUpdated";
+  public static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
   private static final String FIELD_REGISTRY_VERSION = "registryVersion";
   private static final Set<String> INDEX_FIELD_SET =
@@ -82,6 +86,10 @@ public class ElasticSearchSystemMetadataService
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
     document.put("removed", false);
+    if (systemMetadata.getProperties() != null
+        && systemMetadata.getProperties().containsKey(TELEMETRY_TRACE_KEY)) {
+      document.put(TELEMETRY_TRACE_KEY, systemMetadata.getProperties().get(TELEMETRY_TRACE_KEY));
+    }
     return document.toString();
   }
 
@@ -160,31 +168,18 @@ public class ElasticSearchSystemMetadataService
       Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size) {
     SearchResponse searchResponse =
         _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
-    if (searchResponse != null) {
-      SearchHits hits = searchResponse.getHits();
-      List<AspectRowSummary> summaries =
-          Arrays.stream(hits.getHits())
-              .map(
-                  hit -> {
-                    Map<String, Object> values = hit.getSourceAsMap();
-                    AspectRowSummary summary = new AspectRowSummary();
-                    summary.setRunId((String) values.get(FIELD_RUNID));
-                    summary.setAspectName((String) values.get(FIELD_ASPECT));
-                    summary.setUrn((String) values.get(FIELD_URN));
-                    Object timestamp = values.get(FIELD_LAST_UPDATED);
-                    if (timestamp instanceof Long) {
-                      summary.setTimestamp((Long) timestamp);
-                    } else if (timestamp instanceof Integer) {
-                      summary.setTimestamp(Long.valueOf((Integer) timestamp));
-                    }
-                    summary.setKeyAspect(((String) values.get(FIELD_ASPECT)).endsWith("Key"));
-                    return summary;
-                  })
-              .collect(Collectors.toList());
-      return summaries;
-    } else {
-      return Collections.emptyList();
-    }
+    return toAspectRowSummary(searchResponse);
+  }
+
+  @Override
+  public List<AspectRowSummary> findAspectsByUrn(
+      @Nonnull Urn urn, @Nonnull List<String> aspects, boolean includeSoftDeleted) {
+    BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+    boolQueryBuilder.filter(QueryBuilders.termQuery(FIELD_URN, urn.toString()));
+    boolQueryBuilder.filter(QueryBuilders.termsQuery(FIELD_ASPECT, aspects));
+    SearchResponse searchResponse =
+        _esDAO.scroll(boolQueryBuilder, includeSoftDeleted, null, null, null, aspects.size());
+    return toAspectRowSummary(searchResponse);
   }
 
   @Override
@@ -253,5 +248,33 @@ public class ElasticSearchSystemMetadataService
   public void clear() {
     _esBulkProcessor.deleteByQuery(
         QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+  }
+
+  private static List<AspectRowSummary> toAspectRowSummary(SearchResponse searchResponse) {
+    if (searchResponse != null) {
+      SearchHits hits = searchResponse.getHits();
+      return Arrays.stream(hits.getHits())
+          .map(
+              hit -> {
+                Map<String, Object> values = hit.getSourceAsMap();
+                AspectRowSummary summary = new AspectRowSummary();
+                summary.setRunId((String) values.get(FIELD_RUNID));
+                summary.setAspectName((String) values.get(FIELD_ASPECT));
+                summary.setUrn((String) values.get(FIELD_URN));
+                Object timestamp = values.get(FIELD_LAST_UPDATED);
+                if (timestamp instanceof Long) {
+                  summary.setTimestamp((Long) timestamp);
+                } else if (timestamp instanceof Integer) {
+                  summary.setTimestamp(Long.valueOf((Integer) timestamp));
+                }
+                summary.setKeyAspect(((String) values.get(FIELD_ASPECT)).endsWith("Key"));
+                summary.setTelemetryTraceId(
+                    (String) values.get(TELEMETRY_TRACE_KEY), SetMode.IGNORE_NULL);
+                return summary;
+              })
+          .collect(Collectors.toList());
+    } else {
+      return Collections.emptyList();
+    }
   }
 }
