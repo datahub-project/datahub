@@ -22,6 +22,7 @@ from datahub.configuration.source_common import EnvConfigMixin
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from mypy_boto3_athena import AthenaClient
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
@@ -445,6 +446,9 @@ class AwsConnectionConfig(ConfigModel):
             resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
         return resource
 
+    def get_athena_client(self) -> "AthenaClient":
+        return self.get_session().client("athena", config=self._aws_config())
+
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue", config=self._aws_config())
 
@@ -453,6 +457,9 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
+
+    def get_sts_client(self) -> "STSClient":
+        return self.get_session().client("sts", config=self._aws_config())
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):

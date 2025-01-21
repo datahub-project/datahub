@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
+from mypy_boto3_glue.type_defs import DatabasePaginatorTypeDef, TablePaginatorTypeDef
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -117,6 +118,7 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
+DEFAULT_CATALOG_NAME = "awsdatacatalog"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
@@ -154,6 +156,9 @@ class GlueSourceConfig(
     catalog_id: Optional[str] = Field(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
+    )
+    athena_catalog_name: Optional[str] = Field(
+        default=None, description="The aws athena catalog name"
     )
     ignore_resource_links: Optional[bool] = Field(
         default=False,
@@ -198,6 +203,14 @@ class GlueSourceConfig(
     def s3_client(self):
         return self.get_s3_client()
 
+    @property
+    def athena_client(self):
+        return self.get_athena_client()
+
+    @property
+    def sts_client(self):
+        return self.get_sts_client()
+
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
@@ -213,6 +226,45 @@ class GlueSourceConfig(
         else:
             raise ValueError(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    def __init__(self, **data: Any):
+        """Post init configuration operations."""
+        super().__init__(**data)
+        self._set_athena_catalog_name()
+
+    def _set_athena_catalog_name(self) -> None:
+        """Set the correct athena catalog name or raise an exception in case of misconfiguration."""
+        if self.platform == "athena":
+            if self.catalog_id:
+                current_account_id = self.sts_client.get_caller_identity().get(
+                    "Account"
+                )
+                if self.catalog_id == current_account_id:
+                    self.athena_catalog_name = DEFAULT_CATALOG_NAME
+                else:
+                    self._validate_athena_catalog_name()
+            else:
+                self.athena_catalog_name = DEFAULT_CATALOG_NAME
+        else:
+            self.athena_catalog_name = None
+
+    def _validate_athena_catalog_name(self) -> None:
+        """Validate if athena catalog name is set correctly.
+
+        This method helps to avoid issue when the `athena_catalog_name` does not exist in a specified AWS account.
+        """
+        effective_catalog_id = (
+            self.athena_client.get_data_catalog(Name=self.athena_catalog_name)[
+                "DataCatalog"
+            ]
+            .get("Parameters", {})
+            .get("catalog-id", "")
+        )
+        if effective_catalog_id != self.catalog_id:
+            raise ValueError(
+                f"Catalog configuration mismatch for catalog name {self.athena_catalog_name}."
+                f"Effective catalog_id: {effective_catalog_id}, configured catalog_id: {self.catalog_id}."
             )
 
 
@@ -443,6 +495,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _gen_full_table_name(self, database_name: str, table_name: str) -> str:
+        return ".".join(
+            filter(
+                None,
+                [self.source_config.athena_catalog_name, database_name, table_name],
+            )
+        )
+
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
@@ -459,8 +519,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-                full_table_name = f"{node_args['database']}.{node_args['table_name']}"
-
+                full_table_name = self._gen_full_table_name(
+                    node_args["database"], node_args["table_name"]
+                )
                 # we know that the table will already be covered when ingesting Glue tables
                 node_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
@@ -681,7 +742,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
 
-    def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
+    def get_all_databases(self) -> Iterable[DatabasePaginatorTypeDef]:
         logger.debug("Getting all databases")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
@@ -709,7 +770,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.report.databases.processed(database["Name"])
                 yield database
 
-    def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
+    def get_tables_from_database(
+        self, database: DatabasePaginatorTypeDef
+    ) -> Iterable[TablePaginatorTypeDef]:
         logger.debug(f"Getting tables from database {database['Name']}")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
         paginator = self.glue_client.get_paginator("get_tables")
@@ -736,7 +799,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_all_databases_and_tables(
         self,
-    ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
+    ) -> Tuple[List[DatabasePaginatorTypeDef], List[TablePaginatorTypeDef]]:
         all_databases = [*self.get_all_databases()]
         all_tables = [
             tables
@@ -1004,7 +1067,7 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def gen_database_containers(
-        self, database: Mapping[str, Any]
+        self, database: DatabasePaginatorTypeDef
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
@@ -1079,10 +1142,10 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-    def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
+    def _gen_table_wu(self, table: TablePaginatorTypeDef) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = f"{database_name}.{table_name}"
+        full_table_name = self._gen_full_table_name(database_name, table_name)
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name
@@ -1097,7 +1160,7 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
         )
 
-        mce = self._extract_record(dataset_urn, table, full_table_name)
+        mce = self._extract_record(dataset_urn, dict(table), full_table_name)
         yield MetadataWorkUnit(full_table_name, mce=mce)
 
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not

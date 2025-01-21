@@ -7,6 +7,8 @@ import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
+from moto import mock_athena, mock_sts
+from moto.core import DEFAULT_ACCOUNT_ID
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -14,6 +16,7 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    DEFAULT_CATALOG_NAME,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
@@ -35,7 +38,6 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.unit.glue.test_glue_source_stubs import (
-    empty_database,
     flights_database,
     get_bucket_tagging,
     get_databases_delta_response,
@@ -309,40 +311,6 @@ def test_config_without_platform():
         config=GlueSourceConfig(aws_region="us-west-2"),
     )
     assert source.platform == "glue"
-
-
-def test_get_databases_filters_by_catalog():
-    def format_databases(databases):
-        return set(d["Name"] for d in databases)
-
-    all_catalogs_source: GlueSource = GlueSource(
-        config=GlueSourceConfig(aws_region="us-west-2"),
-        ctx=PipelineContext(run_id="glue-source-test"),
-    )
-    with Stubber(all_catalogs_source.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_response, {})
-
-        expected = [flights_database, test_database, empty_database]
-        actual = all_catalogs_source.get_all_databases()
-        assert format_databases(actual) == format_databases(expected)
-        assert all_catalogs_source.report.databases.dropped_entities.as_obj() == []
-
-    catalog_id = "123412341234"
-    single_catalog_source: GlueSource = GlueSource(
-        config=GlueSourceConfig(catalog_id=catalog_id, aws_region="us-west-2"),
-        ctx=PipelineContext(run_id="glue-source-test"),
-    )
-    with Stubber(single_catalog_source.glue_client) as glue_stubber:
-        glue_stubber.add_response(
-            "get_databases", get_databases_response, {"CatalogId": catalog_id}
-        )
-
-        expected = [flights_database, test_database]
-        actual = single_catalog_source.get_all_databases()
-        assert format_databases(actual) == format_databases(expected)
-        assert single_catalog_source.report.databases.dropped_entities.as_obj() == [
-            "empty-database"
-        ]
 
 
 @freeze_time(FROZEN_TIME)
@@ -750,3 +718,71 @@ def test_glue_ingest_with_profiling(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+
+@mock_athena
+@mock_sts
+@pytest.mark.parametrize(
+    ("platform", "catalog_id", "expected"),
+    [
+        ("athena", None, DEFAULT_CATALOG_NAME),
+        ("athena", DEFAULT_ACCOUNT_ID, DEFAULT_CATALOG_NAME),
+        ("glue", None, None),
+        ("glue", DEFAULT_ACCOUNT_ID, None),
+    ],
+)
+def test_athena_catalog_name(
+    platform: str, catalog_id: Optional[str], expected: Optional[str]
+) -> None:
+    pipeline_context = PipelineContext(run_id="glue-source-test")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform=platform,
+            catalog_id=catalog_id,
+        ),
+    )
+    assert source.source_config.athena_catalog_name == expected
+
+
+@mock_athena
+@mock_sts
+@pytest.mark.parametrize(
+    ("platform", "catalog_id", "database", "table", "expected"),
+    [
+        (
+            "athena",
+            None,
+            "test_db",
+            "test_table",
+            f"{DEFAULT_CATALOG_NAME}.test_db.test_table",
+        ),
+        (
+            "athena",
+            DEFAULT_ACCOUNT_ID,
+            "test_db",
+            "test_table",
+            f"{DEFAULT_CATALOG_NAME}.test_db.test_table",
+        ),
+        ("glue", None, "test_db", "test_table", "test_db.test_table"),
+        ("glue", DEFAULT_ACCOUNT_ID, "test_db", "test_table", "test_db.test_table"),
+    ],
+)
+def test_gen_full_table_name(
+    platform: str,
+    catalog_id: Optional[str],
+    database: str,
+    table: str,
+    expected: Optional[str],
+) -> None:
+    pipeline_context = PipelineContext(run_id="glue-source-test")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform=platform,
+            catalog_id=catalog_id,
+        ),
+    )
+    assert source._gen_full_table_name(database, table) == expected
