@@ -43,6 +43,8 @@ class GrafanaAPIClient:
         if not self.verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+        self.report.warning("SSL Verification is recommended.")
+
         return session
 
     def get_folders(self) -> List[Folder]:
@@ -52,7 +54,7 @@ class GrafanaAPIClient:
             response.raise_for_status()
             return [Folder.from_dict(folder) for folder in response.json()]
         except requests.exceptions.RequestException as e:
-            self.report.warning(
+            self.report.report_exc(
                 message="Failed to fetch folders",
                 exc=e,
             )
@@ -86,7 +88,7 @@ class GrafanaAPIClient:
 
             return dashboards
         except requests.exceptions.RequestException as e:
-            self.report.warning(
+            self.report.report_exc(
                 message="Failed to fetch dashboards",
                 exc=e,
             )

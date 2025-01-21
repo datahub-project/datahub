@@ -139,16 +139,17 @@ class GrafanaSource(StatefulIngestionSourceBase):
 
             # Source type mapping for lineage
             connection_to_platform_map:
-                mysql_uid_1:  # Grafana datasource UID
-                    platform: mysql
-                    platform_instance: database_1  # optional
-                    database: my_database  # optional
-                postgres_uid_1:
+                postgres:
                     platform: postgres
                     database: grafana  # optional
                     database_schema: grafana  # optional
                     platform_instance: database_2  # optional
                     env: PROD  # optional
+                mysql_uid_1:  # Grafana datasource UID
+                    platform: mysql
+                    platform_instance: database_1  # optional
+                    database: my_database  # optional
+    ```
     """
 
     config: GrafanaSourceConfig
