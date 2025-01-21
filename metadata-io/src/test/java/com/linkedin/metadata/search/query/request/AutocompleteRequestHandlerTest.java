@@ -29,6 +29,7 @@ import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -140,7 +141,7 @@ public class AutocompleteRequestHandlerTest {
     assertEquals("keyPart1.delimited", prefixQuery.fieldName());
 
     assertEquals(wrapper.mustNot().size(), 1);
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
@@ -185,7 +186,7 @@ public class AutocompleteRequestHandlerTest {
         (MatchPhrasePrefixQueryBuilder) query.should().get(1);
     assertEquals("field.delimited", prefixQuery.fieldName());
 
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
