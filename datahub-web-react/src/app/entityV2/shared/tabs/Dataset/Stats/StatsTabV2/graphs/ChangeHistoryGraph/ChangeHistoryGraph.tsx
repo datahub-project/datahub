@@ -4,7 +4,6 @@ import { AssertionType, OperationType, TimeRange } from '@src/types.generated';
 import React, { useEffect, useMemo, useState } from 'react';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import NoPermission from '../NoPermission';
@@ -17,17 +16,18 @@ import useColorAccessors from './hooks/useColorAccessors';
 import useDataRange from './hooks/useDataRange';
 import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
 import { AnyOperationType, OperationsData } from './types';
+import { SectionKeys } from '../../utils';
 import { addPrefix } from './utils';
 
 const CHANGE_HISTORY_TIME_RANGE = TimeRange.Year;
 
 export default function ChangeHistoryGraph() {
     const {
-        sections,
-        setSectionState,
         dataInfo: { capabilitiesLoading, oldestOperationTime },
         statsEntityUrn,
         permissions: { canViewDatasetOperations },
+        sections,
+        setSectionState,
     } = useStatsSectionsContext();
 
     // The data of change history
@@ -100,12 +100,16 @@ export default function ChangeHistoryGraph() {
     // The interval of the data
     const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(buckets, oldestOperationTime);
 
-    useEffect(() => {
-        if (!sections.changes.hasData && buckets.length > 0) setSectionState(SectionKeys.CHANGES, true);
-        else if (!!sections.changes.hasData && !buckets.length) setSectionState(SectionKeys.CHANGES, false);
-    }, [buckets, setSectionState, sections.changes]);
-
     const loading = capabilitiesLoading || dataLoading;
+
+    useEffect(() => {
+        const currentSection = sections.changes;
+        const hasData = canViewDatasetOperations && !loading && buckets.length > 0;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.CHANGES, hasData, loading);
+        }
+    }, [buckets, loading, sections.changes, setSectionState, canViewDatasetOperations]);
 
     return (
         <>

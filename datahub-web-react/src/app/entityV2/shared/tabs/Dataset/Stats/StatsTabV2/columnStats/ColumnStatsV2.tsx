@@ -15,14 +15,23 @@ const ColumnStatsContainer = styled.div`
 const ColumnStatsV2 = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { columnStats } = useGetStatsData();
-    const { sections, setSectionState } = useStatsSectionsContext();
+    const {
+        setSectionState,
+        sections,
+        permissions: { canViewDatasetProfile },
+    } = useStatsSectionsContext();
 
-    const hasColumnStats = columnStats?.length > 0;
+    const hasColumnStats = canViewDatasetProfile && columnStats?.length > 0;
 
     useEffect(() => {
-        if (!sections.columnStats.hasData && hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, true);
-        else if (sections.columnStats.hasData && !hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, false);
-    }, [hasColumnStats, setSectionState, sections.columnStats]);
+        const currentSection = sections.columnStats;
+        const newHasData = hasColumnStats;
+        const loading = false;
+
+        if (currentSection.hasData !== newHasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.COLUMN_STATS, newHasData, loading);
+        }
+    }, [hasColumnStats, sections.columnStats, setSectionState]);
 
     const handleSearch = (value) => {
         setSearchQuery(value);

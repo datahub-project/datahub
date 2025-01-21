@@ -38,7 +38,11 @@ export enum SectionKeys {
     STORAGE = 'storage',
     CHANGES = 'changes',
     COLUMN_STATS = 'columnStats',
+    ROWS = 'rows',
+    USERS = 'users',
 }
+
+export type SectionsToDisplay = Exclude<SectionKeys, SectionKeys.ROWS | SectionKeys.USERS>;
 
 export const getUserOrGroupAvatarUrl = (entity: CorpUser | CorpGroup) => {
     return entity.editableProperties?.pictureLink;

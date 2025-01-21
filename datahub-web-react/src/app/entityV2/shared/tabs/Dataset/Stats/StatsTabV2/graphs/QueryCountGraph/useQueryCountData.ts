@@ -43,11 +43,7 @@ const getChartData = (rawData: UsageAggregation[], interval: TimeInterval) => {
     );
 };
 
-export default function useQueryCountData(
-    urn: string | undefined,
-    timeRange?: TimeRange,
-    initialData?: Array<Maybe<UsageAggregation>>,
-) {
+export default function useQueryCountData(urn: string | undefined, timeRange?: TimeRange) {
     const [chartData, setChartData] = useState<ChartData[]>([]);
     const [groupInterval, setGroupInterval] = useState<TimeInterval>(TimeInterval.DAY);
 
@@ -55,46 +51,41 @@ export default function useQueryCountData(
         permissions: { canViewDatasetUsage },
     } = useStatsSectionsContext();
 
+    // Required for the loading state to track if the lazy query has been called
+    const [queryCalled, setQueryCalled] = useState(false);
     const [getTimeRangeUsageAggregations, { data: aggregationData, loading }] =
-        useGetTimeRangeUsageAggregationsLazyQuery();
+        useGetTimeRangeUsageAggregationsLazyQuery({
+            onCompleted: () => setQueryCalled(true),
+        });
 
-    const handleSetGroupInterval = (data) => {
-        if (data.length <= MAX_NUM_DAYS_PER_MONTH) setGroupInterval(TimeInterval.DAY);
-        else if (data.length > MAX_NUM_DAYS_PER_MONTH && data.length <= MAX_NUM_DAYS_PER_QUARTER) {
+    const handleSetGroupInterval = (length) => {
+        if (length <= MAX_NUM_DAYS_PER_MONTH) setGroupInterval(TimeInterval.DAY);
+        else if (length > MAX_NUM_DAYS_PER_MONTH && length <= MAX_NUM_DAYS_PER_QUARTER) {
             setGroupInterval(TimeInterval.WEEK);
-        } else if (data.length > MAX_NUM_DAYS_PER_QUARTER) setGroupInterval(TimeInterval.MONTH);
+        } else if (length > MAX_NUM_DAYS_PER_QUARTER) setGroupInterval(TimeInterval.MONTH);
     };
 
     useEffect(() => {
-        if (initialData?.length) handleSetGroupInterval(initialData);
-        else if (aggregationData)
-            handleSetGroupInterval((aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets);
-    }, [initialData, aggregationData]);
+        if (aggregationData)
+            handleSetGroupInterval((aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets?.length);
+    }, [aggregationData]);
 
     useEffect(() => {
-        if (timeRange && !initialData && urn !== undefined && canViewDatasetUsage) {
+        if (timeRange && urn !== undefined && canViewDatasetUsage) {
             getTimeRangeUsageAggregations({
                 variables: { urn, timeRange, timeZone: moment.tz.guess() },
             });
         }
-    }, [timeRange, initialData, getTimeRangeUsageAggregations, urn, canViewDatasetUsage]);
+    }, [timeRange, getTimeRangeUsageAggregations, urn, canViewDatasetUsage]);
 
     useEffect(() => {
-        if (initialData?.length) {
-            const normalizedData: UsageAggregation[] = normalizeData(initialData);
-            const processedData = getChartData(normalizedData, groupInterval);
-            setChartData(processedData);
-        }
-    }, [initialData, groupInterval]);
-
-    useEffect(() => {
-        if (!initialData?.length && aggregationData) {
+        if (aggregationData && canViewDatasetUsage) {
             const updatedBuckets = (aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets;
             const normalizedData: UsageAggregation[] = normalizeData(updatedBuckets || []);
             const processedData = getChartData(normalizedData, groupInterval);
             setChartData(processedData);
         }
-    }, [aggregationData, groupInterval, initialData?.length]);
+    }, [aggregationData, groupInterval, canViewDatasetUsage]);
 
     if (!canViewDatasetUsage) {
         return {
@@ -106,7 +97,7 @@ export default function useQueryCountData(
 
     return {
         chartData,
-        loading,
+        loading: queryCalled ? loading : true,
         groupInterval,
     };
 }

@@ -2,8 +2,8 @@ import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
 import { OperationsQueryResult, OperationType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
+import { useEffect, useMemo, useState } from 'react';
 import moment from 'moment';
-import { useEffect, useMemo } from 'react';
 import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { useStatsSectionsContext } from '../../../StatsSectionsContext';
 import { addMonthOverMonthValue } from '../../utils';
@@ -65,7 +65,11 @@ function extractBuckets(operationsStats: OperationsQueryResult | undefined | nul
 }
 
 export default function useChangeHistoryData(urn: string | undefined, range: TimeRange | undefined): ResponseType {
-    const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery();
+    // Required for the loading state to track if the lazy query has been called
+    const [queryCalled, setQueryCalled] = useState(false);
+    const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery({
+        onCompleted: () => setQueryCalled(true),
+    });
 
     const {
         permissions: { canViewDatasetOperations },
@@ -90,7 +94,7 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
             summary,
             defaultOperationTypes,
             customOperationTypes,
-            loading,
+            loading: queryCalled ? loading : true,
         };
-    }, [canViewDatasetOperations, data, loading]);
+    }, [canViewDatasetOperations, data, loading, queryCalled]);
 }

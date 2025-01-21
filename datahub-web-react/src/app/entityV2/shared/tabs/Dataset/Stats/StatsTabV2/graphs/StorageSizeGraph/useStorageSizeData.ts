@@ -1,17 +1,21 @@
 import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/utils';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
 export default function useStorageSizeData(urn: string | undefined, lookbackWindow: LookbackWindow | undefined) {
-    const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesLazyQuery();
-
     const {
         permissions: { canViewDatasetProfile },
     } = useStatsSectionsContext();
+
+    // Required for the loading state to track if the lazy query has been called
+    const [queryCalled, setQueryCalled] = useState(false);
+    const [getDataProfiles, { data: profilesData, loading = true }] = useGetDataProfilesLazyQuery({
+        onCompleted: () => setQueryCalled(true),
+    });
 
     useEffect(() => {
         if (urn !== undefined && lookbackWindow !== undefined && canViewDatasetProfile) {
@@ -53,6 +57,6 @@ export default function useStorageSizeData(urn: string | undefined, lookbackWind
 
     return {
         data,
-        loading,
+        loading: queryCalled ? loading : true,
     };
 }

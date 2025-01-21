@@ -3,10 +3,8 @@ import styled from 'styled-components';
 import RowCountGraph from '../graphs/RowCountGraph/RowCountGraph';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import { useGetStatsData } from '../useGetStatsData';
-import { useGetStatsSections } from '../useGetStatsSections';
-import { SectionKeys } from '../utils';
-import HistoricalSectionHeader from './HistoricalSectionHeader';
 import TopUsers from './TopUsers';
+import { SectionKeys } from '../utils';
 
 const SectionWrapper = styled.div`
     display: flex;
@@ -21,26 +19,29 @@ const Container = styled.div`
 `;
 
 const RowsAndUsers = () => {
-    const { hasHistoricalStats } = useGetStatsSections();
     const {
+        permissions: { canViewDatasetUsage },
         sections,
         setSectionState,
-        permissions: { canViewDatasetUsage },
     } = useStatsSectionsContext();
 
     const { users: usersData } = useGetStatsData();
-    const users = useMemo(() => (!canViewDatasetUsage ? [] : usersData), [usersData, canViewDatasetUsage]);
+    const users = useMemo(() => (canViewDatasetUsage ? usersData : []), [usersData, canViewDatasetUsage]);
 
     useEffect(() => {
-        if (!sections.rowsAndUsers.hasData && users && users.length > 0)
-            setSectionState(SectionKeys.ROWS_AND_USERS, true);
-    }, [users, setSectionState, sections.rowsAndUsers]);
+        const currentSection = sections.rowsAndUsers;
+        const hasData = sections.rows.hasData || sections.users.hasData;
+        const loading = sections.rows.isLoading || sections.users.isLoading;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.ROWS_AND_USERS, hasData, loading);
+        }
+    }, [sections.rows, sections.users, sections.rowsAndUsers, setSectionState]);
 
     return (
         <SectionWrapper>
-            {!hasHistoricalStats && <HistoricalSectionHeader />}
             <Container>
-                <RowCountGraph users={users || undefined} />
+                <RowCountGraph />
                 <TopUsers users={users || undefined} />
             </Container>
         </SectionWrapper>

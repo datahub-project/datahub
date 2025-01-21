@@ -5,7 +5,6 @@ import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import MoreInfoModalContent from '../components/MoreInfoModalContent';
@@ -14,14 +13,15 @@ import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../const
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 import NoPermission from '../NoPermission';
 import useStorageSizeData from './useStorageSizeData';
+import { SectionKeys } from '../../utils';
 
 export default function StorageSizeGraph() {
     const {
-        sections,
-        setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
         statsEntityUrn,
         permissions: { canViewDatasetProfile },
+        sections,
+        setSectionState,
     } = useStatsSectionsContext();
 
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
@@ -33,10 +33,15 @@ export default function StorageSizeGraph() {
 
     const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn, lookbackWindow);
 
+    const loading = capabilitiesLoading || dataLoading;
+
     useEffect(() => {
-        if (!sections.storage.hasData && data.length > 0) setSectionState(SectionKeys.STORAGE, true);
-        else if (!!sections.storage.hasData && !data.length) setSectionState(SectionKeys.STORAGE, false);
-    }, [data, setSectionState, sections.storage]);
+        const currentSection = sections.storage;
+        const hasData = canViewDatasetProfile && !loading && data.length > 0;
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.STORAGE, hasData, loading);
+        }
+    }, [data, loading, sections.storage, setSectionState, canViewDatasetProfile]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
@@ -46,8 +51,6 @@ export default function StorageSizeGraph() {
         const formattedBytes = formatBytes(num);
         return `${formattedBytes.number} ${formattedBytes.unit}`;
     };
-
-    const loading = capabilitiesLoading || dataLoading;
 
     return (
         <GraphCard

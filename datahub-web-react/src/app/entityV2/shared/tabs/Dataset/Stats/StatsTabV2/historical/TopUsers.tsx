@@ -4,13 +4,13 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Maybe, UserUsageCounts } from '@src/types.generated';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import NoPermission from '../graphs/NoPermission';
 import MoreInfoModalContent from '../graphs/components/MoreInfoModalContent';
-import { getMockTopUsersData, getUserOrGroupAvatarUrl } from '../utils';
+import { getMockTopUsersData, getUserOrGroupAvatarUrl, SectionKeys } from '../utils';
 
 const CardWrapper = styled.div`
     display: flex;
@@ -26,8 +26,20 @@ const TopUsers = ({ users }: Props) => {
 
     const {
         permissions: { canViewDatasetUsage },
+        sections,
+        setSectionState,
     } = useStatsSectionsContext();
-    const isUsersDataPresent = users && users?.length > 0;
+    const isUsersDataPresent = canViewDatasetUsage && users && users?.length > 0;
+
+    useEffect(() => {
+        const currentSection = sections.users;
+        const hasData = isUsersDataPresent || false;
+        const loading = false;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.USERS, hasData, loading);
+        }
+    }, [isUsersDataPresent, sections.users, setSectionState]);
 
     const getUserOrGroupName = (user) => {
         return entityRegistry.getDisplayName(user.type, user);

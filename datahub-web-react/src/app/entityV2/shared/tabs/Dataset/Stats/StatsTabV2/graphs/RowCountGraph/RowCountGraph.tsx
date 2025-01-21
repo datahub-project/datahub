@@ -1,6 +1,6 @@
 import { GraphCard, LineChart } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
-import { AssertionType, Maybe, TimeRange, UserUsageCounts } from '@src/types.generated';
+import { AssertionType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
@@ -16,11 +16,7 @@ import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOpti
 import NoPermission from '../NoPermission';
 import useRowCountData from './useRowCountData';
 
-type RowCountGraphProps = {
-    users?: Array<Maybe<UserUsageCounts>>;
-};
-
-export default function RowCountGraph({ users }: RowCountGraphProps) {
+export default function RowCountGraph() {
     const {
         sections,
         setSectionState,
@@ -37,17 +33,20 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
 
     const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow);
 
+    const loading = capabilitiesLoading || dataLoading;
+
     useEffect(() => {
-        if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState(SectionKeys.ROWS_AND_USERS, true);
-        else if (!!sections.rowsAndUsers.hasData && !data?.length && !users?.length)
-            setSectionState(SectionKeys.ROWS_AND_USERS, false);
-    }, [data, setSectionState, sections.rowsAndUsers, users]);
+        const currentSection = sections.rows;
+        const hasData = canViewDatasetProfile && !loading && data.length > 0;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.ROWS, hasData, loading);
+        }
+    }, [data, loading, sections.rows, setSectionState, canViewDatasetProfile]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
     }, [rangeType, setLookbackWindow]);
-
-    const loading = capabilitiesLoading || dataLoading;
 
     return (
         <GraphCard

@@ -1,25 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ColumnStatsV2 from './columnStats/ColumnStatsV2';
 import ChangeHistoryGraph from './graphs/ChangeHistoryGraph/ChangeHistoryGraph';
 import QueryCountChart from './graphs/QueryCountGraph/QueryCountChart';
 import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
 import RowsAndUsers from './historical/RowsAndUsers';
-import { useStatsSectionsContext } from './StatsSectionsContext';
-import { SectionKeys } from './utils';
+import { Section, useStatsSectionsContext } from './StatsSectionsContext';
+import { SectionKeys, SectionsToDisplay } from './utils';
 
 export const useGetStatsSections = () => {
-    const { sections } = useStatsSectionsContext();
+    const { sections, areSectionsOrdered, setAreSectionsOrdered } = useStatsSectionsContext();
+    const [orderedSections, setOrderedSections] = useState<[string, Section][]>(Object.entries(sections));
 
-    const historicalSections: SectionKeys[] = [
-        SectionKeys.ROWS_AND_USERS,
-        SectionKeys.QUERIES,
-        SectionKeys.STORAGE,
-        SectionKeys.CHANGES,
-    ];
-
-    const hasHistoricalStats = historicalSections.some((key) => sections[key].hasData);
-
-    const sectionsList: Record<SectionKeys, React.ReactNode> = {
+    const sectionsList: Record<SectionsToDisplay, React.ReactNode> = {
         rowsAndUsers: <RowsAndUsers />,
         queries: <QueryCountChart />,
         storage: <StorageSizeGraph />,
@@ -27,7 +19,27 @@ export const useGetStatsSections = () => {
         columnStats: <ColumnStatsV2 />,
     };
 
-    const orderedSections = Object.entries(sections).sort(([, a], [, b]) => Number(b.hasData) - Number(a.hasData));
+    const isDisplaySection = (section: [string, Section]) => {
+        const [key] = section;
+        return key !== SectionKeys.ROWS && key !== SectionKeys.USERS;
+    };
+
+    // Reorder sections only once after all the sections are loaded
+    useEffect(() => {
+        const reorderSections = () => {
+            setOrderedSections(
+                Object.entries(sections)
+                    .filter(isDisplaySection)
+                    .sort(([, a], [, b]) => Number(b.hasData) - Number(a.hasData)),
+            );
+            setAreSectionsOrdered(true);
+        };
+
+        const areAllSectionsLoaded = Object.values(sections).every((section) => !section.isLoading);
+        if (areAllSectionsLoaded && !areSectionsOrdered) {
+            reorderSections();
+        }
+    }, [sections, areSectionsOrdered, setAreSectionsOrdered]);
 
     const scrollToSection = (sectionKey: string) => {
         sections[sectionKey]?.ref?.current?.scrollIntoView({
@@ -35,5 +47,5 @@ export const useGetStatsSections = () => {
         });
     };
 
-    return { hasHistoricalStats, sectionsList, orderedSections, scrollToSection };
+    return { sectionsList, orderedSections, scrollToSection };
 };

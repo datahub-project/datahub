@@ -34,8 +34,7 @@ export const useGetStatsData = () => {
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
     const queryCountLast30Days = (statsEntity as any)?.statsSummary?.queryCountLast30Days;
 
-    const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
-    const usageStats = (hasUsageStats && (usageStatsData?.dataset?.usageStats as UsageQueryResult)) || undefined;
+    const usageStats = (usageStatsData?.dataset?.usageStats as UsageQueryResult) ?? undefined;
     const users = usageStats?.aggregations?.users;
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
 
