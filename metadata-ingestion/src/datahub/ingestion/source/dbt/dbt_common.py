@@ -1,4 +1,3 @@
-import itertools
 import logging
 import re
 from abc import abstractmethod
@@ -111,6 +110,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statements_and_pick,
     try_format_query,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
@@ -1929,7 +1929,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             else None
                         ),
                     )
-                    for downstream, upstreams in itertools.groupby(
+                    for downstream, upstreams in groupby_unsorted(
                         node.upstream_cll, lambda x: x.downstream_col
                     )
                 ]
