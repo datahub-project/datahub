@@ -68,12 +68,10 @@ class SpecialVariable:
         return new_dict
 
     def liquid_variable_with_default(self, text: str) -> dict:
-        variables: Set[str] = set(
-            [
-                text[m.start() : m.end()]
-                for m in re.finditer(SpecialVariable.SPECIAL_VARIABLE_PATTERN, text)
-            ]
-        )
+        variables: Set[str] = {
+            text[m.start() : m.end()]
+            for m in re.finditer(SpecialVariable.SPECIAL_VARIABLE_PATTERN, text)
+        }
 
         # if set is empty then no special variables are found.
         if not variables:

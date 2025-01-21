@@ -50,7 +50,6 @@ extend-ignore = [
     "B006",   # Mutable args
     "B017",   # Do not assert blind exception
     "B904",   # Checks for raise statements in exception handlers that lack a from clause
-    "C403",   # Unnecessary list comprehension (rewrite as a set comprehension)
     "C408",   # Unnecessary {kind}() call (rewrite as a literal)
     "C416",   # Unnecessary {kind} comprehension (rewrite using {kind}())
 ]

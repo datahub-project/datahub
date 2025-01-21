@@ -76,13 +76,13 @@ class MigrationReport:
     def __repr__(self) -> str:
         repr = f"{self._get_prefix()}Migration Report:\n--------------\n"
         repr += f"{self._get_prefix()}Migration Run Id: {self.run_id}\n"
-        repr += f"{self._get_prefix()}Num entities created = {len(set([x[0] for x in self.entities_created.keys()]))}\n"
-        repr += f"{self._get_prefix()}Num entities affected = {len(set([x[0] for x in self.entities_affected.keys()]))}\n"
-        repr += f"{self._get_prefix()}Num entities {'kept' if self.keep else 'migrated'} = {len(set([x[0] for x in self.entities_migrated.keys()]))}\n"
+        repr += f"{self._get_prefix()}Num entities created = {len({x[0] for x in self.entities_created.keys()})}\n"
+        repr += f"{self._get_prefix()}Num entities affected = {len({x[0] for x in self.entities_affected.keys()})}\n"
+        repr += f"{self._get_prefix()}Num entities {'kept' if self.keep else 'migrated'} = {len({x[0] for x in self.entities_migrated.keys()})}\n"
         repr += f"{self._get_prefix()}Details:\n"
-        repr += f"{self._get_prefix()}New Entities Created: {set([x[0] for x in self.entities_created.keys()]) or 'None'}\n"
-        repr += f"{self._get_prefix()}External Entities Affected: {set([x[0] for x in self.entities_affected.keys()]) or 'None'}\n"
-        repr += f"{self._get_prefix()}Old Entities {'Kept' if self.keep else 'Migrated'} = {set([x[0] for x in self.entities_migrated.keys()]) or 'None'}\n"
+        repr += f"{self._get_prefix()}New Entities Created: { {x[0] for x in self.entities_created.keys()} or 'None' }\n"
+        repr += f"{self._get_prefix()}External Entities Affected: { {x[0] for x in self.entities_affected.keys()} or 'None' }\n"
+        repr += f"{self._get_prefix()}Old Entities {'Kept' if self.keep else 'Migrated'} = { {x[0] for x in self.entities_migrated.keys()} or 'None' }\n"
         return repr
 
 
