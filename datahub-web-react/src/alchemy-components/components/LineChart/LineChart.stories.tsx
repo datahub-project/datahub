@@ -3,6 +3,7 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { LineChart } from './LineChart';
 import { getMockedProps } from '../BarChart/utils';
+import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/useAdaptYScaleToZeroValues';
 
 const meta = {
     title: 'Charts / LineChart',
@@ -27,6 +28,13 @@ const meta = {
         },
         yAccessor: {
             description: 'A function to convert datum to value of Y',
+        },
+        maxYDomainForZeroData: {
+            description:
+                'For the case where the data has only zero values, you can set the yScale domain to better display the chart',
+            table: {
+                defaultValue: { summary: `${DEFAULT_MAX_DOMAIN_VALUE}` },
+            },
         },
         popoverRenderer: {
             description: 'A function to replace default rendering of toolbar',

@@ -11,6 +11,9 @@ import { ChartWrapper, StyledBarSeries } from './components';
 import { AxisProps, BarChartProps } from './types';
 import { getMockedProps } from './utils';
 import useMergedProps from './hooks/useMergedProps';
+import useAdaptYScaleToZeroValues from './hooks/useAdaptYScaleToZeroValues';
+import useAdaptYAccessorToZeroValue from './hooks/useAdaptYAccessorToZeroValues';
+import useMaxDataValue from './hooks/useMaxDataValue';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -68,6 +71,8 @@ export function BarChart<DatumType extends object = any>({
     yAccessor = barChartDefault.yAccessor,
     xScale = barChartDefault.xScale,
     yScale = barChartDefault.yScale,
+    maxYDomainForZeroData,
+    minYForZeroData,
 
     barColor = barChartDefault.barColor,
     barSelectedColor = barChartDefault.barSelectedColor,
@@ -90,7 +95,11 @@ export function BarChart<DatumType extends object = any>({
         left: (margin?.left ?? 0) + 40,
     };
 
-    const accessors = { xAccessor, yAccessor };
+    const maxDataValue = useMaxDataValue(data, yAccessor);
+    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
+    const adaptedYAccessor = useAdaptYAccessorToZeroValue(yAccessor, maxDataValue, minYForZeroData);
+
+    const accessors = { xAccessor, yAccessor: adaptedYAccessor };
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps<DatumType>>(
         leftAxisProps,
@@ -117,7 +126,7 @@ export function BarChart<DatumType extends object = any>({
                             width={width}
                             height={height}
                             xScale={xScale}
-                            yScale={yScale}
+                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={false}
                         >
