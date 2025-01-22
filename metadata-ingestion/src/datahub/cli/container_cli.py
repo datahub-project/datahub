@@ -10,7 +10,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +26,23 @@ def apply_association_to_container(
     association_type: str,
 ) -> None:
     """
-    Common function to apply either tags, terms, or owners to containers and their datasets.
+    Common function to add either tags, terms, or owners to child datasets (for now).
 
     Args:
         container_urn: The URN of the container
         association_urn: The URN of the tag, term, or user to apply
         association_type: One of 'tag', 'term', or 'owner'
     """
-    urns = [container_urn]
+    urns = []
     graph = get_default_graph()
     logger.info(f"Using {graph}")
     urns.extend(
         graph.get_urns_by_filter(
-            container=container_urn,
-            batch_size=1000,
+            container=container_urn, batch_size=1000, entity_types=["dataset"]
         )
     )
 
     for urn in urns:
-        if guess_entity_type(urn) != "dataset":
-            continue
-
         logger.info(f"Adding {association_type} {association_urn} to {urn}")
         builder = DatasetPatchBuilder(urn)
 
@@ -73,6 +68,7 @@ def apply_association_to_container(
 @click.option("--container-urn", required=True, type=str)
 @click.option("--tag-urn", required=True, type=str)
 def tag(container_urn: str, tag_urn: str) -> None:
+    """Add patch to add a tag to all datasets in a container"""
     apply_association_to_container(container_urn, tag_urn, "tag")
 
 
@@ -80,6 +76,7 @@ def tag(container_urn: str, tag_urn: str) -> None:
 @click.option("--container-urn", required=True, type=str)
 @click.option("--term-urn", required=True, type=str)
 def term(container_urn: str, term_urn: str) -> None:
+    """Add patch to add a term to all datasets in a container"""
     apply_association_to_container(container_urn, term_urn, "term")
 
 
@@ -87,4 +84,5 @@ def term(container_urn: str, term_urn: str) -> None:
 @click.option("--container-urn", required=True, type=str)
 @click.option("--owner-id", required=True, type=str)
 def owner(container_urn: str, owner_id: str) -> None:
+    """Add patch to add a owner to all datasets in a container"""
     apply_association_to_container(container_urn, owner_id, "owner")
