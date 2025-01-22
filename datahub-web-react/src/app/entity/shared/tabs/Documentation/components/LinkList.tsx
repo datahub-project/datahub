@@ -176,7 +176,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
-                                    <Button onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
+                                    <Button data-testid="remove-link-modal-ok-button" onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
                                         <DeleteOutlined />
                                     </Button>
                                 </>
