@@ -7,6 +7,7 @@ from typing import Iterable, List, Optional, Union
 
 import pydantic
 import pytest
+
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.structuredproperties.structuredproperties import (
     StructuredProperties,

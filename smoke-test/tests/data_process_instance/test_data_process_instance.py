@@ -210,13 +210,6 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                                     name
                                 }
                             }
-                            platform {
-                                urn
-                                name
-                                properties {
-                                    type
-                                }
-                            }
                             subTypes {
                                 typeNames
                             }
