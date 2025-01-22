@@ -93,7 +93,7 @@ def _assert_eq(a: builder.ContainerKey, b: builder.ContainerKey) -> None:
     assert a.property_dict() == b.property_dict()
 
 
-def test_parent_key():
+def test_parent_key() -> None:
     schema_key = builder.SchemaKey(
         database="test",
         schema="Test",
@@ -116,7 +116,7 @@ def test_parent_key():
     assert db_key.parent_key() is None
 
 
-def test_parent_key_with_backcompat_env_as_instance():
+def test_parent_key_with_backcompat_env_as_instance() -> None:
     schema_key = builder.SchemaKey(
         database="test",
         schema="Test",
@@ -137,6 +137,17 @@ def test_parent_key_with_backcompat_env_as_instance():
             backcompat_env_as_instance=True,
         ),
     )
+
+
+def test_parent_key_on_container_key() -> None:
+    # In general, people shouldn't be calling parent_key() on ContainerKey directly.
+    # But just in case, we should make sure it works.
+    container_key = builder.ContainerKey(
+        platform="bigquery",
+        name="test",
+        env="DEV",
+    )
+    assert container_key.parent_key() is None
 
 
 def test_entity_supports_aspect():
