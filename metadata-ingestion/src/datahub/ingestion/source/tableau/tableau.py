@@ -1147,23 +1147,36 @@ class TableauSiteSource:
                 )
             # Set parent project name
             for _project_id, project in all_project_map.items():
-                if (
-                    project.parent_id is not None
-                    and project.parent_id in all_project_map
-                ):
+                if project.parent_id is None:
+                    continue
+
+                if project.parent_id in all_project_map:
                     project.parent_name = all_project_map[project.parent_id].name
+                else:
+                    self.report.warning(
+                        title="Incomplete project hierarchy",
+                        message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.project_name}",
+                    )
+                    project.parent_id = None
+
+            # Post-condition
+            assert all(
+                [
+                    ((project.parent_id is None) == (project.parent_name is None))
+                    and (
+                        project.parent_id is None
+                        or project.parent_id in all_project_map
+                    )
+                    for project in all_project_map.values()
+                ]
+            ), "Parent project id and name should be consistent"
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
-                    if cur_proj.parent_id not in all_project_map:
-                        self.report.warning(
-                            "project-issue",
-                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
-                        )
-                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
