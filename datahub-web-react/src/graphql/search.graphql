@@ -1115,6 +1115,11 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
 }
 
 fragment searchResultFieldsNoLineage on Entity {

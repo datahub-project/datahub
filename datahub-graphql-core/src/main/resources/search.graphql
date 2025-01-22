@@ -186,6 +186,11 @@ input  SearchFlags {
   assets in child domains and child containers.
   """
   rewriteQuery: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """

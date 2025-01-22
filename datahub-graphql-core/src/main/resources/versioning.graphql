@@ -1,0 +1,148 @@
+type VersionSet implements Entity {
+    """
+    The primary key of the VersionSet
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The latest versioned entity linked to in this version set
+    """
+    latestVersion: Entity
+
+    """
+    Executes a search on all versioned entities linked to this version set
+    By default sorts by sortId in descending order
+    """
+    versionsSearch(input: SearchAcrossEntitiesInput!): SearchResults
+}
+
+type VersionProperties {
+    """
+    The linked Version Set entity that ties multiple versioned assets together
+    """
+    versionSet: VersionSet!
+
+    """
+    Label for this versioned asset, should be unique within a version set (not enforced)
+    """
+    version: VersionTag!
+
+    """
+    Additional version identifiers for this versioned asset.
+    """
+    aliases: [VersionTag!]!
+
+    """
+    Comment documenting what this version was created for, changes, or represents
+    """
+    comment: String
+
+    """
+    Whether this version is currently the latest in its verison set
+    """
+    isLatest: Boolean!
+
+    """
+    Timestamp reflecting when the metadata for this version was created in DataHub
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Timestamp reflecting when the metadata for this version was created in DataHub
+    """
+    createdInSource: ResolvedAuditStamp
+}
+
+interface SupportsVersions {
+    """
+    Indicates that this entity is versioned and provides information about the version.
+    """
+    versionProperties: VersionProperties
+}
+
+extend type Dataset implements SupportsVersions {
+    versionProperties: VersionProperties
+}
+
+extend type MLModel implements SupportsVersions {
+    versionProperties: VersionProperties
+}
+
+extend type Query {
+    """
+    Fetch a Version Set by its URN
+    """
+    versionSet(urn: String!): VersionSet
+}
+
+"""
+Input for linking a versioned entity to a Version Set
+"""
+input LinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String!
+
+    """
+    The target versioned entity to link
+    """
+    linkedEntity: String!
+
+    """
+    Version Tag label for the version, should be unique within a version set (not enforced)
+    """
+    version: String!
+
+    """
+    Optional timestamp from the source system
+    """
+    sourceTimestamp: Long
+
+    """
+    Optional creator from the source system, will be converted to an Urn
+    """
+    sourceCreator: String
+
+    """
+    Optional comment about the version
+    """
+    comment: String
+}
+
+"""
+Input for unlinking a versioned entity from a Version Set
+"""
+input UnlinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String
+
+    """
+    The target versioned entity to unlink
+    """
+    unlinkedEntity: String
+}
+
+extend type Mutation {
+    """
+    Link the latest versioned entity to a Version Set
+    """
+    linkAssetVersion(input: LinkVersionInput!): VersionSet
+
+    """
+    Unlink a versioned entity from a Version Set
+    """
+    unlinkAssetVersion(input: UnlinkVersionInput!): VersionSet
+}

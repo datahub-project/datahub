@@ -75,6 +75,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getRewriteQuery() != null) {
       result.setRewriteQuery(searchFlags.getRewriteQuery());
     }
+    if (searchFlags.getFilterNonLatestVersions() != null) {
+      result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
+    }
     return result;
   }
 }

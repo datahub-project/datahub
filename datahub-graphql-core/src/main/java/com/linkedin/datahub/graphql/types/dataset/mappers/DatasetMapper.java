@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
@@ -176,6 +177,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setLineageFeatures(
                 LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+    mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
