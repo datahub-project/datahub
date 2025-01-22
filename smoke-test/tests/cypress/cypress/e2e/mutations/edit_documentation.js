@@ -37,7 +37,7 @@ describe("edit documentation and link to dataset", () => {
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click().wait(1000);
     cy.get("button")
-      .contains("span", "OK")
+      .contains("span", "Yes")
       .should("be.visible")
       .click({ force: true });
     cy.waitTextVisible("Link Removed");
@@ -75,7 +75,7 @@ describe("edit documentation and link to dataset", () => {
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click().wait(1000);
     cy.get("button")
-      .contains("span", "OK")
+      .contains("span", "Yes")
       .should("be.visible")
       .click({ force: true });
     cy.waitTextVisible("Link Removed");
