@@ -39,21 +39,6 @@ export default function ChangeHistoryGraph() {
         loading: dataLoading,
     } = useChangeHistoryData(statsEntityUrn, CHANGE_HISTORY_TIME_RANGE);
 
-    // The day details drawer
-    const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
-    const [dayOfDayDetailsDrawer, setDayOfDayDetailsDrawer] = useState<string | null>();
-    const [drawerOperationValue, setDrawerOperationValue] = useState<OperationsData | undefined | null>();
-    const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
-        setDayOfDayDetailsDrawer(dayData.day);
-        setDrawerOperationValue(dayData.value);
-        setIsDayDetailsDrawerShown(true);
-    };
-    const hideDayDetailsDrawer = () => {
-        setDayOfDayDetailsDrawer(null);
-        setDrawerOperationValue(null);
-        setIsDayDetailsDrawerShown(false);
-    };
-
     // Operation types
     const operationTypesOptions = useMemo(
         () => [
@@ -100,6 +85,22 @@ export default function ChangeHistoryGraph() {
     // The interval of the data
     const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(buckets, oldestOperationTime);
 
+    // The day details drawer
+    const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
+    const [dateOfDayDetailsDrawer, setDateOfDayDetailsDrawer] = useState<string | null>();
+    const [drawerOperationsData, setDrawerOperationsData] = useState<OperationsData | undefined | null>();
+    const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
+        setDateOfDayDetailsDrawer(dayData.day);
+        setIsDayDetailsDrawerShown(true);
+    };
+    const hideDayDetailsDrawer = () => {
+        setDateOfDayDetailsDrawer(null);
+        setIsDayDetailsDrawerShown(false);
+    };
+    useEffect(() => {
+        setDrawerOperationsData(buckets?.find((datum) => datum.day === dateOfDayDetailsDrawer)?.value ?? null);
+    }, [dateOfDayDetailsDrawer, buckets]);
+
     const loading = capabilitiesLoading || dataLoading;
 
     useEffect(() => {
@@ -143,7 +144,7 @@ export default function ChangeHistoryGraph() {
                         startDate={calendarStartDay}
                         endDate={calendarEndDay}
                         colorAccessor={colorAccessors.day}
-                        selectedDay={dayOfDayDetailsDrawer}
+                        selectedDay={dateOfDayDetailsDrawer}
                         onDayClick={(datum) => showDayDetailsDrawer(datum)}
                         showPopover={!isDayDetailsDrawerShown}
                         popoverRenderer={(datum) => (
@@ -164,12 +165,13 @@ export default function ChangeHistoryGraph() {
 
             {statsEntityUrn && isDayDetailsDrawerShown && (
                 <ChangeHistoryDrawer
-                    selectedDay={dayOfDayDetailsDrawer}
+                    selectedDate={dateOfDayDetailsDrawer}
+                    setSelectedDate={setDateOfDayDetailsDrawer}
                     urn={statsEntityUrn}
                     open={isDayDetailsDrawerShown}
                     onClose={() => hideDayDetailsDrawer()}
-                    operationTypesOptions={operationTypesOptions}
-                    value={drawerOperationValue}
+                    allOperationTypesOptions={operationTypesOptions}
+                    operationsData={drawerOperationsData}
                 />
             )}
         </>

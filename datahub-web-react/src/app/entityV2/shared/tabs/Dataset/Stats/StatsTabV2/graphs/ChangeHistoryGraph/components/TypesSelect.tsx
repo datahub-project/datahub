@@ -1,5 +1,6 @@
 import React from 'react';
 import { SelectOption, SimpleSelect } from '@components';
+import { SelectSkeleton } from './SelectSkeleton';
 
 type TypesSelectProps = {
     options: SelectOption[];
@@ -9,6 +10,8 @@ type TypesSelectProps = {
 };
 
 export default function TypesSelect({ options, values, loading, onUpdate }: TypesSelectProps) {
+    if (loading) return <SelectSkeleton active />;
+
     // Hide TypesSelect when there are only one option or less
     if (options.length < 2) return null;
 
@@ -21,7 +24,6 @@ export default function TypesSelect({ options, values, loading, onUpdate }: Type
             onUpdate={onUpdate}
             width="full"
             showClear={false}
-            isDisabled={loading}
             isMultiSelect
         />
     );
