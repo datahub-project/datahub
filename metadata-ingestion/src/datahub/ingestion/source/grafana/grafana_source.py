@@ -375,7 +375,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self, panel: Panel, dashboard_uid: str, ingest_tags: bool
     ) -> Iterable[MetadataWorkUnit]:
         """Process dataset metadata for a panel"""
-        if not panel.datasource or not isinstance(panel.datasource, dict):
+        if not panel.datasource:
             return
 
         ds_type = panel.datasource.get("type", "unknown")
@@ -436,14 +436,12 @@ class GrafanaSource(StatefulIngestionSourceBase):
             if dashboard and dashboard.tags:
                 tags = []
                 for tag in dashboard.tags:
-                    if isinstance(tag, str):
-                        # Handle both simple tags and key:value tags from Grafana
-                        if ":" in tag:
-                            key, value = tag.split(":", 1)
-                            tag_urn = make_tag_urn(f"{key}.{value}")
-                        else:
-                            tag_urn = make_tag_urn(tag)
-                        tags.append(TagAssociationClass(tag=tag_urn))
+                    if ":" in tag:
+                        key, value = tag.split(":", 1)
+                        tag_urn = make_tag_urn(f"{key}.{value}")
+                    else:
+                        tag_urn = make_tag_urn(tag)
+                    tags.append(TagAssociationClass(tag=tag_urn))
 
                 if tags:
                     dataset_snapshot.aspects.append(GlobalTagsClass(tags=tags))

@@ -65,7 +65,7 @@ def build_chart_mce(
 
     # Get input datasets
     input_datasets = []
-    if panel.datasource and isinstance(panel.datasource, dict):
+    if panel.datasource:
         ds_type = panel.datasource.get("type", "unknown")
         ds_uid = panel.datasource.get("uid", "unknown")
 
@@ -93,14 +93,13 @@ def build_chart_mce(
     if dashboard.tags and ingest_tags:
         tags = []
         for tag in dashboard.tags:
-            if isinstance(tag, str):
-                # Handle both simple tags and key:value tags from Grafana
-                if ":" in tag:
-                    key, value = tag.split(":", 1)
-                    tag_urn = make_tag_urn(f"{key}.{value}")
-                else:
-                    tag_urn = make_tag_urn(tag)
-                tags.append(TagAssociationClass(tag=tag_urn))
+            # Handle both simple tags and key:value tags from Grafana
+            if ":" in tag:
+                key, value = tag.split(":", 1)
+                tag_urn = make_tag_urn(f"{key}.{value}")
+            else:
+                tag_urn = make_tag_urn(tag)
+            tags.append(TagAssociationClass(tag=tag_urn))
 
         if tags:
             chart_snapshot.aspects.append(GlobalTagsClass(tags=tags))
@@ -154,11 +153,7 @@ def build_dashboard_mce(
 
     # Add tags
     if dashboard.tags and ingest_tags:
-        tags = [
-            TagAssociationClass(tag=make_tag_urn(tag))
-            for tag in dashboard.tags
-            if isinstance(tag, str)
-        ]
+        tags = [TagAssociationClass(tag=make_tag_urn(tag)) for tag in dashboard.tags]
         if tags:
             dashboard_snapshot.aspects.append(GlobalTagsClass(tags=tags))
 
@@ -175,7 +170,7 @@ def _build_custom_properties(panel: Panel) -> Dict[str, str]:
     if panel.type:
         props["type"] = panel.type
 
-    if panel.datasource and isinstance(panel.datasource, dict):
+    if panel.datasource:
         props["datasourceType"] = panel.datasource.get("type", "")
         props["datasourceUid"] = panel.datasource.get("uid", "")
 

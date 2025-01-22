@@ -1,7 +1,7 @@
 """API client for Grafana metadata extraction"""
 
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 import requests
 import urllib3.exceptions
@@ -25,8 +25,8 @@ class GrafanaAPIClient:
     ) -> None:
         self.base_url = base_url
         self.verify_ssl = verify_ssl
-        self.session = self._create_session(token)
         self.report = report
+        self.session = self._create_session(token)
 
     def _create_session(self, token: SecretStr) -> requests.Session:
         session = requests.Session()
@@ -42,30 +42,46 @@ class GrafanaAPIClient:
         # If SSL verification is disabled, suppress the warnings
         if not self.verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-        self.report.warning("SSL Verification is recommended.")
+            self.report.warning("SSL Verification is recommended.")
 
         return session
 
     def get_folders(self) -> List[Folder]:
-        """Fetch all folders from Grafana"""
-        try:
-            response = self.session.get(f"{self.base_url}/api/folders")
-            response.raise_for_status()
-            return [Folder.from_dict(folder) for folder in response.json()]
-        except requests.exceptions.RequestException as e:
-            self.report.report_failure(
-                message="Failed to fetch folders",
-                exc=e,
-            )
-            return []
+        """Fetch all folders from Grafana with pagination."""
+        folders: List[Folder] = []
+        page = 1
+        per_page = 100
+
+        while True:
+            try:
+                response = self.session.get(
+                    f"{self.base_url}/api/folders",
+                    params={"page": page, "limit": per_page},
+                )
+                response.raise_for_status()
+
+                batch = response.json()
+                if not batch:
+                    break
+
+                folders.extend(Folder.parse_obj(folder) for folder in batch)
+                page += 1
+            except requests.exceptions.RequestException as e:
+                self.report.report_failure(
+                    message="Failed to fetch folders on page",
+                    context=str(page),
+                    exc=e,
+                )
+                break
+
+        return folders
 
     def get_dashboard(self, uid: str) -> Optional[Dashboard]:
         """Fetch a specific dashboard by UID"""
         try:
             response = self.session.get(f"{self.base_url}/api/dashboards/uid/{uid}")
             response.raise_for_status()
-            return Dashboard.from_dict(response.json())
+            return Dashboard.parse_obj(response.json())
         except requests.exceptions.RequestException as e:
             self.report.warning(
                 message="Failed to fetch dashboard",
@@ -75,21 +91,39 @@ class GrafanaAPIClient:
             return None
 
     def get_dashboards(self) -> List[Dashboard]:
-        """Fetch all dashboards from search endpoint"""
-        try:
-            response = self.session.get(f"{self.base_url}/api/search?type=dash-db")
-            response.raise_for_status()
+        """Fetch all dashboards from search endpoint with pagination."""
+        dashboards: List[Dashboard] = []
+        page = 1
+        per_page = 100
 
-            dashboards = []
-            for result in response.json():
-                dashboard = self.get_dashboard(result["uid"])
-                if dashboard:
-                    dashboards.append(dashboard)
+        while True:
+            try:
+                params: Dict[str, Union[str, int]] = {
+                    "type": "dash-db",
+                    "page": page,
+                    "limit": per_page,
+                }
+                response = self.session.get(
+                    f"{self.base_url}/api/search",
+                    params=params,
+                )
+                response.raise_for_status()
 
-            return dashboards
-        except requests.exceptions.RequestException as e:
-            self.report.report_failure(
-                message="Failed to fetch dashboards",
-                exc=e,
-            )
-            return []
+                batch = response.json()
+                if not batch:
+                    break
+
+                for result in batch:
+                    dashboard = self.get_dashboard(result["uid"])
+                    if dashboard:
+                        dashboards.append(dashboard)
+                page += 1
+            except requests.exceptions.RequestException as e:
+                self.report.report_failure(
+                    message="Failed to fetch dashboards on page",
+                    context=str(page),
+                    exc=e,
+                )
+                break
+
+        return dashboards
