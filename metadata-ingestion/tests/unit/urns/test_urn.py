@@ -110,7 +110,9 @@ def test_urn_type_dispatch_2() -> None:
     with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
         CorpUserUrn.from_string(urn)
 
-    with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
+    with pytest.raises(
+        InvalidUrnError, match="Expecting a CorpUserUrn but got.*dataJob.*"
+    ):
         CorpUserUrn(urn)  # type: ignore
 
 

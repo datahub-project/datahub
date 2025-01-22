@@ -615,10 +615,9 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             )
 
             # If it's still an urn type, that's a problem.
-            init_validation += f"elif isinstance({field_name(field)}, Urn):\n"
             init_validation += (
-                f"    raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got "
-                + f"{{{field_name(field)}}} of type {{type({field_name(field)})}}')\n"
+                f"elif isinstance({field_name(field)}, Urn):\n"
+                f"    raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
             )
 
             # Then, we do character validation as normal.
@@ -651,8 +650,11 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             init_coercion += (
                 f"if isinstance({field_name(field)}, str):\n"
                 f"    if {field_name(field)}.startswith('urn:li:'):\n"
-                f"        {field_name(field)} = {field_urn_type_class}.from_string({field_name(field)})\n"
-                "    else:\n"
+                f"        try:\n"
+                f"            {field_name(field)} = {field_urn_type_class}.from_string({field_name(field)})\n"
+                f"        except InvalidUrnError:\n"
+                f"            raise InvalidUrnError(f'Expecting a {field_urn_type_class} but got {{{field_name(field)}}}')\n"
+                f"    else:\n"
                 f"        {field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
             )
         else:
