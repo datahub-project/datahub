@@ -9205,9 +9205,9 @@ input OwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
-    Deprecated - Use ownershipTypeUrn field instead.
+    If a custom ownership type is desired, use the ownershipTypeUrn field instead.
     """
-    type: OwnershipType @deprecated
+    type: OwnershipType
 
     """
     The urn of the ownership type entity.

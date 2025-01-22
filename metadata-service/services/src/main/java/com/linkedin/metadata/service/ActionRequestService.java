@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ACTION_REQUEST_INFO_ASPECT_NAME;
@@ -40,6 +41,7 @@ import com.linkedin.actionrequest.DataContractProposalOperationType;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.ai.InferenceMetadata;
@@ -47,6 +49,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Proposals;
 import com.linkedin.common.TagAssociation;
@@ -138,6 +141,7 @@ public class ActionRequestService extends BaseService {
   static final String TAG_ASSOCIATION_PROPOSAL_TYPE = "TAG_ASSOCIATION";
   static final String TERM_ASSOCIATION_PROPOSAL_TYPE = "TERM_ASSOCIATION";
   static final String DOMAIN_ASSOCIATION_PROPOSAL_TYPE = "DOMAIN_ASSOCIATION";
+  static final String OWNER_ASSOCIATION_PROPOSAL_TYPE = "OWNER_ASSOCIATION";
   static final String STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE =
       "STRUCTURED_PROPERTY_ASSOCIATION";
   static final String CREATE_GLOSSARY_NODE_ACTION_REQUEST_TYPE = "CREATE_GLOSSARY_NODE";
@@ -153,6 +157,7 @@ public class ActionRequestService extends BaseService {
   private final GraphClient graphClient;
   private final DatasetService datasetService;
   private final TagService tagService;
+  private final OwnerService ownerService;
   private final GlossaryTermService glossaryTermService;
   private final StructuredPropertyService structuredPropertyService;
   private final DomainService domainService;
@@ -166,6 +171,7 @@ public class ActionRequestService extends BaseService {
       @Nonnull GlossaryTermService glossaryTermService,
       @Nonnull StructuredPropertyService structuredPropertyService,
       @Nonnull DomainService domainService,
+      @Nonnull OwnerService ownerService,
       @Nonnull OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
@@ -176,6 +182,7 @@ public class ActionRequestService extends BaseService {
     this.glossaryTermService = glossaryTermService;
     this.structuredPropertyService = structuredPropertyService;
     this.domainService = domainService;
+    this.ownerService = ownerService;
   }
 
   /*--------------------------------------------------------------------------
@@ -409,8 +416,7 @@ public class ActionRequestService extends BaseService {
    *                   DOMAIN PROPOSAL METHODS
    *------------------------------------------------------------------------*/
   /**
-   * Propose glossary terms for a given asset. Note that authorization must be checked before
-   * calling this.
+   * Propose domain for a given asset. Note that authorization must be checked before calling this.
    *
    * @param opContext the operation context
    * @param entityUrn the urn of the asset to apply terms to
@@ -434,6 +440,41 @@ public class ActionRequestService extends BaseService {
 
     // Step 3: Propose the domain change
     return createDomainAssociationActionRequest(opContext, entityUrn, finalDomainUrn, null, null);
+  }
+
+  /*--------------------------------------------------------------------------
+   *                   OWNERS PROPOSAL METHODS
+   *------------------------------------------------------------------------*/
+  /**
+   * Propose owners for a given asset. Note that authorization must be checked before calling this.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the asset to apply terms to
+   * @param owners the owners to propose
+   * @return the urn of the action request
+   */
+  public Urn proposeEntityOwners(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners)
+      throws AlreadyRequestedException,
+          AlreadyAppliedException,
+          RemoteInvocationException,
+          URISyntaxException {
+
+    // Step 1: Validate inputs
+    validateProposeAssetOwners(opContext, entityUrn, owners);
+
+    // Step 2: Filter out any owners that should not be proposed
+    final List<Owner> finalOwners = filterEntityOwnersToPropose(opContext, entityUrn, owners);
+
+    if (finalOwners.isEmpty()) {
+      throw new AlreadyAppliedException(
+          "All owners are already applied or proposed for the entity");
+    }
+
+    // Step 3: Propose the owners change
+    return createOwnersAssociationActionRequest(opContext, entityUrn, finalOwners);
   }
 
   /*--------------------------------------------------------------------------
@@ -2566,6 +2607,187 @@ public class ActionRequestService extends BaseService {
   }
 
   /*--------------------------------------------------------------------------
+   *                   VALIDATION METHODS FOR OWNERS
+   *------------------------------------------------------------------------*/
+  private void validateProposeAssetOwners(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners)
+      throws EntityDoesNotExistException, RemoteInvocationException {
+
+    // Step 1: Check if the entity exists
+    if (!this.entityClient.exists(opContext, entityUrn, false)) {
+      throw new EntityDoesNotExistException(String.format("Entity %s does not exist", entityUrn));
+    }
+
+    for (final Owner owner : owners) {
+      // Step 2: Check if the owners exist
+      if (!this.entityClient.exists(opContext, owner.getOwner(), false)) {
+        throw new EntityDoesNotExistException(
+            String.format("Owner with urn %s does not exist", owner.getOwner()));
+      }
+      // Step 3: Check if the owner type exists
+      if (owner.hasTypeUrn()) {
+        if (!this.entityClient.exists(opContext, owner.getTypeUrn(), false)) {
+          throw new EntityDoesNotExistException(
+              String.format("Owner type with urn %s does not exist", owner.getTypeUrn()));
+        }
+      }
+    }
+  }
+
+  /*--------------------------------------------------------------------------
+   *                     FILTER METHODS FOR OWNERS
+   *------------------------------------------------------------------------*/
+  @Nonnull
+  private List<Owner> filterEntityOwnersToPropose(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners)
+      throws AlreadyAppliedException,
+          AlreadyRequestedException,
+          RemoteInvocationException,
+          URISyntaxException {
+
+    // Get the currently-applied owners
+    final List<Owner> appliedOwners = this.ownerService.getEntityOwners(opContext, entityUrn);
+
+    // Get the owners already proposed
+    final List<Owner> proposedOwners = getProposedOwnersForEntity(opContext, entityUrn);
+
+    // Deep check whether all are already applied
+    if (appliedOwners.size() == owners.size() && ownersAreEqual(appliedOwners, owners)) {
+      throw new AlreadyAppliedException("All owners are already applied to the entity");
+    }
+
+    // Deep check whether all are already proposed
+    if (proposedOwners.size() == owners.size() && ownersAreEqual(proposedOwners, owners)) {
+      throw new AlreadyRequestedException("All owners are already proposed for the entity");
+    }
+
+    // Filter out owner values that are either already applied or already proposed
+    return owners.stream()
+        .filter(
+            owner ->
+                appliedOwners.stream().noneMatch(appliedOwner -> ownerIsEqual(appliedOwner, owner)))
+        .filter(
+            owner ->
+                proposedOwners.stream()
+                    .noneMatch(proposedOwner -> ownerIsEqual(proposedOwner, owner)))
+        .collect(Collectors.toList());
+  }
+
+  private boolean ownersAreEqual(
+      @Nonnull final List<Owner> owners1, @Nonnull final List<Owner> owners2) {
+    return owners1.stream()
+        .allMatch(owner1 -> owners2.stream().anyMatch(owner2 -> ownerIsEqual(owner1, owner2)));
+  }
+
+  private boolean ownerIsEqual(@Nonnull final Owner owner1, @Nonnull final Owner owner2) {
+    return owner1.getOwner().equals(owner2.getOwner())
+        && owner1.getType().equals(owner2.getType())
+        // If both owners have type urns, then they must be equal
+        && (owner1.hasTypeUrn() && owner2.hasTypeUrn()
+            ? owner1.getTypeUrn().equals(owner2.getTypeUrn())
+            : true);
+  }
+
+  /*--------------------------------------------------------------------------
+   *             CREATION OF ACTION REQUESTS FOR OWNERS
+   *------------------------------------------------------------------------*/
+  private Urn createOwnersAssociationActionRequest(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners)
+      throws RemoteInvocationException {
+
+    // First, get the assignees (authorized actors) for the owners change proposal.
+    final AuthorizedActors assignees = getOwnersAssociationAssignees(opContext, entityUrn);
+
+    // Then, create the action request
+    final List<MetadataChangeProposal> mcps =
+        createOwnersAssociationActionRequestMcps(
+            entityUrn,
+            owners,
+            assignees.getUsers(),
+            assignees.getGroups(),
+            assignees.getRoles(),
+            opContext.getAuditStamp().getActor());
+
+    // Ingest the aspects
+    this.entityClient.batchIngestProposals(opContext, mcps, false);
+
+    // Return the URN of the new action request.
+    return mcps.get(0).getEntityUrn();
+  }
+
+  @Nonnull
+  private List<MetadataChangeProposal> createOwnersAssociationActionRequestMcps(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners,
+      @Nonnull final List<Urn> assignedUsers,
+      @Nonnull final List<Urn> assignedGroups,
+      @Nonnull final List<Urn> assignedRoles,
+      @Nonnull final Urn actorUrn) {
+
+    return createActionRequestMcps(
+        OWNER_ASSOCIATION_PROPOSAL_TYPE,
+        entityUrn,
+        null,
+        null,
+        createOwnersAssociationActionRequestParams(owners),
+        assignedUsers,
+        assignedGroups,
+        assignedRoles,
+        actorUrn);
+  }
+
+  @Nonnull
+  private ActionRequestParams createOwnersAssociationActionRequestParams(
+      @Nonnull final List<Owner> owners) {
+    final ActionRequestParams params = new ActionRequestParams();
+    OwnerProposal ownerProposal = new OwnerProposal();
+    ownerProposal.setOwners(new OwnerArray(owners));
+    params.setOwnerProposal(ownerProposal);
+    return params;
+  }
+
+  /*--------------------------------------------------------------------------
+   *             GET PROPOSED OWNERS HELPER METHODS
+   *------------------------------------------------------------------------*/
+
+  private List<Owner> getProposedOwnersForEntity(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn)
+      throws RemoteInvocationException, URISyntaxException {
+
+    final Filter filter =
+        createActionRequestFilter(
+            OWNER_ASSOCIATION_PROPOSAL_TYPE,
+            ACTION_REQUEST_STATUS_PENDING,
+            entityUrn.toString(),
+            null,
+            null);
+
+    return getActionRequestInfosFromFilter(opContext, filter, entityClient)
+        .flatMap(
+            actionRequestInfo ->
+                actionRequestInfo.getParams().getOwnerProposal().getOwners().stream())
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private AuthorizedActors getOwnersAssociationAssignees(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn) {
+
+    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    return opContext
+        .getAuthorizationContext()
+        .getAuthorizer()
+        .authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_OWNERS_PRIVILEGE.getType(), Optional.of(spec));
+  }
+
+  /*--------------------------------------------------------------------------
    *            ACCEPT DOMAIN PROPOSAL
    *------------------------------------------------------------------------*/
 
@@ -2623,6 +2845,55 @@ public class ActionRequestService extends BaseService {
     } else {
       this.domainService.unsetDomain(opContext, entityUrn);
     }
+  }
+
+  /*--------------------------------------------------------------------------
+   *            ACCEPT OWNER PROPOSAL
+   *------------------------------------------------------------------------*/
+
+  /**
+   * Accept a owner proposal by urn. Assumes that the authorization has ALREADY been validated
+   * outside (e.g. in a resolver).
+   *
+   * @param opContext the operation context
+   * @param actionRequestUrn the action request urn
+   * @throws Exception if the proposal cannot be accepted
+   */
+  public void acceptOwnerProposal(
+      @Nonnull OperationContext opContext, @Nonnull final Urn actionRequestUrn) throws Exception {
+    Objects.requireNonNull(actionRequestUrn, "actionRequestUrn cannot be null");
+    final ActionRequestInfo maybeInfo = getActionRequestInfo(opContext, actionRequestUrn);
+    if (maybeInfo == null) {
+      throw new EntityDoesNotExistException(
+          String.format("Action request with urn %s does not exist.", actionRequestUrn));
+    }
+    acceptOwnerProposal(opContext, maybeInfo);
+  }
+
+  /**
+   * Accept an owner proposal. Assumes that the authorization has ALREADY been validated outside
+   * (e.g. in a resolver).
+   *
+   * @param opContext the operation context
+   * @param actionRequestInfo the action request info
+   */
+  public void acceptOwnerProposal(
+      @Nonnull final OperationContext opContext, @Nonnull final ActionRequestInfo actionRequestInfo)
+      throws Exception {
+
+    if (!ACTION_REQUEST_TYPE_OWNER_PROPOSAL.equals(actionRequestInfo.getType())) {
+      throw new MalformedActionRequestException("Action request is not a owner proposal");
+    }
+
+    if (!actionRequestInfo.hasParams() || !actionRequestInfo.getParams().hasOwnerProposal()) {
+      throw new MalformedActionRequestException("Action request does not contain owner proposal");
+    }
+
+    final OwnerProposal ownerProposal = actionRequestInfo.getParams().getOwnerProposal();
+    final List<Owner> owners = ownerProposal.getOwners();
+
+    final Urn entityUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
+    this.ownerService.addOwners(opContext, entityUrn, owners);
   }
 
   private static Criterion createStatusCriterion(String status) {

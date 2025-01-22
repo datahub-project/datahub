@@ -13,6 +13,7 @@ import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_
 import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_STATUS_COMPLETE;
 import static com.linkedin.metadata.service.ActionRequestService.ACTION_REQUEST_STATUS_PENDING;
 import static com.linkedin.metadata.service.ActionRequestService.DOMAIN_ASSOCIATION_PROPOSAL_TYPE;
+import static com.linkedin.metadata.service.ActionRequestService.OWNER_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.TAG_ASSOCIATION_PROPOSAL_TYPE;
 import static com.linkedin.metadata.service.ActionRequestService.TERM_ASSOCIATION_PROPOSAL_TYPE;
@@ -34,6 +35,7 @@ import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.AuditStamp;
@@ -41,6 +43,7 @@ import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpGroupUrn;
@@ -109,6 +112,7 @@ public class ActionRequestServiceTest {
   private GlossaryTermService mockGlossaryTermService;
   private StructuredPropertyService mockStructuredPropertyService;
   private DomainService mockDomainService;
+  private OwnerService mockOwnerService;
   private OpenApiClient mockOpenApiClient;
   private ObjectMapper mockObjectMapper;
   private ActionRequestService actionRequestService;
@@ -140,6 +144,8 @@ public class ActionRequestServiceTest {
       UrnUtils.getUrn("urn:li:glossaryTerm:12372c2ec7754c308993202dc44f548b");
   private static final Urn TEST_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:test-domain");
   private static final Urn TEST_DOMAIN_URN_2 = UrnUtils.getUrn("urn:li:domain:test-domain-2");
+  private static final Urn TEST_OWNER_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:test-owner-type");
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -152,6 +158,7 @@ public class ActionRequestServiceTest {
     mockGlossaryTermService = mock(GlossaryTermService.class);
     mockStructuredPropertyService = mock(StructuredPropertyService.class);
     mockDomainService = mock(DomainService.class);
+    mockOwnerService = mock(OwnerService.class);
     mockOpenApiClient = mock(OpenApiClient.class);
     mockObjectMapper = mock(ObjectMapper.class);
 
@@ -208,6 +215,10 @@ public class ActionRequestServiceTest {
             eq(PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType()), any(Optional.class)))
         .thenReturn(mockAuthorizedActors);
 
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_OWNERS_PRIVILEGE.getType()), any(Optional.class)))
+        .thenReturn(mockAuthorizedActors);
+
     // Minimal default stubbing
     when(mockEntityClient.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
         .thenReturn(true);
@@ -248,6 +259,7 @@ public class ActionRequestServiceTest {
             mockGlossaryTermService,
             mockStructuredPropertyService,
             mockDomainService,
+            mockOwnerService,
             mockOpenApiClient,
             mockObjectMapper);
   }
@@ -1590,6 +1602,234 @@ public class ActionRequestServiceTest {
 
     // When
     actionRequestService.acceptDomainProposal(mockOpContext, actionRequestInfo);
+  }
+
+  // ============================================================================
+  // TESTS FOR proposeEntityOwners(...)
+  // ============================================================================
+
+  @Test
+  public void testProposeEntityOwnersSuccess() throws Exception {
+    // Given
+    when(mockOwnerService.getEntityOwners(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.emptyList()); // No owners currently applied
+
+    List<Owner> ownersToPropose =
+        ImmutableList.of(
+            new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER),
+            new Owner()
+                .setOwner(GROUP_URN)
+                .setType(OwnershipType.CUSTOM)
+                .setTypeUrn(TEST_OWNER_TYPE_URN));
+
+    // When
+    Urn result =
+        actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+
+    // Then
+    assertNotNull(result, "Returned URN from proposeEntityOwners should not be null.");
+
+    // 1) Capture the proposals passed to batchIngestProposals
+    ArgumentCaptor<List<MetadataChangeProposal>> batchMcpCaptor =
+        ArgumentCaptor.forClass((Class) List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(mockOpContext), batchMcpCaptor.capture(), eq(false));
+    List<MetadataChangeProposal> batchMcps = batchMcpCaptor.getValue();
+
+    assertEquals(batchMcps.size(), 2, "Expect 2 MCPs for ActionRequestInfo + ActionRequestStatus");
+
+    // Validate aspects
+    MetadataChangeProposal infoProposal = batchMcps.get(0);
+    MetadataChangeProposal statusProposal = batchMcps.get(1);
+
+    assertEquals(infoProposal.getAspectName(), Constants.ACTION_REQUEST_INFO_ASPECT_NAME);
+    assertEquals(statusProposal.getAspectName(), Constants.ACTION_REQUEST_STATUS_ASPECT_NAME);
+
+    // Check that the entityUrn is an actionRequest URN
+    assertEquals(infoProposal.getEntityUrn().getEntityType(), Constants.ACTION_REQUEST_ENTITY_NAME);
+
+    // Deserialize & check ActionRequestInfo
+    ActionRequestInfo info =
+        GenericRecordUtils.deserializeAspect(
+            infoProposal.getAspect().getValue(),
+            infoProposal.getAspect().getContentType(),
+            ActionRequestInfo.class);
+    assertEquals(info.getType(), OWNER_ASSOCIATION_PROPOSAL_TYPE);
+    assertTrue(info.getParams().getOwnerProposal().hasOwners());
+    assertEquals(info.getParams().getOwnerProposal().getOwners().size(), 2);
+    assertEquals(info.getParams().getOwnerProposal().getOwners().get(0), ownersToPropose.get(0));
+    assertEquals(info.getParams().getOwnerProposal().getOwners().get(1), ownersToPropose.get(1));
+
+    // Deserialize & check ActionRequestStatus
+    ActionRequestStatus status =
+        GenericRecordUtils.deserializeAspect(
+            statusProposal.getAspect().getValue(),
+            statusProposal.getAspect().getContentType(),
+            ActionRequestStatus.class);
+    assertEquals(status.getStatus(), ACTION_REQUEST_STATUS_PENDING);
+  }
+
+  @Test(expectedExceptions = EntityDoesNotExistException.class)
+  public void testProposeEntityOwnersEntityDoesNotExist() throws Exception {
+    // Given
+    when(mockEntityClient.exists(eq(mockOpContext), eq(TEST_ENTITY_URN), eq(false)))
+        .thenReturn(false);
+
+    // When
+    actionRequestService.proposeEntityOwners(
+        mockOpContext, TEST_ENTITY_URN, Collections.emptyList());
+  }
+
+  @Test(expectedExceptions = EntityDoesNotExistException.class)
+  public void testProposeEntityOwnersOwnerDoesNotExist() throws Exception {
+    // Given
+    when(mockEntityClient.exists(eq(mockOpContext), eq(ACTOR_URN), eq(false))).thenReturn(false);
+
+    List<Owner> ownersToPropose =
+        ImmutableList.of(
+            new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER),
+            new Owner()
+                .setOwner(GROUP_URN)
+                .setType(OwnershipType.CUSTOM)
+                .setTypeUrn(TEST_OWNER_TYPE_URN));
+
+    // When
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+  }
+
+  @Test(expectedExceptions = EntityDoesNotExistException.class)
+  public void testProposeEntityOwnersOwnershipTypeDoesNotExist() throws Exception {
+    // Given
+    when(mockEntityClient.exists(eq(mockOpContext), eq(TEST_OWNER_TYPE_URN), eq(false)))
+        .thenReturn(false);
+
+    List<Owner> ownersToPropose =
+        ImmutableList.of(
+            new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER),
+            new Owner()
+                .setOwner(GROUP_URN)
+                .setType(OwnershipType.CUSTOM)
+                .setTypeUrn(TEST_OWNER_TYPE_URN));
+
+    // When
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+  }
+
+  // =======================
+  // Filtering-Focused Tests
+  // =======================
+
+  @Test
+  public void testProposeEntityOwnersSomeAlreadyApplied() throws Exception {
+    // One is already applied, the other is new
+    Owner alreadyAppliedOwner =
+        new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER);
+
+    when(mockOwnerService.getEntityOwners(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.singletonList(alreadyAppliedOwner));
+
+    // Expect success, but only the new owner gets proposed
+    List<Owner> ownersToPropose =
+        ImmutableList.of(
+            new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER),
+            new Owner()
+                .setOwner(GROUP_URN)
+                .setType(OwnershipType.CUSTOM)
+                .setTypeUrn(TEST_OWNER_TYPE_URN));
+
+    Urn result =
+        actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
+
+    assertNotNull(result);
+
+    // Capture the batchIngestProposals
+    ArgumentCaptor<List<MetadataChangeProposal>> batchMcpCaptor =
+        ArgumentCaptor.forClass((Class) List.class);
+    verify(mockEntityClient, times(1))
+        .batchIngestProposals(eq(mockOpContext), batchMcpCaptor.capture(), eq(false));
+    List<MetadataChangeProposal> batchMcps = batchMcpCaptor.getValue();
+
+    // The first MCP should be the ActionRequestInfo
+    MetadataChangeProposal infoProposal = batchMcps.get(0);
+    ActionRequestInfo info =
+        GenericRecordUtils.deserializeAspect(
+            infoProposal.getAspect().getValue(),
+            infoProposal.getAspect().getContentType(),
+            ActionRequestInfo.class);
+    List<Owner> ownersInProposal = info.getParams().getOwnerProposal().getOwners();
+    assertEquals(ownersInProposal.size(), 1, "Should only propose the new owner");
+    assertEquals(ownersInProposal.get(0), ownersToPropose.get(1));
+  }
+
+  @Test(expectedExceptions = AlreadyAppliedException.class)
+  public void testProposeEntityOwnersAllApplied() throws Exception {
+    Owner alreadyProposedOwner =
+        new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER);
+    List<Owner> alreadyProposedOwners = Collections.singletonList(alreadyProposedOwner);
+    when(mockOwnerService.getEntityOwners(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(alreadyProposedOwners);
+
+    // No previously proposed owners
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, alreadyProposedOwners);
+  }
+
+  @Test(expectedExceptions = AlreadyRequestedException.class)
+  public void testProposeEntityOwnersAllRequested() throws Exception {
+    when(mockOwnerService.getEntityOwners(eq(mockOpContext), eq(TEST_ENTITY_URN)))
+        .thenReturn(Collections.emptyList());
+
+    Owner alreadyProposedOwner =
+        new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER);
+
+    // Stub the search to return an action request with both domain
+    SearchResult mockSearchResult = new SearchResult();
+    SearchEntity searchEntity = new SearchEntity();
+    Urn existingActionRequestUrn = Urn.createFromString("urn:li:actionRequest:123");
+    searchEntity.setEntity(existingActionRequestUrn);
+    mockSearchResult.setEntities(new SearchEntityArray(Collections.singletonList(searchEntity)));
+    when(mockEntityClient.filter(
+            any(OperationContext.class),
+            eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            any(Filter.class),
+            any(),
+            anyInt(),
+            anyInt()))
+        .thenReturn(mockSearchResult);
+
+    EntityResponse mockEntityResponse = mock(EntityResponse.class);
+    Map<Urn, EntityResponse> mockBatchGetMap = new HashMap<>();
+    mockBatchGetMap.put(existingActionRequestUrn, mockEntityResponse);
+
+    when(mockEntityClient.batchGetV2(
+            eq(mockOpContext), eq(Constants.ACTION_REQUEST_ENTITY_NAME), anySet(), anySet()))
+        .thenReturn(mockBatchGetMap);
+
+    // The existing action request has owners
+    ActionRequestInfo existingActionRequestInfo = new ActionRequestInfo();
+    OwnerProposal ownerProposal = new OwnerProposal();
+    List<Owner> ownersToPropose =
+        ImmutableList.of(
+            new Owner().setOwner(ACTOR_URN).setType(OwnershipType.TECHNICAL_OWNER),
+            new Owner()
+                .setOwner(GROUP_URN)
+                .setType(OwnershipType.CUSTOM)
+                .setTypeUrn(TEST_OWNER_TYPE_URN));
+    ownerProposal.setOwners(new OwnerArray(ownersToPropose));
+    ActionRequestParams params = new ActionRequestParams().setOwnerProposal(ownerProposal);
+    existingActionRequestInfo.setParams(params);
+
+    ActionRequestStatus existingActionRequestStatus =
+        new ActionRequestStatus().setStatus(ACTION_REQUEST_STATUS_PENDING);
+
+    when(mockEntityResponse.hasAspects()).thenReturn(true);
+    when(mockEntityResponse.getAspects())
+        .thenReturn(
+            new EnvelopedAspectMap(
+                ActionRequestTestUtils.mockAspectsMapForActionRequest(
+                    existingActionRequestInfo, existingActionRequestStatus)));
+
+    // Now propose owners
+    actionRequestService.proposeEntityOwners(mockOpContext, TEST_ENTITY_URN, ownersToPropose);
   }
 
   // ============================================================================

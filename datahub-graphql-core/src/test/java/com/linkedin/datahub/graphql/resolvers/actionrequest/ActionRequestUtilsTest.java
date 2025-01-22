@@ -6,6 +6,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_REJECTE
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_COMPLETE;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
@@ -17,9 +18,13 @@ import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.ai.InferenceMetadata;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -29,6 +34,8 @@ import com.linkedin.datahub.graphql.generated.ActionRequestOrigin;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
@@ -559,5 +566,82 @@ public class ActionRequestUtilsTest {
     // Check the 2 assignments
     assertEquals(
         request.getParams().getDomainProposal().getDomain().getUrn(), "urn:li:domain:test");
+  }
+
+  @Test
+  public void testMapActionRequestWithOwnerProposal() throws Exception {
+    // -----------------------------------------
+    // Given: An ActionRequestInfo with a Owner
+    // -----------------------------------------
+    Urn testUserUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+    Urn testGroupUrn = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
+    Urn testOwnershipType = UrnUtils.getUrn("urn:li:ownershipType:testOwnershipType");
+
+    OwnerProposal ownerProposal = new OwnerProposal();
+    ownerProposal.setOwners(
+        new OwnerArray(
+            ImmutableList.of(
+                new Owner()
+                    .setOwner(testUserUrn)
+                    .setType(OwnershipType.CUSTOM)
+                    .setTypeUrn(testOwnershipType),
+                new Owner().setOwner(testGroupUrn).setType(OwnershipType.TECHNICAL_OWNER))));
+
+    ActionRequestParams requestParams = new ActionRequestParams();
+    requestParams.setOwnerProposal(ownerProposal);
+
+    ActionRequestInfo infoAspect = new ActionRequestInfo();
+    infoAspect.setType(ACTION_REQUEST_TYPE_OWNER_PROPOSAL);
+    infoAspect.setResource("urn:li:dataset:(urn:li:dataPlatform:hive,myAnotherDataset,PROD)");
+    infoAspect.setCreated(34567L);
+    infoAspect.setCreatedBy(Urn.createFromString("urn:li:corpuser:structuredUser"));
+    infoAspect.setParams(requestParams);
+    infoAspect.setAssignedUsers(new UrnArray());
+    infoAspect.setAssignedGroups(new UrnArray());
+    infoAspect.setAssignedRoles(new UrnArray());
+
+    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
+
+    com.linkedin.actionrequest.ActionRequestStatus statusAspect =
+        new com.linkedin.actionrequest.ActionRequestStatus();
+    statusAspect.setStatus(ACTION_REQUEST_STATUS_PENDING);
+    ActionRequestAspect aspect2 = ActionRequestAspect.create(statusAspect);
+
+    Entity entity = buildEntity(aspect1, aspect2);
+
+    // -----------------------------------------
+    // When: We invoke the mapper
+    // -----------------------------------------
+    ActionRequest request =
+        ActionRequestUtils.mapActionRequest(
+            mockContext, entity.getValue().getActionRequestSnapshot());
+
+    // -----------------------------------------
+    // Then: The fields in the mapped request should match
+    // -----------------------------------------
+    assertNotNull(request);
+    assertEquals(request.getType(), ActionRequestType.OWNER_ASSOCIATION);
+    assertEquals(request.getStatus(), ActionRequestStatus.PENDING);
+    // Because result was an empty string
+    assertNull(request.getResult());
+    assertNotNull(request.getParams());
+    assertNotNull(request.getParams().getOwnerProposal());
+
+    // Check the 2 assignments
+    assertEquals(request.getParams().getOwnerProposal().getOwners().size(), 2);
+
+    // Validate owner 1
+    com.linkedin.datahub.graphql.generated.Owner owner1 =
+        request.getParams().getOwnerProposal().getOwners().get(0);
+    assertEquals(((CorpUser) owner1.getOwner()).getUrn(), testUserUrn.toString());
+    assertEquals(owner1.getType(), com.linkedin.datahub.graphql.generated.OwnershipType.CUSTOM);
+    assertEquals(owner1.getOwnershipType().getUrn(), testOwnershipType.toString());
+
+    // Validate owner 2
+    com.linkedin.datahub.graphql.generated.Owner owner2 =
+        request.getParams().getOwnerProposal().getOwners().get(1);
+    assertEquals(((CorpGroup) owner2.getOwner()).getUrn(), testGroupUrn.toString());
+    assertEquals(
+        owner2.getType(), com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER);
   }
 }

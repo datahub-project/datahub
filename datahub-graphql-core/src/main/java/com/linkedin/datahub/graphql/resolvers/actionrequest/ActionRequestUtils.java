@@ -11,6 +11,7 @@ import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
@@ -42,6 +43,8 @@ import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.InferenceMetadata;
+import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnerProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
@@ -49,6 +52,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyProposalParams;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnerMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -354,6 +358,9 @@ public class ActionRequestUtils {
     if (params.hasDomainProposal()) {
       result.setDomainProposal(mapDomainProposal(params.getDomainProposal()));
     }
+    if (params.hasOwnerProposal()) {
+      result.setOwnerProposal(mapOwnerProposal(context, params.getOwnerProposal(), entityUrn));
+    }
     return result;
   }
 
@@ -499,6 +506,20 @@ public class ActionRequestUtils {
       domainProposalParams.setDomain(partialDomain);
     }
     return domainProposalParams;
+  }
+
+  public static OwnerProposalParams mapOwnerProposal(
+      final QueryContext context, final OwnerProposal proposal, final Urn entityUrn) {
+    final OwnerProposalParams ownerProposalParams = new OwnerProposalParams();
+    if (proposal.hasOwners()) {
+      List<Owner> owners = new ArrayList<>();
+      for (com.linkedin.common.Owner owner : proposal.getOwners()) {
+        Owner proposedOwner = OwnerMapper.map(context, owner, entityUrn);
+        owners.add(proposedOwner);
+      }
+      ownerProposalParams.setOwners(owners);
+    }
+    return ownerProposalParams;
   }
 
   public static Criterion createStatusCriterion(ActionRequestStatus status) {

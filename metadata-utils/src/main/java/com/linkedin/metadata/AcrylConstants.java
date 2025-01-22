@@ -13,6 +13,7 @@ public class AcrylConstants {
   public static final String ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL =
       "STRUCTURED_PROPERTY_ASSOCIATION";
   public static final String ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL = "DOMAIN_ASSOCIATION";
+  public static final String ACTION_REQUEST_TYPE_OWNER_PROPOSAL = "OWNER_ASSOCIATION";
   public static final String ACTION_REQUEST_STATUS_PENDING = "PENDING";
   public static final String ACTION_REQUEST_STATUS_COMPLETE = "COMPLETED";
   public static final String ACTION_REQUEST_RESULT_ACCEPTED = "ACCEPTED";

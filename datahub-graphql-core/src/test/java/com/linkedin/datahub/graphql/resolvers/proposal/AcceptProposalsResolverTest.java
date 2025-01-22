@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.DOMAIN_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.LEGACY_TAG_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.LEGACY_TERM_ACTION_REQUEST;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.OWNER_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.STRUCTURED_PROPERTY_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.TAG_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.TERM_ACTION_REQUEST;
@@ -20,6 +21,7 @@ import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockDocumentationSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockDomainSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockLegacyTermProposalSnapshot;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockOwnerSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockStructuredPropertySnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockTagProposalSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockTermProposalSnapshot;
@@ -358,7 +360,7 @@ public class AcceptProposalsResolverTest {
   }
 
   @Test
-  public void testAcceptProposalsSuccessDomainActionRequestInfo() throws Exception {
+  public void testAcceptProposalsSuccessDomain() throws Exception {
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
     ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
@@ -377,6 +379,47 @@ public class AcceptProposalsResolverTest {
     Mockito.verify(mockActionRequestService, Mockito.times(1))
         .acceptDomainProposal(
             Mockito.any(OperationContext.class), Mockito.any(ActionRequestInfo.class));
+
+    // Verify the proposal was marked as completed
+    Mockito.verify(mockActionRequestService, Mockito.times(1))
+        .completeProposal(
+            Mockito.any(OperationContext.class),
+            Mockito.eq(TEST_ACTOR_URN),
+            Mockito.eq(ACTION_REQUEST_STATUS_COMPLETE),
+            Mockito.eq(ACTION_REQUEST_RESULT_ACCEPTED),
+            Mockito.eq(null),
+            Mockito.any(Entity.class));
+  }
+
+  @Test
+  public void testAcceptProposalsSuccessOwners() throws Exception {
+    // Create resolver
+    EntityService<?> mockEntityService = initMockEntityService();
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
+
+    AcceptProposalsResolver resolver =
+        new AcceptProposalsResolver(mockEntityService, mockActionRequestService);
+
+    // Execute resolver
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
+        .thenReturn(ImmutableList.of(OWNER_ACTION_REQUEST.toString()));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    resolver.get(mockEnv).join();
+
+    ActionRequestSnapshot snapshot =
+        buildMockOwnerSnapshot(OWNER_ACTION_REQUEST).getActionRequestSnapshot();
+    ActionRequestInfo expectedActionRequestInfo =
+        snapshot.getAspects().stream()
+            .filter(aspect -> aspect.isActionRequestInfo())
+            .findFirst()
+            .get()
+            .getActionRequestInfo();
+
+    Mockito.verify(mockActionRequestService, Mockito.times(1))
+        .acceptOwnerProposal(
+            Mockito.any(OperationContext.class), Mockito.eq(expectedActionRequestInfo));
 
     // Verify the proposal was marked as completed
     Mockito.verify(mockActionRequestService, Mockito.times(1))
@@ -532,6 +575,9 @@ public class AcceptProposalsResolverTest {
         new Entity().setValue(buildMockDomainSnapshot(DOMAIN_ACTION_REQUEST)));
 
     entityMap.put(
+        OWNER_ACTION_REQUEST, new Entity().setValue(buildMockOwnerSnapshot(OWNER_ACTION_REQUEST)));
+
+    entityMap.put(
         ACCEPTED_ACTION_REQUEST,
         new Entity().setValue(buildMockAcceptedSnapshot(ACCEPTED_ACTION_REQUEST)));
 
@@ -572,6 +618,11 @@ public class AcceptProposalsResolverTest {
     Mockito.when(
             mockEntityService.getEntities(
                 any(), Mockito.eq(ImmutableSet.of(DOMAIN_ACTION_REQUEST)), any(), eq(true)))
+        .thenReturn(entityMap);
+
+    Mockito.when(
+            mockEntityService.getEntities(
+                any(), Mockito.eq(ImmutableSet.of(OWNER_ACTION_REQUEST)), any(), eq(true)))
         .thenReturn(entityMap);
 
     Mockito.when(

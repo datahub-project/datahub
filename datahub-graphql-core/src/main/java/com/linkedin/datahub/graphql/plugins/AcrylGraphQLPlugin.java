@@ -99,6 +99,7 @@ import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNode
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagsResolver;
@@ -357,6 +358,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "proposeStructuredProperties",
                     new ProposeStructuredPropertiesResolver(actionRequestService))
                 .dataFetcher("proposeDomain", new ProposeDomainResolver(actionRequestService))
+                .dataFetcher("proposeOwners", new ProposeOwnersResolver(actionRequestService))
                 .dataFetcher(
                     "proposeCreateGlossaryTerm",
                     new ProposeCreateGlossaryTermResolver(actionRequestService))

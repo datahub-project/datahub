@@ -9,6 +9,7 @@ import static org.mockito.Mockito.reset;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -17,6 +18,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -24,6 +28,7 @@ import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.util.ServiceTestUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -80,10 +85,7 @@ public class OwnerServiceTest {
         new OwnerArray(
             ImmutableList.of(
                 new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE),
-                new Owner()
-                    .setOwner(newOwnerUrn)
-                    .setType(OwnershipType.NONE)
-                    .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))));
+                new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), OWNERSHIP_ASPECT_NAME);
@@ -91,6 +93,7 @@ public class OwnerServiceTest {
     Ownership ownerAspect1 =
         GenericRecordUtils.deserializeAspect(
             event1.getAspect().getValue(), event1.getAspect().getContentType(), Ownership.class);
+
     Assert.assertEquals(ownerAspect1.getOwners(), expected);
 
     MetadataChangeProposal event2 = events.get(1);
@@ -122,11 +125,7 @@ public class OwnerServiceTest {
 
     OwnerArray expectedOwners =
         new OwnerArray(
-            ImmutableList.of(
-                new Owner()
-                    .setOwner(newOwnerUrn)
-                    .setType(OwnershipType.NONE)
-                    .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))));
+            ImmutableList.of(new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), OWNERSHIP_ASPECT_NAME);
@@ -220,6 +219,81 @@ public class OwnerServiceTest {
         GenericRecordUtils.deserializeAspect(
             event2.getAspect().getValue(), event2.getAspect().getContentType(), Ownership.class);
     Assert.assertEquals(ownersAspect2.getOwners(), expected);
+  }
+
+  @Test
+  private void testGetEntityOwners() throws Exception {
+    final Ownership existingOwnership = new Ownership();
+    existingOwnership.setOwners(
+        new OwnerArray(
+            ImmutableList.of(
+                new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER),
+                new Owner().setOwner(TEST_OWNER_URN_2).setType(OwnershipType.DATA_STEWARD))));
+
+    final OwnerService service = createMockOwnersService(null);
+    final EntityResponse entityResponse = new EntityResponse();
+
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                OWNERSHIP_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(existingOwnership.data())))));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    final List<Owner> owners = service.getEntityOwners(opContext, TEST_ENTITY_URN_1);
+    Assert.assertEquals(
+        owners.get(0),
+        new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER));
+    Assert.assertEquals(
+        owners.get(1), new Owner().setOwner(TEST_OWNER_URN_2).setType(OwnershipType.DATA_STEWARD));
+  }
+
+  @Test
+  private void testGetEntityOwnersNullDomains() throws Exception {
+    final OwnerService service = createMockOwnersService(null);
+    final EntityResponse entityResponse = new EntityResponse();
+
+    entityResponse.setAspects(new EnvelopedAspectMap(Collections.emptyMap()));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    final List<Owner> owners = service.getEntityOwners(opContext, TEST_ENTITY_URN_1);
+    Assert.assertEquals(owners.size(), 0);
+  }
+
+  @Test(
+      expectedExceptions = RemoteInvocationException.class,
+      expectedExceptionsMessageRegExp = "Failed to connect to downstream service")
+  private void testGetEntityOwnersRemoteInvocationException() throws Exception {
+    final OwnerService service = createMockOwnersService(null);
+    final EntityResponse entityResponse = new EntityResponse();
+
+    entityResponse.setAspects(new EnvelopedAspectMap(Collections.emptyMap()));
+
+    Mockito.when(
+            service.entityClient.getV2(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ENTITY_URN_1.getEntityType()),
+                Mockito.eq(TEST_ENTITY_URN_1),
+                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+        .thenThrow(new RemoteInvocationException("Failed to connect to downstream service"));
+
+    service.getEntityOwners(opContext, TEST_ENTITY_URN_1);
+
+    // Throws expected exception - Decide whether the caller should handle this explicitly.
   }
 
   private static OwnerService createMockOwnersService(@Nullable Ownership existingOwnership)

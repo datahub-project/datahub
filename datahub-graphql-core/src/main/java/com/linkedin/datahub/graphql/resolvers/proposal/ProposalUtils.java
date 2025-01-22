@@ -5,6 +5,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GL
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
@@ -105,7 +106,7 @@ public class ProposalUtils {
       @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -126,7 +127,7 @@ public class ProposalUtils {
       @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -168,7 +169,7 @@ public class ProposalUtils {
       @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -186,7 +187,7 @@ public class ProposalUtils {
   }
 
   public static boolean isAuthorizedToProposeDomains(@Nonnull QueryContext context, Urn targetUrn) {
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -195,6 +196,21 @@ public class ProposalUtils {
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_DOMAINS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedToProposeOwners(@Nonnull QueryContext context, Urn targetUrn) {
+    // Decide whether the current principal should be allowed to update the asset.
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_OWNERS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -218,7 +234,10 @@ public class ProposalUtils {
       return isAuthorizedToAcceptStructuredPropertyProposals(context, targetUrn, subResource);
     }
     if (type.equals(ActionRequestType.DOMAIN_ASSOCIATION)) {
-      return isAuthorizedToAcceptDomainProposals(context, targetUrn, subResource);
+      return isAuthorizedToAcceptDomainProposals(context, targetUrn);
+    }
+    if (type.equals(ActionRequestType.OWNER_ASSOCIATION)) {
+      return isAuthorizedToAcceptOwnerProposals(context, targetUrn);
     }
     return false;
   }
@@ -227,7 +246,7 @@ public class ProposalUtils {
       @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -248,7 +267,7 @@ public class ProposalUtils {
       @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -271,7 +290,7 @@ public class ProposalUtils {
     boolean isGlossaryEntity =
         targetUrn.getEntityType().equals(GLOSSARY_TERM_ENTITY_NAME)
             || targetUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME);
-    // Decide whether the current principal should be allowed to update the Dataset.
+    // Decide whether the current principal should be allowed to update the asset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
 
@@ -333,14 +352,26 @@ public class ProposalUtils {
   }
 
   public static boolean isAuthorizedToAcceptDomainProposals(
-      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
-    boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+      @Nonnull QueryContext context, Urn targetUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedToAcceptOwnerProposals(
+      @Nonnull QueryContext context, Urn targetUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ENTITY_OWNERS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -1334,6 +1365,7 @@ public class ProposalUtils {
       case ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL:
       case ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
       case ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL:
+      case ACTION_REQUEST_TYPE_OWNER_PROPOSAL:
         return ProposalUtils.isAuthorizedToAcceptProposal(
             context,
             ActionRequestType.valueOf(actionRequestType),

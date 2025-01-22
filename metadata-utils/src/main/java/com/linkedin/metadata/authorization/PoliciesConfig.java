@@ -335,6 +335,12 @@ public class PoliciesConfig {
           "Manage Domain Proposals",
           "The ability to manage a proposal to add a domain to an asset.");
 
+  public static final Privilege MANAGE_ENTITY_OWNERS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_OWNERS",
+          "Manage Owner Proposals",
+          "The ability to manage a proposal to add owners for an asset.");
+
   public static final Privilege EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_GLOSSARY_TERMS",
@@ -475,6 +481,7 @@ public class PoliciesConfig {
           MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           MANAGE_ENTITY_PROPERTIES_PRIVILEGE,
           MANAGE_ENTITY_DOMAINS_PRIVILEGE,
+          MANAGE_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
