@@ -71,13 +71,13 @@ class Workspace:
     id: str
     name: str
     type: str  # This is used as a subtype of the Container entity.
-    dashboards: List["Dashboard"]
-    reports: List["Report"]
+    dashboards: Dict[str, "Dashboard"]
+    reports: Dict[str, "Report"]
     datasets: Dict[str, "PowerBIDataset"]
     report_endorsements: Dict[str, List[str]]
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
-    independent_datasets: List["PowerBIDataset"]
+    independent_datasets: Dict[str, "PowerBIDataset"]
     app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
