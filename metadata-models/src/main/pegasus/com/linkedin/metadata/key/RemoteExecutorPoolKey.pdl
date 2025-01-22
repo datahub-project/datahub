@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an DataHub Remote Executor Pool
+ */
+@Aspect = {
+  "name": "dataHubRemoteExecutorPoolKey"
+}
+record RemoteExecutorPoolKey {
+    /**
+     * The unique identifier for the remote executor pool
+     */
+    @Searchable = {
+      "fieldType": "KEYWORD"
+    }
+    name: string
+}

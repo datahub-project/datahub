@@ -1,0 +1,18 @@
+namespace com.linkedin.executorpool
+
+
+@Aspect = {
+  "name": "dataHubRemoteExecutorPoolInfo"
+}
+record RemoteExecutorPoolInfo {
+
+  /**
+   * UTC-based timestamp of when this pool was created
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  createdAt: long
+
+}

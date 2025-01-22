@@ -9,12 +9,12 @@ import com.linkedin.common.Urn
 record RemoteExecutorStatus {
 
   /**
-  * TODO: rename to pipeline id
+  * References the 'name' defined in RemoteExecutorPoolKey
   */
   @Searchable = {
     "fieldType": "KEYWORD"
   }
-  executorId: string
+  poolName: string
 
   /**
    *  Release Version (Tag) embedded into remote executor image
@@ -72,6 +72,6 @@ record RemoteExecutorStatus {
     "fieldType": "COUNT",
     "queryByDefault": false
   }
-  reportedAt: int
+  reportedAt: long
 
 }

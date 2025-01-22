@@ -17,5 +17,9 @@ enum PlatformResourceType {
     /**
       * e.g. Looker mapping of all user ids
       */
-    USER_ID_MAPPING
+    USER_ID_MAPPING,
+    /**
+      * Global singleton config for remote executor pools
+      */
+    REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG
 }
