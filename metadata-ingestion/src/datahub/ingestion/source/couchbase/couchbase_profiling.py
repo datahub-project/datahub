@@ -67,6 +67,18 @@ class CouchbaseProfiler:
         self.report = report
         self.client = client
 
+        if self.config.profiling.use_sampling:
+            self.sample_size = self.config.profiling.sample_size
+        else:
+            self.sample_size = 0
+
+        self.field_sample_count = self.config.profiling.field_sample_values_limit
+
+        if self.config.profiling.max_number_of_fields_to_profile:
+            self.sample_fields = self.config.profiling.max_number_of_fields_to_profile
+        else:
+            self.sample_fields = 0
+
         try:
             self.loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -95,7 +107,10 @@ class CouchbaseProfiler:
             platform_instance=self.config.cluster_name,
         )
 
-        if not self.config.profile_pattern.allowed(keyspace):
+        if (
+            not self.config.profile_pattern.allowed(keyspace)
+            and self.config.profiling.report_dropped_profiles
+        ):
             self.report.profiling_skipped_table_profile_pattern[keyspace] += 1
             logger.info(f"Profiling not allowed for Keyspace {keyspace}")
             return
@@ -193,8 +208,12 @@ class CouchbaseProfiler:
         self, keyspace: str, profile_data: ProfileData
     ) -> ProfileData:
         document_total_count: int = 0
+        dropped_fields = set()
+        dropped_nested_fields = set()
 
-        aggregator = CouchbaseAggregate(self.client, keyspace)
+        aggregator = CouchbaseAggregate(
+            self.client, keyspace, max_sample_size=self.sample_size
+        )
 
         async for chunk in aggregator.get_documents():
             for document in chunk:
@@ -204,7 +223,18 @@ class CouchbaseProfiler:
                 for _field, data in flatten([], document):
                     column_values[_field].append(data)
 
-                for field_name, values in column_values.items():
+                for n, (field_name, values) in enumerate(column_values.items()):
+                    if 0 < self.sample_fields <= n:
+                        dropped_fields.add(field_name)
+                        continue
+
+                    if (
+                        not self.config.profiling.profile_nested_fields
+                        and len(field_name.split(".")) > 1
+                    ):
+                        dropped_nested_fields.add(field_name)
+                        continue
+
                     if field_name not in profile_data.column_metrics:
                         profile_data.column_metrics[field_name] = ColumnMetric()
                         if not profile_data.column_count:
@@ -229,8 +259,23 @@ class CouchbaseProfiler:
                         else:
                             profile_data.column_metrics[field_name].values.append(value)
 
+        if len(dropped_fields) > 0:
+            if self.config.profiling.report_dropped_profiles:
+                self.report.report_dropped(
+                    f"The max_number_of_fields_to_profile={self.sample_fields} reached. Dropped fields for {keyspace} ({', '.join(sorted(dropped_fields))})"
+                )
+
+        if len(dropped_nested_fields) > 0:
+            if self.config.profiling.report_dropped_profiles:
+                self.report.report_dropped(
+                    f"Dropped nested fields for {keyspace} ({', '.join(sorted(dropped_nested_fields))})"
+                )
+
         profile_data.row_count = document_total_count
 
+        return self._add_field_statistics(profile_data)
+
+    def _add_field_statistics(self, profile_data: ProfileData) -> ProfileData:
         for field_name, column_metrics in profile_data.column_metrics.items():
             if column_metrics.values:
                 try:
@@ -277,7 +322,9 @@ class CouchbaseProfiler:
                 ]
 
         if values and self.config.profiling.include_field_sample_values:
-            column_metrics.sample_values = [str(v) for v in values[:5]]
+            column_metrics.sample_values = [
+                str(v) for v in values[: self.field_sample_count]
+            ]
 
     @staticmethod
     def _is_numeric_type(data_type: Union[str, None]) -> bool:

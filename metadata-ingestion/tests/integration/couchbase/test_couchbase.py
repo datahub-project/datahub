@@ -110,7 +110,10 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                         "username": "Administrator",
                         "password": "password",
                         "cluster_name": "testdb",
-                        "profiling": {"enabled": True},
+                        "profiling": {
+                            "enabled": True,
+                            "profile_nested_fields": True,
+                        },
                         "classification": ClassificationConfig(
                             enabled=True,
                             classifiers=[

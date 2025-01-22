@@ -13,10 +13,13 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationReportMixin,
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
@@ -47,6 +50,7 @@ class CouchbaseDBConfig(
     EnvConfigMixin,
     StatefulIngestionConfigBase,
     ClassificationSourceConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     connect_string: str = Field(
         default="couchbases://127.0.0.1", description="Couchbase connect string."
@@ -82,8 +86,8 @@ class CouchbaseDBConfig(
         description="Regex patterns for tables to profile",
     )
 
-    profiling: GEProfilingBaseConfig = Field(
-        default=GEProfilingBaseConfig(),
+    profiling: GEProfilingConfig = Field(
+        default=GEProfilingConfig(),
         description="Configuration for profiling",
     )
 

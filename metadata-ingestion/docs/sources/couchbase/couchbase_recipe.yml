@@ -11,6 +11,7 @@ source:
         - type: datahub
     profiling:
       enabled: true
+      profile_nested_fields: true
 
 sink:
   # sink configs
