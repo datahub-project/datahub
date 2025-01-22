@@ -29,6 +29,13 @@ TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
 TASK_ON_RETRY_CALLBACK = "on_retry_callback"
 
 
+def load_config_v22():
+    plugin_config = get_lineage_config()
+    # On the old pluigin we don't support multiple conn_ids, so we just get the first one
+    plugin_config.datahub_conn_id = plugin_config.datahub_conn_id.split()[0].strip()
+    return plugin_config
+
+
 def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
     # TODO: Fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
     # in Airflow 2.4.
@@ -217,7 +224,7 @@ def datahub_pre_execution(context):
 
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             datahub_pre_execution(context)
@@ -231,7 +238,7 @@ def _wrap_pre_execution(pre_execution):
 
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -251,7 +258,7 @@ def _wrap_on_failure_callback(on_failure_callback):
 
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -271,7 +278,8 @@ def _wrap_on_success_callback(on_success_callback):
 
 def _wrap_on_retry_callback(on_retry_callback):
     def custom_on_retry_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
+
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -363,7 +371,7 @@ def _patch_datahub_policy():
 
     _patch_policy(settings)
 
-    plugin_config = get_lineage_config()
+    plugin_config = load_config_v22()
     # On the old pluigin we don't support multiple conn_ids, so we just get the first one
     plugin_config.datahub_conn_id = plugin_config.datahub_conn_id.split()[0].strip()
     telemetry.telemetry_instance.ping(
