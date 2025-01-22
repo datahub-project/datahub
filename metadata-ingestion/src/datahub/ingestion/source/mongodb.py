@@ -231,11 +231,11 @@ def construct_schema_pymongo(
         # get sample documents in collection
         if sample_size:
             aggregations.append({"$sample": {"size": sample_size}})
-        documents = collection.aggregate(aggregations, allowDiskUse=True)
     else:
         if sample_size:
             aggregations.append({"$limit": sample_size})
-        documents = collection.aggregate(aggregations, allowDiskUse=True)
+
+    documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 
