@@ -36,7 +36,10 @@ describe("edit documentation and link to dataset", () => {
     cy.openEntityTab("Documentation");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click().wait(1000);
-    cy.get('button').contains('span', 'OK').should('be.visible').click({ force: true });
+    cy.get("button")
+      .contains("span", "OK")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Link Removed");
     cy.clickOptionWithTestId("add-link-button").wait(1000);
     cy.enterTextInTestId("add-link-modal-url", wrong_url);
@@ -71,7 +74,10 @@ describe("edit documentation and link to dataset", () => {
     cy.get(`[href='${correct_url}']`).should("be.visible");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
     cy.get('[data-icon="delete"]').click().wait(1000);
-    cy.get('button').contains('span', 'OK').should('be.visible').click({ force: true });
+    cy.get("button")
+      .contains("span", "OK")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Link Removed");
   });
 
