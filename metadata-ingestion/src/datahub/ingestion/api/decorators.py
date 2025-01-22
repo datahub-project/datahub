@@ -25,6 +25,8 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
             # add the create method only if it has not been overridden from the base Source.create method
             cls.create = classmethod(default_create)
 
+            # TODO: Once we're on Python 3.10, we should call abc.update_abstractmethods here.
+
         return cls
 
     return wrapper
