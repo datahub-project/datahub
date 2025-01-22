@@ -596,6 +596,22 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:a42a5b1bee156e45972e12d4156fb7a2",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a42a5b1bee156e45972e12d4156fb7a2",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
         "json": {
@@ -1051,6 +1067,22 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:fc6268f0be68fd04c310705b65efd6fe",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fc6268f0be68fd04c310705b65efd6fe",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
         "json": {
@@ -1367,6 +1399,22 @@
         "json": {
             "parentTemplate": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
             "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:57aa623f096cf3a28af70fe94b713907",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -1891,6 +1939,22 @@
         "json": {
             "parentTemplate": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
             "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:36225e795a4597b2376996774a803b0d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
