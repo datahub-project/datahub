@@ -64,7 +64,6 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
-    num_stream_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)

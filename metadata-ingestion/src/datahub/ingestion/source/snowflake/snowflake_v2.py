@@ -552,12 +552,12 @@ class SnowflakeV2Source(
                     graph=self.ctx.graph,
                 )
 
-            # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-            # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-            # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
-            queries_extractor.close()
+                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
+                queries_extractor.close()
 
         else:
             if self.lineage_extractor:

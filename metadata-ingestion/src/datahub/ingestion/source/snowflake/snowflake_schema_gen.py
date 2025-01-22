@@ -477,7 +477,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def _process_tables(
         self,
-        tables: list,
+        tables: List[SnowflakeTable],
         snowflake_schema: SnowflakeSchema,
         db_name: str,
         schema_name: str,
@@ -497,7 +497,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def _process_views(
         self,
-        views: list,
+        views: List[SnowflakeView],
         snowflake_schema: SnowflakeSchema,
         db_name: str,
         schema_name: str,
@@ -1311,8 +1311,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 self.report.report_entity_scanned(stream_identifier, "stream")
 
-                if not self.filters.filter_config.table_pattern.allowed(
-                    stream_identifier
+                if not self.filters.is_dataset_pattern_allowed(
+                    stream_identifier, SnowflakeObjectDomain.STREAM
                 ):
                     self.report.report_dropped(stream_identifier)
                 else:
@@ -1441,6 +1441,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         Populate Streams upstream tables excluding the metadata columns
         """
+        self.report.num_streams_with_known_upstreams += 1
         if self.aggregator:
             source_parts = split_qualified_name(stream.table_name)
             source_db, source_schema, source_name = source_parts

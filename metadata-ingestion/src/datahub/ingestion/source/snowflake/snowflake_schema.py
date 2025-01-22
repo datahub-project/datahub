@@ -137,7 +137,6 @@ class SnowflakeStream:
     name: str
     created: datetime
     owner: str
-    comment: str
     source_type: str
     type: str
     stale: str
@@ -147,6 +146,7 @@ class SnowflakeStream:
     database_name: str
     schema_name: str
     table_name: str
+    comment: Optional[str]
     columns: List[SnowflakeColumn] = field(default_factory=list)
     stale_after: Optional[datetime] = None
     base_tables: Optional[str] = None
@@ -448,7 +448,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}"
                 )
             query = SnowflakeQuery.columns_for_schema(
-                schema_name, db_name, object_batch
+                schema_name,
+                db_name,
+                object_batch,
             )
 
             cur = self.connection.query(query)
@@ -674,7 +676,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if result_set_size >= page_limit:
                 # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
-                    f"Fetching next page of views for {db_name} - after {stream_name}"
+                    f"Fetching next page of streams for {db_name} - after {stream_name}"
                 )
                 stream_pagination_marker = stream_name
 

@@ -406,7 +406,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
         )
 
-        # Check if any of the accessed objects are streams
+        # Use direct_objects_accessed instead objects_modified
+        # objects_modified returns $SYS_VIEW_X with no mapping
         has_stream_objects = any(
             obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
         )
