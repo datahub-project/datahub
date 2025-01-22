@@ -2091,7 +2091,7 @@ class TableauSiteSource:
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],
             )
-            logger.debug(f"Processing custom sql = {csql}")
+            logger.info(f"Processing custom sql {csql_id} = {csql}")
 
             datasource_name = None
             project = None
@@ -2154,7 +2154,7 @@ class TableauSiteSource:
                 # less accurate. This option allows us to ignore Tableau's parser and
                 # only use our own.
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
-                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
+                    logger.info("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql, columns
                     )
@@ -2457,7 +2457,7 @@ class TableauSiteSource:
             return None
         query = self._clean_tableau_query_parameters(query)
 
-        logger.debug(f"Parsing sql={query}")
+        logger.info(f"Parsing sql={query}")
 
         upstream_db = database_info.get(c.NAME)
 
@@ -2473,7 +2473,7 @@ class TableauSiteSource:
                 self.database_server_hostname_map,
             )
 
-        logger.debug(
+        logger.info(
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
@@ -2533,6 +2533,9 @@ class TableauSiteSource:
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
+        )
+        logger.info(
+            f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
         )
 
         if parsed_result is None:
