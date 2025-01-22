@@ -108,10 +108,21 @@ class PowerBiReportServerAPIConfig(EnvConfigMixin):
 
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
-    platform_name: str = "powerbi"
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
-    report_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    platform_name: str = pydantic.Field(
+        default=Constant.PLATFORM_NAME, hidden_from_docs=True
+    )
+    platform_urn: str = pydantic.Field(
+        default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
+        hidden_from_docs=True,
+    )
+    report_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI Reports in ingestion.",
+    )
+    chart_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI Charts in ingestion.",
+    )
 
 
 def log_http_error(e: BaseException, message: str) -> Any:
