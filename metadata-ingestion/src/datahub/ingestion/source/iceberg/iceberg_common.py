@@ -85,6 +85,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
+    def __init__(self):
+        self.profiling_enabled = self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @validator("catalog", pre=True, always=True)
     def handle_deprecated_catalog_format(cls, value):
@@ -126,9 +130,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         return value
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
-        )
+        return self.profiling_enabled
 
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
