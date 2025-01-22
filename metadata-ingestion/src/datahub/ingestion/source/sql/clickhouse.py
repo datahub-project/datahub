@@ -3,7 +3,7 @@ import textwrap
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
@@ -12,7 +12,7 @@ from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import Engine, Inspector, reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
@@ -58,8 +58,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 assert clickhouse_driver
 
@@ -359,6 +357,7 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     ]
 
 
+# Gets all view definitions in a single query for efficiency rather than querying them individually.
 @reflection.cache  # type: ignore
 def _get_view_definitions(self, connection, schema=None, **kw):
     """Gets the view/materialized view definitions for all views in system.tables"""
@@ -460,172 +459,258 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         self.config = config
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
-        self.sql_parsing_aggregator = SqlParsingAggregator(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            schema_resolver=SchemaResolver(
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            ),
-            generate_lineage=True,
-            generate_queries=False,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            generate_query_subject_fields=False,
-            generate_query_usage_statistics=False,
-        )
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = ClickHouseConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        """
-        Generates workunit events from ClickHouse metadata.
-        Adds viewProperties aspects for views and registers schemas and lineage with SQL parsing aggregator.
-        """
-        for wu in super().get_workunits_internal():
-            if (
-                isinstance(wu, SqlWorkUnit)
-                and isinstance(wu.metadata, MetadataChangeEvent)
-                and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshotClass)
-            ):
-                dataset_snapshot: DatasetSnapshotClass = wu.metadata.proposedSnapshot
-                assert dataset_snapshot
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        for wu in super().get_schema_level_workunits(inspector, schema, database):
+            if not self._is_eligible_workunit(wu):
+                yield wu
+                continue
 
-                # Register schema with SQL parsing aggregator
-                if dataset_snapshot.aspects:
-                    for aspect in dataset_snapshot.aspects:
-                        if isinstance(aspect, SchemaMetadataClass):
-                            self.sql_parsing_aggregator.register_schema(
-                                urn=dataset_snapshot.urn,
-                                schema=aspect,
-                            )
+            # Cast to SqlWorkUnit since we've verified the type
+            sql_wu = cast(SqlWorkUnit, wu)
+            dataset_snapshot = self._get_dataset_snapshot(sql_wu)
+            if not dataset_snapshot:
+                yield wu
+                continue
 
-                # Get database name and table info from URN
-                dataset_key = dataset_urn_to_key(dataset_snapshot.urn)
-                if dataset_key is None:
-                    continue
+            # Register schema with SQL parsing aggregator
+            self._register_schema(dataset_snapshot)
 
-                name_parts = dataset_key.name.split(".")
-                db_name = name_parts[0]
-                table_name = name_parts[-1]
-                schema_name = (
-                    ".".join(name_parts[1:-1]) if len(name_parts) > 2 else None
+            # Get database name and table info from URN
+            dataset_info = self._extract_dataset_info(dataset_snapshot.urn)
+            if not dataset_info:
+                yield wu
+                continue
+
+            db_name, table_name, schema_name = dataset_info
+
+            # Process view properties and lineage
+            dataset_snapshot = self._process_view_properties(
+                dataset_snapshot, db_name, table_name, schema_name
+            )
+
+            # Handle lineage if configured
+            if self.config.include_table_lineage:
+                lineage_mcp, lineage_properties = self._process_lineage(
+                    dataset_snapshot.urn
                 )
-
-                # Get inspector for current database
-                url = self.config.get_sql_alchemy_url(db_name)
-                engine = create_engine(url, **self.config.options)
-                inspector = inspect(engine)
-
-                # Handle view definitions and properties
-                try:
-                    view_names = inspector.get_view_names(schema=schema_name)
-                    materialized_views_query = textwrap.dedent(
-                        """\
-                        SELECT name
-                        FROM system.tables
-                        WHERE engine = 'MaterializedView'
-                        AND database = :database
-                        """
-                    )
-                    materialized_views = [
-                        row[0]
-                        for row in engine.execute(
-                            text(materialized_views_query),
-                            {"database": schema_name or db_name},
-                        )
-                    ]
-
-                    is_view = table_name in view_names
-                    is_materialized_view = table_name in materialized_views
-
-                    if is_view or is_materialized_view:
-                        view_definition = inspector.get_view_definition(
-                            (schema_name, table_name) if schema_name else table_name
-                        )
-
-                        if view_definition:
-                            if dataset_snapshot.aspects is None:
-                                dataset_snapshot.aspects = []
-
-                            view_properties = ViewPropertiesClass(
-                                materialized=is_materialized_view,
-                                viewLanguage="SQL",
-                                viewLogic=view_definition,
-                            )
-                            dataset_snapshot.aspects.append(view_properties)
-
-                            # Register with SQL parsing aggregator
-                            self.sql_parsing_aggregator.add_view_definition(
-                                view_urn=dataset_snapshot.urn,
-                                view_definition=view_definition,
-                                default_db=db_name,
-                                default_schema=schema_name,
-                            )
-                            self.report.report_entity_scanned(
-                                "materialized view" if is_materialized_view else "view",
-                                f"{schema_name}.{table_name}"
-                                if schema_name
-                                else table_name,
-                            )
-
-                except Exception as e:
-                    self.report.report_failure(
-                        "view",
-                        f"{schema_name}.{table_name}" if schema_name else table_name,
-                        f"Failed to get view definition: {e}",
+                if lineage_mcp:
+                    yield lineage_mcp.as_workunit()
+                if lineage_properties:
+                    dataset_snapshot = self._update_dataset_properties(
+                        dataset_snapshot, lineage_properties
                     )
 
-                # Handle lineage if configured
-                if self.config.include_table_lineage:
-                    lineage_mcp, lineage_properties_aspect = self.get_lineage_mcp(
-                        dataset_snapshot.urn
-                    )
-
-                    if lineage_mcp is not None:
-                        yield lineage_mcp.as_workunit()
-
-                    if lineage_properties_aspect:
-                        aspects = dataset_snapshot.aspects
-                        if aspects is None:
-                            aspects = []
-
-                        dataset_properties_aspect: Optional[DatasetPropertiesClass] = (
-                            None
-                        )
-
-                        for aspect in aspects:
-                            if isinstance(aspect, DatasetPropertiesClass):
-                                dataset_properties_aspect = aspect
-
-                        if dataset_properties_aspect is None:
-                            dataset_properties_aspect = DatasetPropertiesClass()
-                            aspects.append(dataset_properties_aspect)
-
-                        custom_properties = (
-                            {
-                                **dataset_properties_aspect.customProperties,
-                                **lineage_properties_aspect.customProperties,
-                            }
-                            if dataset_properties_aspect.customProperties
-                            else lineage_properties_aspect.customProperties
-                        )
-                        dataset_properties_aspect.customProperties = custom_properties
-                        dataset_snapshot.aspects = aspects
-
-            # Emit the work unit from super
             yield wu
 
         # Generate workunit for aggregated SQL parsing results
-        for mcp in self.sql_parsing_aggregator.gen_metadata():
+        for mcp in self.aggregator.gen_metadata():
             wu = mcp.as_workunit()
             self.report.report_workunit(wu)
             yield wu
+
+    def _is_eligible_workunit(self, wu: Union[MetadataWorkUnit, SqlWorkUnit]) -> bool:
+        """Check if workunit is eligible for processing."""
+        if not isinstance(wu, SqlWorkUnit):
+            return False
+        return isinstance(wu.metadata, MetadataChangeEvent) and isinstance(
+            wu.metadata.proposedSnapshot, DatasetSnapshotClass
+        )
+
+    def _get_dataset_snapshot(self, wu: SqlWorkUnit) -> Optional[DatasetSnapshotClass]:
+        """Extract dataset snapshot from workunit."""
+        if not isinstance(wu.metadata, MetadataChangeEvent):
+            return None
+        if not isinstance(wu.metadata.proposedSnapshot, DatasetSnapshotClass):
+            return None
+        return wu.metadata.proposedSnapshot
+
+    def _register_schema(self, dataset_snapshot: DatasetSnapshotClass) -> None:
+        """Register schema with SQL parsing aggregator."""
+        if dataset_snapshot.aspects:
+            for aspect in dataset_snapshot.aspects:
+                if isinstance(aspect, SchemaMetadataClass):
+                    self.aggregator.register_schema(
+                        urn=dataset_snapshot.urn,
+                        schema=aspect,
+                    )
+
+    def _extract_dataset_info(
+        self, dataset_urn: str
+    ) -> Optional[Tuple[str, str, Optional[str]]]:
+        """Extract database name, table name and schema name from dataset URN."""
+        dataset_key = dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            return None
+
+        name_parts = dataset_key.name.split(".")
+        db_name = name_parts[0]
+        table_name = name_parts[-1]
+        schema_name = ".".join(name_parts[1:-1]) if len(name_parts) > 2 else None
+
+        return db_name, table_name, schema_name
+
+    def _process_view_properties(
+        self,
+        dataset_snapshot: DatasetSnapshotClass,
+        db_name: str,
+        table_name: str,
+        schema_name: Optional[str],
+    ) -> DatasetSnapshotClass:
+        """Process view properties and update dataset snapshot."""
+        try:
+            url = self.config.get_sql_alchemy_url(db_name)
+            engine = create_engine(url, **self.config.options)
+            inspector = inspect(engine)
+
+            view_info = self._get_view_info(
+                inspector, schema_name, table_name, engine, db_name
+            )
+            if view_info:
+                is_view, is_materialized_view, view_definition = view_info
+
+                if view_definition:
+                    dataset_snapshot = self._add_view_properties(
+                        dataset_snapshot,
+                        view_definition,
+                        is_materialized_view,
+                        db_name,
+                        schema_name,
+                        table_name,
+                    )
+
+        except Exception as e:
+            self.report.report_failure(
+                message="Failed to get view definition",
+                context=f"{schema_name}.{table_name}" if schema_name else table_name,
+                exc=e,
+            )
+
+        return dataset_snapshot
+
+    def _get_view_info(
+        self,
+        inspector: Inspector,
+        schema_name: Optional[str],
+        table_name: str,
+        engine: Engine,
+        db_name: str,
+    ) -> Optional[Tuple[bool, bool, Optional[str]]]:
+        """Get view information including type and definition."""
+        view_names = inspector.get_view_names(schema=schema_name)
+
+        materialized_views_query = textwrap.dedent(
+            """\
+            SELECT name
+            FROM system.tables
+            WHERE engine = 'MaterializedView'
+            AND database = :database
+            """
+        )
+        materialized_views = [
+            row[0]
+            for row in engine.execute(
+                text(materialized_views_query),
+                {"database": schema_name or db_name},
+            )
+        ]
+
+        is_view = table_name in view_names
+        is_materialized_view = table_name in materialized_views
+
+        if not (is_view or is_materialized_view):
+            return None
+
+        view_definition = inspector.get_view_definition(
+            table_name if not schema_name else f"{schema_name}.{table_name}"
+        )
+
+        return is_view, is_materialized_view, view_definition
+
+    def _add_view_properties(
+        self,
+        dataset_snapshot: DatasetSnapshotClass,
+        view_definition: str,
+        is_materialized_view: bool,
+        db_name: str,
+        schema_name: Optional[str],
+        table_name: str,
+    ) -> DatasetSnapshotClass:
+        """Add view properties to dataset snapshot."""
+        if dataset_snapshot.aspects is None:
+            dataset_snapshot.aspects = []
+
+        view_properties = ViewPropertiesClass(
+            materialized=is_materialized_view,
+            viewLanguage="SQL",
+            viewLogic=view_definition,
+        )
+        dataset_snapshot.aspects.append(view_properties)
+
+        # Register with SQL parsing aggregator
+        self.aggregator.add_view_definition(
+            view_urn=dataset_snapshot.urn,
+            view_definition=view_definition,
+            default_db=db_name,
+            default_schema=schema_name,
+        )
+
+        self.report.report_entity_scanned(
+            "materialized view" if is_materialized_view else "view",
+            f"{schema_name}.{table_name}" if schema_name else table_name,
+        )
+
+        return dataset_snapshot
+
+    def _update_dataset_properties(
+        self,
+        dataset_snapshot: DatasetSnapshotClass,
+        lineage_properties: DatasetPropertiesClass,
+    ) -> DatasetSnapshotClass:
+        """Update dataset properties with lineage information."""
+        aspects = dataset_snapshot.aspects or []
+        dataset_properties = next(
+            (
+                aspect
+                for aspect in aspects
+                if isinstance(aspect, DatasetPropertiesClass)
+            ),
+            DatasetPropertiesClass(),
+        )
+
+        custom_properties = {
+            **(dataset_properties.customProperties or {}),
+            **lineage_properties.customProperties,
+        }
+
+        dataset_properties.customProperties = custom_properties
+
+        if dataset_properties not in aspects:
+            aspects.append(dataset_properties)
+
+        dataset_snapshot.aspects = aspects
+        return dataset_snapshot
+
+    def _process_lineage(
+        self, dataset_urn: str
+    ) -> Tuple[
+        Optional[MetadataChangeProposalWrapper], Optional[DatasetPropertiesClass]
+    ]:
+        """
+        Process lineage for a given dataset and return both the lineage MCP and properties.
+        Directly calls the existing get_lineage_mcp method.
+        """
+        return self.get_lineage_mcp(dataset_urn)
 
     def _get_all_tables(self) -> Set[str]:
         all_tables_query: str = textwrap.dedent(
@@ -856,7 +941,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 upstream_lineage.append(upstream_table)
 
                 # Register lineage with SQL parsing aggregator
-                self.sql_parsing_aggregator.add_known_lineage_mapping(
+                self.aggregator.add_known_lineage_mapping(
                     upstream_urn=upstream_table.dataset,
                     downstream_urn=dataset_urn,
                     lineage_type=item.dataset_lineage_type,

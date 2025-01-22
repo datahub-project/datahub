@@ -1,9 +1,14 @@
-import json
 from typing import List
 
 import pytest
 from freezegun import freeze_time
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.file import read_metadata_file
+from datahub.metadata._schema_classes import (
+    SubTypesClass,
+    ViewPropertiesClass,
+)
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -73,62 +78,46 @@ def test_clickhouse_ingest_uri_form(
 
 
 def test_view_properties_aspect_present(pytestconfig):
-    """
-    Verify that view definitions include the ViewProperties aspect with correct attributes.
-    """
+    """Verify that view definitions include the ViewProperties aspect with correct attributes."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     golden_file = test_resources_dir / "clickhouse_mces_golden.json"
 
-    with golden_file.open() as f:
-        mces = json.load(f)
+    mces = read_metadata_file(golden_file)
 
-    # Find all dataset entities that have View as a subType
-    view_urns = []
+    urn_to_aspects = {}
     for mce in mces:
-        if (
-            "entityType" in mce
-            and mce["entityType"] == "dataset"
-            and "aspectName" in mce
-            and mce["aspectName"] == "subTypes"
-        ):
-            if "View" in mce["aspect"]["json"]["typeNames"]:
-                view_urns.append(mce["entityUrn"])
+        if isinstance(mce, MetadataChangeProposalWrapper):
+            urn_to_aspects.setdefault(mce.entityUrn, []).append(mce.aspect)
 
-    assert len(view_urns) > 0, "No views found in golden file"
+    view_urns = [
+        urn
+        for urn, aspects in urn_to_aspects.items()
+        if any(
+            isinstance(aspect, SubTypesClass) and "View" in aspect.typeNames
+            for aspect in aspects
+        )
+    ]
 
-    # For each view, verify it has ViewProperties aspect
+    assert view_urns, "No views found in the golden file"
+
     for view_urn in view_urns:
-        found_view_properties = False
-        for mce in mces:
-            if (
-                "entityType" in mce
-                and mce["entityType"] == "dataset"
-                and "entityUrn" in mce
-                and mce["entityUrn"] == view_urn
-                and "aspectName" in mce
-                and mce["aspectName"] == "viewProperties"
-            ):
-                found_view_properties = True
-                view_props = mce["aspect"]["json"]
+        view_properties = next(
+            (
+                aspect
+                for aspect in urn_to_aspects[view_urn]
+                if isinstance(aspect, ViewPropertiesClass)
+            ),
+            None,
+        )
+        assert view_properties, f"ViewProperties aspect missing for view {view_urn}"
 
-                # Check required fields
-                assert "viewLogic" in view_props, (
-                    "viewLogic missing from ViewProperties"
-                )
-                assert "viewLanguage" in view_props, (
-                    "viewLanguage missing from ViewProperties"
-                )
-                assert "materialized" in view_props, (
-                    "materialized flag missing from ViewProperties"
-                )
-
-                # Check values
-                assert view_props["viewLanguage"] == "SQL", "viewLanguage should be SQL"
-                assert isinstance(view_props["materialized"], bool), (
-                    "materialized should be boolean"
-                )
-                assert view_props["viewLogic"], "viewLogic should not be empty"
-
-        assert found_view_properties, (
-            f"ViewProperties aspect missing for view {view_urn}"
+        # Validate ViewProperties attributes
+        assert view_properties.viewLogic is not None, (
+            f"viewLogic should not be empty for {view_urn}"
+        )
+        assert view_properties.viewLanguage == "SQL", (
+            f"viewLanguage should be SQL for {view_urn}"
+        )
+        assert isinstance(view_properties.materialized, bool), (
+            f"materialized should be boolean for {view_urn}"
         )
