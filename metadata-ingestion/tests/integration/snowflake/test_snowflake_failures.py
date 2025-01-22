@@ -273,7 +273,7 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
 
-        # Error in getting access history date range
+        # Empty secure view definitions
         sf_cursor.execute.side_effect = query_permission_response_override(
             default_query_results,
             [snowflake_query.SnowflakeQuery.get_secure_view_definitions()],
@@ -300,7 +300,7 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
 
-        # Error in getting access history date range
+        # Error in getting secure view definitions
         sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
             [snowflake_query.SnowflakeQuery.get_secure_view_definitions()],
