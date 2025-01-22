@@ -364,6 +364,8 @@ def _patch_datahub_policy():
     _patch_policy(settings)
 
     plugin_config = get_lineage_config()
+    # On the old pluigin we don't support multiple conn_ids, so we just get the first one
+    plugin_config.datahub_conn_id = plugin_config.datahub_conn_id.split()[0].strip()
     telemetry.telemetry_instance.ping(
         "airflow-plugin-init",
         {
