@@ -51,7 +51,6 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MapTypeClass,
     NumberTypeClass,
-    SchemaMetadataClass,
     StringTypeClass,
     UnionTypeClass,
     UpstreamClass,
@@ -483,9 +482,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 yield wu
                 continue
 
-            # Register schema with SQL parsing aggregator
-            self._register_schema(dataset_snapshot)
-
             # Get database name and table info from URN
             dataset_info = self._extract_dataset_info(dataset_snapshot.urn)
             if not dataset_info:
@@ -534,16 +530,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         if not isinstance(wu.metadata.proposedSnapshot, DatasetSnapshotClass):
             return None
         return wu.metadata.proposedSnapshot
-
-    def _register_schema(self, dataset_snapshot: DatasetSnapshotClass) -> None:
-        """Register schema with SQL parsing aggregator."""
-        if dataset_snapshot.aspects:
-            for aspect in dataset_snapshot.aspects:
-                if isinstance(aspect, SchemaMetadataClass):
-                    self.aggregator.register_schema(
-                        urn=dataset_snapshot.urn,
-                        schema=aspect,
-                    )
 
     def _extract_dataset_info(
         self, dataset_urn: str
