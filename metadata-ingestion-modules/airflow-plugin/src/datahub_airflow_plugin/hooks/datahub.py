@@ -1,4 +1,14 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
@@ -303,3 +313,67 @@ class DatahubGenericHook(BaseHook):
 
     # Retained for backwards compatibility.
     emit_mces = emit
+
+
+class CompositeEmitter(Emitter):
+    def __init__(self, emitters: Sequence[Emitter]) -> None:
+        self.emitters = emitters
+
+    def emit(
+        self,
+        item: Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ],
+        # NOTE: This signature should have the exception be optional rather than
+        #      required. However, this would be a breaking change that may need
+        #      more careful consideration.
+        callback: Optional[Callable[[Exception, str], None]] = None,
+    ) -> None:
+        for emitter in self.emitters:
+            emitter.emit(item, callback)
+
+    def flush(self) -> None:
+        for emitter in self.emitters:
+            emitter.flush()
+
+
+class CompositeHook(BaseHook):
+    """
+    A hook that can emit metadata to multiple DataHub instances.
+
+    :param datahub_conn_ids: References to the DataHub connections.
+    :type datahub_conn_ids: List[str]
+    """
+
+    hooks: List[DatahubGenericHook] = []
+
+    def __init__(self, datahub_conn_ids: Sequence[str]) -> None:
+        self.datahub_conn_ids = datahub_conn_ids
+
+    def make_emitter(self) -> CompositeEmitter:
+        return CompositeEmitter(
+            [
+                self.get_underlying_hook(conn_id).make_emitter()
+                for conn_id in self.datahub_conn_ids
+            ]
+        )
+
+    def emit(
+        self,
+        items: Sequence[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+    ) -> None:
+        emitter = self.make_emitter()
+
+        for item in items:
+            emitter.emit(item)
+
+    def get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:
+        return DatahubGenericHook(conn_id)

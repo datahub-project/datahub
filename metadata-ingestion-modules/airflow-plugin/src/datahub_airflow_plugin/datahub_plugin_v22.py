@@ -15,7 +15,7 @@ from datahub_airflow_plugin._airflow_shims import (
     get_task_inlets,
     get_task_outlets,
 )
-from datahub_airflow_plugin._config import get_lineage_configs
+from datahub_airflow_plugin._config import get_lineage_config
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
@@ -217,8 +217,7 @@ def datahub_pre_execution(context):
 
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
-        # in the old plugin we only support one emitter
-        config = get_lineage_configs()[0]
+        config = get_lineage_config()
         if config.enabled:
             context["_datahub_config"] = config
             datahub_pre_execution(context)
@@ -232,7 +231,7 @@ def _wrap_pre_execution(pre_execution):
 
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
-        config = get_lineage_configs()[0]
+        config = get_lineage_config()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -252,7 +251,7 @@ def _wrap_on_failure_callback(on_failure_callback):
 
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
-        config = get_lineage_configs()[0]
+        config = get_lineage_config()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -272,7 +271,7 @@ def _wrap_on_success_callback(on_success_callback):
 
 def _wrap_on_retry_callback(on_retry_callback):
     def custom_on_retry_callback(context):
-        config = get_lineage_configs()[0]
+        config = get_lineage_config()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -364,7 +363,7 @@ def _patch_datahub_policy():
 
     _patch_policy(settings)
 
-    plugin_config = get_lineage_configs()[0]
+    plugin_config = get_lineage_config()
     telemetry.telemetry_instance.ping(
         "airflow-plugin-init",
         {
