@@ -3,7 +3,6 @@ from typing import List
 
 import pytest
 
-from datahub.configuration.common import OperationalError
 from datahub.emitter.mce_builder import make_dashboard_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -13,8 +12,8 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass,
 )
+from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
-from tests.utils import delete_urns
 
 generated_urns: List[str] = []
 
@@ -22,7 +21,6 @@ generated_urns: List[str] = []
 @pytest.fixture(scope="module")
 def ingest_cleanup_data(auth_session, graph_client, request):
     yield
-    delete_urns(graph_client, generated_urns)
 
 
 def _create_valid_dashboard_mcps() -> List[MetadataChangeProposalClass]:
@@ -89,22 +87,45 @@ def test_restli_batch_ingestion_sync(graph_client):
     assert ret >= 0
 
     # Negative Test (contains invalid MetadataChangeProposal)
-    mcps.append(_create_invalid_dashboard_mcp())
-    with pytest.raises(OperationalError) as err:
-        graph_client.emit_mcps(mcps, async_flag=False)
+    invalid_mcp = _create_invalid_dashboard_mcp()
+    mcps.append(invalid_mcp)
+    ret = graph_client.emit_mcps(mcps, async_flag=False)
+    assert ret >= 0
 
-    assert err.type == OperationalError
-    assert "notValidField" in err.value.message
+    # Expected that invalid field of MetadataChangeProposal is ignored,
+    # Rest Fields are persistd into DB
+    aspect = graph_client.get_aspect(
+        entity_urn=invalid_mcp.entityUrn, aspect_type=DashboardInfoClass
+    )
+
+    assert aspect is not None
+    assert isinstance(aspect, DashboardInfoClass)
+    assert aspect.title == "Dummy Title For Testing"
+    assert aspect.description == "Dummy Description For Testing"
+    assert aspect.lastModified is not None
 
 
 def test_restli_batch_ingestion_async(graph_client):
-    # Positive Test (all valid MetadataChangeProposals)
+    # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()
     ret = graph_client.emit_mcps(mcps, async_flag=True)
     assert ret >= 0
 
     # Negative Test (contains invalid MetadataChangeProposal)
-    # TODO: need to fix async mode? expected not to throw exception but it throws
-    mcps.append(_create_invalid_dashboard_mcp())
+    invalid_mcp = _create_invalid_dashboard_mcp()
+    mcps.append(invalid_mcp)
     ret = graph_client.emit_mcps(mcps, async_flag=True)
     assert ret >= 0
+
+    # Expected that invalid field of MetadataChangeProposal is ignored,
+    # Rest Fields are persistd into DB
+    wait_for_writes_to_sync()
+    aspect = graph_client.get_aspect(
+        entity_urn=invalid_mcp.entityUrn, aspect_type=DashboardInfoClass
+    )
+
+    assert aspect is not None
+    assert isinstance(aspect, DashboardInfoClass)
+    assert aspect.title == "Dummy Title For Testing"
+    assert aspect.description == "Dummy Description For Testing"
+    assert aspect.lastModified is not None
