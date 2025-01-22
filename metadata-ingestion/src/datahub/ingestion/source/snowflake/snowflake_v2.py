@@ -182,6 +182,9 @@ class SnowflakeV2Source(
                 generate_usage_statistics=False,
                 generate_operations=False,
                 format_queries=self.config.format_sql_queries,
+                is_temp_table=(
+                    lambda x: "swap" in x.lower() or "incremental" in x.lower()
+                ),
             )
         )
         self.report.sql_aggregator = self.aggregator.report
