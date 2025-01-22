@@ -71,9 +71,18 @@ def test_urn_coercion() -> None:
 def test_urns_in_init() -> None:
     platform = DataPlatformUrn("abc")
     assert platform.urn() == "urn:li:dataPlatform:abc"
+    assert platform == DataPlatformUrn(platform)
+    assert platform == DataPlatformUrn(platform.urn())
 
     dataset_urn = DatasetUrn(platform, "def", "PROD")
     assert dataset_urn.urn() == "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+    assert dataset_urn == DatasetUrn(platform.urn(), "def", "PROD")
+    assert dataset_urn == DatasetUrn(platform.platform_name, "def", "PROD")
+
+    with pytest.raises(
+        InvalidUrnError, match="Expecting a DataPlatformUrn but got .*dataset.*"
+    ):
+        assert dataset_urn == DatasetUrn(dataset_urn, "def", "PROD")  # type: ignore
 
     schema_field = SchemaFieldUrn(dataset_urn, "foo")
     assert (
@@ -100,6 +109,9 @@ def test_urn_type_dispatch_2() -> None:
 
     with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
         CorpUserUrn.from_string(urn)
+
+    with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
+        CorpUserUrn(urn)  # type: ignore
 
 
 def test_urn_type_dispatch_3() -> None:
