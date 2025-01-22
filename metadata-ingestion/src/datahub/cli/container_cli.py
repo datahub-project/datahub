@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 import click
 
@@ -33,7 +34,7 @@ def apply_association_to_container(
         association_urn: The URN of the tag, term, or user to apply
         association_type: One of 'tag', 'term', or 'owner'
     """
-    urns = []
+    urns: List[str] = []
     graph = get_default_graph()
     logger.info(f"Using {graph}")
     urns.extend(
