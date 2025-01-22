@@ -10,6 +10,7 @@ from datahub.metadata.urns import (
     DataPlatformUrn,
     DatasetUrn,
     SchemaFieldUrn,
+    TagUrn,
     Urn,
 )
 from datahub.testing.doctest import assert_doctest
@@ -145,6 +146,24 @@ def test_urn_type_dispatch_4() -> None:
     assert type(urn2) is Urn
     assert urn2 == urn
     assert urn2.urn() == urn_str
+
+
+def test_urn_from_urn_simple() -> None:
+    # This capability is also tested by a bunch of other tests above.
+
+    tag_str = "urn:li:tag:legacy"
+    tag = TagUrn.from_string(tag_str)
+    assert tag_str == tag.urn()
+    assert tag.name == "legacy"
+    assert tag == TagUrn(tag)
+    assert tag == TagUrn(tag.urn())
+
+
+def test_urn_from_urn_tricky() -> None:
+    tag_str = "urn:li:tag:urn:li:tag:legacy"
+    tag = TagUrn(tag_str)
+    assert tag.urn() == tag_str
+    assert tag.name == "urn:li:tag:legacy"
 
 
 def test_urn_doctest() -> None:
