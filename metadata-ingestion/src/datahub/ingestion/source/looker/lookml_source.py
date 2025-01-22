@@ -43,6 +43,7 @@ from datahub.ingestion.source.looker.looker_common import (
 from datahub.ingestion.source.looker.looker_connection import (
     get_connection_def_based_on_connection_string,
 )
+from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
@@ -64,7 +65,6 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,

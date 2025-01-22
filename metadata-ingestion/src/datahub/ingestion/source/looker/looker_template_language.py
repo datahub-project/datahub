@@ -2,7 +2,7 @@ import logging
 import pathlib
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Set, Union
 
 from deepmerge import always_merger
 from liquid import Undefined
@@ -29,7 +29,9 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.manifest_constants import LookerConstant
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +209,7 @@ class LookMLViewTransformer(ABC):
         self,
         source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
-        manifest_constants: List[LookerConstant] = [],
+        manifest_constants: List["LookerConstant"] = [],
     ):
         self.source_config = source_config
         self.reporter = reporter
@@ -369,6 +371,11 @@ class LookmlConstantTransformer(LookMLViewTransformer):
 
         def replace_constants(match):
             key = match.group(1)
+            # Resolve constant from config
+            if key in self.source_config.lookml_constants:
+                return str(self.source_config.lookml_constants.get(key))
+
+            # Resolve constant from manifest
             if self.manifest_constants:
                 value = next(
                     (
@@ -380,10 +387,6 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 )
                 if value:
                     return value
-
-            # Resolve constant from config
-            if key in self.source_config.lookml_constants:
-                return str(self.source_config.lookml_constants.get(key))
 
             # Check if it's a misplaced lookml constant
             if key in self.source_config.liquid_variables:
@@ -460,7 +463,7 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
     reporter: LookMLSourceReport,
-    manifest_constants: List[LookerConstant] = [],
+    manifest_constants: List["LookerConstant"] = [],
 ) -> None:
     if "views" not in view_lkml_file_dict:
         return
@@ -499,7 +502,7 @@ def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
     reporter: LookMLSourceReport,
-    manifest_constants: List[LookerConstant] = [],
+    manifest_constants: List["LookerConstant"] = [],
 ) -> dict:
     parsed = load_lkml(path)
 

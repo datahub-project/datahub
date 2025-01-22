@@ -12,7 +12,10 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
-from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerConstant,
+    LookerModel,
+)
 from datahub.ingestion.source.looker.looker_template_language import (
     LookmlConstantTransformer,
     SpecialVariable,
@@ -24,7 +27,6 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -998,9 +1000,7 @@ def test_special_liquid_variables():
         # Case 1: Single constant replacement in sql_table_name
         (
             {"sql_table_name": "@{constant1}.kafka_streaming.events"},
-            {
-                "datahub_transformed_sql_table_name": "manifest_value1.kafka_streaming.events"
-            },
+            {"datahub_transformed_sql_table_name": "value1.kafka_streaming.events"},
             False,
         ),
         # Case 2: Single constant replacement with config-defined constant
@@ -1014,7 +1014,7 @@ def test_special_liquid_variables():
             {"derived_table": {"sql": "SELECT @{constant1}, @{constant3}"}},
             {
                 "derived_table": {
-                    "datahub_transformed_sql": "SELECT manifest_value1, manifest_value3"
+                    "datahub_transformed_sql": "SELECT value1, manifest_value3"
                 }
             },
             False,
@@ -1057,7 +1057,7 @@ def test_special_liquid_variables():
         # Case 10: Misplaced lookml constant
         (
             {"sql_table_name": "@{liquid1}.@{constant1}"},
-            {"datahub_transformed_sql_table_name": "@{liquid1}.manifest_value1"},
+            {"datahub_transformed_sql_table_name": "@{liquid1}.value1"},
             True,
         ),
     ],

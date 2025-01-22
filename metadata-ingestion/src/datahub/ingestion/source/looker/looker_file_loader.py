@@ -4,7 +4,10 @@ from dataclasses import replace
 from typing import Dict, List, Optional
 
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
-from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerConstant,
+    LookerViewFile,
+)
 from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
 )
@@ -14,7 +17,6 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.manifest_constants import LookerConstant
 
 logger = logging.getLogger(__name__)
 

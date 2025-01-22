@@ -33,6 +33,12 @@ class LookerField:
 
 
 @dataclass
+class LookerConstant:
+    name: str
+    value: str
+
+
+@dataclass
 class LookerModel:
     connection: str
     includes: List[str]
