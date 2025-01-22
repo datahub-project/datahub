@@ -175,9 +175,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data?.dataPlatformInstance?.platform?.properties?.logoUrl}
                 owners={null}
                 globalTags={null}
                 // domain={data.domain?.domain}
