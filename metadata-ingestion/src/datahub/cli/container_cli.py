@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import Any, List
 
 import click
 import progressbar
@@ -46,10 +46,10 @@ def apply_association_to_container(
         )
     )
 
-    all_patches = []
+    all_patches: List[Any] = []
     for urn in urns:
         builder = DatasetPatchBuilder(urn)
-
+        patches: List[Any] = []
         if association_type == "tag":
             patches = builder.add_tag(TagAssociationClass(association_urn)).build()
         elif association_type == "term":
