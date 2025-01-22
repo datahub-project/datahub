@@ -10,6 +10,7 @@
                 <exclude name="com.linkedin.metadata.search.opensearch"/>
                 <exclude name="com.linkedin.metadata.entity.cassandra.*" />
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
+                <exclude name="com.linkedin.metadata.test.batch.opensearch.*"/>
             </package>
         </packages>
     </test>

@@ -418,7 +418,7 @@ public class SearchRequestHandler {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int size,
-      String keepAliveDuration,
+      @Nullable String keepAliveDuration,
       @Nullable String pitId,
       @Nullable Object[] sort,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {

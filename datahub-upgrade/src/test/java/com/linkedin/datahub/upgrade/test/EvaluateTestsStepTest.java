@@ -29,7 +29,6 @@ import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.test.TestResults;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,7 +69,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testExecutable() throws NoSuchFieldException, IllegalAccessException {
+  public void testExecutable() {
     final EntitySearchService entitySearchService = mock(EntitySearchService.class);
     final TestEngine testEngine = mock(TestEngine.class);
     configureTestEngineMock(testEngine);
@@ -78,13 +80,20 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
         TestOperationContexts.userContextNoSearchAuthorization(
             Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
-    System.setProperty(EvaluateTests.EXECUTOR_QUEUE_SIZE, "1");
     EvaluateTestsStep testStep =
         new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
-    ExecutorService executorSpy = spy(testStep.getExecutorService());
-    Field executorField = testStep.getClass().getDeclaredField("executorService");
-    executorField.setAccessible(true);
-    executorField.set(testStep, executorSpy);
+
+    ExecutorService executorSpy =
+        spy(
+            new ThreadPoolExecutor(
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(1),
+                new ThreadPoolExecutor.CallerRunsPolicy()));
+    testStep.setOverrideExecutorService(executorSpy);
+
     Function<UpgradeContext, UpgradeStepResult> fun = testStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
     UpgradeReport report = new DefaultUpgradeReport();

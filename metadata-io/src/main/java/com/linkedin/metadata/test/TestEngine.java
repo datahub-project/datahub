@@ -258,7 +258,7 @@ public class TestEngine implements AutoCloseable {
    * Shuts down an executor service, waiting indefinitely for tasks to complete unless force
    * shutdown is triggered.
    */
-  private void shutdownExecutorService(
+  static void shutdownExecutorService(
       @Nullable ExecutorService executor, String executorName, boolean forceShutdown) {
     if (executor == null || executor.isShutdown()) {
       return;

@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -149,7 +150,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     SystemEntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm), anyBoolean()))
+    when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm), anyBoolean()))
         .thenReturn(false);
 
     FormService formService =
@@ -545,8 +546,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     SystemEntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
-        .thenReturn(false);
+    when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm))).thenReturn(false);
 
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
@@ -561,8 +561,7 @@ public class FormServiceTest {
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
-        .thenReturn(false);
+    when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity))).thenReturn(false);
 
     Assert.assertThrows(
         RuntimeException.class,
@@ -1253,17 +1252,16 @@ public class FormServiceTest {
     SearchEntity searchEntity = new SearchEntity();
     searchEntity.setEntity(TEST_ENTITY_URN);
     searchEntities.add(searchEntity);
-    Mockito.when(
-            mockClient.scrollAcrossEntities(
-                any(OperationContext.class),
-                anyList(),
-                anyString(),
-                nullable(Filter.class),
-                nullable(String.class),
-                nullable(String.class),
-                anyInt(),
-                eq(
-                    "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
         .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
@@ -1354,17 +1352,16 @@ public class FormServiceTest {
     SearchEntity searchEntity = new SearchEntity();
     searchEntity.setEntity(TEST_ENTITY_URN);
     searchEntities.add(searchEntity);
-    Mockito.when(
-            mockClient.scrollAcrossEntities(
-                any(OperationContext.class),
-                anyList(),
-                anyString(),
-                nullable(Filter.class),
-                nullable(String.class),
-                nullable(String.class),
-                anyInt(),
-                eq(
-                    "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
         .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
@@ -1407,6 +1404,10 @@ public class FormServiceTest {
                     .hookExecutionLimit(TestsHookExecutionLimitConfiguration.builder().build())
                     .build())
             .build();
+    TestFetcher mockTestsFetcher = mock(TestFetcher.class);
+    when(mockTestsFetcher.fetch(any(OperationContext.class), anyInt(), anyInt()))
+        .thenReturn(new TestFetcher.TestFetchResult(List.of(), 0));
+
     TestEngine testEngine =
         new TestEngine(
             opContext,
@@ -1414,7 +1415,7 @@ public class FormServiceTest {
             Mockito.mock(EntityServiceImpl.class),
             Mockito.mock(EntitySearchService.class),
             Mockito.mock(TimeseriesAspectService.class),
-            Mockito.mock(TestFetcher.class),
+            mockTestsFetcher,
             testDefinitionParser,
             queryEngine,
             PredicateEvaluator.getInstance(),
@@ -1503,17 +1504,16 @@ public class FormServiceTest {
     SearchEntity searchEntity = new SearchEntity();
     searchEntity.setEntity(TEST_ENTITY_URN);
     searchEntities.add(searchEntity);
-    Mockito.when(
-            mockClient.scrollAcrossEntities(
-                any(OperationContext.class),
-                anyList(),
-                anyString(),
-                nullable(Filter.class),
-                nullable(String.class),
-                nullable(String.class),
-                anyInt(),
-                eq(
-                    "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
         .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
@@ -1578,17 +1578,16 @@ public class FormServiceTest {
     SearchEntity searchEntity = new SearchEntity();
     searchEntity.setEntity(TEST_ENTITY_URN);
     searchEntities.add(searchEntity);
-    Mockito.when(
-            mockClient.scrollAcrossEntities(
-                any(OperationContext.class),
-                anyList(),
-                anyString(),
-                nullable(Filter.class),
-                nullable(String.class),
-                nullable(String.class),
-                anyInt(),
-                eq(
-                    "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
         .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
@@ -1605,14 +1604,13 @@ public class FormServiceTest {
     Urn metadataTestUrn1 = UrnUtils.getUrn("urn:li:test:form-test-1");
     Urn metadataTestUrn2 = UrnUtils.getUrn("urn:li:test:form-test-2");
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    Mockito.when(
-            mockClient.search(
-                any(),
-                eq(TEST_ENTITY_NAME),
-                eq("*"),
-                eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
-                eq(0),
-                Mockito.anyInt()))
+    when(mockClient.search(
+            any(),
+            eq(TEST_ENTITY_NAME),
+            eq("*"),
+            eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
+            eq(0),
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(2)
@@ -1668,22 +1666,20 @@ public class FormServiceTest {
     formActors.setOwners(true);
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // ensure this user is an explicit owner
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(TEST_ACTOR_URN);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1707,22 +1703,20 @@ public class FormServiceTest {
     formActors.setUsers(new UrnArray(ImmutableList.of(TEST_ACTOR_URN)));
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // this user is not an owner
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1746,22 +1740,20 @@ public class FormServiceTest {
     formActors.setGroups(new UrnArray(ImmutableList.of(TEST_GROUP_URN)));
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no owners on this entity
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1784,21 +1776,19 @@ public class FormServiceTest {
     formActors.setOwners(false);
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertFalse(
@@ -1820,22 +1810,20 @@ public class FormServiceTest {
     formActors.setOwners(true);
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // group that the user is in is assigned
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(TEST_GROUP_URN);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1856,24 +1844,22 @@ public class FormServiceTest {
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, new FormActorAssignment());
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     final FormAssociation formAssociation = new FormAssociation();
     formAssociation.setUrn(TEST_FORM_URN);
     final List<FormAssociation> completedForms = ImmutableList.of(formAssociation);
     Map<String, EnvelopedAspect> formsAspectMap = createFormsAspectMap(completedForms);
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
     Assert.assertTrue(
@@ -1901,12 +1887,11 @@ public class FormServiceTest {
     // form type COMPLETION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.COMPLETION, new FormActorAssignment());
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Assert.assertThrows(
@@ -1929,22 +1914,20 @@ public class FormServiceTest {
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, new FormActorAssignment());
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_FORM_URN.getEntityType()),
-                eq(TEST_FORM_URN),
-                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no completed forms
     Map<String, EnvelopedAspect> formsAspectMap = createFormsAspectMap(new ArrayList<>());
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(TEST_ENTITY_URN.getEntityType()),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_URN.getEntityType()),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
     Assert.assertThrows(
@@ -1961,22 +1944,19 @@ public class FormServiceTest {
   private SystemEntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(TEST_ENTITY_URN)))
-        .thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_ENTITY_URN))).thenReturn(true);
 
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(TEST_FORM_URN)))
-        .thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_FORM_URN))).thenReturn(true);
 
-    Mockito.when(
-            mockClient.scrollAcrossEntities(
-                any(OperationContext.class),
-                anyList(),
-                anyString(),
-                nullable(Filter.class),
-                nullable(String.class),
-                nullable(String.class),
-                anyInt(),
-                nullable(String.class)))
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            nullable(String.class)))
         .thenReturn(new ScrollResult().setNumEntities(0));
 
     EntityResponse entityResponse = null;
@@ -1998,21 +1978,19 @@ public class FormServiceTest {
               .setAspects(new EnvelopedAspectMap());
     }
 
-    Mockito.when(
-            mockClient.getV2(
-                any(OperationContext.class),
-                eq(DATASET_ENTITY_NAME),
-                eq(TEST_ENTITY_URN),
-                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(DATASET_ENTITY_NAME),
+            eq(TEST_ENTITY_URN),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(entityResponse);
 
     if (form != null) {
-      Mockito.when(
-              mockClient.getV2(
-                  any(OperationContext.class),
-                  eq(FORM_ENTITY_NAME),
-                  eq(TEST_FORM_URN),
-                  eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+      when(mockClient.getV2(
+              any(OperationContext.class),
+              eq(FORM_ENTITY_NAME),
+              eq(TEST_FORM_URN),
+              eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(TEST_FORM_URN)
@@ -2048,8 +2026,8 @@ public class FormServiceTest {
   private Authentication mockSystemAuthentication(String actorUrnStr) {
     Authentication auth = mock(Authentication.class);
     Actor actor = mock(Actor.class);
-    Mockito.when(actor.toUrnStr()).thenReturn(actorUrnStr);
-    Mockito.when(auth.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(actorUrnStr);
+    when(auth.getActor()).thenReturn(actor);
     return auth;
   }
 
