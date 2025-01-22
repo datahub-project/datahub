@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
+from tests.utils import delete_urns
 
 generated_urns: List[str] = []
 
@@ -21,6 +22,7 @@ generated_urns: List[str] = []
 @pytest.fixture(scope="module")
 def ingest_cleanup_data(auth_session, graph_client, request):
     yield
+    delete_urns(graph_client, generated_urns)
 
 
 def _create_valid_dashboard_mcps() -> List[MetadataChangeProposalClass]:
@@ -51,6 +53,7 @@ def _create_valid_dashboard_mcps() -> List[MetadataChangeProposalClass]:
             aspect=valid_dashboard_info,
         )
         mcps.append(mcp_valid.make_mcp())
+    generated_urns.extend([mcp.entityUrn for mcp in mcps if mcp.entityUrn])
 
     return mcps
 
@@ -77,6 +80,7 @@ def _create_invalid_dashboard_mcp() -> MetadataChangeProposalClass:
         aspectName="dashboardInfo",
         aspect=invalid_dashboard_info,
     )
+    generated_urns.append(mcp_invalid.entityUrn) if mcp_invalid.entityUrn else None
     return mcp_invalid.make_mcp()
 
 
