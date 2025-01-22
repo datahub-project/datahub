@@ -248,22 +248,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "dimension",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "timestamp",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -462,25 +450,10 @@
                         "nullable": false,
                         "type": {
                             "type": {
-                                "com.linkedin.schema.StringType": {}
+                                "com.linkedin.schema.TimeType": {}
                             }
                         },
-                        "nativeDataType": "sql_column",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),dimension)",
-                    "schemaField": {
-                        "fieldPath": "dimension",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "sql_column",
+                        "nativeDataType": "timestamp",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -614,7 +587,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "number",
+                                "nativeDataType": "metric",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -635,10 +608,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "timestamp",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -828,7 +801,7 @@
                                 "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "number",
+                        "nativeDataType": "metric",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -855,10 +828,10 @@
                         "nullable": false,
                         "type": {
                             "type": {
-                                "com.linkedin.schema.StringType": {}
+                                "com.linkedin.schema.TimeType": {}
                             }
                         },
-                        "nativeDataType": "sql_column",
+                        "nativeDataType": "timestamp",
                         "recursive": false,
                         "isPartOfKey": false
                     }
