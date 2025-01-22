@@ -400,8 +400,16 @@ class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
-    @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self: ...
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
+        # Technically, this method should be abstract. However, the @config_class
+        # decorator automatically generates a create method at runtime if one is
+        # not defined. Python still treats the class as abstract because it thinks
+        # the create method is missing.
+        #
+        # Once we're on Python 3.10, we can use the abc.update_abstractmethods(cls)
+        # method in the config_class decorator. That would allow us to make this
+        # method abstract.
+        raise NotImplementedError('sources must implement "create"')
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """A list of functions that transforms the workunits produced by this source.
