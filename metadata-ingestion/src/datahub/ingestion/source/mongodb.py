@@ -226,14 +226,12 @@ def construct_schema_pymongo(
             {"$match": {doc_size_field: {"$lt": max_document_size}}},
             {"$project": {doc_size_field: 0}},
         ]
+
     if use_random_sampling:
         # get sample documents in collection
         if sample_size:
             aggregations.append({"$sample": {"size": sample_size}})
-        documents = collection.aggregate(
-            aggregations,
-            allowDiskUse=True,
-        )
+        documents = collection.aggregate(aggregations, allowDiskUse=True)
     else:
         if sample_size:
             aggregations.append({"$limit": sample_size})
