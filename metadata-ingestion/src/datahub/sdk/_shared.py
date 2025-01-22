@@ -197,6 +197,7 @@ class HasOwnership(Entity):
 
         if isinstance(raw_owner, str):
             # Tricky: this will gracefully handle a user passing in a group urn as a string.
+            # TODO: is this the right behavior? or should we require a valid urn here?
             return models.OwnerClass(
                 owner=make_user_urn(raw_owner),
                 type=owner_type,
@@ -308,6 +309,8 @@ class HasTags(Entity):
     ) -> models.TagAssociationClass:
         if isinstance(tag, models.TagAssociationClass):
             return tag
+        elif isinstance(tag, str):
+            assert TagUrn.from_string(tag)
         return models.TagAssociationClass(tag=str(tag))
 
     def set_tags(self, tags: TagsInputType) -> None:

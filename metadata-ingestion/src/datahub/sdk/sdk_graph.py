@@ -3,9 +3,16 @@ from typing import TYPE_CHECKING, overload
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
-from datahub.errors import SdkUsageError
+from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import ContainerUrn, DatasetUrn, Urn
+from datahub.metadata.urns import (
+    ContainerUrn,
+    DatasetUrn,
+    DomainUrn,
+    GlossaryTermUrn,
+    TagUrn,
+    Urn,
+)
 from datahub.sdk._shared import Entity, UrnOrStr
 
 if TYPE_CHECKING:
@@ -85,3 +92,16 @@ class SDKGraph:
 
         mcps = entity.build()
         self._graph.emit_mcps(mcps)
+
+    def get_domain_urn_by_name(self, domain_name: str, /) -> DomainUrn:
+        # TODO: add caching to this method?
+        urn_str = self._graph.get_domain_urn_by_name(domain_name)
+        if urn_str is None:
+            raise ItemNotFoundError(f"Domain with name {domain_name} not found")
+        return DomainUrn.from_string(urn_str)
+
+    def get_tag_urn_by_name(self, tag_name: str, /) -> TagUrn:
+        raise NotImplementedError("TODO: need to implement this")
+
+    def get_term_urn_by_name(self, term_name: str, /) -> GlossaryTermUrn:
+        raise NotImplementedError("TODO: need to implement this")
