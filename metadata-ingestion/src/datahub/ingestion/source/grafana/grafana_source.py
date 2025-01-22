@@ -48,11 +48,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
+    GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
     MetadataChangeEventClass,
@@ -60,6 +60,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
+    TagAssociationClass,
 )
 
 
