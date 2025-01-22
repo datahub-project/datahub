@@ -493,3 +493,33 @@ def test_get_column_type_redshift():
         messages[0].message
         == "Got an unexpected column type. The column's parsed field type will not be populated."
     )
+
+
+def test_skip_database_name():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.skip_database_name is False
+    config_dict.update({"skip_database_name": "false"})
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.skip_database_name is False
+    config_dict.update({"skip_database_name": "true"})
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.skip_database_name is True
+
+
+def test_extract_dbt_entities():
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        manifest_path="tests/unit/dbt/artifacts/manifest.json",
+        catalog_path="tests/unit/dbt/artifacts/catalog.json",
+        target_platform="dummy",
+    )
+    source = DBTCoreSource(config, ctx, "dbt")
+    assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
+    config.skip_database_name = True
+    source = DBTCoreSource(config, ctx, "dbt")
+    assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
