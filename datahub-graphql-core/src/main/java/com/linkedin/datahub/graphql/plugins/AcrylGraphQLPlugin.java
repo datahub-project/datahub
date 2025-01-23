@@ -25,8 +25,12 @@ import com.linkedin.datahub.graphql.generated.FormForActor;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
+import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
+import com.linkedin.datahub.graphql.generated.RemoteExecutor;
+import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
@@ -108,6 +112,8 @@ import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorPoolsResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
@@ -144,6 +150,8 @@ import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.monitor.MonitorType;
+import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorPoolType;
+import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -187,6 +195,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ActionPipelineType actionPipelineType; // Saas-ONLY
   private MonitorType monitorType; // SaaS only
   private AnomalyType anomalyType;
+  private RemoteExecutorType remoteExecutorType;
+  private RemoteExecutorPoolType remoteExecutorPoolType;
   private DataContractType dataContractType; // SaaS only, will be moved to OSS
 
   private List<EntityType<?, ?>> entityTypes;
@@ -260,11 +270,18 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
     this.dataContractType = new DataContractType(entityClient); // SaaS only
+    this.remoteExecutorType = new RemoteExecutorType(args.getEntityClient()); // SaaS only
+    this.remoteExecutorPoolType = new RemoteExecutorPoolType(args.getEntityClient()); // SaaS only
 
     // New saas types
     this.entityTypes =
         ImmutableList.of(
-            this.actionPipelineType, this.monitorType, this.anomalyType, this.dataContractType);
+            this.actionPipelineType,
+            this.monitorType,
+            this.anomalyType,
+            this.dataContractType,
+            this.remoteExecutorType,
+            this.remoteExecutorPoolType);
     this.executorConfiguration = args.getExecutorConfiguration();
     this.actionConfiguration = args.getActionPipelineConfiguration();
     this.actionRequestService = args.getActionRequestService();
@@ -287,7 +304,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
-        QUERY_SCHEMA_FILE);
+        QUERY_SCHEMA_FILE,
+        REMOTE_EXECUTOR_SCHEMA_FILE);
   }
 
   @Override
@@ -297,7 +315,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         actionPipelineType, // Saas only
         monitorType, // SaaS only
         anomalyType, // SaaS only
-        dataContractType);
+        dataContractType, // SaaS only
+        remoteExecutorType, // SaaS only
+        remoteExecutorPoolType // SaaS only
+        );
   }
 
   @Override
@@ -513,7 +534,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "formAnalytics",
                     new FormAnalyticsResolver(
-                        this.entityClient, this.integrationsService, this.featureFlags)));
+                        this.entityClient, this.integrationsService, this.featureFlags))
+                .dataFetcher(
+                    "listRemoteExecutorPools",
+                    new ListRemoteExecutorPoolsResolver(this.entityClient)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
@@ -1002,16 +1026,47 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   private void configureExecutorResolvers(
       final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
-    builder.type(
-        "Query",
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
-                .dataFetcher(
-                    "listExecutorConfigs",
-                    new ListExecutorConfigsResolver(
-                        this.entityClient, this.executorConfiguration)));
+    builder
+        .type(
+            "Query",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
+                    .dataFetcher(
+                        "listExecutorConfigs",
+                        new ListExecutorConfigsResolver(
+                            this.entityClient, this.executorConfiguration)))
+        .type(
+            "ListRemoteExecutorPoolsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "remoteExecutorPools",
+                    new LoadableTypeBatchResolver<>(
+                        remoteExecutorPoolType,
+                        (env) ->
+                            ((ListRemoteExecutorPoolsResult) env.getSource())
+                                .getRemoteExecutorPools().stream()
+                                    .map(RemoteExecutorPool::getUrn)
+                                    .collect(Collectors.toList()))))
+        .type(
+            "RemoteExecutorPool",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "remoteExecutors", new ListRemoteExecutorsResolver(this.entityClient)))
+        .type(
+            "ListRemoteExecutorsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "remoteExecutors",
+                    new LoadableTypeBatchResolver<>(
+                        remoteExecutorType,
+                        (env) ->
+                            ((ListRemoteExecutorsResult) env.getSource())
+                                .getRemoteExecutors().stream()
+                                    .map(RemoteExecutor::getUrn)
+                                    .collect(Collectors.toList()))));
+    ;
   }
 
   private void configureFormAnalyticsResolver(

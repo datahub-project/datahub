@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.entitytype;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,6 +21,8 @@ public class EntityTypeMapper {
           .put(EntityType.ANOMALY, Constants.ANOMALY_ENTITY_NAME)
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
+          .put(EntityType.REMOTE_EXECUTOR, AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)
+          .put(EntityType.REMOTE_EXECUTOR_POOL, AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME)
           .build();
 
   static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =

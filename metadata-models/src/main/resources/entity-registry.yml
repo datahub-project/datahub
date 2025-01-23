@@ -382,6 +382,11 @@ entities:
     keyAspect: dataHubRemoteExecutorPoolKey
     aspects:
       - dataHubRemoteExecutorPoolInfo
+  - name: dataHubRemoteExecutorGlobalConfig
+    category: internal
+    keyAspect: dataHubRemoteExecutorGlobalConfigKey
+    aspects:
+      - dataHubRemoteExecutorPoolGlobalConfig
   - name: assertion
     doc: Assertion represents a data quality rule applied on one or more dataset.
     category: core

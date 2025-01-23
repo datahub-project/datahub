@@ -1253,6 +1253,16 @@ enum EntityType {
     BUSINESS_ATTRIBUTE
 
     """
+    A Remote Executor
+    """
+    REMOTE_EXECUTOR
+
+    """
+    A Remote Executor Pool
+    """
+    REMOTE_EXECUTOR_POOL
+
+    """
     A set of versioned entities, representing a single source / logical entity over time
     """
     VERSION_SET
