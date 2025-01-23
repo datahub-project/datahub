@@ -746,7 +746,7 @@ class GlueSource(StatefulIngestionSourceBase):
             except Exception as e:
                 self.report.failure(
                     message="Failed to get tables from database",
-                    context=database,
+                    context=database["Name"],
                     exc=e,
                 )
         return all_databases, all_tables
