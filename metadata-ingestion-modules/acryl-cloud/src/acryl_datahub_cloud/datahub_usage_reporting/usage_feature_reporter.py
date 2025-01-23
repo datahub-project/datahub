@@ -1377,7 +1377,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         top_users = self.generate_top_users(lf)
 
-        usage_with_top_users = top_users.join(total_queries, on="urn", how="inner")
+        usage_with_top_users = total_queries.join(top_users, on="urn", how="left")
 
         usage_with_top_users_with_ranks = self.gen_rank_and_percentile(
             usage_with_top_users, "totalSqlQueries", "urn", "platform", "queries_"
