@@ -160,8 +160,10 @@ class SchemaField:
 
     def _base_schema_field(self) -> models.SchemaFieldClass:
         # This must exist - if it doesn't, we've got a larger bug.
-        # TODO make this throw a SchemaFieldKeyError
-        return self._parent.schema[self._field_path]
+        # TODO make this throw a SchemaFieldKeyError?
+        schema = self._parent.schema
+        assert schema is not None
+        return schema[self._field_path]
 
     def _get_editable_schema_field(
         self,
@@ -189,6 +191,20 @@ class SchemaField:
         return field
 
     @property
+    def field_path(self) -> str:
+        return self._field_path
+
+    @property
+    def mapped_type(self) -> models.SchemaFieldDataTypeClass:
+        return self._base_schema_field().type
+
+    @property
+    def native_type(self) -> str:
+        return self._base_schema_field().nativeDataType
+
+    # TODO expose nullability and primary/foreign key details
+
+    @property
     def description(self) -> Optional[str]:
         editable_field = self._get_editable_schema_field()
         return first_non_null(
@@ -213,10 +229,54 @@ class SchemaField:
         else:
             self._ensure_editable_schema_field().description = description
 
-    # @property
-    # def tags(self) -> Optional[List[models.TagAssociationClass]]:
-    #     # Combine tags from schema field
-    #     return self._parent.tags
+    @property
+    def tags(self) -> Optional[List[models.TagAssociationClass]]:
+        # Tricky: if either has a non-null globalTags, this will not return None.
+        tags = None
+
+        if (base_tags := self._base_schema_field().globalTags) is not None:
+            tags = tags or []
+            tags.extend(base_tags.tags)
+
+        if editable_field := self._get_editable_schema_field():
+            if (editable_tags := editable_field.globalTags) is not None:
+                tags = tags or []
+                tags.extend(editable_tags.tags)
+
+        # TODO: Do we need to deduplicate the list?
+        return tags
+
+    def set_tags(self, tags: TagsInputType) -> None:
+        parsed_tags = [self._parent._parse_tag_association_class(tag) for tag in tags]
+
+        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+            editable_field = self._get_editable_schema_field()
+            if editable_field and editable_field.globalTags:
+                warnings.warn(
+                    "Some tags were added via UI-based edits, and will not be removed. "
+                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
+                )
+
+            self._base_schema_field().globalTags = models.GlobalTagsClass(
+                tags=parsed_tags
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.globalTags:
+                # TODO: this warning is a bit strange, since we don't overwrite despite
+                # the edit mode being OVERWRITE_UI.
+                warnings.warn(
+                    "Some tags were added by ingestion, and will not be removed. "
+                    "Change the edit mode to DEFER_TO_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
+                )
+
+            self._ensure_editable_schema_field().globalTags = models.GlobalTagsClass(
+                tags=parsed_tags
+            )
 
 
 class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
@@ -278,7 +338,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         self._edit_mode = edit_mode
 
         if schema is not None:
-            self.set_schema(schema)
+            self._set_schema(schema)
         if upstreams is not None:
             self.set_upstreams(upstreams)
 
@@ -409,12 +469,13 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
 
     @property
-    def schema(self) -> Dict[str, models.SchemaFieldClass]:
+    def schema(self) -> Optional[Dict[str, models.SchemaFieldClass]]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)
         if schema_metadata is None:
             # TODO throw instead?
-            return {}
+            return None
         # TODO: Field path v2 is pretty annoying - ideally users don't need to deal with that.
+        # TODO should this just directly return SchemaField types?
         return {field.fieldPath: field for field in schema_metadata.fields}
 
     def _parse_schema_field_input(
@@ -454,7 +515,11 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         else:
             assert_never(schema_field_input)
 
-    def set_schema(self, schema: SchemaFieldsInputType) -> None:
+    def _set_schema(self, schema: SchemaFieldsInputType) -> None:
+        # This method is not public. Ingestion/restatement users should be setting
+        # the schema via the constructor. SDK users that got a dataset from the graph
+        # probably shouldn't be adding/removing fields ad-hoc. The field-level mutators
+        # can be used instead.
         if isinstance(schema, models.SchemaMetadataClass):
             self._set_aspect(schema)
         else:
@@ -473,6 +538,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
+        if self.schema is None:
+            raise SchemaFieldKeyError(f"Schema is not set for dataset {self.urn}")
         if field_path not in self.schema:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")
         return SchemaField(self, field_path)
