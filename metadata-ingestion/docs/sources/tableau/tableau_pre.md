@@ -16,9 +16,12 @@ Either way, the user/token must have the **Site Administrator Explorer** site ro
 
 :::info
 
-We need the `Site Administrator Explorer` site role in order to get complete metadata from Tableau.
+We need the **Site Administrator Explorer** site role in order to get complete metadata from Tableau.
 
-With any lower role, the Tableau Metadata API returns missing/partial metadata. This particularly affects data source fields and definitions, which impacts our ability to extract columns and generate column lineage. As such, other site roles like `Viewer` are insufficient with the current Tableau Metadata API.
+With any lower role, the Tableau Metadata API returns missing/partial metadata.
+This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column lineage. Some table-level lineage is also impacted.
+
+Other site roles, including Site Administrator Creator and Viewer, are insufficient due to these limitations in the current Tableau Metadata API.
 
 :::
 
