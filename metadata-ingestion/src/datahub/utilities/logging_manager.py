@@ -130,9 +130,9 @@ class _ColorLogFormatter(logging.Formatter):
         # Mimic our default format, but with color.
         message_fg = self.MESSAGE_COLORS.get(record.levelname)
         return (
-            f'{click.style(f"[{self.formatTime(record, self.datefmt)}]", fg="green", dim=True)} '
+            f"{click.style(f'[{self.formatTime(record, self.datefmt)}]', fg='green', dim=True)} "
             f"{click.style(f'{record.levelname:8}', fg=message_fg)} "
-            f'{click.style(f"{{{record.name}:{record.lineno}}}", fg="blue", dim=True)} - '
+            f"{click.style(f'{{{record.name}:{record.lineno}}}', fg='blue', dim=True)} - "
             f"{click.style(record.getMessage(), fg=message_fg)}"
         )
 
@@ -283,3 +283,4 @@ logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
+logging.getLogger("pyodata").setLevel(logging.WARNING)

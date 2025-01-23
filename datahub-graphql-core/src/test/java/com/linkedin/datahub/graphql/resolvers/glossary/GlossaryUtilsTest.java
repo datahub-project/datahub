@@ -2,13 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
@@ -22,27 +22,27 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.Constants;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class GlossaryUtilsTest {
 
   private final String userUrn = "urn:li:corpuser:authorized";
   private final QueryContext mockContext = Mockito.mock(QueryContext.class);
-  private final Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
   private final EntityClient mockClient = Mockito.mock(EntityClient.class);
   private final Urn parentNodeUrn = UrnUtils.getUrn("urn:li:glossaryNode:parent_node");
   private final Urn parentNodeUrn1 = UrnUtils.getUrn("urn:li:glossaryNode:parent_node1");
   private final Urn parentNodeUrn2 = UrnUtils.getUrn("urn:li:glossaryNode:parent_node2");
   private final Urn parentNodeUrn3 = UrnUtils.getUrn("urn:li:glossaryNode:parent_node3");
 
+  @BeforeMethod
   private void setUpTests() throws Exception {
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getActorUrn()).thenReturn(userUrn);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     GlossaryNodeInfo parentNode1 =
         new GlossaryNodeInfo()
@@ -84,25 +84,25 @@ public class GlossaryUtilsTest {
     Mockito.when(
             mockClient.getV2(
                 any(),
-                Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-                Mockito.eq(parentNodeUrn1),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
+                eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+                eq(parentNodeUrn1),
+                eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
                 any(),
-                Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-                Mockito.eq(parentNodeUrn2),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
+                eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+                eq(parentNodeUrn2),
+                eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
     Mockito.when(
             mockClient.getV2(
                 any(),
-                Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-                Mockito.eq(parentNodeUrn3),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
+                eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+                eq(parentNodeUrn3),
+                eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode3Aspects)));
 
     final EntitySpec resourceSpec3 =
@@ -120,19 +120,14 @@ public class GlossaryUtilsTest {
 
   private void mockAuthRequest(
       String privilege, AuthorizationResult.Type allowOrDeny, EntitySpec resourceSpec) {
-    final AuthorizationRequest authorizationRequest =
-        new AuthorizationRequest(
-            userUrn,
-            privilege,
-            resourceSpec != null ? Optional.of(resourceSpec) : Optional.empty());
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(allowOrDeny);
-    Mockito.when(mockAuthorizer.authorize(Mockito.eq(authorizationRequest))).thenReturn(result);
+    when(mockContext.getOperationContext().authorize(eq(privilege), eq(resourceSpec)))
+        .thenReturn(result);
   }
 
   @Test
   public void testCanManageGlossariesAuthorized() throws Exception {
-    setUpTests();
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.ALLOW, null);
 
     assertTrue(GlossaryUtils.canManageGlossaries(mockContext));
@@ -140,7 +135,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageGlossariesUnauthorized() throws Exception {
-    setUpTests();
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     assertFalse(GlossaryUtils.canManageGlossaries(mockContext));
@@ -148,7 +142,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenEntitiesWithManageGlossaries() throws Exception {
-    setUpTests();
     // they have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.ALLOW, null);
 
@@ -157,7 +150,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenEntitiesNoParentNode() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -166,7 +158,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenEntitiesAuthorized() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -179,7 +170,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenEntitiesUnauthorized() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -193,7 +183,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenRecursivelyEntitiesAuthorized() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -214,7 +203,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenRecursivelyEntitiesUnauthorized() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -235,7 +223,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenRecursivelyEntitiesAuthorizedLevel2() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -252,7 +239,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenRecursivelyEntitiesUnauthorizedLevel2() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
@@ -269,7 +255,6 @@ public class GlossaryUtilsTest {
 
   @Test
   public void testCanManageChildrenRecursivelyEntitiesNoLevel2() throws Exception {
-    setUpTests();
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 

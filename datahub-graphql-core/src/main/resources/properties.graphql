@@ -18,6 +18,11 @@ extend type Mutation {
     Update an existing structured property
     """
     updateStructuredProperty(input: UpdateStructuredPropertyInput!): StructuredPropertyEntity!
+
+    """
+    Delete an existing structured property
+    """
+    deleteStructuredProperty(input: DeleteStructuredPropertyInput!): Boolean!
 }
 
 """
@@ -35,9 +40,19 @@ type StructuredPropertyEntity implements Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Definition of this structured property including its name
     """
     definition: StructuredPropertyDefinition!
+
+    """
+    Definition of this structured property including its name
+    """
+    settings: StructuredPropertySettings
 
     """
     Granular API for querying edges extending from this entity
@@ -95,6 +110,46 @@ type StructuredPropertyDefinition {
     Whether or not this structured property is immutable
     """
     immutable: Boolean!
+
+    """
+    Audit stamp for when this structured property was created
+    """
+    created: ResolvedAuditStamp
+
+    """
+    Audit stamp for when this structured property was last modified
+    """
+    lastModified: ResolvedAuditStamp
+}
+
+"""
+Settings specific to a structured property entity
+"""
+type StructuredPropertySettings {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean!
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean!
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean!
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean!
 }
 
 """
@@ -182,6 +237,11 @@ type StructuredPropertiesEntry {
     The optional entities associated with the values if the values are entity urns
     """
     valueEntities: [Entity]
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -310,8 +370,9 @@ input CreateStructuredPropertyInput {
 
     """
     The unique fully qualified name of this structured property, dot delimited.
+    This will be required to match the ID of this structured property.
     """
-    qualifiedName: String!
+    qualifiedName: String
 
     """
     The optional display name for this property
@@ -355,6 +416,11 @@ input CreateStructuredPropertyInput {
     For example: ["urn:li:entityType:datahub.dataset"]
     """
     entityTypes: [String!]!
+
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
 }
 
 """
@@ -435,6 +501,11 @@ input UpdateStructuredPropertyInput {
     For backwards compatibility, this is append only.
     """
     newEntityTypes: [String!]
+
+    """
+    Settings for this structured property
+    """
+    settings: StructuredPropertySettingsInput
 }
 
 """
@@ -447,3 +518,44 @@ input UpdateTypeQualifierInput {
     """
     newAllowedTypes: [String!]
 }
+
+"""
+Input for deleting a form
+"""
+input DeleteStructuredPropertyInput {
+    """
+    The urn of the structured properties that is being deleted
+    """
+    urn: String!
+}
+
+"""
+Settings for a structured property
+"""
+input StructuredPropertySettingsInput {
+    """
+    Whether or not this asset should be hidden in the main application
+    """
+    isHidden: Boolean
+
+    """
+    Whether or not this asset should be displayed as a search filter
+    """
+    showInSearchFilters: Boolean
+
+    """
+    Whether or not this asset should be displayed in the asset sidebar
+    """
+    showInAssetSummary: Boolean
+
+    """
+    Whether or not this asset should be displayed as an asset badge on other asset's headers
+    """
+    showAsAssetBadge: Boolean
+
+    """
+    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
+    """
+    showInColumnsTable: Boolean
+}
+

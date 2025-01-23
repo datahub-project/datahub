@@ -36,8 +36,10 @@
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_SYSTEM_OPERATIONS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -184,6 +186,7 @@
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES"
       ],
@@ -273,6 +276,7 @@
         "MANAGE_TAGS",
         "MANAGE_BUSINESS_ATTRIBUTE",
         "MANAGE_STRUCTURED_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES"
       ],
@@ -365,7 +369,8 @@
                 "glossaryTerm",
                 "glossaryNode",
                 "notebook",
-                "dataProduct"
+                "dataProduct",
+                "dataProcessInstance"
               ],
               "condition": "EQUALS"
             }
@@ -425,7 +430,8 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE"
       ],
       "displayName": "Readers - Metadata Policy",
       "description": "Readers can view all assets.",

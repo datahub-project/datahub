@@ -174,7 +174,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
             </SideBar>
             {/* Modal */}
             <UserEditProfileModal
-                visible={editProfileModal}
+                open={editProfileModal}
                 onClose={() => showEditProfileModal(false)}
                 onSave={() => {
                     refetch();

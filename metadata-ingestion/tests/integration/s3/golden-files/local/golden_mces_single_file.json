@@ -60,18 +60,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "FourthChord",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
                     "nullable": false,
                     "type": {
@@ -92,6 +80,18 @@
                         }
                     },
                     "nativeDataType": "ThirdChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -125,11 +125,11 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444899021
+            "lastUpdatedTimestamp": 1586808020000
         }
     },
     "systemMetadata": {
@@ -150,7 +150,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -237,7 +238,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -345,7 +347,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3"
             },
-            "name": "s3"
+            "name": "s3",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -457,7 +460,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -573,7 +577,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system"
             },
-            "name": "local_system"
+            "name": "local_system",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -693,7 +698,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -817,7 +823,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -945,7 +952,8 @@
                 "env": "PROD",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1090,8 +1098,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 28,
             "columnCount": 5,
@@ -1490,6 +1498,28 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_file.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808020000
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

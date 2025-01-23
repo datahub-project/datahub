@@ -113,11 +113,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        asserteeUrn.getEntityType(),
-        asserteeUrn.toString(),
-        orPrivilegeGroups);
+        context, asserteeUrn.getEntityType(), asserteeUrn.toString(), orPrivilegeGroups);
   }
 
   private Urn getAsserteeUrnFromInfo(final AssertionInfo info) {

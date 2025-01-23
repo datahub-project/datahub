@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
@@ -24,7 +25,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
@@ -108,28 +108,17 @@ public class CreateViewResolverTest {
                                             .setAnd(
                                                 new CriterionArray(
                                                     ImmutableList.of(
-                                                        new Criterion()
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setField("test1.keyword")
-                                                            .setValue(
-                                                                "value1") // Unfortunate --- For
-                                                            // backwards compat.
-                                                            .setValues(
-                                                                new StringArray(
-                                                                    ImmutableList.of(
-                                                                        "value1", "value2")))
-                                                            .setNegated(false),
-                                                        new Criterion()
-                                                            .setCondition(Condition.IN)
-                                                            .setField("test2.keyword")
-                                                            .setValue(
-                                                                "value1") // Unfortunate --- For
-                                                            // backwards compat.
-                                                            .setValues(
-                                                                new StringArray(
-                                                                    ImmutableList.of(
-                                                                        "value1", "value2")))
-                                                            .setNegated(true))))))))),
+                                                        buildCriterion(
+                                                            "test1",
+                                                            Condition.EQUAL,
+                                                            "value1",
+                                                            "value2"),
+                                                        buildCriterion(
+                                                            "test2",
+                                                            Condition.IN,
+                                                            true,
+                                                            "value1",
+                                                            "value2"))))))))),
             Mockito.anyLong());
   }
 

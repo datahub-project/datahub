@@ -94,7 +94,7 @@ public class CreatePostResolverTest {
     input.setContent(content);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_postService.createPost(
-            any(), eq(PostType.HOME_PAGE_ANNOUNCEMENT.toString()), eq(postContentObj)))
+            any(), eq(PostType.HOME_PAGE_ANNOUNCEMENT.toString()), eq(postContentObj), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

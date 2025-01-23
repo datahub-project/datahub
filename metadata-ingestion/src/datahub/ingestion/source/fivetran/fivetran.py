@@ -7,7 +7,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -17,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
     KNOWN_DATA_PLATFORM_MAPPING,
@@ -28,6 +27,10 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
 from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_query import (
+    MAX_JOBS_PER_CONNECTOR,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -39,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -72,90 +74,126 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
-
-    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
+    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
 
-        source_platform_detail: PlatformDetail = PlatformDetail()
-        destination_platform_detail: PlatformDetail = PlatformDetail()
+        # TODO: Once Fivetran exposes the database via the API, we shouldn't ask for it via config.
+
         # Get platform details for connector source
-        source_platform_detail = self.config.sources_to_platform_instance.get(
+        source_details = self.config.sources_to_platform_instance.get(
             connector.connector_id, PlatformDetail()
         )
+        if source_details.platform is None:
+            if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
+                source_details.platform = KNOWN_DATA_PLATFORM_MAPPING[
+                    connector.connector_type
+                ]
+            else:
+                self.report.info(
+                    title="Guessing source platform for lineage",
+                    message="We encountered a connector type that we don't fully support yet. "
+                    "We will attempt to guess the platform based on the connector type.",
+                    context=f"{connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
+                )
+                source_details.platform = connector.connector_type
 
         # Get platform details for destination
-        destination_platform_detail = self.config.destination_to_platform_instance.get(
+        destination_details = self.config.destination_to_platform_instance.get(
             connector.destination_id, PlatformDetail()
         )
+        if destination_details.platform is None:
+            destination_details.platform = (
+                self.config.fivetran_log_config.destination_platform
+            )
+        if destination_details.database is None:
+            destination_details.database = self.audit_log.fivetran_log_database
 
-        # Get database for connector source
-        # TODO: Once Fivetran exposes this, we shouldn't ask for it via config.
-        source_database: Optional[str] = self.config.sources_to_database.get(
-            connector.connector_id
-        )
-
-        if connector.connector_type in KNOWN_DATA_PLATFORM_MAPPING:
-            source_platform = KNOWN_DATA_PLATFORM_MAPPING[connector.connector_type]
-        else:
-            source_platform = connector.connector_type
-            logger.info(
-                f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+        if len(connector.lineage) >= MAX_TABLE_LINEAGE_PER_CONNECTOR:
+            self.report.warning(
+                title="Table lineage truncated",
+                message=f"The connector had more than {MAX_TABLE_LINEAGE_PER_CONNECTOR} table lineage entries. "
+                f"Only the most recent {MAX_TABLE_LINEAGE_PER_CONNECTOR} entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
             )
 
-        for table_lineage in connector.table_lineage:
+        for lineage in connector.lineage:
+            source_table = (
+                lineage.source_table
+                if source_details.include_schema_in_urn
+                else lineage.source_table.split(".", 1)[1]
+            )
             input_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=source_platform,
-                table_name=f"{source_database.lower()}.{table_lineage.source_table}"
-                if source_database
-                else table_lineage.source_table,
-                env=source_platform_detail.env,
-                platform_instance=source_platform_detail.platform_instance,
+                platform_id=source_details.platform,
+                table_name=(
+                    f"{source_details.database.lower()}.{source_table}"
+                    if source_details.database
+                    else source_table
+                ),
+                env=source_details.env,
+                platform_instance=source_details.platform_instance,
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
+            destination_table = (
+                lineage.destination_table
+                if destination_details.include_schema_in_urn
+                else lineage.destination_table.split(".", 1)[1]
+            )
             output_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=self.config.fivetran_log_config.destination_platform,
-                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
-                env=destination_platform_detail.env,
-                platform_instance=destination_platform_detail.platform_instance,
+                platform_id=destination_details.platform,
+                table_name=f"{destination_details.database.lower()}.{destination_table}",
+                env=destination_details.env,
+                platform_instance=destination_details.platform_instance,
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
-                for column_lineage in table_lineage.column_lineage:
+                for column_lineage in lineage.column_lineage:
                     fine_grained_lineage.append(
                         FineGrainedLineage(
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(
-                                    str(input_dataset_urn),
-                                    column_lineage.source_column,
-                                )
-                            ]
-                            if input_dataset_urn
-                            else [],
+                            upstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(input_dataset_urn),
+                                        column_lineage.source_column,
+                                    )
+                                ]
+                                if input_dataset_urn
+                                else []
+                            ),
                             downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(
-                                    str(output_dataset_urn),
-                                    column_lineage.destination_column,
-                                )
-                            ]
-                            if output_dataset_urn
-                            else [],
+                            downstreams=(
+                                [
+                                    builder.make_schema_field_urn(
+                                        str(output_dataset_urn),
+                                        column_lineage.destination_column,
+                                    )
+                                ]
+                                if output_dataset_urn
+                                else []
+                            ),
                         )
                     )
 
         datajob.inlets.extend(input_dataset_urn_list)
         datajob.outlets.extend(output_dataset_urn_list)
         datajob.fine_grained_lineages.extend(fine_grained_lineage)
-        return None
+
+        return dict(
+            **{
+                f"source.{k}": str(v)
+                for k, v in source_details.dict().items()
+                if v is not None and not isinstance(v, bool)
+            },
+            **{
+                f"destination.{k}": str(v)
+                for k, v in destination_details.dict().items()
+                if v is not None and not isinstance(v, bool)
+            },
+        )
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         return DataFlow(
@@ -181,22 +219,22 @@ class FivetranSource(StatefulIngestionSourceBase):
             owners={owner_email} if owner_email else set(),
         )
 
-        job_property_bag: Dict[str, str] = {}
-        allowed_connection_keys = [
-            Constant.PAUSED,
-            Constant.SYNC_FREQUENCY,
-            Constant.DESTINATION_ID,
-        ]
-        for key in allowed_connection_keys:
-            if hasattr(connector, key) and getattr(connector, key) is not None:
-                job_property_bag[key] = repr(getattr(connector, key))
-        datajob.properties = job_property_bag
-
         # Map connector source and destination table with dataset entity
         # Also extend the fine grained lineage of column if include_column_lineage is True
-        self._extend_lineage(connector=connector, datajob=datajob)
-
+        lineage_properties = self._extend_lineage(connector=connector, datajob=datajob)
         # TODO: Add fine grained lineages of dataset after FineGrainedLineageDownstreamType.DATASET enabled
+
+        connector_properties: Dict[str, str] = {
+            "connector_id": connector.connector_id,
+            "connector_type": connector.connector_type,
+            "paused": str(connector.paused),
+            "sync_frequency": str(connector.sync_frequency),
+            "destination_id": connector.destination_id,
+        }
+        datajob.properties = {
+            **connector_properties,
+            **lineage_properties,
+        }
 
         return datajob
 
@@ -251,29 +289,24 @@ class FivetranSource(StatefulIngestionSourceBase):
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
 
-        # Materialize the upstream referenced datasets.
-        # We assume that the downstreams are materialized by other ingestion sources.
-        for iolet in datajob.inlets:
-            # We don't want these to be tracked by stateful ingestion.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
-
         # Map Fivetran's job/sync history entity with Datahub's data process entity
+        if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
+            self.report.warning(
+                title="Not all sync history was captured",
+                message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period} days. "
+                f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = FivetranSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -283,6 +316,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_allowed_connectors_list(
             self.config.connector_patterns,
+            self.config.destination_patterns,
             self.report,
             self.config.history_sync_lookback_period,
         )

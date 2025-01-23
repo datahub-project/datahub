@@ -7,6 +7,7 @@ import dataclasses
 import functools
 import json
 import logging
+import re
 import threading
 import traceback
 import unittest.mock
@@ -55,8 +56,12 @@ from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaMetadata
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    EditableSchemaMetadata,
+    NumberType,
+)
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -123,6 +128,8 @@ ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 _datasource_connection_injection_lock = threading.Lock()
 
+NORMALIZE_TYPE_PATTERN = re.compile(r"^(.*?)(?:[\[<(].*)?$")
+
 
 @contextlib.contextmanager
 def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
@@ -165,11 +172,9 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == BIGQUERY:
         element_values = self.engine.execute(
-            sa.select(
-                [
-                    sa.func.coalesce(sa.text(f"APPROX_COUNT_DISTINCT(`{column}`)")),
-                ]
-            ).select_from(self._table)
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == SNOWFLAKE:
@@ -262,7 +267,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",
     }
@@ -305,10 +309,9 @@ def _is_single_row_query_method(query: Any) -> bool:
         if frame.name in SINGLE_ROW_QUERY_METHODS:
             return True
         if frame.name in CONSTANT_ROW_QUERY_METHODS:
-            # TODO: figure out how to handle these.
-            # A cross join will return (`constant` ** `queries`) rows rather
-            # than `constant` rows with `queries` columns.
-            # See https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
+            # TODO: figure out how to handle these. A cross join will return (`constant` ** `queries`) rows rather
+            #  than `constant` rows with `queries` columns. See
+            #  https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
             return False
 
         if frame.name == COLUMN_MAP_QUERY_METHOD:
@@ -324,7 +327,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None],
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
@@ -361,6 +364,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     platform: str
     env: str
 
+    column_types: Dict[str, str] = dataclasses.field(default_factory=dict)
+
     def _get_columns_to_profile(self) -> List[str]:
         if not self.config.any_field_level_metrics_enabled():
             return []
@@ -374,10 +379,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         for col_dict in self.dataset.columns:
             col = col_dict["name"]
+            self.column_types[col] = str(col_dict["type"])
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
+                ignored_columns_by_pattern.append(col)
+            # We try to ignore nested columns as well
+            elif not self.config.profile_nested_fields and "." in col:
                 ignored_columns_by_pattern.append(col)
             elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
@@ -408,15 +417,39 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         return columns_to_profile
 
     def _should_ignore_column(self, sqlalchemy_type: sa.types.TypeEngine) -> bool:
-        return str(sqlalchemy_type) in _get_column_types_to_ignore(
-            self.dataset.engine.dialect.name
-        )
+        # We don't profiles columns with None types
+        if str(sqlalchemy_type) == "NULL":
+            return True
+
+        sql_type = str(sqlalchemy_type)
+
+        match = re.match(NORMALIZE_TYPE_PATTERN, sql_type)
+
+        if match:
+            sql_type = match.group(1)
+
+        return sql_type in _get_column_types_to_ignore(self.dataset.engine.dialect.name)
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
         column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
             self.dataset, column
         )
+
+        if column_spec.type_ == ProfilerDataType.UNKNOWN:
+            try:
+                datahub_field_type = resolve_sql_type(
+                    self.column_types[column], self.dataset.engine.dialect.name.lower()
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Error resolving sql type {self.column_types[column]}: {e}"
+                )
+                datahub_field_type = None
+            if datahub_field_type is None:
+                return
+            if isinstance(datahub_field_type, NumberType):
+                column_spec.type_ = ProfilerDataType.NUMERIC
 
     @_run_with_query_combiner
     def _get_column_cardinality(
@@ -429,9 +462,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column cardinality",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Cardinality",
+                message="The cardinality for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
             return
 
@@ -484,14 +520,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
-            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the dataset.
-            # However, if an offset or limit is set, we need to adjust how we calculate the row count.
-            # This is because applying a limit or offset could potentially skew the row count.
-            # For instance, if a limit is set and the actual row count exceeds this limit,
-            # the returned row count would incorrectly be the limit value.
+            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the
+            # dataset. However, if an offset or limit is set, we need to adjust how we calculate the row count. This
+            # is because applying a limit or offset could potentially skew the row count. For instance, if a limit is
+            # set and the actual row count exceeds this limit, the returned row count would incorrectly be the limit
+            # value.
             #
-            # To address this, if a limit is set, we use the original table name when calculating the row count.
-            # This ensures that the row count is based on the original table, not on a view which have limit or offset applied.
+            # To address this, if a limit is set, we use the original table name when calculating the row count. This
+            # ensures that the row count is based on the original table, not on a view which have limit or offset
+            # applied.
             if (self.config.limit or self.config.offset) and not self.custom_sql:
                 # We don't want limit and offset to get applied to the row count
                 # This is kinda hacky way to do it, but every other way would require major refactoring
@@ -513,9 +550,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column min",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Min",
+                message="The min for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -530,9 +570,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column max",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Max",
+                message="The max for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -547,9 +590,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column mean",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Mean",
+                message="The mean for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -581,9 +627,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column medians",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Medians",
+                message="The medians for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -599,8 +648,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get column stddev",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Standard Deviation",
+                message="The standard deviation for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -638,9 +689,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column quantiles",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Quantiles",
+                message="The quantiles for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -682,9 +736,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column histogram",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Histogram",
+                message="The histogram for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -714,9 +771,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column sample values",
-                f"{self.dataset_name}.{column}",
+                title="Profiling: Unable to Calculate Sample Values",
+                message="The sample values for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
@@ -1371,6 +1431,8 @@ class DatahubGEProfiler:
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
     if dialect_name.lower() == POSTGRESQL:
         return ["JSON"]
+    elif dialect_name.lower() == BIGQUERY:
+        return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON"]
 
     return []
 
@@ -1475,9 +1537,7 @@ def create_bigquery_temp_table(
         query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
             # In google-cloud-bigquery 3.15.0, the _query_job attribute was
             # made public and renamed to query_job.
-            cursor.query_job
-            if hasattr(cursor, "query_job")
-            else cursor._query_job  # type: ignore[attr-defined]
+            cursor.query_job if hasattr(cursor, "query_job") else cursor._query_job  # type: ignore[attr-defined]
         )
         assert query_job
         temp_destination_table = query_job.destination

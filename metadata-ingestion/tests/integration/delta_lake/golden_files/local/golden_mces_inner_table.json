@@ -45,7 +45,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -58,7 +58,7 @@
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=int].bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -107,7 +107,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -194,7 +195,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -302,7 +304,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake"
             },
-            "name": "delta_lake"
+            "name": "delta_lake",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -414,7 +417,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -530,7 +534,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables"
             },
-            "name": "delta_tables"
+            "name": "delta_tables",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -663,8 +668,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -693,8 +698,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -723,8 +728,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -753,8 +758,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -783,8 +788,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -886,7 +891,20 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].year",
+                                "fieldPath": "[version=2.0].[type=float].total_cost",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "float",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].day",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -912,7 +930,7 @@
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=int].day",
+                                "fieldPath": "[version=2.0].[type=int].year",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -923,19 +941,6 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].sale_id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].customer",
@@ -951,17 +956,17 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=float].total_cost",
+                                "fieldPath": "[version=2.0].[type=string].sale_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "float",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1000,8 +1005,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "CONVERT",
@@ -1102,7 +1107,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1115,7 +1120,7 @@
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=int].bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1177,8 +1182,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1207,8 +1212,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1237,8 +1242,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1267,8 +1272,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1297,8 +1302,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1400,7 +1405,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1413,7 +1418,7 @@
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=int].bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1462,7 +1467,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables/level1"
             },
-            "name": "level1"
+            "name": "level1",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -1599,8 +1605,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1629,8 +1635,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1659,8 +1665,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1689,8 +1695,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1719,8 +1725,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1781,159 +1787,20 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655831477768
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -1944,33 +1811,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655664815399
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -1981,70 +1833,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655831649788
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6bb6dc6de93177210067d00b45b481bb",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
-                }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -2055,37 +1855,18 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
-                },
-                {
-                    "id": "urn:li:container:6bb6dc6de93177210067d00b45b481bb",
-                    "urn": "urn:li:container:6bb6dc6de93177210067d00b45b481bb"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655831866541
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

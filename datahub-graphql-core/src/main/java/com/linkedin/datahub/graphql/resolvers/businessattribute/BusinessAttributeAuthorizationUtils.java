@@ -20,8 +20,7 @@ public class BusinessAttributeAuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE.getType()))));
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 
   public static boolean canManageBusinessAttribute(@Nonnull QueryContext context) {
@@ -31,7 +30,6 @@ public class BusinessAttributeAuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE.getType()))));
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 }

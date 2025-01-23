@@ -11,7 +11,6 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,7 +20,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
@@ -40,29 +38,25 @@ public class AuthorizationUtils {
 
   public static boolean canManageUsersAndGroups(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
-        context.getActorUrn(),
-        context.getAuthorizer(),
+        context.getOperationContext(),
         MANAGE,
         List.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME));
   }
 
   public static boolean canManagePolicies(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
-        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(POLICY_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE)
-        || AuthUtil.isAuthorized(
-            context.getAuthorizer(), context.getActorUrn(), MANAGE_ACCESS_TOKENS);
+            context.getOperationContext(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE)
+        || AuthUtil.isAuthorized(context.getOperationContext(), MANAGE_ACCESS_TOKENS);
   }
 
   public static boolean canManageTokens(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
-        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(ACCESS_TOKEN_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(ACCESS_TOKEN_ENTITY_NAME));
   }
 
   /**
@@ -78,13 +72,12 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()))));
 
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
   }
 
   /**
@@ -100,25 +93,22 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_TAGS_PRIVILEGE.getType()))));
 
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 
   public static boolean canManageTags(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
   }
 
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityUrns(
-        context.getAuthorizer(), context.getActorUrn(), DELETE, List.of(entityUrn));
+        context.getOperationContext(), DELETE, List.of(entityUrn));
   }
 
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
   }
 
   public static boolean canEditGroupMembers(
@@ -130,12 +120,7 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))));
 
-    return isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        CORP_GROUP_ENTITY_NAME,
-        groupUrnStr,
-        orPrivilegeGroups);
+    return isAuthorized(context, CORP_GROUP_ENTITY_NAME, groupUrnStr, orPrivilegeGroups);
   }
 
   public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
@@ -149,27 +134,21 @@ public class AuthorizationUtils {
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType()))));
 
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 
   public static boolean canManageGlobalAnnouncements(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
   }
 
   public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
-    return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
+    return AuthUtil.isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
   }
 
   public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
   public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
@@ -183,11 +162,7 @@ public class AuthorizationUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean canEditEntityQueries(
@@ -202,11 +177,7 @@ public class AuthorizationUtils {
         .allMatch(
             entityUrn ->
                 isAuthorized(
-                    context.getAuthorizer(),
-                    context.getActorUrn(),
-                    entityUrn.getEntityType(),
-                    entityUrn.toString(),
-                    orPrivilegeGroups));
+                    context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups));
   }
 
   public static boolean canCreateQuery(
@@ -251,28 +222,7 @@ public class AuthorizationUtils {
         && !opContext.isSystemAuth()
         && VIEW_RESTRICTED_ENTITY_TYPES.contains(urn.getEntityType())) {
 
-      return opContext
-          .getViewAuthorizationContext()
-          .map(
-              viewAuthContext -> {
-
-                // check cache
-                if (viewAuthContext.canView(Set.of(urn))) {
-                  return true;
-                }
-
-                if (!canViewEntity(
-                    opContext.getSessionAuthentication().getActor().toUrnStr(),
-                    opContext.getAuthorizerContext().getAuthorizer(),
-                    urn)) {
-                  return false;
-                }
-
-                // cache viewable urn
-                viewAuthContext.addViewableUrns(Set.of(urn));
-                return true;
-              })
-          .orElse(false);
+      return canViewEntity(opContext, urn);
     }
     return true;
   }
@@ -282,6 +232,10 @@ public class AuthorizationUtils {
     try {
       Object[] args =
           allFields.stream()
+              // New versions of graphql.codegen generate serialVersionUID
+              // We need to filter serialVersionUID out because serialVersionUID is
+              // never part of the entity type constructor
+              .filter(field -> !field.getName().contains("serialVersionUID"))
               .map(
                   field -> {
                     // properties are often not required but only because
@@ -386,38 +340,37 @@ public class AuthorizationUtils {
 
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+  }
+
+  public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE);
   }
 
   public static boolean canManageForms(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
   }
 
   public static boolean canManageFeatures(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
   }
 
   public static boolean isAuthorized(
-      @Nonnull Authorizer authorizer,
-      @Nonnull String actor,
+      @Nonnull QueryContext context,
       @Nonnull String resourceType,
       @Nonnull String resource,
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
-    return AuthUtil.isAuthorized(authorizer, actor, privilegeGroup, resourceSpec);
+    return AuthUtil.isAuthorized(context.getOperationContext(), privilegeGroup, resourceSpec);
   }
 
   public static boolean isViewDatasetUsageAuthorized(
       final QueryContext context, final Urn resourceUrn) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
+        context.getOperationContext(),
         PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
   }

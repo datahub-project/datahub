@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch;
 
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -18,8 +19,8 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
@@ -51,7 +53,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
   private final EntityIndexBuilders indexBuilders;
-  private final ESSearchDAO esSearchDAO;
+  @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
 
@@ -104,22 +106,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public void appendRunId(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull Urn urn,
-      @Nullable String runId) {
-    final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
-    if (!maybeDocId.isPresent()) {
-      log.warn(
-          String.format("Failed to append run id, could not generate a doc id for urn %s", urn));
-      return;
-    }
-    final String docId = maybeDocId.get();
-    log.info(
-        "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
+    final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
+
+    log.debug(
+        "Appending run id for entity name: {}, doc id: {}, run id: {}",
+        urn.getEntityType(),
+        docId,
+        runId);
     esWriteDAO.applyScriptUpdate(
         opContext,
-        entityName,
+        urn.getEntityType(),
         docId,
         /*
           Script used to apply updates to the runId field of the index.
@@ -262,7 +259,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
             entityName, path, filters, from, size));
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filters,
@@ -283,7 +282,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityName,
         path,
         filter,
@@ -305,7 +306,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true)),
         entityNames,
         path,
         filter,
@@ -418,5 +421,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         keepAlive,
         size,
         facets);
+  }
+
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexBuilders.getIndexConvention();
   }
 }

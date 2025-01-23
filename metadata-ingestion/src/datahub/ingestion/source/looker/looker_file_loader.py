@@ -1,17 +1,17 @@
 import logging
 import pathlib
 from dataclasses import replace
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_template_language import (
-    resolve_liquid_variable_in_view_dict,
+    load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _EXPLORE_FILE_EXTENSION,
-    _VIEW_FILE_EXTENSION,
+    EXPLORE_FILE_EXTENSION,
+    VIEW_FILE_EXTENSION,
+    LookMLSourceConfig,
     LookMLSourceReport,
 )
 
@@ -29,20 +29,20 @@ class LookerViewFileLoader:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
-        liquid_variable: Dict[Any, Any],
+        source_config: LookMLSourceConfig,
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
-        self.liquid_variable = liquid_variable
+        self.source_config = source_config
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        allowed_extensions = [_VIEW_FILE_EXTENSION, _EXPLORE_FILE_EXTENSION]
+        allowed_extensions = [VIEW_FILE_EXTENSION, EXPLORE_FILE_EXTENSION]
         matched_any_extension = [
             match for match in [path.endswith(x) for x in allowed_extensions] if match
         ]
@@ -71,11 +71,9 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
 
-            parsed = load_lkml(path)
-
-            resolve_liquid_variable_in_view_dict(
-                raw_view=parsed,
-                liquid_variable=self.liquid_variable,
+            parsed = load_and_preprocess_file(
+                path=path,
+                source_config=self.source_config,
             )
 
             looker_viewfile = LookerViewFile.from_looker_dict(
@@ -85,6 +83,7 @@ class LookerViewFileLoader:
                 root_project_name=self._root_project_name,
                 base_projects_folder=self._base_projects_folder,
                 raw_file_content=raw_file_content,
+                source_config=self.source_config,
                 reporter=reporter,
             )
             logger.debug(f"adding viewfile for path {path} to the cache")

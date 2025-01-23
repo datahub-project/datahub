@@ -202,12 +202,22 @@ fragment embedFields on Embed {
     renderUrl
 }
 
+fragment resolvedActorFields on ResolvedActor {
+    ... on CorpUser {
+        urn
+        ...entityDisplayNameFields
+    }
+    ... on CorpGroup {
+        urn
+        ...entityDisplayNameFields
+    }
+}
+
 fragment institutionalMemoryFields on InstitutionalMemory {
     elements {
         url
-        author {
-            urn
-            username
+        actor {
+            ...resolvedActorFields
         }
         description
         created {
@@ -392,6 +402,9 @@ fragment dataJobFields on DataJob {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    parentContainers {
+        ...parentContainersFields
     }
     privileges {
         canEditLineage
@@ -579,6 +592,11 @@ fragment nonRecursiveMLFeature on MLFeature {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -649,6 +667,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -705,6 +728,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment schemaFieldFields on SchemaField {
@@ -755,16 +783,6 @@ fragment schemaFieldFields on SchemaField {
                         key
                         value
                     }
-                }
-            }
-        }
-        parent {
-            urn
-            type
-            ...entityDisplayNameFields
-            ... on Dataset {
-                platform {
-                    ...platformFields
                 }
             }
         }
@@ -845,8 +863,17 @@ fragment nonRecursiveMLModel on MLModel {
         ...ownershipFields
     }
     properties {
+        name
         description
         date
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
         externalUrl
         version
         type
@@ -938,7 +965,12 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         ...deprecationFields
     }
     properties {
+        name
         description
+        created {
+            time
+            actor
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields
@@ -1010,6 +1042,7 @@ fragment entityContainer on Container {
 
 fragment parentContainerFields on Container {
     urn
+    type
     properties {
         name
     }
@@ -1022,7 +1055,7 @@ fragment domainEntitiesFields on Domain {
     entities(input: { start: 0, count: 0 }) {
         total
     }
-    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
+    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
@@ -1224,6 +1257,12 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            qualifiedName
+        }
+    }
 }
 
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
@@ -1277,12 +1316,16 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         cardinality
         immutable
         valueType {
+            urn
+            type
             info {
                 type
                 displayName
             }
         }
         entityTypes {
+            urn
+            type
             info {
                 type
             }
@@ -1309,11 +1352,41 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
             description
         }
+        created {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+    }
+    settings {
+        isHidden
+        showInSearchFilters
+        showAsAssetBadge
+        showInAssetSummary
+        showInColumnsTable
     }
 }
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
+        exists
         ...structuredPropertyFields
     }
     values {
@@ -1329,6 +1402,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         type
         ...entityDisplayNameFields
     }
+    associatedUrn
 }
 
 fragment autoRenderAspectFields on RawAspect {

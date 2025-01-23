@@ -62,6 +62,7 @@ type Props = {
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
     suggestions: SearchSuggestion[];
+    pageNumber: number;
 };
 
 export const SearchResultList = ({
@@ -73,6 +74,7 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
     suggestions,
+    pageNumber,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -86,6 +88,7 @@ export const SearchResultList = ({
             entityType: result.entity.type,
             index,
             total: totalResultCount,
+            pageNumber,
         });
     };
 

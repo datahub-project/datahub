@@ -106,8 +106,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   }
 
   private boolean canEditEntityLineage(Urn urn, QueryContext context) {
-    return AuthUtil.isAuthorizedUrns(
-        context.getAuthorizer(), context.getActorUrn(), LINEAGE, UPDATE, List.of(urn));
+    return AuthUtil.isAuthorizedUrns(context.getOperationContext(), LINEAGE, UPDATE, List.of(urn));
   }
 
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {

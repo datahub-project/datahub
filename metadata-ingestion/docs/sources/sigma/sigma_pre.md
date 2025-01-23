@@ -16,7 +16,7 @@ This source extracts the following:
 | Sigma                  | Datahub												         | Notes                            |
 |------------------------|---------------------------------------------------------------|----------------------------------|
 | `Workspace`            | [Container](../../metamodel/entities/container.md)     	     | SubType `"Sigma Workspace"`      |
-| `Workbook`             | [Container](../../metamodel/entities/container.md)            | SubType `"Sigma Workbook"`       |
+| `Workbook`             | [Dashboard](../../metamodel/entities/dashboard.md)            | SubType `"Sigma Workbook"`       |
 | `Page`                 | [Dashboard](../../metamodel/entities/dashboard.md)            |                                  |
 | `Element`              | [Chart](../../metamodel/entities/chart.md)                    |                                  |
 | `Dataset`              | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Sigma Dataset"`        |

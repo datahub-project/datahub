@@ -263,15 +263,13 @@ class AvroToMceSchemaConverter:
     @overload
     def _get_underlying_type_if_option_as_union(
         schema: SchemaOrField, default: SchemaOrField
-    ) -> SchemaOrField:
-        ...
+    ) -> SchemaOrField: ...
 
     @staticmethod
     @overload
     def _get_underlying_type_if_option_as_union(
         schema: SchemaOrField, default: Optional[SchemaOrField] = None
-    ) -> Optional[SchemaOrField]:
-        ...
+    ) -> Optional[SchemaOrField]: ...
 
     @staticmethod
     def _get_underlying_type_if_option_as_union(
@@ -386,7 +384,7 @@ class AvroToMceSchemaConverter:
 
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
+                        f'<span style="color:red">DEPRECATED: {merged_props["deprecated"]}</span>\n'
                         + description
                         if description
                         else ""

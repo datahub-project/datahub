@@ -1,0 +1,23 @@
+namespace com.linkedin.upgrade
+
+enum DataHubUpgradeState {
+    /**
+     * Upgrade in progress.
+     */
+    IN_PROGRESS
+
+    /**
+     * Upgrade was successful.
+     */
+    SUCCEEDED
+
+    /**
+     * Upgrade with an error state, however the upgrade should be re-run.
+     */
+    FAILED
+
+    /**
+     * Upgrade with an error state and should not be re-run.
+     */
+    ABORTED
+}

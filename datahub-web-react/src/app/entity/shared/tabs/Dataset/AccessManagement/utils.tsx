@@ -2,8 +2,8 @@ export function handleAccessRoles(externalRoles) {
     const accessRoles = new Array<any>();
     if (
         externalRoles?.dataset?.access &&
-        externalRoles?.dataset?.access.roles &&
-        externalRoles?.dataset?.access.roles.length > 0
+        externalRoles?.dataset?.access?.roles &&
+        externalRoles?.dataset?.access?.roles?.length > 0
     ) {
         externalRoles?.dataset?.access?.roles?.forEach((userRoles) => {
             const role = {

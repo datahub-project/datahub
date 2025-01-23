@@ -73,18 +73,24 @@ export const Features = () => {
                         setIsColPropagateChecked(checked);
                         updateDocPropagation(checked);
                     },
+                    isDisabled: false,
+                    disabledMessage: undefined,
                 },
                 {
                     key: uuidv4(),
                     title: 'Asset Level Propagation',
                     description:
                         'Propagate new documentation from upstream to downstream assets based on data lineage relationships.',
-                    isAvailable: false,
                     checked: false,
+                    onChange: (_: boolean) => null,
+                    isAvailable: true,
+                    isDisabled: true,
+                    disabledMessage: 'Coming soon!',
                 },
             ],
             isNew: true,
-            learnMoreLink: 'https://datahubproject.io/docs/automations/doc-propagation',
+            learnMoreLink:
+                'https://datahubproject.io/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=features',
         },
     ];
 

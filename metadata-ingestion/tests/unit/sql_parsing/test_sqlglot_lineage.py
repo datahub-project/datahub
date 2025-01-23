@@ -618,7 +618,7 @@ def test_bigquery_view_from_union():
         """
 CREATE VIEW my_view as
 select * from my_project_2.my_dataset_2.sometable
-union
+union all
 select * from my_project_2.my_dataset_2.sometable2 as a
 """,
         dialect="bigquery",
@@ -1252,4 +1252,74 @@ DROP SCHEMA my_schema
 """,
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
+    )
+
+
+def test_bigquery_subquery_column_inference() -> None:
+    assert_sql_result(
+        """\
+SELECT user_id, source, user_source
+FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY __partition_day DESC) AS rank_
+    FROM invent_dw.UserDetail
+) source_user
+WHERE rank_ = 1
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
+    )
+
+
+def test_sqlite_attach_database() -> None:
+    assert_sql_result(
+        """\
+ATTACH DATABASE ':memory:' AS aux1
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_attach_database.json",
+        allow_table_error=True,
+    )
+
+
+def test_mssql_casing_resolver() -> None:
+    assert_sql_result(
+        """\
+SELECT Age, name, UPPERCASED_COL, COUNT(*) as Count
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+                "Uppercased_Col": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_casing_resolver.json",
+    )
+
+
+def test_mssql_select_into() -> None:
+    assert_sql_result(
+        """\
+SELECT age as AGE, COUNT(*) as Count
+INTO Foo.age_dist
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)": {
+                "AGE": "INTEGER",
+                "Count": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_select_into.json",
     )

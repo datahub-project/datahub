@@ -1,11 +1,10 @@
-import itertools
 import logging
 import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import more_itertools
 import pydantic
@@ -46,25 +45,14 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_test,
     make_assertion_result_from_test,
 )
-from datahub.ingestion.source.sql.sql_types import (
-    ATHENA_SQL_TYPES_MAP,
-    BIGQUERY_TYPES_MAP,
-    POSTGRES_TYPES_MAP,
-    SNOWFLAKE_TYPES_MAP,
-    SPARK_SQL_TYPES_MAP,
-    TRINO_SQL_TYPES_MAP,
-    VERTICA_SQL_TYPES_MAP,
-    resolve_athena_modified_type,
-    resolve_postgres_modified_type,
-    resolve_trino_modified_type,
-    resolve_vertica_modified_type,
-)
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -88,17 +76,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    DateTypeClass,
     MySqlDDL,
     NullTypeClass,
-    NumberTypeClass,
-    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -116,9 +98,8 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
-    SchemaInfo,
     SqlParsingDebugInfo,
     SqlParsingResult,
     infer_output_schema,
@@ -129,6 +110,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statements_and_pick,
     try_format_query,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
@@ -154,7 +136,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyList
     )
 
-    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
+    nodes_filtered: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -234,6 +216,10 @@ class DBTEntitiesEnabled(ConfigModel):
         return allowed == EmitDirective.YES
 
     @property
+    def can_emit_test_definitions(self) -> bool:
+        return self.test_definitions == EmitDirective.YES
+
+    @property
     def can_emit_test_results(self) -> bool:
         return self.test_results == EmitDirective.YES
 
@@ -275,6 +261,12 @@ class DBTCommonConfig(
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
+    )
+    prefer_sql_parser_lineage: bool = Field(
+        default=False,
+        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
+        "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
+        "This requires that `skip_sources_in_lineage` is enabled.",
     )
     skip_sources_in_lineage: bool = Field(
         default=False,
@@ -366,13 +358,6 @@ class DBTCommonConfig(
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
 
-    prefer_sql_parser_lineage: bool = Field(
-        default=False,
-        description="Normally we use dbt's metadata to generate table lineage. When enabled, we prefer results from the SQL parser when generating lineage instead. "
-        "This can be useful when dbt models reference tables directly, instead of using the ref() macro. "
-        "This requires that `skip_sources_in_lineage` is enabled.",
-    )
-
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -416,15 +401,7 @@ class DBTCommonConfig(
             if v["operation"] == "add_owner":
                 owner_category = v["config"].get("owner_category")
                 if owner_category:
-                    allowed_categories = [
-                        value
-                        for name, value in vars(OwnershipTypeClass).items()
-                        if not name.startswith("_")
-                    ]
-                    if (owner_category.upper()) not in allowed_categories:
-                        raise ValueError(
-                            f"Owner category {owner_category} is not one of {allowed_categories}"
-                        )
+                    mce_builder.validate_ownership_type(owner_category)
         return meta_mapping
 
     @validator("include_column_lineage")
@@ -438,31 +415,33 @@ class DBTCommonConfig(
 
         return include_column_lineage
 
-    @validator("skip_sources_in_lineage")
+    @validator("skip_sources_in_lineage", always=True)
     def validate_skip_sources_in_lineage(
         cls, skip_sources_in_lineage: bool, values: Dict
     ) -> bool:
-        entites_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        entities_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
+        prefer_sql_parser_lineage: Optional[bool] = values.get(
+            "prefer_sql_parser_lineage"
+        )
+
+        if prefer_sql_parser_lineage and not skip_sources_in_lineage:
+            raise ValueError(
+                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            )
+
         if (
             skip_sources_in_lineage
-            and entites_enabled
-            and entites_enabled.sources == EmitDirective.YES
+            and entities_enabled
+            and entities_enabled.sources == EmitDirective.YES
+            # When `prefer_sql_parser_lineage` is enabled, it's ok to have `skip_sources_in_lineage` enabled
+            # without also disabling sources.
+            and not prefer_sql_parser_lineage
         ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
             )
 
         return skip_sources_in_lineage
-
-    @validator("prefer_sql_parser_lineage")
-    def validate_prefer_sql_parser_lineage(
-        cls, prefer_sql_parser_lineage: bool, values: Dict
-    ) -> bool:
-        if prefer_sql_parser_lineage and not values.get("skip_sources_in_lineage"):
-            raise ValueError(
-                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
-            )
-        return prefer_sql_parser_lineage
 
 
 @dataclass
@@ -527,15 +506,18 @@ class DBTNode:
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
+    missing_from_catalog: (
+        bool  # indicates if the node was missing from the catalog.json
+    )
 
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
     upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
-    raw_sql_parsing_result: Optional[
-        SqlParsingResult
-    ] = None  # only set for nodes that don't depend on ephemeral models
+    raw_sql_parsing_result: Optional[SqlParsingResult] = (
+        None  # only set for nodes that don't depend on ephemeral models
+    )
     cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -741,8 +723,8 @@ def get_upstreams_for_test(
     all_nodes_map: Dict[str, DBTNode],
     platform_instance: Optional[str],
     environment: str,
-) -> List[str]:
-    upstream_urns = []
+) -> Dict[str, str]:
+    upstreams = {}
 
     for upstream in test_node.upstream_nodes:
         if upstream not in all_nodes_map:
@@ -753,15 +735,13 @@ def get_upstreams_for_test(
 
         upstream_manifest_node = all_nodes_map[upstream]
 
-        upstream_urns.append(
-            upstream_manifest_node.get_urn(
-                target_platform=DBT_PLATFORM,
-                data_platform_instance=platform_instance,
-                env=environment,
-            )
+        upstreams[upstream] = upstream_manifest_node.get_urn(
+            target_platform=DBT_PLATFORM,
+            data_platform_instance=platform_instance,
+            env=environment,
         )
 
-    return upstream_urns
+    return upstreams
 
 
 def make_mapping_upstream_lineage(
@@ -769,23 +749,30 @@ def make_mapping_upstream_lineage(
     downstream_urn: str,
     node: DBTNode,
     convert_column_urns_to_lowercase: bool,
+    skip_sources_in_lineage: bool,
 ) -> UpstreamLineageClass:
     cll = []
-    for column in node.columns or []:
-        field_name = column.name
-        if convert_column_urns_to_lowercase:
-            field_name = field_name.lower()
+    if not (node.node_type == "source" and skip_sources_in_lineage):
+        # If `skip_sources_in_lineage` is enabled, we want to generate table lineage (for siblings)
+        # but not CLL. That's because CLL will make it look like the warehouse node has downstream
+        # column lineage, but it's really just empty.
+        for column in node.columns or []:
+            field_name = column.name
+            if convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
 
-        cll.append(
-            FineGrainedLineage(
-                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[mce_builder.make_schema_field_urn(upstream_urn, field_name)],
-                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                downstreams=[
-                    mce_builder.make_schema_field_urn(downstream_urn, field_name)
-                ],
+            cll.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(upstream_urn, field_name)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(downstream_urn, field_name)
+                    ],
+                )
             )
-        )
 
     return UpstreamLineageClass(
         upstreams=[
@@ -801,28 +788,6 @@ def make_mapping_upstream_lineage(
     )
 
 
-# See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
-_field_type_mapping = {
-    "boolean": BooleanTypeClass,
-    "date": DateTypeClass,
-    "time": TimeTypeClass,
-    "numeric": NumberTypeClass,
-    "text": StringTypeClass,
-    "timestamp with time zone": DateTypeClass,
-    "timestamp without time zone": DateTypeClass,
-    "integer": NumberTypeClass,
-    "float8": NumberTypeClass,
-    "struct": RecordType,
-    **POSTGRES_TYPES_MAP,
-    **SNOWFLAKE_TYPES_MAP,
-    **BIGQUERY_TYPES_MAP,
-    **SPARK_SQL_TYPES_MAP,
-    **TRINO_SQL_TYPES_MAP,
-    **ATHENA_SQL_TYPES_MAP,
-    **VERTICA_SQL_TYPES_MAP,
-}
-
-
 def get_column_type(
     report: DBTSourceReport,
     dataset_name: str,
@@ -832,21 +797,10 @@ def get_column_type(
     """
     Maps known DBT types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type) if column_type else None
 
-    if TypeClass is None and column_type:
-        # resolve a modified type
-        if dbt_adapter == "trino":
-            TypeClass = resolve_trino_modified_type(column_type)
-        elif dbt_adapter == "athena":
-            TypeClass = resolve_athena_modified_type(column_type)
-        elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
-            # Redshift uses a variant of Postgres, so we can use the same logic.
-            TypeClass = resolve_postgres_modified_type(column_type)
-        elif dbt_adapter == "vertica":
-            TypeClass = resolve_vertica_modified_type(column_type)
+    TypeClass = resolve_sql_type(column_type, dbt_adapter)
 
-    # if still not found, report the warning
+    # if still not found, report a warning
     if TypeClass is None:
         if column_type:
             report.info(
@@ -855,9 +809,9 @@ def get_column_type(
                 context=f"{dataset_name} - {column_type}",
                 log=False,
             )
-        TypeClass = NullTypeClass
+        TypeClass = NullTypeClass()
 
-    return SchemaFieldDataType(type=TypeClass())
+    return SchemaFieldDataType(type=TypeClass)
 
 
 @platform_name("dbt")
@@ -888,40 +842,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_test_entity_mcps(
         self,
         test_nodes: List[DBTNode],
-        custom_props: Dict[str, str],
+        extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
-            assertion_urn = mce_builder.make_assertion_urn(
-                mce_builder.datahub_guid(
-                    {
-                        k: v
-                        for k, v in {
-                            "platform": DBT_PLATFORM,
-                            "name": node.dbt_name,
-                            "instance": self.config.platform_instance,
-                            **(
-                                # Ideally we'd include the env unconditionally. However, we started out
-                                # not including env in the guid, so we need to maintain backwards compatibility
-                                # with existing PROD assertions.
-                                {"env": self.config.env}
-                                if self.config.env != mce_builder.DEFAULT_ENV
-                                and self.config.include_env_in_assertion_guid
-                                else {}
-                            ),
-                        }.items()
-                        if v is not None
-                    }
-                )
-            )
-
-            if self.config.entities_enabled.can_emit_node_type("test"):
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=assertion_urn,
-                    aspect=self._make_data_platform_instance_aspect(),
-                ).as_workunit()
-
-            upstream_urns = get_upstreams_for_test(
+            upstreams = get_upstreams_for_test(
                 test_node=node,
                 all_nodes_map=all_nodes_map,
                 platform_instance=self.config.platform_instance,
@@ -929,12 +854,51 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             # In case a dbt test depends on multiple tables, we create separate assertions for each.
-            # TODO: This logic doesn't actually work properly, since we're reusing the same assertion_urn
-            # across multiple upstream tables, so we're actually only creating one assertion and the last
-            # upstream_urn gets used. Luckily, most dbt tests are associated with a single table, so this
-            # doesn't cause major issues in practice.
-            for upstream_urn in sorted(upstream_urns):
-                if self.config.entities_enabled.can_emit_node_type("test"):
+            for upstream_node_name, upstream_urn in upstreams.items():
+                guid_upstream_part = {}
+                if len(upstreams) > 1:
+                    # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
+                    # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
+                    guid_upstream_part = {
+                        "on_dbt_upstream": upstream_node_name,
+                    }
+
+                assertion_urn = mce_builder.make_assertion_urn(
+                    mce_builder.datahub_guid(
+                        {
+                            k: v
+                            for k, v in {
+                                "platform": DBT_PLATFORM,
+                                "name": node.dbt_name,
+                                "instance": self.config.platform_instance,
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                **(
+                                    {"env": self.config.env}
+                                    if self.config.env != mce_builder.DEFAULT_ENV
+                                    and self.config.include_env_in_assertion_guid
+                                    else {}
+                                ),
+                                **guid_upstream_part,
+                            }.items()
+                            if v is not None
+                        }
+                    )
+                )
+
+                custom_props = {
+                    "dbt_unique_id": node.dbt_name,
+                    "dbt_test_upstream_unique_id": upstream_node_name,
+                    **extra_custom_props,
+                }
+
+                if self.config.entities_enabled.can_emit_test_definitions:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=assertion_urn,
+                        aspect=self._make_data_platform_instance_aspect(),
+                    ).as_workunit()
+
                     yield make_assertion_from_test(
                         custom_props,
                         node,
@@ -1020,12 +984,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
+    def _is_allowed_node(self, key: str) -> bool:
+        return self.config.node_name_pattern.allowed(key)
+
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
             key = node.dbt_name
 
-            if not self.config.node_name_pattern.allowed(key):
+            if not self._is_allowed_node(key):
+                self.report.nodes_filtered.append(key)
                 continue
 
             nodes.append(node)
@@ -1035,6 +1003,36 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
+
+    def _determine_cll_required_nodes(
+        self, all_nodes_map: Dict[str, DBTNode]
+    ) -> Tuple[Set[str], Set[str]]:
+        # Based on the filter patterns, we only need to do schema inference and CLL
+        # for a subset of nodes.
+        # If a node depends on an ephemeral model, the ephemeral model should also be in the CLL list.
+        # Invariant: If it's in the CLL list, it will also be in the schema list.
+        # Invariant: The upstream of any node in the CLL list will be in the schema list.
+        schema_nodes: Set[str] = set()
+        cll_nodes: Set[str] = set()
+
+        def add_node_to_cll_list(dbt_name: str) -> None:
+            if dbt_name in cll_nodes:
+                return
+            for upstream in all_nodes_map[dbt_name].upstream_nodes:
+                schema_nodes.add(upstream)
+
+                upstream_node = all_nodes_map.get(upstream)
+                if upstream_node and upstream_node.is_ephemeral_model():
+                    add_node_to_cll_list(upstream)
+
+            cll_nodes.add(dbt_name)
+            schema_nodes.add(dbt_name)
+
+        for dbt_name in all_nodes_map.keys():
+            if self._is_allowed_node(dbt_name):
+                add_node_to_cll_list(dbt_name)
+
+        return schema_nodes, cll_nodes
 
     def _infer_schemas_and_update_cll(  # noqa: C901
         self, all_nodes_map: Dict[str, DBTNode]
@@ -1062,7 +1060,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
             return
 
-        graph = self.ctx.graph
+        graph: Optional[DataHubGraph] = self.ctx.graph
 
         schema_resolver = SchemaResolver(
             platform=self.config.target_platform,
@@ -1074,7 +1072,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # Iterate over the dbt nodes in topological order.
         # This ensures that we process upstream nodes before downstream nodes.
-        node_order = topological_sort(
+        all_node_order = topological_sort(
             list(all_nodes_map.keys()),
             edges=list(
                 (upstream, node.dbt_name)
@@ -1083,7 +1081,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if upstream in all_nodes_map
             ),
         )
-        for dbt_name in node_order:
+        schema_required_nodes, cll_required_nodes = self._determine_cll_required_nodes(
+            all_nodes_map
+        )
+
+        for dbt_name in all_node_order:
+            if dbt_name not in schema_required_nodes:
+                logger.debug(
+                    f"Skipping {dbt_name} because it is filtered out by patterns"
+                )
+                continue
+
             node = all_nodes_map[dbt_name]
             logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
@@ -1158,6 +1166,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # For sources, we generate CLL as a 1:1 mapping.
                 # We don't support CLL for tests (assertions) or seeds.
                 pass
+            elif node.dbt_name not in cll_required_nodes:
+                logger.debug(
+                    f"Not generating CLL for {node.dbt_name} because we don't need it."
+                )
             elif node.compiled_code:
                 # Add CTE stops based on the upstreams list.
                 cte_mapping = {
@@ -1476,6 +1488,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstream_urn=node_datahub_urn,
                     node=node,
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -1756,16 +1769,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
                     )
-            if self.config.strip_user_ids_from_email:
-                owner = owner.split("@")[0]
-                logger.debug(f"Owner (after stripping email):{owner}")
+            if isinstance(owner, list):
+                owners = owner
+            else:
+                owners = [owner]
+            for owner in owners:
+                if self.config.strip_user_ids_from_email:
+                    owner = owner.split("@")[0]
+                    logger.debug(f"Owner (after stripping email):{owner}")
 
-            owner_list.append(
-                OwnerClass(
-                    owner=mce_builder.make_user_urn(owner),
-                    type=OwnershipTypeClass.DATAOWNER,
+                owner_list.append(
+                    OwnerClass(
+                        owner=mce_builder.make_user_urn(owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
                 )
-            )
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list
@@ -1821,6 +1839,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
             upstream_urns = get_upstreams(
@@ -1910,7 +1929,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             else None
                         ),
                     )
-                    for downstream, upstreams in itertools.groupby(
+                    for downstream, upstreams in groupby_unsorted(
                         node.upstream_cll, lambda x: x.downstream_col
                     )
                 ]
@@ -1922,6 +1941,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 time=mce_builder.get_sys_time(),
                 actor=_DEFAULT_ACTOR,
             )
+            sibling_urn = node.get_urn(
+                self.config.target_platform,
+                self.config.env,
+                self.config.target_platform_instance,
+            )
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
@@ -1930,6 +1954,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         auditStamp=auditStamp,
                     )
                     for upstream in upstream_urns
+                    if not (node.node_type == "model" and upstream == sibling_urn)
                 ],
                 fineGrainedLineages=(
                     (cll or None) if self.config.include_column_lineage else None

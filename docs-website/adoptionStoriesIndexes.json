@@ -14,8 +14,6 @@
     {
       "name": "Visa",
       "slug": "visa",
-      "imageUrl": "/img/logos/companies/visa.png",
-      "imageSize": "large",
       "link": "https://blog.datahubproject.io/how-visa-uses-datahub-to-scale-data-governance-cace052d61c5",
       "linkType": "blog",
       "tagline": "How Visa uses DataHub to scale data governance",
@@ -23,9 +21,31 @@
       "description": "<i>\"We found DataHub to provide excellent coverage for our needs. What we appreciate most about DataHub is <b>its powerful API platform.</b>\"<br /><br /><div style='color: gray;'>— Jean-Pierre Dijcks, Sr. Dir. Product Management at VISA</div></i><br />"
     },
     {
+      "name": "Apple",
+      "slug": "apple",
+      "link": "https://youtu.be/5eFZuzG4c-s?feature=shared",
+      "linkType": "video",
+      "tagline": "How Apple built a solid foundation for observability, governance, and data sharing with DataHub",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "Discover how DataHub provides a solid foundation for observability, governance, and data sharing, while we explore its role in managing AI and data metadata."
+    },
+    {
+      "name": "Notion",
+      "slug": "notion",
+      "imageUrl": "/img/logos/companies/notion.png",
+      "imageSize": "small",
+      "link": "https://blog.datahubproject.io/how-notion-uses-acryl-data-to-ensure-data-reliability-800427a9ba66",
+      "linkType": "blog",
+      "tagline": "How Notion Uses Acryl Data to Ensure Data Reliability",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"We rely on Acryl to gain insights and ensure our critical data is reliable. Acryl’s managed product takes DataHub to the next level through automation and emphasis on time-to-value.\"<br /><br /><div style='color: gray;'>—  Ada Draginda, Senior Data Engineer at Notion</div></i><br />"
+    },
+    {
       "name": "Optum",
       "slug": "optum",
-      "imageUrl": "/img/logos/companies/optum.jpg",
+      "imageUrl": "/img/logos/companies/optum.png",
       "imageSize": "medium",
       "link": "https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub",
       "linkType": "blog",
@@ -43,6 +63,12 @@
       "tagline": "DataHub Project at Pinterest",
       "category": "B2B & B2C",
       "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
+    },
+    {
+      "name": "Snap, Inc.",
+      "slug": "snap",
+      "imageUrl": "/img/logos/companies/snap.png",
+      "imageSize": "small"
     },
     {
       "name": "Airtel",
@@ -78,6 +104,42 @@
       "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
     },
     {
+      "name": "Miro",
+      "slug": "miro",
+      "imageUrl": "/img/logos/companies/miro.png",
+      "imageSize": "medium",
+      "link": "https://miro.com/careers/life-at-miro/tech/data-products-reliability-the-power-of-metadata/",
+      "linkType": "blog",
+      "tagline": "Data Products Reliability: The Power of Metadata",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"Leveraging our Datahub catalog, we have centralized metadata access for all data products. This integration eliminates the dependency on Airflow metadata alone for defining contracts, enabling flexible definitions for both building blocks and business metrics.\"</i>"
+    },
+    {
+      "name": "Foursquare",
+      "slug": "foursquare",
+      "imageUrl": "/img/logos/companies/foursquare.png",
+      "imageSize": "medium",
+      "link": "https://location.foursquare.com/resources/blog/leadership/foursquare-data-platform-from-fragmentation-to-control-plane/",
+      "linkType": "blog",
+      "tagline": "Foursquare Data Platform: From Fragmentation to Control (Plane)",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"After evaluating several options (...) we chose DataHub as the control plane for our data platform and partnered with Acryl Data, which offers DataHub Cloud, a premium hosted version of DataHub. (...) Another important thing that worked in DataHub’s favor is the rich and flexible taxonomy it offered for modeling the various aspects of a data platform.\"</i>"
+    },
+    {
+      "name": "Deutsche Telekom",
+      "slug": "deutsche-telekom",
+      "imageUrl": "/img/logos/companies/deutsche-telekom.png",
+      "imageSize": "medium",
+      "link": "https://karanjindal95.medium.com/from-chaos-to-clarity-how-datahub-transformed-our-data-utilization-5b5151efd34a",
+      "linkType": "blog",
+      "tagline": "From Chaos to Clarity: How DataHub Transformed our Data Utilization",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"The DataHub data catalog significantly supported our AI/ML team’s efforts by offering seamless access to detailed column descriptions and table schemas through its APIs. This comprehensive data accessibility enabled the team to efficiently develop a text-to-SQL tool, which translates natural language queries into SQL commands.\"</i>"
+    },
+    {
       "name": "Chime",
       "slug": "chime",
       "imageUrl": "/img/logos/companies/chime.png",
@@ -98,6 +160,30 @@
       "tagline": "Self-Serve Data Governance with DataHub Action Framework",
       "category": "Financial & Fintech",
       "description": "Discover how Checkout leverage DataHub for advanced data management and compliance, especially in managing sensitive data types."
+    },
+    {
+      "name": "MYOB",
+      "slug": "myob",
+      "imageUrl": "/img/logos/companies/myob.png",
+      "imageSize": "medium",
+      "link": "https://blog.datahubproject.io/how-myob-improved-data-reliability-for-dbt-and-snowflake-with-acryl-a1aa26285480",
+      "linkType": "blog",
+      "tagline": "How MYOB Improved Data Reliability for dbt and Snowflake",
+      "category": "Financial & Fintech",
+      "platform": "cloud",
+      "description": "<i>\"Before bringing Acryl on board, MYOB’s data teams would see multiple breaking changes per week...Acryl has helped us significantly reduce the number of breaking changes, to the extent that they are no longer a burden on all teams.\"<br /><br /><div style='color: gray;'>—  Asad Naveed, Engineering Manager at MYOB</div></i><br />"
+    },
+    {
+      "name": "DPG Media",
+      "slug": "dpg-media",
+      "imageUrl": "/img/logos/companies/dpg-media.png",
+      "imageSize": "medium",
+      "link": "https://blog.datahubproject.io/how-acryl-data-helped-dpg-media-save-25-per-month-in-snowflake-costs-c29a1618a703",
+      "linkType": "blog",
+      "tagline": "How Acryl Data Helped DPG Media Save 25% Per Month in Snowflake Costs",
+      "category": "And More",
+      "platform": "cloud",
+      "description": "<i>DPG Media used DataHub Cloud to identify and safely retire redundant assets from their data warehouse, reducing costs by 25%. <br /><br />DataHub Cloud is used to bring federated governance to the data mesh architecture at DPG Media.<br />"
     },
     {
       "name": "MediaMarkt Saturn",

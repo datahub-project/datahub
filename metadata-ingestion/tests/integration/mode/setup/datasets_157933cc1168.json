@@ -1,0 +1,10 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/collections/157933cc1168/reports"
+    }
+  },
+  "_embedded": {
+    "reports": []
+  }
+}

@@ -62,7 +62,7 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; ma
 `;
 
 type EditAttributeModalProps = {
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     resources: ResourceRefInput[];
     type?: EntityType;
@@ -71,7 +71,7 @@ type EditAttributeModalProps = {
 };
 
 export default function EditBusinessAttributeModal({
-    visible,
+    open,
     type = EntityType.BusinessAttribute,
     operationType = OperationType.ADD,
     onCloseModal,
@@ -155,7 +155,9 @@ export default function EditBusinessAttributeModal({
             event.stopPropagation();
         };
         /* eslint-disable-next-line react/prop-types */
-        const selectedItem = displayedAttributes.find((attribute) => attribute.urn === value)?.component;
+        const selectedItem = selectedAttribute
+            ? selectedAttribute?.props?.component
+            : displayedAttributes.find((attribute) => attribute.urn === value)?.component;
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
                 {selectedItem}
@@ -172,13 +174,13 @@ export default function EditBusinessAttributeModal({
     const onSelectValue = (selectedUrn: string) => {
         const selectedSearchOption = attributeSearchOptions?.find((option) => option.props.value === selectedUrn);
         setUrn(selectedUrn);
-        if (!selectedAttribute) {
+        if (selectedAttribute?.selectedUrn !== selectedUrn) {
             setSelectedAttribute({
                 selectedUrn,
                 component: (
                     <div>
                         <GlobalOutlined />
-                        <AttributeName>{selectedSearchOption?.props.name}</AttributeName>
+                        <AttributeName>{selectedSearchOption?.props?.name}</AttributeName>
                     </div>
                 ),
             });
@@ -316,7 +318,7 @@ export default function EditBusinessAttributeModal({
     return (
         <Modal
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
-            visible={visible}
+            open={open}
             onCancel={onCloseModal}
             footer={
                 <>

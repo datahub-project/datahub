@@ -1,18 +1,27 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
+import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
+import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.MDC;
 
 @Slf4j
 public class MCLKafkaListener {
@@ -66,17 +75,27 @@ public class MCLKafkaListener {
         return;
       }
 
+      Urn entityUrn = event.getEntityUrn();
+      String aspectName = event.hasAspectName() ? event.getAspectName() : null;
+      String entityType = event.hasEntityType() ? event.getEntityType() : null;
+      ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
+      MDC.put(MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
+      MDC.put(MDC_ASPECT_NAME, aspectName);
+      MDC.put(MDC_ENTITY_TYPE, entityType);
+      MDC.put(
+          MDC_CHANGE_TYPE, Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
+
       log.info(
           "Invoking MCL hooks for consumer: {} urn: {}, aspect name: {}, entity type: {}, change type: {}",
           consumerGroupId,
-          event.getEntityUrn(),
-          event.hasAspectName() ? event.getAspectName() : null,
-          event.hasEntityType() ? event.getEntityType() : null,
-          event.hasChangeType() ? event.getChangeType() : null);
+          entityUrn,
+          aspectName,
+          entityType,
+          changeType);
 
       // Here - plug in additional "custom processor hooks"
       for (MetadataChangeLogHook hook : this.hooks) {
-        log.info(
+        log.debug(
             "Invoking MCL hook {} for urn: {}",
             hook.getClass().getSimpleName(),
             event.getEntityUrn());
@@ -98,6 +117,8 @@ public class MCLKafkaListener {
           "Successfully completed MCL hooks for consumer: {} urn: {}",
           consumerGroupId,
           event.getEntityUrn());
+    } finally {
+      MDC.clear();
     }
   }
 }

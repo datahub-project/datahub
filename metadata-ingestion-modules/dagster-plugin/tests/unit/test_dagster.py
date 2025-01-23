@@ -1,6 +1,11 @@
+import json
+import pathlib
+import tempfile
+import uuid
+from typing import Dict, List, Mapping, Sequence, Set
 from unittest.mock import Mock, patch
 
-import pytest
+import dagster._core.utils
 from dagster import (
     DagsterInstance,
     In,
@@ -11,25 +16,66 @@ from dagster import (
     job,
     op,
 )
-from datahub.api.entities.dataprocess.dataprocess_instance import (
-    DataProcessInstanceKey,
-    InstanceRunResult,
+from dagster._core.definitions.job_definition import JobDefinition
+from dagster._core.definitions.repository_definition import (
+    RepositoryData,
+    RepositoryDefinition,
 )
-from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.ingestion.graph.client import DatahubClientConfig
+from dagster._core.definitions.resource_definition import ResourceDefinition
+from freezegun import freeze_time
+from utils.utils import PytestConfig, check_golden_file
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
     make_datahub_sensor,
 )
 
+FROZEN_TIME = "2024-07-11 07:00:00"
 
-@patch("datahub.ingestion.graph.client.DataHubGraph", autospec=True)
-@pytest.mark.skip(reason="disabling this test unti it will use proper golden files")
+call_num = 0
+
+
+def make_new_run_id_mock() -> str:
+    global call_num
+    call_num += 1
+    return f"test_run_id_{call_num}"
+
+
+dagster._core.utils.make_new_run_id = make_new_run_id_mock
+
+
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()
-    context = build_sensor_context(instance=instance)
+
+    class DummyRepositoryData(RepositoryData):
+        def __init__(self):
+            self.sensors = []
+
+        def get_all_jobs(self) -> Sequence["JobDefinition"]:
+            return []
+
+        def get_top_level_resources(self) -> Mapping[str, "ResourceDefinition"]:
+            """Return all top-level resources in the repository as a list,
+            such as those provided to the Definitions constructor.
+
+            Returns:
+                List[ResourceDefinition]: All top-level resources in the repository.
+            """
+            return {}
+
+        def get_env_vars_by_top_level_resource(self) -> Mapping[str, Set[str]]:
+            return {}
+
+    repository_defintion = RepositoryDefinition(
+        name="testRepository", repository_data=DummyRepositoryData()
+    )
+    context = build_sensor_context(
+        instance=instance, repository_def=repository_defintion
+    )
     mock_emit.return_value = Mock()
 
     config = DatahubDagsterSourceConfig(
@@ -44,9 +90,13 @@ def test_datahub_sensor(mock_emit):
     assert isinstance(skip_reason, SkipReason)
 
 
-@patch("datahub_dagster_plugin.sensors.datahub_sensors.DatahubClient", autospec=True)
-@pytest.mark.skip(reason="disabling this test unti it will use proper golden files")
-def test_emit_metadata(mock_emit):
+TEST_UUIDS = ["uuid_{}".format(i) for i in range(10000)]
+
+
+@patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
+@freeze_time(FROZEN_TIME)
+def test_emit_metadata(mock_emit: Mock, pytestconfig: PytestConfig) -> None:
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
 
@@ -87,7 +137,8 @@ def test_emit_metadata(mock_emit):
         transform(extract())
 
     instance = DagsterInstance.ephemeral()
-    result = etl.execute_in_process(instance=instance)
+    test_run_id = "12345678123456781234567812345678"
+    result = etl.execute_in_process(instance=instance, run_id=test_run_id)
 
     # retrieve the DagsterRun
     dagster_run = result.dagster_run
@@ -103,201 +154,25 @@ def test_emit_metadata(mock_emit):
         dagster_event=dagster_event,
     )
 
-    DatahubSensors()._emit_metadata(run_status_sensor_context)
+    with tempfile.TemporaryDirectory() as tmp_path:
+        DatahubSensors()._emit_metadata(run_status_sensor_context)
+        mcpws: List[Dict] = []
+        for mock_call in mock_emitter.method_calls:
+            if not mock_call.args:
+                continue
+            mcpw = mock_call.args[0]
+            if isinstance(mcpw, MetadataChangeProposalWrapper):
+                mcpws.append(mcpw.to_obj(simplified_structure=True))
 
-    expected_dataflow_urn = (
-        f"urn:li:dataFlow:(dagster,{dagster_run.job_name},{DEFAULT_ENV})"
-    )
-    assert mock_emitter.method_calls[1][1][0].aspectName == "dataFlowInfo"
-    assert mock_emitter.method_calls[1][1][0].entityUrn == expected_dataflow_urn
-    assert mock_emitter.method_calls[2][1][0].aspectName == "ownership"
-    assert mock_emitter.method_calls[2][1][0].entityUrn == expected_dataflow_urn
-    assert mock_emitter.method_calls[3][1][0].aspectName == "globalTags"
-    assert mock_emitter.method_calls[3][1][0].entityUrn == expected_dataflow_urn
+        with open(f"{tmp_path}/test_emit_metadata_mcps.json", "w") as f:
+            json_object = json.dumps(mcpws, indent=2)
+            f.write(json_object)
 
-    dpi_id = DataProcessInstanceKey(
-        cluster=DEFAULT_ENV,
-        orchestrator="dagster",
-        id=dagster_run.run_id,
-    ).guid()
-    assert (
-        mock_emitter.method_calls[7][1][0].aspectName == "dataProcessInstanceProperties"
-    )
-    assert (
-        mock_emitter.method_calls[7][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[8][1][0].aspectName
-        == "dataProcessInstanceRelationships"
-    )
-    assert (
-        mock_emitter.method_calls[8][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[9][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[9][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[10][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[10][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[10][1][0].aspect.result.type
-        == InstanceRunResult.SUCCESS
-    )
-    assert mock_emitter.method_calls[11][1][0].aspectName == "dataJobInfo"
-    assert (
-        mock_emitter.method_calls[11][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},extract)"
-    )
-    assert mock_emitter.method_calls[12][1][0].aspectName == "dataJobInputOutput"
-    assert (
-        mock_emitter.method_calls[12][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},extract)"
-    )
-    assert mock_emitter.method_calls[13][1][0].aspectName == "status"
-    assert (
-        mock_emitter.method_calls[13][1][0].entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableB,PROD)"
-    )
-    assert mock_emitter.method_calls[14][1][0].aspectName == "ownership"
-    assert (
-        mock_emitter.method_calls[14][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},extract)"
-    )
-    assert mock_emitter.method_calls[15][1][0].aspectName == "globalTags"
-    assert (
-        mock_emitter.method_calls[15][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},extract)"
-    )
-    dpi_id = DataProcessInstanceKey(
-        cluster=DEFAULT_ENV,
-        orchestrator="dagster",
-        id=f"{dagster_run.run_id}.extract",
-    ).guid()
-    assert (
-        mock_emitter.method_calls[21][1][0].aspectName
-        == "dataProcessInstanceProperties"
-    )
-    assert (
-        mock_emitter.method_calls[21][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[22][1][0].aspectName
-        == "dataProcessInstanceRelationships"
-    )
-    assert (
-        mock_emitter.method_calls[22][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert mock_emitter.method_calls[23][1][0].aspectName == "dataProcessInstanceOutput"
-    assert (
-        mock_emitter.method_calls[23][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert mock_emitter.method_calls[24][1][0].aspectName == "status"
-    assert (
-        mock_emitter.method_calls[24][1][0].entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableB,PROD)"
-    )
-    assert (
-        mock_emitter.method_calls[25][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[25][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[26][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[26][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[26][1][0].aspect.result.type
-        == InstanceRunResult.SUCCESS
-    )
-    assert mock_emitter.method_calls[27][1][0].aspectName == "dataJobInfo"
-    assert (
-        mock_emitter.method_calls[27][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},transform)"
-    )
-    assert mock_emitter.method_calls[28][1][0].aspectName == "dataJobInputOutput"
-    assert (
-        mock_emitter.method_calls[28][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},transform)"
-    )
-    assert mock_emitter.method_calls[29][1][0].aspectName == "status"
-    assert (
-        mock_emitter.method_calls[29][1][0].entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
-    )
-    assert mock_emitter.method_calls[30][1][0].aspectName == "ownership"
-    assert (
-        mock_emitter.method_calls[30][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},transform)"
-    )
-    assert mock_emitter.method_calls[31][1][0].aspectName == "globalTags"
-    assert (
-        mock_emitter.method_calls[31][1][0].entityUrn
-        == f"urn:li:dataJob:({expected_dataflow_urn},transform)"
-    )
-    dpi_id = DataProcessInstanceKey(
-        cluster=DEFAULT_ENV,
-        orchestrator="dagster",
-        id=f"{dagster_run.run_id}.transform",
-    ).guid()
-    assert (
-        mock_emitter.method_calls[37][1][0].aspectName
-        == "dataProcessInstanceProperties"
-    )
-    assert (
-        mock_emitter.method_calls[37][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[38][1][0].aspectName
-        == "dataProcessInstanceRelationships"
-    )
-    assert (
-        mock_emitter.method_calls[38][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert mock_emitter.method_calls[39][1][0].aspectName == "dataProcessInstanceInput"
-    assert (
-        mock_emitter.method_calls[39][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert mock_emitter.method_calls[40][1][0].aspectName == "status"
-    assert (
-        mock_emitter.method_calls[40][1][0].entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
-    )
-    assert (
-        mock_emitter.method_calls[41][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[41][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[42][1][0].aspectName == "dataProcessInstanceRunEvent"
-    )
-    assert (
-        mock_emitter.method_calls[42][1][0].entityUrn
-        == f"urn:li:dataProcessInstance:{dpi_id}"
-    )
-    assert (
-        mock_emitter.method_calls[42][1][0].aspect.result.type
-        == InstanceRunResult.SUCCESS
-    )
+        check_golden_file(
+            pytestconfig=pytestconfig,
+            output_path=pathlib.Path(f"{tmp_path}/test_emit_metadata_mcps.json"),
+            golden_path=pathlib.Path(
+                "tests/unit/golden/golden_test_emit_metadata_mcps.json"
+            ),
+            ignore_paths=["root[*]['systemMetadata']['created']"],
+        )

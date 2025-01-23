@@ -21,11 +21,7 @@ public class DataContractUtils {
                         PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   private DataContractUtils() {}

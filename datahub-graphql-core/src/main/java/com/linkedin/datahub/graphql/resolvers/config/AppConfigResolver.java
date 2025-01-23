@@ -188,6 +188,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -103,9 +103,7 @@ describe('getPopulatedColumnsByUrn', () => {
                 },
             ] as FineGrainedLineage[],
         };
-        const fetchedEntities = {
-            [dataJobWithCLL.urn]: dataJobWithCLL as FetchedEntity,
-        };
+        const fetchedEntities = new Map([[dataJobWithCLL.urn, dataJobWithCLL as FetchedEntity]]);
         const columnsByUrn = getPopulatedColumnsByUrn({}, fetchedEntities);
 
         expect(columnsByUrn).toMatchObject({

@@ -23,25 +23,33 @@ def register_mock_api_state1(request_mock):
             "status_code": 403,
             "json": {},
         },
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 1,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "Workspace 1",
                         "type": "Workspace",
+                        "state": "Active",
                     },
                     {
                         "id": "44444444-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "Multi Workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     },
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -114,7 +122,7 @@ def register_mock_api_state2(request_mock):
             "status_code": 403,
             "json": {},
         },
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -133,6 +141,13 @@ def register_mock_api_state2(request_mock):
                         "type": "Workspace",
                     },
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {

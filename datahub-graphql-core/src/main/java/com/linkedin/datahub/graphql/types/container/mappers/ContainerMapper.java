@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Access;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
@@ -30,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -105,6 +107,11 @@ public class ContainerMapper {
               context, new GlossaryTerms(envelopedTerms.getValue().data()), entityUrn));
     }
 
+    final EnvelopedAspect accessAspect = aspects.get(ACCESS_ASPECT_NAME);
+    if (accessAspect != null) {
+      result.setAccess(AccessMapper.map(new Access(accessAspect.getValue().data()), entityUrn));
+    }
+
     final EnvelopedAspect envelopedInstitutionalMemory =
         aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
     if (envelopedInstitutionalMemory != null) {
@@ -154,7 +161,9 @@ public class ContainerMapper {
     if (envelopedStructuredProps != null) {
       result.setStructuredProperties(
           StructuredPropertiesMapper.map(
-              context, new StructuredProperties(envelopedStructuredProps.getValue().data())));
+              context,
+              new StructuredProperties(envelopedStructuredProps.getValue().data()),
+              entityUrn));
     }
 
     final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);

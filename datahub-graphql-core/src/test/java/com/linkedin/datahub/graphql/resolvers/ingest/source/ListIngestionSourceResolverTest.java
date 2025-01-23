@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +21,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -30,7 +28,7 @@ import org.testng.annotations.Test;
 public class ListIngestionSourceResolverTest {
 
   private static final ListIngestionSourcesInput TEST_INPUT =
-      new ListIngestionSourcesInput(0, 20, null, null);
+      new ListIngestionSourcesInput(0, 20, null, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -85,7 +83,7 @@ public class ListIngestionSourceResolverTest {
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

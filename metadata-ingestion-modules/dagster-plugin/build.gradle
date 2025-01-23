@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -23,7 +25,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "${python_executable} -m venv ${venv_name} && " +
-      "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
       "touch ${sentinel_file}"
 }
 
@@ -33,7 +35,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-          "uv pip install -e . ${extra_pip_requirements} && " +
+          "${pip_install_command} -e . ${extra_pip_requirements} && " +
           "touch ${sentinel_file}"
 }
 
@@ -45,29 +47,22 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-      "uv pip install -e .[dev] ${extra_pip_requirements} && " +
+      "${pip_install_command} -e .[dev] ${extra_pip_requirements} && " +
       "touch ${sentinel_file}"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ examples/ && " +
-    "isort --check --diff src/ tests/ examples/ && " +
-    "flake8 --count --statistics src/ tests/ examples/ && " +
+    "ruff check src/ tests/ examples/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ examples/ && " +
-    "isort src/ tests/ examples/ && " +
-    "flake8 src/ tests/ examples/ && " +
-    "mypy src/ tests/ examples/"
+    "ruff check --fix src/ tests/ examples/ && " +
+    "ruff format src/ tests/ examples/ "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -77,22 +72,8 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-      "uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+      "${pip_install_command} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
       "touch ${sentinel_file}"
-}
-
-def testFile = hasProperty('testFile') ? testFile : 'unknown'
-task testSingle(dependsOn: [installDevTest]) {
-  doLast {
-  if (testFile != 'unknown')  {
-  exec {
-    commandLine 'bash', '-x', '-c',
-     "source ${venv_name}/bin/activate && pytest ${testFile}"
-    }
-  } else {
-   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
-    }
-  }
 }
 
 task testQuick(type: Exec, dependsOn: installDevTest) {
@@ -100,15 +81,11 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
-
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
-}
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
   'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
@@ -127,5 +104,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

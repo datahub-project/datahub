@@ -1,0 +1,45 @@
+bootstrap:
+  # Defaults
+  #   force: false
+  #   blocking: false
+  #   async: true
+  #   optional: false
+  templates:
+    # Bootstrap
+    - name: root-user
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/root-user.yaml"
+
+    - name: data-platforms
+      version: v2
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/data-platforms.yaml"
+
+    - name: data-types
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/data-types.yaml"
+
+    - name: ownership-types
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/ownership-types.yaml"
+
+    - name: roles
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/roles.yaml"
+
+    # Ingestion Recipes
+    - name: ingestion-datahub-gc
+      version: v5
+      optional: false
+      mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
+      values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"

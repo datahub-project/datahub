@@ -69,4 +69,13 @@ public interface MCLItem extends BatchItem {
   default AuditStamp getAuditStamp() {
     return getMetadataChangeLog().getCreated();
   }
+
+  /**
+   * Change detection for previous and new record template
+   *
+   * @return no change detection
+   */
+  default boolean isNoOp() {
+    return getPreviousRecordTemplate() == getRecordTemplate();
+  }
 }

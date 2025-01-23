@@ -19,6 +19,7 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
@@ -37,9 +38,13 @@ import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
+import io.ebean.SqlQuery;
+import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
+import jakarta.persistence.PersistenceException;
+import jakarta.persistence.Table;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -61,13 +66,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.persistence.PersistenceException;
-import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
-
+  // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in order
+  // to ensure that the aspect's version is not modified outside the transaction.
+  // We rely on the retry mechanism if the row is modified and will re-read (require the lock)
+  public static final TxIsolation TX_ISOLATION = TxIsolation.READ_COMMITED;
   private final Database _server;
   private boolean _connectionValidated = false;
   private final Clock _clock = Clock.systemUTC();
@@ -89,8 +95,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   private final LoadingCache<String, Lock> locks;
 
+  private final String batchGetMethod;
+
   public EbeanAspectDao(@Nonnull final Database server, EbeanConfiguration ebeanConfiguration) {
     _server = server;
+    this.batchGetMethod =
+        ebeanConfiguration.getBatchGetMethod() != null
+            ? ebeanConfiguration.getBatchGetMethod()
+            : "IN";
     if (ebeanConfiguration.getLocking().isEnabled()) {
       this.locks =
           CacheBuilder.newBuilder()
@@ -143,7 +155,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public long saveLatestAspect(
-      @Nullable Transaction tx,
+      @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       @Nullable final String oldAspectMetadata,
@@ -164,10 +176,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
-    if (oldAspectMetadata != null && oldTime != null) {
+    if (!ASPECT_LATEST_VERSION.equals(nextVersion) && oldTime != null) {
       largestVersion = nextVersion;
       saveAspect(
-          tx,
+          txContext,
           urn,
           aspectName,
           oldAspectMetadata,
@@ -181,7 +193,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Save newValue as the latest version (v0)
     saveAspect(
-        tx,
+        txContext,
         urn,
         aspectName,
         newAspectMetadata,
@@ -190,14 +202,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         newTime,
         newSystemMetadata,
         ASPECT_LATEST_VERSION,
-        oldAspectMetadata == null);
+        ASPECT_LATEST_VERSION.equals(nextVersion));
 
     return largestVersion;
   }
 
   @Override
   public void saveAspect(
-      @Nullable Transaction tx,
+      @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       @Nonnull final String aspectMetadata,
@@ -220,29 +232,41 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       aspect.setCreatedFor(impersonator);
     }
 
-    saveEbeanAspect(tx, aspect, insert);
+    saveEbeanAspect(txContext, aspect, insert);
   }
 
   @Override
   public void saveAspect(
-      @Nullable Transaction tx, @Nonnull final EntityAspect aspect, final boolean insert) {
+      @Nullable TransactionContext txContext,
+      @Nonnull final EntityAspect aspect,
+      final boolean insert) {
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
-    saveEbeanAspect(tx, ebeanAspect, insert);
+    saveEbeanAspect(txContext, ebeanAspect, insert);
   }
 
   private void saveEbeanAspect(
-      @Nullable Transaction tx, @Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
+      @Nullable TransactionContext txContext,
+      @Nonnull final EbeanAspectV2 ebeanAspect,
+      final boolean insert) {
     validateConnection();
-    if (insert) {
-      _server.insert(ebeanAspect, tx);
+    if (txContext != null && txContext.tx() != null) {
+      if (insert) {
+        _server.insert(ebeanAspect, txContext.tx());
+      } else {
+        _server.update(ebeanAspect, txContext.tx());
+      }
     } else {
-      _server.update(ebeanAspect, tx);
+      if (insert) {
+        _server.insert(ebeanAspect);
+      } else {
+        _server.update(ebeanAspect);
+      }
     }
   }
 
   @Override
   public Map<String, Map<String, EntityAspect>> getLatestAspects(
-      @Nonnull Map<String, Set<String>> urnAspects) {
+      @Nonnull Map<String, Set<String>> urnAspects, boolean forUpdate) {
     validateConnection();
 
     List<EbeanAspectV2.PrimaryKey> keys =
@@ -256,7 +280,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
             .collect(Collectors.toList());
 
-    List<EbeanAspectV2> results = _server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+    final List<EbeanAspectV2> results;
+    if (forUpdate) {
+      results = _server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
+    } else {
+      results = _server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+    }
 
     return toUrnAspectMap(results);
   }
@@ -299,26 +328,27 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect) {
+  public void deleteAspect(
+      @Nullable TransactionContext txContext, @Nonnull final EntityAspect aspect) {
     validateConnection();
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
-    _server.delete(ebeanAspect, tx);
+    _server.delete(ebeanAspect, txContext.tx());
   }
 
   @Override
-  public int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn) {
+  public int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn) {
     validateConnection();
     return _server
         .createQuery(EbeanAspectV2.class)
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn)
-        .delete(tx);
+        .delete(txContext.tx());
   }
 
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
@@ -330,9 +360,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (_queryKeysCount == 0) {
-      records = batchGet(ebeanKeys, ebeanKeys.size());
+      records = batchGet(ebeanKeys, ebeanKeys.size(), forUpdate);
     } else {
-      records = batchGet(ebeanKeys, _queryKeysCount);
+      records = batchGet(ebeanKeys, _queryKeysCount, forUpdate);
     }
     return records.stream()
         .collect(
@@ -346,33 +376,48 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    *
    * @param keys a set of keys with urn, aspect and version
    * @param keysCount the max number of keys for each sub query
+   * @param forUpdate whether the operation is intending to write to this row in a tx
    */
   @Nonnull
   private List<EbeanAspectV2> batchGet(
-      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount) {
+      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount, boolean forUpdate) {
     validateConnection();
 
     int position = 0;
 
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetUnion(new ArrayList<>(keys), keysCount, position);
+        batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetUnion(new ArrayList<>(keys), keysCount, position);
+          batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 
     return finalResult;
   }
 
+  @Nonnull
+  private List<EbeanAspectV2> batchGetSelectString(
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
+
+    if (batchGetMethod.equals("IN")) {
+      return batchGetIn(keys, keysCount, position, forUpdate);
+    }
+
+    return batchGetUnion(keys, keysCount, position, forUpdate);
+  }
+
   /**
    * Builds a single SELECT statement for batch get, which selects one entity, and then can be
    * UNION'd with other SELECT statements.
    */
-  private String batchGetSelect(
+  private String batchGetSelectString(
       final int selectId,
       @Nonnull final String urn,
       @Nonnull final String aspect,
@@ -396,7 +441,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   private List<EbeanAspectV2> batchGetUnion(
-      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys, final int keysCount, final int position) {
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
     validateConnection();
 
     // Build one SELECT per key and then UNION ALL the results. This can be much more performant
@@ -416,7 +464,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final Map<String, Object> params = new HashMap<>();
     for (int index = position; index < end; index++) {
       sb.append(
-          batchGetSelect(
+          batchGetSelectString(
               index - position,
               keys.get(index).getUrn(),
               keys.get(index).getAspect(),
@@ -426,6 +474,70 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       if (index != end - 1) {
         sb.append(" UNION ALL ");
       }
+    }
+
+    // Add FOR UPDATE clause only once at the end of the entire statement
+    if (forUpdate) {
+      sb.append(" FOR UPDATE");
+    }
+
+    final RawSql rawSql =
+        RawSqlBuilder.parse(sb.toString())
+            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
+            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
+            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
+            .create();
+
+    final Query<EbeanAspectV2> query = _server.find(EbeanAspectV2.class).setRawSql(rawSql);
+
+    for (Map.Entry<String, Object> param : params.entrySet()) {
+      query.setParameter(param.getKey(), param.getValue());
+    }
+
+    return query.findList();
+  }
+
+  @Nonnull
+  private List<EbeanAspectV2> batchGetIn(
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
+    validateConnection();
+
+    // Build a single SELECT with IN clause using composite key comparison
+    // Query will look like:
+    // SELECT * FROM metadata_aspect WHERE (urn, aspect, version) IN
+    // (('urn0', 'aspect0', 0), ('urn1', 'aspect1', 1))
+    final StringBuilder sb = new StringBuilder();
+    sb.append(
+        "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor ");
+    sb.append("FROM metadata_aspect_v2 WHERE (urn, aspect, version) IN (");
+
+    final int end = Math.min(keys.size(), position + keysCount);
+    final Map<String, Object> params = new HashMap<>();
+
+    for (int index = position; index < end; index++) {
+      int paramIndex = index - position;
+      String urnParam = "urn" + paramIndex;
+      String aspectParam = "aspect" + paramIndex;
+      String versionParam = "version" + paramIndex;
+
+      params.put(urnParam, keys.get(index).getUrn());
+      params.put(aspectParam, keys.get(index).getAspect());
+      params.put(versionParam, keys.get(index).getVersion());
+
+      sb.append("(:" + urnParam + ", :" + aspectParam + ", :" + versionParam + ")");
+
+      if (index != end - 1) {
+        sb.append(",");
+      }
+    }
+
+    sb.append(")");
+
+    if (forUpdate) {
+      sb.append(" FOR UPDATE");
     }
 
     final RawSql rawSql =
@@ -511,6 +623,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
     if (args.aspectName != null) {
       exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+    }
+    if (args.aspectNames != null && !args.aspectNames.isEmpty()) {
+      exp = exp.in(EbeanAspectV2.ASPECT_COLUMN, args.aspectNames);
     }
     if (args.urn != null) {
       exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
@@ -650,14 +765,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public <T> T runInTransactionWithRetry(
-      @Nonnull final Function<Transaction, T> block, final int maxTransactionRetry) {
+      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry) {
     return runInTransactionWithRetry(block, null, maxTransactionRetry).get(0);
   }
 
   @Override
   @Nonnull
   public <T> List<T> runInTransactionWithRetry(
-      @Nonnull final Function<Transaction, T> block,
+      @Nonnull final Function<TransactionContext, T> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
 
@@ -712,23 +827,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   public <T> T runInTransactionWithRetryUnlocked(
-      @Nonnull final Function<Transaction, T> block,
+      @Nonnull final Function<TransactionContext, T> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
 
     validateConnection();
-    int retryCount = 0;
-    Exception lastException = null;
+    TransactionContext transactionContext = TransactionContext.empty(maxTransactionRetry);
 
     T result = null;
     do {
       try (Transaction transaction =
-          _server.beginTransaction(
-              TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+          _server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction.setBatchMode(true);
-        result = block.apply(transaction);
+        result = block.apply(transactionContext.tx(transaction));
         transaction.commit();
-        lastException = null;
         break;
       } catch (PersistenceException exception) {
         if (exception instanceof DuplicateKeyException) {
@@ -741,45 +853,92 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             log.warn(
                 "Skipping DuplicateKeyException retry since aspect is the key aspect. {}",
                 batch.getUrnAspectsMap().keySet());
-            continue;
+            break;
           }
         }
 
         MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
         log.warn("Retryable PersistenceException: {}", exception.getMessage());
-        lastException = exception;
+        transactionContext.addException(exception);
       }
-    } while (++retryCount <= maxTransactionRetry);
+    } while (transactionContext.shouldAttemptRetry());
 
-    if (lastException != null) {
+    if (transactionContext.lastException() != null) {
       MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailedAfterRetries")).inc();
       throw new RetryLimitReached(
-          "Failed to add after " + maxTransactionRetry + " retries", lastException);
+          "Failed to add after " + maxTransactionRetry + " retries",
+          transactionContext.lastException());
     }
 
     return result;
   }
 
   @Override
-  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  @Nonnull
+  public Pair<Long, Long> getVersionRange(
+      @Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    final List<EbeanAspectV2.PrimaryKey> result =
-        _server
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-            .orderBy()
-            .desc(EbeanAspectV2.VERSION_COLUMN)
-            .setMaxRows(1)
-            .findIds();
 
-    return result.isEmpty() ? -1 : result.get(0).getVersion();
+    // Use SQL aggregation to get both min and max in a single query
+    SqlQuery query =
+        _server.sqlQuery(
+            "SELECT MIN(version) as min_version, MAX(version) as max_version "
+                + "FROM metadata_aspect_v2 "
+                + "WHERE urn = :urn AND aspect = :aspect");
+
+    query.setParameter("urn", urn);
+    query.setParameter("aspect", aspectName);
+
+    SqlRow result = query.findOne();
+
+    if (result == null) {
+      return Pair.of(-1L, -1L);
+    }
+
+    return Pair.of(result.getLong("min_version"), result.getLong("max_version"));
   }
 
+  @Override
+  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    return getVersionRange(urn, aspectName).getSecond();
+  }
+
+  /**
+   * This method is only used as a fallback. It does incur an extra read-lock that is naturally a
+   * result of getLatestAspects(, forUpdate=true)
+   *
+   * @param urnAspects urn and aspect names to fetch
+   * @return map of the aspect's next version
+   */
   public Map<String, Map<String, Long>> getNextVersions(
       @Nonnull Map<String, Set<String>> urnAspects) {
     validateConnection();
+
+    List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
+
+    // initialize with default next version of 0
+    Map<String, Map<String, Long>> result =
+        new HashMap<>(
+            urnAspects.entrySet().stream()
+                .map(
+                    entry -> {
+                      Map<String, Long> defaultNextVersion = new HashMap<>();
+                      entry
+                          .getValue()
+                          .forEach(
+                              aspectName -> {
+                                defaultNextVersion.put(aspectName, ASPECT_LATEST_VERSION);
+                                forUpdateKeys.add(
+                                    new EbeanAspectV2.PrimaryKey(
+                                        entry.getKey(), aspectName, ASPECT_LATEST_VERSION));
+                              });
+                      return Map.entry(entry.getKey(), defaultNextVersion);
+                    })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+    // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
+    // max(version) was invalidated
+    _server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
 
     Junction<EbeanAspectV2> queryJunction =
         _server
@@ -797,15 +956,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
       }
     }
-
-    Map<String, Map<String, Long>> result = new HashMap<>();
-    // Default next version 0
-    urnAspects.forEach(
-        (key, value) -> {
-          Map<String, Long> defaultNextVersion = new HashMap<>();
-          value.forEach(aspectName -> defaultNextVersion.put(aspectName, 0L));
-          result.put(key, defaultNextVersion);
-        });
 
     if (exp == null) {
       return result;

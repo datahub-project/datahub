@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.UpgradeResult;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,8 +26,9 @@ public class DefaultUpgradeManager implements UpgradeManager {
   private final Map<String, Upgrade> _upgrades = new HashMap<>();
 
   @Override
-  public void register(@Nonnull Upgrade upgrade) {
+  public UpgradeManager register(@Nonnull Upgrade upgrade) {
     _upgrades.put(upgrade.id(), upgrade);
+    return this;
   }
 
   @Override
@@ -85,11 +87,11 @@ public class DefaultUpgradeManager implements UpgradeManager {
             String.format(
                 "Step with id %s requested an abort of the in-progress update. Aborting the upgrade...",
                 step.id()));
-        return new DefaultUpgradeResult(UpgradeResult.Result.ABORTED, upgradeReport);
+        return new DefaultUpgradeResult(DataHubUpgradeState.ABORTED, upgradeReport);
       }
 
       // Handle Results
-      if (UpgradeStepResult.Result.FAILED.equals(stepResult.result())) {
+      if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
         if (step.isOptional()) {
           upgradeReport.addLine(
               String.format(
@@ -104,7 +106,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
                 "Failed Step %s/%s: %s. Failed after %s retries.",
                 i + 1, steps.size(), step.id(), step.retryCount()));
         upgradeReport.addLine(String.format("Exiting upgrade %s with failure.", upgrade.id()));
-        return new DefaultUpgradeResult(UpgradeResult.Result.FAILED, upgradeReport);
+        return new DefaultUpgradeResult(DataHubUpgradeState.FAILED, upgradeReport);
       }
 
       upgradeReport.addLine(
@@ -113,7 +115,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
     upgradeReport.addLine(
         String.format("Success! Completed upgrade with id %s successfully.", upgrade.id()));
-    return new DefaultUpgradeResult(UpgradeResult.Result.SUCCEEDED, upgradeReport);
+    return new DefaultUpgradeResult(DataHubUpgradeState.SUCCEEDED, upgradeReport);
   }
 
   private UpgradeStepResult executeStepInternal(UpgradeContext context, UpgradeStep step) {
@@ -130,14 +132,14 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
         if (result == null) {
           // Failed to even retrieve a result. Create a default failure result.
-          result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
+          result = new DefaultUpgradeStepResult(step.id(), DataHubUpgradeState.FAILED);
           context
               .report()
               .addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
           MetricUtils.counter(MetricRegistry.name(step.id(), "retry")).inc();
         }
 
-        if (UpgradeStepResult.Result.SUCCEEDED.equals(result.result())) {
+        if (DataHubUpgradeState.SUCCEEDED.equals(result.result())) {
           MetricUtils.counter(MetricRegistry.name(step.id(), "succeeded")).inc();
           break;
         }
@@ -149,7 +151,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
                 String.format(
                     "Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e));
         MetricUtils.counter(MetricRegistry.name(step.id(), "failed")).inc();
-        result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
+        result = new DefaultUpgradeStepResult(step.id(), DataHubUpgradeState.FAILED);
         context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
       }
     }

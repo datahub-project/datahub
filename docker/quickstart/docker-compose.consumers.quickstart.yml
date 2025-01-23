@@ -26,7 +26,6 @@ services:
     - NEO4J_PASSWORD=datahub
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
-    - ELASTIC_ID_HASH_ALGO=MD5
     hostname: datahub-mae-consumer
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-acryldata/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
@@ -48,7 +47,6 @@ services:
     - EBEAN_DATASOURCE_USERNAME=datahub
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - ELASTIC_ID_HASH_ALGO=MD5
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mce-consumer/resources/entity-registry.yml
     - ENTITY_SERVICE_ENABLE_RETENTION=true
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
@@ -71,4 +69,3 @@ services:
     image: ${DATAHUB_MCE_CONSUMER_IMAGE:-acryldata/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
-version: '3.9'

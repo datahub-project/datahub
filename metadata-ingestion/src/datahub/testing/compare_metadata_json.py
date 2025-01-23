@@ -27,6 +27,8 @@ default_exclude_paths = [
     r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
     r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
     r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+    r"root\[\d+\].*?\['systemMetadata'\]\['runId'\]",
+    r"root\[\d+\].*?\['systemMetadata'\]\['lastRunId'\]",
 ]
 
 
@@ -82,12 +84,17 @@ def assert_metadata_files_equal(
                         json_path = f"root[{i}]['aspect']['json'][{j}]['value']"
                         ignore_paths = (*ignore_paths, re.escape(json_path))
 
+    ignore_paths = (*ignore_paths, *default_exclude_paths)
+
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:
-        if isinstance(diff, MCPDiff):
+        if isinstance(diff, MCPDiff) and diff.is_delta_valid:
+            logger.info(f"Applying delta to golden file {golden_path}")
             diff.apply_delta(golden)
             write_metadata_file(pathlib.Path(golden_path), golden)
         else:
+            # Fallback: just overwrite the golden file
+            logger.info(f"Overwriting golden file {golden_path}")
             shutil.copyfile(str(output_path), str(golden_path))
         return
 
@@ -110,7 +117,7 @@ def diff_metadata_json(
     ignore_paths: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> Union[DeepDiff, MCPDiff]:
-    ignore_paths = (*ignore_paths, *default_exclude_paths, r"root\[\d+].delta_info")
+    ignore_paths = [*ignore_paths, *default_exclude_paths, r"root\[\d+].delta_info"]
     try:
         if ignore_order:
             golden_map = get_aspects_by_urn(golden)

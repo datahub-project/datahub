@@ -32,7 +32,11 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   protected abstract ESIndexBuilder getIndexBuilder();
 
   private final IndexConvention _indexConvention =
-      new IndexConventionImpl("es_system_metadata_service_test");
+      new IndexConventionImpl(
+          IndexConventionImpl.IndexConventionConfig.builder()
+              .prefix("es_system_metadata_service_test")
+              .hashIdAlgo("MD5")
+              .build());
 
   private ElasticSearchSystemMetadataService _client;
 
@@ -54,7 +58,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     ESSystemMetadataDAO dao =
         new ESSystemMetadataDAO(getSearchClient(), _indexConvention, getBulkProcessor(), 1);
     return new ElasticSearchSystemMetadataService(
-        getBulkProcessor(), _indexConvention, dao, getIndexBuilder());
+        getBulkProcessor(), _indexConvention, dao, getIndexBuilder(), "MD5");
   }
 
   @Test

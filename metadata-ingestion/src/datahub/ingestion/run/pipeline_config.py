@@ -1,6 +1,7 @@
 import datetime
 import logging
-import uuid
+import random
+import string
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field, validator
@@ -71,6 +72,15 @@ class FlagsConfig(ConfigModel):
     )
 
 
+def _generate_run_id(source_type: Optional[str] = None) -> str:
+    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+
+    if source_type is None:
+        source_type = "ingestion"
+    return f"{source_type}-{current_time}-{random_suffix}"
+
+
 class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
@@ -82,21 +92,20 @@ class PipelineConfig(ConfigModel):
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
-    _raw_dict: Optional[
-        dict
-    ] = None  # the raw dict that was parsed to construct this config
+    _raw_dict: Optional[dict] = (
+        None  # the raw dict that was parsed to construct this config
+    )
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == DEFAULT_RUN_ID:
+            source_type = None
             if "source" in values and hasattr(values["source"], "type"):
                 source_type = values["source"].type
-                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                return f"{source_type}-{current_time}"
 
-            return str(uuid.uuid1())  # default run_id if we cannot infer a source type
+            return _generate_run_id(source_type)
         else:
             assert v is not None
             return v
@@ -108,3 +117,9 @@ class PipelineConfig(ConfigModel):
         config = cls.parse_obj(resolved_dict)
         config._raw_dict = raw_dict
         return config
+
+    def get_raw_dict(self) -> Dict:
+        result = self._raw_dict
+        if result is None:
+            result = self.dict()
+        return result

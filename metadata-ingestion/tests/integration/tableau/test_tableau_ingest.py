@@ -1,32 +1,42 @@
 import json
-import logging
 import pathlib
-import sys
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Union, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from pydantic import ValidationError
 from requests.adapters import ConnectionError
-from tableauserverclient import Server
+from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
     DatasourceItem,
+    GroupItem,
     ProjectItem,
     SiteItem,
+    UserItem,
     ViewItem,
     WorkbookItem,
 )
+from tableauserverclient.models.reference_item import ResourceReference
+from tableauserverclient.server.endpoint.exceptions import (
+    NonXMLResponseError,
+    TableauError,
+)
 
-from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.tableau import (
+from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.source.tableau.tableau import (
+    SiteIdContentUrl,
     TableauConfig,
+    TableauProject,
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau_common import (
+from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
 )
@@ -37,7 +47,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
+from datahub.metadata.schema_classes import UpstreamClass
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -58,7 +68,8 @@ config_source_default = {
     "site": "acryl",
     "projects": ["default", "Project 2", "Samples"],
     "extract_project_hierarchy": False,
-    "page_size": 10,
+    "page_size": 1000,
+    "workbook_page_size": None,
     "ingest_tags": True,
     "ingest_owner": True,
     "ingest_tables_external": True,
@@ -80,13 +91,7 @@ config_source_default = {
 }
 
 
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
-
-
-def read_response(pytestconfig, file_name):
+def read_response(file_name):
     response_json_path = f"{test_resources_dir}/setup/{file_name}"
     with open(response_json_path) as file:
         data = json.loads(file.read())
@@ -129,6 +134,43 @@ def side_effect_project_data(*arg, **kwargs):
     project4.parent_id = project1._id
 
     return [project1, project2, project3, project4], mock_pagination
+
+
+def side_effect_group_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    group1: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer"
+    )
+    group1._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1"
+    group2: GroupItem = GroupItem(
+        name="AB_XY00-Tableau-Access_A_123_PROJECT_XY_Analyst"
+    )
+    group2._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2"
+
+    return [group1, group2], mock_pagination
+
+
+def side_effect_workbook_permissions(*arg, **kwargs):
+    project_capabilities1 = {"Read": "Allow", "ViewComments": "Allow"}
+    reference: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group1", tag_name="group"
+    )
+    rule1 = PermissionsRule(grantee=reference, capabilities=project_capabilities1)
+
+    project_capabilities2 = {
+        "Read": "Allow",
+        "ViewComments": "Allow",
+        "Delete": "Allow",
+        "Write": "Allow",
+    }
+    reference2: ResourceReference = ResourceReference(
+        id_="79d02655-88e5-45a6-9f9b-eeaf5fe54903-group2", tag_name="group"
+    )
+    rule2 = PermissionsRule(grantee=reference2, capabilities=project_capabilities2)
+
+    return [rule1, rule2]
 
 
 def side_effect_site_data(*arg, **kwargs):
@@ -233,11 +275,10 @@ def side_effect_site_get_by_id(id, *arg, **kwargs):
 
 
 def mock_sdk_client(
-    side_effect_query_metadata_response: List[dict],
+    side_effect_query_metadata_response: List[Union[dict, TableauError]],
     datasources_side_effect: List[dict],
     sign_out_side_effect: List[dict],
 ) -> mock.MagicMock:
-
     mock_client = mock.Mock()
     mocked_metadata = mock.Mock()
     mocked_metadata.query.side_effect = side_effect_query_metadata_response
@@ -248,8 +289,10 @@ def mock_sdk_client(
     mock_client.views = mock.Mock()
     mock_client.projects = mock.Mock()
     mock_client.sites = mock.Mock()
+    mock_client.groups = mock.Mock()
 
     mock_client.projects.get.side_effect = side_effect_project_data
+    mock_client.groups.get.side_effect = side_effect_group_data
     mock_client.sites.get.side_effect = side_effect_site_data
     mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
 
@@ -259,6 +302,11 @@ def mock_sdk_client(
 
     mock_client.workbooks = mock.Mock()
     mock_client.workbooks.get.side_effect = side_effect_workbook_data
+    workbook_mock = mock.create_autospec(WorkbookItem, instance=True)
+    type(workbook_mock).permissions = mock.PropertyMock(
+        return_value=side_effect_workbook_permissions()
+    )
+    mock_client.workbooks.get_by_id.return_value = workbook_mock
 
     mock_client.views.get.side_effect = side_effect_usage_stat
     mock_client.auth.sign_in.return_value = None
@@ -285,7 +333,7 @@ def tableau_ingest_common(
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
 
-        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
             mock_sdk.return_value = mock_sdk_client(
                 side_effect_query_metadata_response=side_effect_query_metadata_response,
                 datasources_side_effect=datasources_side_effect,
@@ -325,20 +373,30 @@ def tableau_ingest_common(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        [  # sequence of json file matters. They are arranged as per graphql api call
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response("databaseTablesConnection_all.json"),
         ],
         golden_file_name,
         output_file_name,
@@ -350,7 +408,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_test_connection_success():
-    with mock.patch("datahub.ingestion.source.tableau.Server"):
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
             TableauSource, config_source_default
         )
@@ -366,10 +424,32 @@ def test_tableau_test_connection_failure():
     test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
 
 
+def mock_data() -> List[dict]:
+    return [
+        read_response("workbooksConnection_all.json"),
+        read_response("sheetsConnection_all.json"),
+        read_response("dashboardsConnection_all.json"),
+        read_response("embeddedDatasourcesConnection_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+        read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+        read_response("publishedDatasourcesConnection_all.json"),
+        read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+        read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+        read_response("customSQLTablesConnection_all.json"),
+        read_response("databaseTablesConnection_all.json"),
+    ]
+
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_cll.json"
     golden_file_name: str = "tableau_cll_mces_golden.json"
 
@@ -384,15 +464,7 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        side_effect_query_metadata_response=[
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        side_effect_query_metadata_response=mock_data(),
         golden_file_name=golden_file_name,
         output_file_name=output_file_name,
         mock_datahub_graph=mock_datahub_graph,
@@ -404,7 +476,6 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_project_pattern_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
 
@@ -416,15 +487,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -436,7 +499,6 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_project_path_mces.json"
     golden_file_name: str = "tableau_project_path_mces_golden.json"
 
@@ -448,15 +510,7 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -468,8 +522,6 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
-
     output_file_name: str = "tableau_nested_project_mces.json"
     golden_file_name: str = "tableau_nested_project_mces_golden.json"
 
@@ -481,15 +533,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -501,7 +545,6 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_extract_all_project_mces.json"
     golden_file_name: str = "tableau_extract_all_project_mces_golden.json"
 
@@ -513,15 +556,7 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -532,34 +567,66 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
 def test_value_error_projects_and_project_pattern(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
-    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
-
     new_config = config_source_default.copy()
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
-    try:
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            [
-                read_response(pytestconfig, "workbooksConnection_all.json"),
-                read_response(pytestconfig, "sheetsConnection_all.json"),
-                read_response(pytestconfig, "dashboardsConnection_all.json"),
-                read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-                read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-                read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-                read_response(pytestconfig, "databaseTablesConnection_all.json"),
-            ],
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
-    except Exception as e:
-        assert "projects is deprecated. Please use project_pattern only" in str(e)
+    with pytest.raises(
+        ValidationError,
+        match=r".*projects is deprecated. Please use project_path_pattern only.*",
+    ):
+        TableauConfig.parse_obj(new_config)
+
+
+def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_pattern"] = {"allow": ["^Samples$"]}
+    new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
+
+    with pytest.raises(
+        ValidationError,
+        match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
+    ):
+        TableauConfig.parse_obj(new_config)
+
+
+def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"allow": ["default/DenyProject"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
+    golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^default.*"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -567,7 +634,6 @@ def test_value_error_projects_and_project_pattern(
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    enable_logging()
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
 
@@ -578,7 +644,8 @@ def test_tableau_ingest_with_platform_instance(
         "site": "acryl",
         "platform_instance": "acryl_site1",
         "projects": ["default", "Project 2"],
-        "page_size": 10,
+        "page_size": 1000,
+        "workbook_page_size": None,
         "ingest_tags": True,
         "ingest_owner": True,
         "ingest_tables_external": True,
@@ -603,15 +670,7 @@ def test_tableau_ingest_with_platform_instance(
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -621,7 +680,6 @@ def test_tableau_ingest_with_platform_instance(
 
 
 def test_lineage_overrides():
-    enable_logging()
     # Simple - specify platform instance to presto table
     assert (
         TableauUpstreamReference(
@@ -675,7 +733,6 @@ def test_lineage_overrides():
 
 
 def test_database_hostname_to_platform_instance_map():
-    enable_logging()
     # Simple - snowflake table
     assert (
         TableauUpstreamReference(
@@ -718,15 +775,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     pipeline_run1 = tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -740,7 +789,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     pipeline_run2 = tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [read_response(pytestconfig, "workbooksConnection_all_stateful.json")],
+        [read_response("workbooksConnection_all_stateful.json")],
         golden_file_deleted_name,
         output_file_deleted_name,
         mock_datahub_graph,
@@ -854,7 +903,6 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
 
 def test_tableau_no_verify():
-    enable_logging()
     # This test ensures that we can connect to a self-signed certificate
     # when ssl_verify is set to False.
 
@@ -879,21 +927,12 @@ def test_tableau_no_verify():
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_signout_timeout_mces.json"
     golden_file_name: str = "tableau_signout_timeout_mces_golden.json"
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -912,11 +951,12 @@ def test_tableau_unsupported_csql():
         database_override_map={"production database": "prod"}
     )
 
-    def test_lineage_metadata(
+    def check_lineage_metadata(
         lineage, expected_entity_urn, expected_upstream_table, expected_cll
     ):
-        mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
-        assert mcp.aspect == UpstreamLineage(
+        mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
+
+        expected = UpstreamLineage(
             upstreams=[
                 UpstreamClass(
                     dataset=expected_upstream_table,
@@ -939,6 +979,9 @@ def test_tableau_unsupported_csql():
         )
         assert mcp.entityUrn == expected_entity_urn
 
+        actual_aspect = mcp.aspect
+        assert actual_aspect == expected
+
     csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
     expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
     expected_cll = {
@@ -951,7 +994,7 @@ def test_tableau_unsupported_csql():
         config=config,
         ctx=context,
         platform="tableau",
-        site=SiteItem(name="Site 1", content_url="site1"),
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
@@ -969,7 +1012,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
@@ -987,7 +1030,7 @@ def test_tableau_unsupported_csql():
         },
         out_columns=[],
     )
-    test_lineage_metadata(
+    check_lineage_metadata(
         lineage=lineage,
         expected_entity_urn=csql_urn,
         expected_upstream_table=expected_upstream_table,
@@ -1003,15 +1046,7 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -1023,7 +1058,6 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_multiple_sites.json"
     golden_file_name: str = "tableau_multiple_sites_mces_golden.json"
 
@@ -1037,20 +1071,42 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
         side_effect_query_metadata_response=[
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response("databaseTablesConnection_all.json"),
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response("databaseTablesConnection_all.json"),
         ],
         golden_file_name=golden_file_name,
         output_file_name=output_file_name,
@@ -1063,7 +1119,6 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
     golden_file_name: str = "tableau_sites_as_container_mces_golden.json"
 
@@ -1075,15 +1130,7 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
     tableau_ingest_common(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        side_effect_query_metadata_response=[
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        side_effect_query_metadata_response=mock_data(),
         golden_file_name=golden_file_name,
         output_file_name=output_file_name,
         mock_datahub_graph=mock_datahub_graph,
@@ -1095,7 +1142,6 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_site_name_pattern_mces.json"
     golden_file_name: str = "tableau_site_name_pattern_mces_golden.json"
 
@@ -1107,15 +1153,7 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "sheetsConnection_all.json"),
-            read_response(pytestconfig, "dashboardsConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-            read_response(pytestconfig, "databaseTablesConnection_all.json"),
-        ],
+        mock_data(),
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
@@ -1126,18 +1164,121 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_permission_ingestion_mces.json"
+    golden_file_name: str = "tableau_permission_ingestion_mces_golden.json"
 
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "permission_ingestion": {
+            "enable_workbooks": True,
+            "group_name_pattern": {"allow": ["^.*_Consumer$"]},
+        },
+    }
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_pipeline_config,
+        pipeline_name="test_tableau_group_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_no_hidden_assets_mces.json"
+    golden_file_name: str = "tableau_no_hidden_assets_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
+    golden_file_name: str = "tableau_ingest_tags_disabled_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_tags"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_ingest_tags_disabled",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_hidden_asset_tags_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_hidden_asset_tags_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    new_config = config_source_default.copy()
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+    new_config["ingest_tags"] = False
+
+    with pytest.raises(
+        ValidationError,
+        match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
+    ):
+        TableauConfig.parse_obj(new_config)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
 
-        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
             mock_sdk.return_value = mock_sdk_client(
                 side_effect_query_metadata_response=[
-                    read_response(pytestconfig, "permission_mode_switched_error.json")
+                    read_response("permission_mode_switched_error.json")
                 ],
                 sign_out_side_effect=[{}],
                 datasources_side_effect=[{}],
@@ -1148,7 +1289,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 platform="tableau",
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
-                site=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,
                 report=reporter,
             )
@@ -1157,16 +1298,236 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 query=mock.MagicMock(),
                 connection_type=mock.MagicMock(),
                 query_filter=mock.MagicMock(),
+                current_cursor=None,
                 retries_remaining=1,
+                fetch_size=10,
             )
 
             warnings = list(reporter.warnings)
 
-            assert len(warnings) == 1
+            assert len(warnings) == 2
 
-            assert warnings[0].title == "Derived Permission Error"
+            assert warnings[0].title == "Insufficient Permissions"
 
-            assert warnings[0].message == (
+            assert warnings[1].title == "Derived Permission Error"
+
+            assert warnings[1].message == (
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
+            mock_client = mock_sdk_client(
+                side_effect_query_metadata_response=[
+                    NonXMLResponseError(
+                        """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}"""
+                    ),
+                    *mock_data(),
+                ],
+                sign_out_side_effect=[{}],
+                datasources_side_effect=[{}],
+            )
+            mock_client.users = mock.Mock()
+            mock_client.users.get_by_id.side_effect = [
+                UserItem(
+                    name="name", site_role=UserItem.Roles.SiteAdministratorExplorer
+                )
+            ]
+            mock_sdk.return_value = mock_client
+
+            reporter = TableauSourceReport()
+            tableau_source = TableauSiteSource(
+                platform="tableau",
+                config=mock.MagicMock(),
+                ctx=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
+                server=mock_sdk.return_value,
+                report=reporter,
+            )
+
+            tableau_source.get_connection_object_page(
+                query=mock.MagicMock(),
+                connection_type=mock.MagicMock(),
+                query_filter=mock.MagicMock(),
+                current_cursor=None,
+                retries_remaining=1,
+                fetch_size=10,
+            )
+
+            assert reporter.num_actual_tableau_metadata_queries == 2
+            assert reporter.tableau_server_error_stats
+            assert reporter.tableau_server_error_stats["NonXMLResponseError"] == 1
+
+            assert reporter.warnings == []
+            assert reporter.failures == []
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "extract_project_hierarchy, allowed_projects",
+    [
+        (True, ["project1", "project4", "project3"]),
+        (False, ["project1", "project4"]),
+    ],
+)
+def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+
+    config_dict = config_source_default.copy()
+
+    del config_dict["stateful_ingestion"]
+    del config_dict["projects"]
+
+    config_dict["project_pattern"] = {
+        "allow": ["project1", "project4"],
+        "deny": ["project2"],
+    }
+
+    config_dict["extract_project_hierarchy"] = extract_project_hierarchy
+
+    config = TableauConfig.parse_obj(config_dict)
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
+        report=TableauSourceReport(),
+        server=Server("https://test-tableau-server.com"),
+    )
+
+    all_project_map: Dict[str, TableauProject] = {
+        "p1": TableauProject(
+            id="1",
+            name="project1",
+            path=[],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+        "p2": TableauProject(
+            id="2",
+            name="project2",
+            path=[],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p3": TableauProject(
+            id="3",
+            name="project3",
+            path=[],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p4": TableauProject(
+            id="4",
+            name="project4",
+            path=[],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+    }
+
+    site_source._init_tableau_project_registry(all_project_map)
+
+    assert allowed_projects == [
+        project.name for project in site_source.tableau_project_registry.values()
+    ]
+
+
+@pytest.mark.integration
+def test_connection_report_test(requests_mock):
+    server_info_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:serverInfo>
+                <t:productVersion build="build-number">foo</t:productVersion>
+                <t:restApiVersion>2.4</t:restApiVersion>
+            </t:serverInfo>
+        </tsResponse>
+
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/serverInfo",
+        text=server_info_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    signin_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:credentials token="fake_token">
+                <t:site id="fake_site_luid" contentUrl="fake_site_content_url"/>
+                <t:user id="fake_user_id"/>
+            </t:credentials>
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "POST",
+        "https://do-not-connect/api/2.4/auth/signin",
+        text=signin_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="SiteAdministratorExplorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report: TestConnectionReport = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable
+
+    # Role other than SiteAdministratorExplorer
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="Explorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable is False
+    assert (
+        report.capability_report[c.SITE_PERMISSION].failure_reason
+        == "The user does not have the `Site Administrator Explorer` role. Their current role is Explorer."
+    )

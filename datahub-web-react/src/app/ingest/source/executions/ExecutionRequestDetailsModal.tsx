@@ -17,6 +17,7 @@ import {
     getStructuredReport,
     RUNNING,
     SUCCESS,
+    SUCCEEDED_WITH_WARNINGS,
 } from '../utils';
 import { ExecutionRequestResult } from '../../../../types.generated';
 import { StructuredReport } from './reporting/StructuredReport';
@@ -113,11 +114,11 @@ type DetailsContainerProps = {
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -128,7 +129,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
 
@@ -155,14 +156,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
-    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
         recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
 
     const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
     const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
@@ -178,7 +179,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <StyledTitle level={4}>Sync Details</StyledTitle>
                 </HeaderSection>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             {!data && loading && <Message type="loading" content="Loading sync details..." />}
@@ -190,7 +191,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {status === SUCCESS && (
+                {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
                         {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
                     </IngestedAssetsSection>

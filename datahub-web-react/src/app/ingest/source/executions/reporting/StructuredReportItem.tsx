@@ -16,6 +16,7 @@ const StyledCollapse = styled(Collapse)<{ color: string }>`
         .ant-collapse-header {
             display: flex;
             align-items: center;
+            overflow: auto;
         }
 
         .ant-collapse-item {

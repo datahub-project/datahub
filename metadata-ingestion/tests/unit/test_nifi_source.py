@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.nifi import (
+    BidirectionalComponentGraph,
     NifiComponent,
     NifiFlow,
     NifiProcessGroup,
@@ -55,7 +56,7 @@ def test_nifi_s3_provenance_event():
                 )
             },
             remotely_accessible_ports={},
-            connections=[],
+            connections=BidirectionalComponentGraph(),
             processGroups={
                 "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
                     id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
@@ -126,7 +127,7 @@ def test_nifi_s3_provenance_event():
                 )
             },
             remotely_accessible_ports={},
-            connections=[],
+            connections=BidirectionalComponentGraph(),
             processGroups={
                 "803ebb92-017d-1000-2961-4bdaa27a3ba0": NifiProcessGroup(
                     id="803ebb92-017d-1000-2961-4bdaa27a3ba0",

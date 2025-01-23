@@ -85,7 +85,7 @@
       "tags": {
         "Platform Type": "Orchestrator",
         "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
+        "Features": "Status Aspect"
       }
     },
     {
@@ -229,6 +229,17 @@
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
+      }
+    },
+    {
+      "Path": "https://hudi.apache.org/docs/syncing_datahub/",
+      "imgPath": "img/logos/platforms/hudi.png",
+      "Title": "Apache Hudi",
+      "Description": "Apache Hudi is an open-source data lake framework that provides ACID transactions, efficient upserts, time travel queries, and incremental data processing for large-scale datasets.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
       }
     },
     {
@@ -427,6 +438,17 @@
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Lower Casing, Status Aspect"
+      }
+    },
+    {
+      "Path": "docs/lineage/prefect",
+      "imgPath": "img/logos/platforms/prefect.svg",
+      "Title": "Prefect",
+      "Description": "Prefect is a modern workflow orchestration for data and ML engineers.",
+      "tags": {
+        "Platform Type": "Orchestrator",
+        "Connection Type": "Pull",
+        "Features": "Status Aspect"
       }
     },
     {

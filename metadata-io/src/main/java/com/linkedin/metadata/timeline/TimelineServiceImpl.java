@@ -3,12 +3,8 @@ package com.linkedin.metadata.timeline;
 import static com.linkedin.common.urn.VersionedUrnUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fge.jsonpatch.JsonPatch;
-import com.github.fge.jsonpatch.diff.JsonDiff;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspect;
@@ -30,6 +26,10 @@ import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGen
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import jakarta.json.Json;
+import jakarta.json.JsonPatch;
+import jakarta.json.JsonValue;
+import java.io.StringReader;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -478,16 +478,13 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   private JsonPatch getRawDiff(EntityAspect previousValue, EntityAspect currentValue) {
-    JsonNode prevNode = OBJECT_MAPPER.nullNode();
-    try {
-      if (previousValue.getVersion() != -1) {
-        prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
-      }
-      JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
-      return JsonDiff.asJsonPatch(prevNode, currNode);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException(e);
+    JsonValue prevNode = Json.createReader(new StringReader("{}")).readValue();
+    if (previousValue.getVersion() != -1) {
+      prevNode = Json.createReader(new StringReader(previousValue.getMetadata())).readValue();
     }
+    JsonValue currNode =
+        Json.createReader(new StringReader(currentValue.getMetadata())).readValue();
+    return Json.createDiff(prevNode.asJsonObject(), currNode.asJsonObject());
   }
 
   private void combineComputedDiffsPerTransactionId(

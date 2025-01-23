@@ -43,7 +43,6 @@ def _make_owner_category_list(
     owner_category_urn: Optional[str],
     owner_ids: List[str],
 ) -> List[Dict]:
-
     return [
         {
             "urn": mce_builder.make_owner_urn(owner_id, owner_type),
@@ -285,16 +284,17 @@ class OperationProcessor:
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
 
         if Constants.ADD_OWNER_OPERATION in operation_map:
-
             owner_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(
                         owner=x.get("urn"),
                         type=x.get("category"),
                         typeUrn=x.get("categoryUrn"),
-                        source=OwnershipSourceClass(type=self.owner_source_type)
-                        if self.owner_source_type
-                        else None,
+                        source=(
+                            OwnershipSourceClass(type=self.owner_source_type)
+                            if self.owner_source_type
+                            else None
+                        ),
                     )
                     for x in sorted(
                         operation_map[Constants.ADD_OWNER_OPERATION],
@@ -349,9 +349,9 @@ class OperationProcessor:
                         elements=[institutional_memory_element]
                     )
 
-                    aspect_map[
-                        Constants.ADD_DOC_LINK_OPERATION
-                    ] = institutional_memory_aspect
+                    aspect_map[Constants.ADD_DOC_LINK_OPERATION] = (
+                        institutional_memory_aspect
+                    )
                 else:
                     raise Exception(
                         f"Expected 1 item of type list for the documentation_link meta_mapping config,"
@@ -383,13 +383,23 @@ class OperationProcessor:
             if self.tag_prefix:
                 tag = self.tag_prefix + tag
             return tag
-        elif (
-            operation_type == Constants.ADD_OWNER_OPERATION
-            and operation_config[Constants.OWNER_TYPE]
-        ):
+        elif operation_type == Constants.ADD_OWNER_OPERATION:
             owner_id = _get_best_match(match, "owner")
-
             owner_ids: List[str] = [_id.strip() for _id in owner_id.split(",")]
+
+            owner_type_raw = operation_config.get(
+                Constants.OWNER_TYPE, Constants.USER_OWNER
+            )
+            owner_type_mapping: Dict[str, OwnerType] = {
+                Constants.USER_OWNER: OwnerType.USER,
+                Constants.GROUP_OWNER: OwnerType.GROUP,
+            }
+            if owner_type_raw not in owner_type_mapping:
+                logger.warning(
+                    f"Invalid owner type: {owner_type_raw}. Valid owner types are {', '.join(owner_type_mapping.keys())}"
+                )
+                return None
+            owner_type = owner_type_mapping[owner_type_raw]
 
             owner_category = (
                 operation_config.get(Constants.OWNER_CATEGORY)
@@ -402,19 +412,12 @@ class OperationProcessor:
                     self.sanitize_owner_ids(owner_id) for owner_id in owner_ids
                 ]
 
-            owner_type_mapping: Dict[str, OwnerType] = {
-                Constants.USER_OWNER: OwnerType.USER,
-                Constants.GROUP_OWNER: OwnerType.GROUP,
-            }
-            if operation_config[Constants.OWNER_TYPE] in owner_type_mapping:
-                return _make_owner_category_list(
-                    owner_ids=owner_ids,
-                    owner_category=owner_category,
-                    owner_category_urn=owner_category_urn,
-                    owner_type=owner_type_mapping[
-                        operation_config[Constants.OWNER_TYPE]
-                    ],
-                )
+            return _make_owner_category_list(
+                owner_ids=owner_ids,
+                owner_category=owner_category,
+                owner_category_urn=owner_category_urn,
+                owner_type=owner_type,
+            )
 
         elif (
             operation_type == Constants.ADD_TERM_OPERATION

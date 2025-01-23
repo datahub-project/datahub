@@ -1,19 +1,21 @@
 import logging
 import os
+import re
 import tempfile
 from random import randint
 from typing import Iterable, List, Optional, Union
 
+import pydantic
 import pytest
 
-# import tenacity
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.structuredproperties.structuredproperties import (
     StructuredProperties,
 )
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     EntityTypeInfoClass,
     PropertyValueClass,
@@ -24,13 +26,11 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
 from datahub.utilities.urns.urn import Urn
-
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.file_emitter import FileEmitter
 from tests.utils import (
     delete_urns,
     delete_urns_from_file,
-    get_gms_url,
     get_sleep_info,
     ingest_file_via_rest,
 )
@@ -78,32 +78,20 @@ def create_test_data(filename: str):
 sleep_sec, sleep_times = get_sleep_info()
 
 
-@pytest.fixture(scope="module", autouse=False)
-def graph() -> DataHubGraph:
-    graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
-    return graph
-
-
-@pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(request):
+@pytest.fixture(scope="module")
+def ingest_cleanup_data(auth_session, graph_client, request):
     new_file, filename = tempfile.mkstemp()
     try:
         create_test_data(filename)
         print("ingesting structured properties test data")
-        ingest_file_via_rest(filename)
+        ingest_file_via_rest(auth_session, filename)
         yield
         print("removing structured properties test data")
-        delete_urns_from_file(filename)
-        delete_urns(generated_urns)
+        delete_urns_from_file(graph_client, filename)
+        delete_urns(graph_client, generated_urns)
         wait_for_writes_to_sync()
     finally:
         os.remove(filename)
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 def create_property_definition(
@@ -178,102 +166,71 @@ def get_property_from_entity(
     return None
 
 
-def to_es_name(property_name=None, namespace=default_namespace, qualified_name=None):
+def to_es_filter_name(
+    property_name=None, namespace=default_namespace, qualified_name=None
+):
     if property_name:
-        namespace_field = namespace.replace(".", "_")
-        return f"structuredProperties.{namespace_field}_{property_name}"
+        return f"structuredProperties.{namespace}.{property_name}"
     else:
-        escaped_qualified_name = qualified_name.replace(".", "_")
-        return f"structuredProperties.{escaped_qualified_name}"
+        return f"structuredProperties.{qualified_name}"
 
 
-# @tenacity.retry(
-#     stop=tenacity.stop_after_attempt(sleep_times),
-#     wait=tenacity.wait_fixed(sleep_sec),
-# )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_string(ingest_cleanup_data, graph):
+def test_structured_property_string(ingest_cleanup_data, graph_client):
     property_name = f"retention{randint(10, 10000)}Policy"
 
-    create_property_definition(property_name, graph)
+    create_property_definition(property_name, graph_client)
 
-    attach_property_to_entity(dataset_urns[0], property_name, ["30d"], graph=graph)
+    attach_property_to_entity(
+        dataset_urns[0], property_name, ["30d"], graph=graph_client
+    )
 
-    try:
-        attach_property_to_entity(dataset_urns[0], property_name, 200030, graph=graph)
-        raise AssertionError(
-            "Should not be able to attach a number to a string property"
+    with pytest.raises(OperationalError):
+        # Cannot add a number to a string property.
+        attach_property_to_entity(
+            dataset_urns[0], property_name, 200030, graph=graph_client
         )
-    except Exception as e:
-        if not isinstance(e, AssertionError):
-            pass
-        else:
-            raise e
 
 
-# @tenacity.retry(
-#     stop=tenacity.stop_after_attempt(sleep_times),
-#     wait=tenacity.wait_fixed(sleep_sec),
-# )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_double(ingest_cleanup_data, graph):
+def test_structured_property_double(ingest_cleanup_data, graph_client):
     property_name = f"expiryTime{randint(10, 10000)}"
 
-    create_property_definition(property_name, graph, value_type="number")
+    create_property_definition(property_name, graph_client, value_type="number")
 
-    attach_property_to_entity(dataset_urns[0], property_name, 2000034, graph=graph)
+    attach_property_to_entity(
+        dataset_urns[0], property_name, 2000034, graph=graph_client
+    )
 
-    try:
+    with pytest.raises(OperationalError):
+        # Cannot add a string to a number property.
         attach_property_to_entity(
-            dataset_urns[0], property_name, "30 days", graph=graph
+            dataset_urns[0], property_name, "30 days", graph=graph_client
         )
-        raise AssertionError(
-            "Should not be able to attach a string to a number property"
-        )
-    except Exception as e:
-        if not isinstance(e, AssertionError):
-            pass
-        else:
-            raise e
 
-    try:
+    with pytest.raises(OperationalError):
+        # Cannot add a list to a number property.
         attach_property_to_entity(
-            dataset_urns[0], property_name, [2000034, 2000035], graph=graph
+            dataset_urns[0], property_name, [2000034, 2000035], graph=graph_client
         )
-        raise AssertionError("Should not be able to attach a list to a number property")
-    except Exception as e:
-        if not isinstance(e, AssertionError):
-            pass
-        else:
-            raise e
 
 
-# @tenacity.retry(
-#     stop=tenacity.stop_after_attempt(sleep_times),
-#     wait=tenacity.wait_fixed(sleep_sec),
-# )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_double_multiple(ingest_cleanup_data, graph):
+def test_structured_property_double_multiple(ingest_cleanup_data, graph_client):
     property_name = f"versions{randint(10, 10000)}"
 
     create_property_definition(
-        property_name, graph, value_type="number", cardinality="MULTIPLE"
+        property_name, graph_client, value_type="number", cardinality="MULTIPLE"
     )
 
-    attach_property_to_entity(dataset_urns[0], property_name, [1.0, 2.0], graph=graph)
+    attach_property_to_entity(
+        dataset_urns[0], property_name, [1.0, 2.0], graph=graph_client
+    )
 
 
-# @tenacity.retry(
-#     stop=tenacity.stop_after_attempt(sleep_times),
-#     wait=tenacity.wait_fixed(sleep_sec),
-# )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_string_allowed_values(ingest_cleanup_data, graph):
+def test_structured_property_string_allowed_values(ingest_cleanup_data, graph_client):
     property_name = f"enumProperty{randint(10, 10000)}"
 
     create_property_definition(
         property_name,
-        graph,
+        graph_client,
         value_type="string",
         cardinality="MULTIPLE",
         allowed_values=[
@@ -283,30 +240,24 @@ def test_structured_property_string_allowed_values(ingest_cleanup_data, graph):
     )
 
     attach_property_to_entity(
-        dataset_urns[0], property_name, ["foo", "bar"], graph=graph
+        dataset_urns[0], property_name, ["foo", "bar"], graph=graph_client
     )
 
-    try:
+    with pytest.raises(
+        OperationalError, match=re.escape("value: {string=baz} should be one of [")
+    ):
+        # Cannot add a value that isn't in the allowed values list.
         attach_property_to_entity(
-            dataset_urns[0], property_name, ["foo", "baz"], graph=graph
+            dataset_urns[0], property_name, ["foo", "baz"], graph=graph_client
         )
-        raise AssertionError(
-            "Should not be able to attach a value not in allowed values"
-        )
-    except Exception as e:
-        if "value: {string=baz} should be one of [" in str(e):
-            pass
-        else:
-            raise e
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_definition_evolution(ingest_cleanup_data, graph):
+def test_structured_property_definition_evolution(ingest_cleanup_data, graph_client):
     property_name = f"enumProperty{randint(10, 10000)}"
 
     create_property_definition(
         property_name,
-        graph,
+        graph_client,
         value_type="string",
         cardinality="MULTIPLE",
         allowed_values=[
@@ -315,10 +266,11 @@ def test_structured_property_definition_evolution(ingest_cleanup_data, graph):
         ],
     )
 
-    try:
+    with pytest.raises(OperationalError):
+        # Cannot change cardinality from MULTIPLE to SINGLE.
         create_property_definition(
             property_name,
-            graph,
+            graph_client,
             value_type="string",
             cardinality="SINGLE",
             allowed_values=[
@@ -326,27 +278,14 @@ def test_structured_property_definition_evolution(ingest_cleanup_data, graph):
                 PropertyValueClass(value="bar"),
             ],
         )
-        raise AssertionError(
-            "Should not be able to change cardinality from MULTIPLE to SINGLE"
-        )
-    except Exception as e:
-        if isinstance(e, AssertionError):
-            raise e
-        else:
-            pass
 
 
-# @tenacity.retry(
-#     stop=tenacity.stop_after_attempt(sleep_times),
-#     wait=tenacity.wait_fixed(sleep_sec),
-# )
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_schema_field(ingest_cleanup_data, graph):
+def test_structured_property_schema_field(ingest_cleanup_data, graph_client):
     property_name = f"deprecationDate{randint(10, 10000)}"
 
     create_property_definition(
         property_name,
-        graph,
+        graph_client,
         namespace="io.datahubproject.test",
         value_type="date",
         entity_types=["schemaField"],
@@ -356,49 +295,60 @@ def test_structured_property_schema_field(ingest_cleanup_data, graph):
         schema_field_urns[0],
         property_name,
         "2020-10-01",
-        graph=graph,
+        graph=graph_client,
         namespace="io.datahubproject.test",
     )
 
     assert get_property_from_entity(
-        schema_field_urns[0], f"io.datahubproject.test.{property_name}", graph=graph
+        schema_field_urns[0],
+        f"io.datahubproject.test.{property_name}",
+        graph=graph_client,
     ) == ["2020-10-01"]
 
-    try:
+    with pytest.raises(OperationalError):
+        # Cannot add a number to a date property.
         attach_property_to_entity(
             schema_field_urns[0],
             property_name,
             200030,
-            graph=graph,
+            graph=graph_client,
             namespace="io.datahubproject.test",
         )
-        raise AssertionError("Should not be able to attach a number to a DATE property")
-    except Exception as e:
-        if not isinstance(e, AssertionError):
-            pass
-        else:
-            raise e
 
 
-def test_dataset_yaml_loader(ingest_cleanup_data, graph):
+def test_structured_properties_yaml_load_with_bad_entity_type(
+    ingest_cleanup_data, graph_client
+):
+    with pytest.raises(
+        pydantic.ValidationError,
+        match="urn:li:entityType:dataset is not a valid entity type urn",
+    ):
+        StructuredProperties.create(
+            "tests/structured_properties/bad_entity_type.yaml",
+            graph=graph_client,
+        )
+
+
+def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
     StructuredProperties.create(
-        "tests/structured_properties/test_structured_properties.yaml"
+        "tests/structured_properties/test_structured_properties.yaml",
+        graph=graph_client,
     )
 
     for dataset in Dataset.from_yaml("tests/structured_properties/test_dataset.yaml"):
         for mcp in dataset.generate_mcp():
-            graph.emit(mcp)
-        wait_for_writes_to_sync()
+            graph_client.emit(mcp)
+    wait_for_writes_to_sync()
 
     property_name = "io.acryl.dataManagement.deprecationDate"
     assert get_property_from_entity(
         make_schema_field_urn(make_dataset_urn("hive", "user.clicks"), "ip"),
         property_name,
-        graph=graph,
+        graph=graph_client,
     ) == ["2023-01-01"]
 
     dataset = Dataset.from_datahub(
-        graph=graph,
+        graph=graph_client,
         urn="urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)",
     )
     field_name = "ip"
@@ -416,14 +366,16 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
     ] == ["2023-01-01"]
 
 
-def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, caplog):
+def test_structured_property_search(
+    ingest_cleanup_data, graph_client: DataHubGraph, caplog
+):
     # Attach structured property to entity and to field
     field_property_name = f"deprecationDate{randint(10, 10000)}"
 
     create_property_definition(
         namespace="io.datahubproject.test",
         property_name=field_property_name,
-        graph=graph,
+        graph=graph_client,
         value_type="date",
         entity_types=["schemaField"],
     )
@@ -432,7 +384,7 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
         schema_field_urns[0],
         field_property_name,
         "2020-10-01",
-        graph=graph,
+        graph=graph_client,
         namespace="io.datahubproject.test",
     )
     dataset_property_name = f"replicationSLA{randint(10, 10000)}"
@@ -440,19 +392,19 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
     value_type = "number"
 
     create_property_definition(
-        property_name=dataset_property_name, graph=graph, value_type=value_type
+        property_name=dataset_property_name, graph=graph_client, value_type=value_type
     )
 
     attach_property_to_entity(
-        dataset_urns[0], dataset_property_name, [property_value], graph=graph
+        dataset_urns[0], dataset_property_name, [property_value], graph=graph_client
     )
 
     # [] = default entities which includes datasets, does not include fields
     entity_urns = list(
-        graph.get_urns_by_filter(
+        graph_client.get_urns_by_filter(
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -463,7 +415,7 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
     assert entity_urns[0] == dataset_urns[0]
 
     # Search over schema field specifically
-    field_structured_prop = graph.get_aspect(
+    field_structured_prop = graph_client.get_aspect(
         entity_urn=schema_field_urns[0], aspect_type=StructuredPropertiesClass
     )
     assert field_structured_prop == StructuredPropertiesClass(
@@ -477,11 +429,11 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
 
     # Search over entities that do not include the field
     field_urns = list(
-        graph.get_urns_by_filter(
+        graph_client.get_urns_by_filter(
             entity_types=["tag"],
             extraFilters=[
                 {
-                    "field": to_es_name(
+                    "field": to_es_filter_name(
                         field_property_name, namespace="io.datahubproject.test"
                     ),
                     "negated": "false",
@@ -494,11 +446,11 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
 
     # OR the two properties together to return both results
     field_urns = list(
-        graph.get_urns_by_filter(
+        graph_client.get_urns_by_filter(
             entity_types=["dataset", "tag"],
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -509,7 +461,7 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
     assert dataset_urns[0] in field_urns
 
 
-def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
+def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, caplog):
     # Create 1st Property
     property_name = f"replicationSLA{randint(10, 10000)}"
     property_value1 = 30.0
@@ -519,7 +471,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
 
     create_property_definition(
         property_name=property_name,
-        graph=graph,
+        graph=graph_client,
         value_type=value_type,
         cardinality=cardinality,
     )
@@ -529,7 +481,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     property_value_other = 200.0
     create_property_definition(
         property_name=property_name_other,
-        graph=graph,
+        graph=graph_client,
         value_type=value_type,
         cardinality=cardinality,
     )
@@ -544,14 +496,14 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
         )
 
         for mcp in dataset_patcher.build():
-            graph.emit(mcp)
+            graph_client.emit(mcp)
         wait_for_writes_to_sync()
 
     # Add 1 value for property 1
     patch_one(property_name, property_value1)
 
     actual_property_values = get_property_from_entity(
-        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph
+        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph_client
     )
     assert actual_property_values == [property_value1]
 
@@ -559,7 +511,9 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     patch_one(property_name_other, property_value_other)
 
     actual_property_values = get_property_from_entity(
-        dataset_urns[0], f"{default_namespace}.{property_name_other}", graph=graph
+        dataset_urns[0],
+        f"{default_namespace}.{property_name_other}",
+        graph=graph_client,
     )
     assert actual_property_values == [property_value_other]
 
@@ -568,20 +522,22 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
 
     actual_property_values = set(
         get_property_from_entity(
-            dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph
+            dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph_client
         )
     )
     assert actual_property_values == {property_value1, property_value2}
 
     # Validate property 2 is the same
     actual_property_values = get_property_from_entity(
-        dataset_urns[0], f"{default_namespace}.{property_name_other}", graph=graph
+        dataset_urns[0],
+        f"{default_namespace}.{property_name_other}",
+        graph=graph_client,
     )
     assert actual_property_values == [property_value_other]
 
 
 def test_dataset_structured_property_soft_delete_validation(
-    ingest_cleanup_data, graph, caplog
+    ingest_cleanup_data, graph_client, caplog
 ):
     property_name = f"softDeleteTest{randint(10, 10000)}Property"
     value_type = "string"
@@ -589,50 +545,41 @@ def test_dataset_structured_property_soft_delete_validation(
 
     create_property_definition(
         property_name=property_name,
-        graph=graph,
+        graph=graph_client,
         value_type=value_type,
         cardinality="SINGLE",
     )
 
-    test_property = StructuredProperties.from_datahub(graph=graph, urn=property_urn)
+    test_property = StructuredProperties.from_datahub(
+        graph=graph_client, urn=property_urn
+    )
     assert test_property is not None
 
-    graph.soft_delete_entity(urn=property_urn)
+    graph_client.soft_delete_entity(urn=property_urn)
 
     # Attempt to modify soft deleted definition
-    try:
+    with pytest.raises(
+        OperationalError,
+        match="Cannot mutate a soft deleted Structured Property Definition",
+    ):
         create_property_definition(
             property_name=property_name,
-            graph=graph,
+            graph=graph_client,
             value_type=value_type,
             cardinality="SINGLE",
         )
-        raise AssertionError(
-            "Should not be able to modify soft deleted structured property"
-        )
-    except Exception as e:
-        if "Cannot mutate a soft deleted Structured Property Definition" in str(e):
-            pass
-        else:
-            raise e
 
     # Attempt to add soft deleted structured property to entity
-    try:
+    with pytest.raises(
+        OperationalError, match="Cannot apply a soft deleted Structured Property value"
+    ):
         attach_property_to_entity(
-            dataset_urns[0], property_name, "test string", graph=graph
+            dataset_urns[0], property_name, "test string", graph=graph_client
         )
-        raise AssertionError(
-            "Should not be able to apply a soft deleted structured property to another entity"
-        )
-    except Exception as e:
-        if "Cannot apply a soft deleted Structured Property value" in str(e):
-            pass
-        else:
-            raise e
 
 
 def test_dataset_structured_property_soft_delete_read_mutation(
-    ingest_cleanup_data, graph, caplog
+    ingest_cleanup_data, graph_client, caplog
 ):
     property_name = f"softDeleteReadTest{randint(10, 10000)}Property"
     value_type = "string"
@@ -642,33 +589,33 @@ def test_dataset_structured_property_soft_delete_read_mutation(
     # Create property on a dataset
     create_property_definition(
         property_name=property_name,
-        graph=graph,
+        graph=graph_client,
         value_type=value_type,
         cardinality="SINGLE",
     )
     attach_property_to_entity(
-        dataset_urns[0], property_name, property_value, graph=graph
+        dataset_urns[0], property_name, property_value, graph=graph_client
     )
 
     # Make sure it exists on the dataset
     actual_property_values = get_property_from_entity(
-        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph
+        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph_client
     )
     assert actual_property_values == [property_value]
 
     # Soft delete the structured property
-    graph.soft_delete_entity(urn=property_urn)
+    graph_client.soft_delete_entity(urn=property_urn)
     wait_for_writes_to_sync()
 
     # Make sure it is no longer returned on the dataset
     actual_property_values = get_property_from_entity(
-        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph
+        dataset_urns[0], f"{default_namespace}.{property_name}", graph=graph_client
     )
     assert actual_property_values is None
 
 
 def test_dataset_structured_property_soft_delete_search_filter_validation(
-    ingest_cleanup_data, graph, caplog
+    ingest_cleanup_data, graph_client: DataHubGraph, caplog: pytest.LogCaptureFixture
 ):
     # Create a test structured property
     dataset_property_name = f"softDeleteSearchFilter{randint(10, 10000)}"
@@ -679,18 +626,18 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
     )
 
     create_property_definition(
-        property_name=dataset_property_name, graph=graph, value_type=value_type
+        property_name=dataset_property_name, graph=graph_client, value_type=value_type
     )
     attach_property_to_entity(
-        dataset_urns[0], dataset_property_name, [property_value], graph=graph
+        dataset_urns[0], dataset_property_name, [property_value], graph=graph_client
     )
 
     # Perform search, make sure it works
     entity_urns = list(
-        graph.get_urns_by_filter(
+        graph_client.get_urns_by_filter(
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(property_name=dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -701,33 +648,27 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
     assert entity_urns[0] == dataset_urns[0]
 
     # Soft delete the structured property
-    graph.soft_delete_entity(urn=property_urn)
+    graph_client.soft_delete_entity(urn=property_urn)
     wait_for_writes_to_sync()
 
     # Perform search, make sure it validates filter and rejects as invalid request
-    try:
+    with pytest.raises(
+        GraphError, match="Cannot filter on deleted Structured Property"
+    ):
         list(
-            graph.get_urns_by_filter(
+            graph_client.get_urns_by_filter(
                 extraFilters=[
                     {
-                        "field": to_es_name(dataset_property_name),
+                        "field": to_es_filter_name(property_name=dataset_property_name),
                         "negated": "false",
                         "condition": "EXISTS",
                     }
                 ]
             )
         )
-        raise AssertionError(
-            "Should not be able to filter by soft deleted structured property"
-        )
-    except Exception as e:
-        if "Cannot filter on deleted Structured Property" in str(e):
-            pass
-        else:
-            raise e
 
 
-def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
+def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, caplog):
     # Create property, assign value to target dataset urn
     def create_property(target_dataset, prop_value):
         property_name = f"hardDeleteTest{randint(10, 10000)}Property"
@@ -736,12 +677,14 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
 
         create_property_definition(
             property_name=property_name,
-            graph=graph,
+            graph=graph_client,
             value_type=value_type,
             cardinality="SINGLE",
         )
 
-        test_property = StructuredProperties.from_datahub(graph=graph, urn=property_urn)
+        test_property = StructuredProperties.from_datahub(
+            graph=graph_client, urn=property_urn
+        )
         assert test_property is not None
 
         # assign
@@ -751,7 +694,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
             prop_value,
         )
         for mcp in dataset_patcher.build():
-            graph.emit(mcp)
+            graph_client.emit(mcp)
 
         return test_property
 
@@ -764,20 +707,20 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
     assert get_property_from_entity(
         dataset_urns[0],
         property1.qualified_name,
-        graph=graph,
+        graph=graph_client,
     ) == ["foo"]
     assert get_property_from_entity(
         dataset_urns[0],
         property2.qualified_name,
-        graph=graph,
+        graph=graph_client,
     ) == ["bar"]
 
     def validate_search(qualified_name, expected):
         entity_urns = list(
-            graph.get_urns_by_filter(
+            graph_client.get_urns_by_filter(
                 extraFilters=[
                     {
-                        "field": to_es_name(qualified_name=qualified_name),
+                        "field": to_es_filter_name(qualified_name=qualified_name),
                         "negated": "false",
                         "condition": "EXISTS",
                     }
@@ -791,7 +734,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
     validate_search(property2.qualified_name, expected=[dataset_urns[0]])
 
     # delete the structured property #1
-    graph.hard_delete_entity(urn=property1.urn)
+    graph_client.hard_delete_entity(urn=property1.urn)
     wait_for_writes_to_sync()
 
     # validate property #1 deleted and property #2 remains
@@ -799,18 +742,18 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
         get_property_from_entity(
             dataset_urns[0],
             property1.qualified_name,
-            graph=graph,
+            graph=graph_client,
         )
         is None
     )
     assert get_property_from_entity(
         dataset_urns[0],
         property2.qualified_name,
-        graph=graph,
+        graph=graph_client,
     ) == ["bar"]
 
     # assert property 1 definition was removed
-    property1_definition = graph.get_aspect(
+    property1_definition = graph_client.get_aspect(
         property1.urn, StructuredPropertyDefinitionClass
     )
     assert property1_definition is None
@@ -819,3 +762,49 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
     # Validate search works for property #1 & #2
     validate_search(property1.qualified_name, expected=[])
     validate_search(property2.qualified_name, expected=[dataset_urns[0]])
+
+
+def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
+    # Create property, assign value to target dataset urn
+    def create_property():
+        property_name = f"listTest{randint(10, 10000)}Property"
+        value_type = "string"
+        property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+
+        create_property_definition(
+            property_name=property_name,
+            graph=graph_client,
+            value_type=value_type,
+            cardinality="SINGLE",
+        )
+
+        test_property = StructuredProperties.from_datahub(
+            graph=graph_client, urn=property_urn
+        )
+        assert test_property is not None
+
+        return test_property
+
+    # create 2 structured properties
+    property1 = create_property()
+    property2 = create_property()
+    wait_for_writes_to_sync()
+
+    # validate that urns are in the list
+    structured_properties_urns = [
+        u for u in StructuredProperties.list_urns(graph_client)
+    ]
+    assert property1.urn in structured_properties_urns
+    assert property2.urn in structured_properties_urns
+
+    # list structured properties (full)
+    structured_properties = StructuredProperties.list(graph_client)
+    matched_properties = [
+        p for p in structured_properties if p.urn in [property1.urn, property2.urn]
+    ]
+    assert len(matched_properties) == 2
+    retrieved_property1 = next(p for p in matched_properties if p.urn == property1.urn)
+    retrieved_property2 = next(p for p in matched_properties if p.urn == property2.urn)
+
+    assert property1.dict() == retrieved_property1.dict()
+    assert property2.dict() == retrieved_property2.dict()

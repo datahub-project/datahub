@@ -6,13 +6,12 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.ebean.Transaction;
+import com.linkedin.util.Pair;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,10 +26,10 @@ import javax.annotation.Nullable;
  * aspect is set to 0 for efficient retrieval. In most cases only the latest state of an aspect will
  * be fetched. See {@link EntityServiceImpl} for more details.
  *
- * <p>TODO: This interface exposes {@link #runInTransactionWithRetry(Supplier, int)} because {@link
- * EntityServiceImpl} concerns itself with batching multiple commands into a single transaction. It
- * exposes storage concerns somewhat and it'd be worth looking into ways to move this responsibility
- * inside {@link AspectDao} implementations.
+ * <p>TODO: This interface exposes {@link #runInTransactionWithRetry(Function, int)}
+ * (TransactionContext)} because {@link EntityServiceImpl} concerns itself with batching multiple
+ * commands into a single transaction. It exposes storage concerns somewhat and it'd be worth
+ * looking into ways to move this responsibility inside {@link AspectDao} implementations.
  */
 public interface AspectDao {
   String ASPECT_WRITE_COUNT_METRIC_NAME = "aspectWriteCount";
@@ -45,25 +44,39 @@ public interface AspectDao {
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys);
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
       @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
+  /**
+   * @param urn urn to fetch
+   * @param aspectName aspect to fetch
+   * @param forUpdate set to true if the result is used for versioning <a
+   *     href="https://ebean.io/docs/query/option#forUpdate">link</a>
+   * @return
+   */
   @Nullable
   default EntityAspect getLatestAspect(
-      @Nonnull final String urn, @Nonnull final String aspectName) {
-    return getLatestAspects(Map.of(urn, Set.of(aspectName)))
+      @Nonnull final String urn, @Nonnull final String aspectName, boolean forUpdate) {
+    return getLatestAspects(Map.of(urn, Set.of(aspectName)), forUpdate)
         .getOrDefault(urn, Map.of())
         .getOrDefault(aspectName, null);
   }
 
+  /**
+   * @param urnAspects urn/aspects to fetch
+   * @param forUpdate set to true if the result is used for versioning <a
+   *     href="https://ebean.io/docs/query/option#forUpdate">link</a>
+   * @return the data
+   */
   @Nonnull
-  Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects);
+  Map<String, Map<String, EntityAspect>> getLatestAspects(
+      Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   void saveAspect(
-      @Nullable Transaction tx,
+      @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       @Nonnull final String aspectMetadata,
@@ -75,10 +88,12 @@ public interface AspectDao {
       final boolean insert);
 
   void saveAspect(
-      @Nullable Transaction tx, @Nonnull final EntityAspect aspect, final boolean insert);
+      @Nullable TransactionContext txContext,
+      @Nonnull final EntityAspect aspect,
+      final boolean insert);
 
   long saveLatestAspect(
-      @Nullable Transaction tx,
+      @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       @Nullable final String oldAspectMetadata,
@@ -93,7 +108,7 @@ public interface AspectDao {
       @Nullable final String newSystemMetadata,
       final Long nextVersion);
 
-  void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect);
+  void deleteAspect(@Nullable TransactionContext txContext, @Nonnull final EntityAspect aspect);
 
   @Nonnull
   ListResult<String> listUrns(
@@ -111,7 +126,7 @@ public interface AspectDao {
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 
-  int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn);
+  int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn);
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
@@ -141,15 +156,25 @@ public interface AspectDao {
 
   long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
 
+  /**
+   * Return the min/max version for the given URN & aspect
+   *
+   * @param urn the urn
+   * @param aspectName the aspect
+   * @return the range of versions, if they do not exist -1 is returned
+   */
+  @Nonnull
+  Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
+
   void setWritable(boolean canWrite);
 
   @Nonnull
   <T> T runInTransactionWithRetry(
-      @Nonnull final Function<Transaction, T> block, final int maxTransactionRetry);
+      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry);
 
   @Nonnull
   default <T> List<T> runInTransactionWithRetry(
-      @Nonnull final Function<Transaction, T> block,
+      @Nonnull final Function<TransactionContext, T> block,
       AspectsBatch batch,
       final int maxTransactionRetry) {
     return List.of(runInTransactionWithRetry(block, maxTransactionRetry));

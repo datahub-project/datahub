@@ -16,14 +16,16 @@ def get_long_description():
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # Actual dependencies.
-    "apache-airflow >= 2.0.2",
+    # We require Airflow 2.3.x, since we need the new DAG listener API.
+    "apache-airflow>=2.3.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -42,12 +44,13 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.18.0",
+        "openlineage-airflow>=1.2.0,<=1.25.0",
     },
 }
 
-# Include datahub-rest in the base requirements.
+# Require some plugins by default.
 base_requirements.update(plugins["datahub-rest"])
+base_requirements.update(plugins["plugin-v2"])
 
 
 mypy_stubs = {
@@ -68,11 +71,8 @@ mypy_stubs = {
 dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=3.8.3",
-    "flake8-tidy-imports>=4.3.0",
-    "isort>=5.7.0",
+    "ruff==0.9.2",
     "mypy==1.10.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
@@ -81,7 +81,8 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "tenacity",
     "build",
     "twine",
@@ -93,7 +94,7 @@ integration_test_requirements = {
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
-    "apache-airflow[snowflake]>=2.0.2",
+    "apache-airflow[snowflake,amazon]>=2.0.2",
     # A collection of issues we've encountered:
     # - Connexion's new version breaks Airflow:
     #   See https://github.com/apache/airflow/issues/35234.
@@ -106,10 +107,16 @@ integration_test_requirements = {
     "apache-airflow-providers-sqlite",
 }
 per_version_test_requirements = {
+    "test-airflow23": {
+        "pendulum<3.0",
+        "Flask-Session<0.6.0",
+        "connexion<3.0",
+    },
     "test-airflow24": {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
         "connexion<3.0",
+        "marshmallow<3.24.0",
     },
 }
 
@@ -139,10 +146,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

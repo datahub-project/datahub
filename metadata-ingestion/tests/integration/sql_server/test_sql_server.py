@@ -1,9 +1,16 @@
 import os
+import pathlib
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
+from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
+from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+    generate_procedure_lineage,
+)
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
@@ -50,10 +57,57 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
         pytestconfig,
         output_path=tmp_path / "mssql_mces.json",
         golden_path=test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('yml','json')}",
+        / f"golden_files/golden_mces_{config_file.replace('yml', 'json')}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['job_id'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_created'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_modified'\]",
         ],
+    )
+
+
+PROCEDURE_SQLS_DIR = pathlib.Path(__file__).parent / "procedures"
+PROCEDURES_GOLDEN_DIR = pathlib.Path(__file__).parent / "golden_files/procedures/"
+procedure_sqls = [sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir()]
+
+
+@pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
+@pytest.mark.integration
+def test_stored_procedure_lineage(
+    pytestconfig: pytest.Config, procedure_sql_file: str
+) -> None:
+    sql_file_path = PROCEDURE_SQLS_DIR / procedure_sql_file
+    procedure_code = sql_file_path.read_text()
+
+    # Procedure file is named as <db>.<schema>.<procedure_name>
+    splits = procedure_sql_file.split(".")
+    db = splits[0]
+    schema = splits[1]
+    name = splits[2]
+
+    procedure = StoredProcedure(
+        db=db,
+        schema=schema,
+        name=name,
+        flow=None,  # type: ignore # flow is not used in this test
+        code=procedure_code,
+    )
+    data_job_urn = f"urn:li:dataJob:(urn:li:dataFlow:(mssql,{db}.{schema}.stored_procedures,PROD),{name})"
+
+    schema_resolver = SchemaResolver(platform="mssql")
+
+    mcps = list(
+        generate_procedure_lineage(
+            schema_resolver=schema_resolver,
+            procedure=procedure,
+            procedure_job_urn=data_job_urn,
+            is_temp_table=lambda name: "temp" in name.lower(),
+        )
+    )
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=(
+            PROCEDURES_GOLDEN_DIR / Path(procedure_sql_file).with_suffix(".json")
+        ),
     )

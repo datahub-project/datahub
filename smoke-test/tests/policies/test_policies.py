@@ -1,41 +1,17 @@
 import pytest
 import tenacity
 
-from tests.utils import (
-    get_frontend_session,
-    get_frontend_url,
-    get_root_urn,
-    get_sleep_info,
-    wait_for_healthcheck_util,
-)
+from tests.utils import get_root_urn, get_sleep_info
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.fixture(scope="session")
-def frontend_session(wait_for_healthchecks):
-    yield get_frontend_session()
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-@pytest.fixture(scope="class", autouse=True)
-def test_frontend_list_policies(frontend_session):
+@pytest.fixture(scope="module", autouse=True)
+def test_frontend_list_policies(auth_session):
     """Fixture to execute setup before and tear down after all tests are run"""
-    res_data = listPolicies(frontend_session)
+    res_data = listPolicies(auth_session)
 
     assert res_data
     assert res_data["data"]
@@ -55,7 +31,7 @@ def test_frontend_list_policies(frontend_session):
     # Run remaining tests.
     yield
 
-    res_data = listPolicies(frontend_session)
+    res_data = listPolicies(auth_session)
 
     assert res_data
     assert res_data["data"]
@@ -72,8 +48,8 @@ def test_frontend_list_policies(frontend_session):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_policy_present(frontend_session, new_urn):
-    res_data = listPolicies(frontend_session)
+def _ensure_policy_present(auth_session, new_urn):
+    res_data = listPolicies(auth_session)
 
     assert res_data
     assert res_data["data"]
@@ -93,8 +69,7 @@ def _ensure_policy_present(frontend_session, new_urn):
     assert result[0]["actors"]["allUsers"]
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_frontend_policy_operations(frontend_session):
+def test_frontend_policy_operations(auth_session):
     json = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
             createPolicy(input: $input) }""",
@@ -116,7 +91,9 @@ def test_frontend_policy_operations(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -146,8 +123,8 @@ def test_frontend_policy_operations(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -158,7 +135,7 @@ def test_frontend_policy_operations(frontend_session):
     assert res_data["data"]["updatePolicy"]
     assert res_data["data"]["updatePolicy"] == new_urn
 
-    _ensure_policy_present(frontend_session, new_urn)
+    _ensure_policy_present(auth_session, new_urn)
 
     # Now test that the policy can be deleted
     json = {
@@ -167,11 +144,13 @@ def test_frontend_policy_operations(frontend_session):
         "variables": {"urn": new_urn},
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
-    res_data = listPolicies(frontend_session)
+    res_data = listPolicies(auth_session)
 
     assert res_data
     assert res_data["data"]
@@ -185,7 +164,7 @@ def test_frontend_policy_operations(frontend_session):
     assert len(list(result)) == 0
 
 
-def listPolicies(session):
+def listPolicies(auth_session):
     json = {
         "query": """query listPolicies($input: ListPoliciesInput!) {\n
             listPolicies(input: $input) {\n
@@ -222,7 +201,9 @@ def listPolicies(session):
             }
         },
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
 
     return response.json()

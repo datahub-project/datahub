@@ -2,7 +2,7 @@ name: Test Results
 
 on:
   workflow_run:
-    workflows: ["build & test", "metadata ingestion", "Airflow Plugin", "Dagster Plugin"]
+    workflows: ["build & test", "metadata ingestion", "Airflow Plugin", "Dagster Plugin", "Prefect Plugin", "GX Plugin"]
     types:
       - completed
 
@@ -10,6 +10,11 @@ jobs:
   unit-test-results:
     name: Unit Test Results
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      issues: read
     if: github.event.workflow_run.conclusion != 'skipped'
 
     steps:

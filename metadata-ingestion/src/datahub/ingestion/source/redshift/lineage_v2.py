@@ -5,6 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 import redshift_connector
 
 from datahub.emitter import mce_builder
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
@@ -31,6 +32,7 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
+    ObservedQuery,
     SqlParsingAggregator,
 )
 from datahub.utilities.perf_timer import PerfTimer
@@ -38,7 +40,7 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 
-class RedshiftSqlLineageV2:
+class RedshiftSqlLineageV2(Closeable):
     # does lineage and usage based on SQL parsing.
 
     def __init__(
@@ -55,6 +57,8 @@ class RedshiftSqlLineageV2:
         self.context = context
 
         self.database = database
+        self.known_urns: Set[str] = set()  # will be set later
+
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -65,6 +69,7 @@ class RedshiftSqlLineageV2:
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
+            is_temp_table=self._is_temp_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -84,7 +89,16 @@ class RedshiftSqlLineageV2:
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-        self.known_urns: Set[str] = set()  # will be set later
+    def _is_temp_table(self, name: str) -> bool:
+        return (
+            DatasetUrn.create_from_ids(
+                self.platform,
+                name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            not in self.known_urns
+        )
 
     def build(
         self,
@@ -104,25 +118,18 @@ class RedshiftSqlLineageV2:
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator._is_temp_table = (
-            lambda name: DatasetUrn.create_from_ids(
-                self.platform,
-                name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            ).urn()
-            not in self.known_urns
-        )
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
             for temp_row in self._lineage_v1.get_temp_tables(connection=connection):
                 self.aggregator.add_observed_query(
-                    query=temp_row.query_text,
-                    default_db=self.database,
-                    default_schema=self.config.default_schema,
-                    session_id=temp_row.session_id,
-                    query_timestamp=temp_row.start_time,
+                    ObservedQuery(
+                        query=temp_row.query_text,
+                        default_db=self.database,
+                        default_schema=self.config.default_schema,
+                        session_id=temp_row.session_id,
+                        timestamp=temp_row.start_time,
+                    ),
                     # The "temp table" query actually returns all CREATE TABLE statements, even if they
                     # aren't explicitly a temp table. As such, setting is_known_temp_table=True
                     # would not be correct. We already have mechanisms to autodetect temp tables,
@@ -141,10 +148,8 @@ class RedshiftSqlLineageV2:
                     lambda: collections.defaultdict(set)
                 ),
             )
-            for new_urn, original_urn in table_renames.items():
-                self.aggregator.add_table_rename(
-                    original_urn=original_urn, new_urn=new_urn
-                )
+            for entry in table_renames.values():
+                self.aggregator.add_table_rename(entry)
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,
@@ -263,11 +268,13 @@ class RedshiftSqlLineageV2:
         # TODO actor
 
         self.aggregator.add_observed_query(
-            query=ddl,
-            default_db=self.database,
-            default_schema=self.config.default_schema,
-            query_timestamp=lineage_row.timestamp,
-            session_id=lineage_row.session_id,
+            ObservedQuery(
+                query=ddl,
+                default_db=self.database,
+                default_schema=self.config.default_schema,
+                timestamp=lineage_row.timestamp,
+                session_id=lineage_row.session_id,
+            )
         )
 
     def _make_filtered_target(self, lineage_row: LineageRow) -> Optional[DatasetUrn]:
@@ -329,19 +336,26 @@ class RedshiftSqlLineageV2:
         )
 
     def _process_copy_command(self, lineage_row: LineageRow) -> None:
-        source = self._lineage_v1._get_sources(
+        logger.debug(f"Processing COPY command for lineage row: {lineage_row}")
+        sources = self._lineage_v1._get_sources(
             lineage_type=LineageCollectorType.COPY,
             db_name=self.database,
             source_schema=None,
             source_table=None,
             ddl=None,
             filename=lineage_row.filename,
-        )[0]
+        )
+        logger.debug(f"Recognized sources: {sources}")
+        source = sources[0]
         if not source:
+            logger.debug("Ignoring command since couldn't recognize proper source")
             return
         s3_urn = source[0].urn
-
+        logger.debug(f"Recognized s3 dataset urn: {s3_urn}")
         if not lineage_row.target_schema or not lineage_row.target_table:
+            logger.debug(
+                f"Didn't find target schema (found: {lineage_row.target_schema}) or target table (found: {lineage_row.target_table})"
+            )
             return
         target = self._make_filtered_target(lineage_row)
         if not target:
@@ -424,3 +438,6 @@ class RedshiftSqlLineageV2:
                 message="Unexpected error(s) while attempting to extract lineage from SQL queries. See the full logs for more details.",
                 context=f"Query Parsing Failures: {self.aggregator.report.observed_query_parse_failures}",
             )
+
+    def close(self) -> None:
+        self.aggregator.close()

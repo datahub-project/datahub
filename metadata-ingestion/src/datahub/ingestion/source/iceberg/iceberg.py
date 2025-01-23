@@ -1,10 +1,17 @@
 import json
 import logging
+import threading
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
-from pyiceberg.exceptions import NoSuchIcebergTableError
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+    NoSuchTableError,
+    ServerError,
+)
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -75,6 +82,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -97,7 +106,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+    "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class IcebergSource(StatefulIngestionSourceBase):
@@ -130,73 +139,187 @@ class IcebergSource(StatefulIngestionSourceBase):
         ]
 
     def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
-        for namespace in catalog.list_namespaces():
-            yield from catalog.list_tables(namespace)
+        namespaces = catalog.list_namespaces()
+        LOGGER.debug(
+            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
+        )
+        self.report.report_no_listed_namespaces(len(namespaces))
+        tables_count = 0
+        for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
+            try:
+                tables = catalog.list_tables(namespace)
+                tables_count += len(tables)
+                LOGGER.debug(
+                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                )
+                self.report.report_listed_tables_for_namespace(
+                    ".".join(namespace), len(tables)
+                )
+                yield from tables
+            except NoSuchNamespaceError:
+                self.report.report_warning(
+                    "no-such-namespace",
+                    f"Couldn't list tables for namespace {namespace} due to NoSuchNamespaceError exception",
+                )
+                LOGGER.warning(
+                    f"NoSuchNamespaceError exception while trying to get list of tables from namespace {namespace}, skipping it",
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "listing-tables-exception",
+                    f"Couldn't list tables for namespace {namespace} due to {e}",
+                )
+                LOGGER.exception(
+                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        try:
-            catalog = self.config.get_catalog()
-        except Exception as e:
-            LOGGER.error("Failed to get catalog", exc_info=True)
-            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
-            return
+        thread_local = threading.local()
 
-        for dataset_path in self._get_datasets(catalog):
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            LOGGER.debug(f"Processing dataset for path {dataset_path}")
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
                 self.report.report_dropped(dataset_name)
-                continue
-
+                LOGGER.debug(
+                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                )
+                return
             try:
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
-                table = catalog.load_table(dataset_path)
+                if not hasattr(thread_local, "local_catalog"):
+                    LOGGER.debug(
+                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog"
+                    )
+                    thread_local.local_catalog = self.config.get_catalog()
+
+                with PerfTimer() as timer:
+                    table = thread_local.local_catalog.load_table(dataset_path)
+                    time_taken = timer.elapsed_seconds()
+                    self.report.report_table_load_time(
+                        time_taken, dataset_name, table.metadata_location
+                    )
+                LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
+            except NoSuchPropertyException as e:
+                self.report.report_warning(
+                    "table-property-missing",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
+                )
             except NoSuchIcebergTableError as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                self.report.report_warning(
+                    "not-an-iceberg-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchTableError as e:
+                self.report.report_warning(
+                    "no-such-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "general",
+                    f"Failed to create workunit for dataset {dataset_name}: {e}",
+                )
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
 
+        try:
+            catalog = self.config.get_catalog()
+        except Exception as e:
+            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
+            return
+
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_dataset,
+            args_list=[(dataset_path,) for dataset_path in self._get_datasets(catalog)],
+            max_workers=self.config.processing_threads,
+        ):
+            yield wu
+
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_table_scanned(dataset_name)
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
+        with PerfTimer() as timer:
+            self.report.report_table_scanned(dataset_name)
+            LOGGER.debug(f"Processing table {dataset_name}")
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[Status(removed=False)],
+            )
+
+            # Dataset properties aspect.
+            custom_properties = table.metadata.properties.copy()
+            custom_properties["location"] = table.metadata.location
+            custom_properties["format-version"] = str(table.metadata.format_version)
+            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+            if table.current_snapshot():
+                custom_properties["snapshot-id"] = str(
+                    table.current_snapshot().snapshot_id
+                )
+                custom_properties["manifest-list"] = (
+                    table.current_snapshot().manifest_list
+                )
+            dataset_properties = DatasetPropertiesClass(
+                name=table.name()[-1],
+                description=table.metadata.properties.get("comment", None),
+                customProperties=custom_properties,
+            )
+            dataset_snapshot.aspects.append(dataset_properties)
+            # Dataset ownership aspect.
+            dataset_ownership = self._get_ownership_aspect(table)
+            if dataset_ownership:
+                LOGGER.debug(
+                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
+                )
+                dataset_snapshot.aspects.append(dataset_ownership)
+
+            schema_metadata = self._create_schema_metadata(dataset_name, table)
+            dataset_snapshot.aspects.append(schema_metadata)
+
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        self.report.report_table_processing_time(
+            timer.elapsed_seconds(), dataset_name, table.metadata_location
         )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
-
-        # Dataset properties aspect.
-        custom_properties = table.metadata.properties.copy()
-        custom_properties["location"] = table.metadata.location
-        custom_properties["format-version"] = str(table.metadata.format_version)
-        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
-        if table.current_snapshot():
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
-        dataset_properties = DatasetPropertiesClass(
-            tags=[],
-            description=table.metadata.properties.get("comment", None),
-            customProperties=custom_properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-
-        # Dataset ownership aspect.
-        dataset_ownership = self._get_ownership_aspect(table)
-        if dataset_ownership:
-            dataset_snapshot.aspects.append(dataset_ownership)
-
-        schema_metadata = self._create_schema_metadata(dataset_name, table)
-        dataset_snapshot.aspects.append(schema_metadata)
-
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)

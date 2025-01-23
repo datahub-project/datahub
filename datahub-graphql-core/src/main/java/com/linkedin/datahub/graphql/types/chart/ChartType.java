@@ -242,11 +242,7 @@ public class ChartType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.CHART_PRIVILEGES.getResourceType(),
-        urn,
-        orPrivilegeGroups);
+        context, PoliciesConfig.CHART_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final ChartUpdateInput updateInput) {

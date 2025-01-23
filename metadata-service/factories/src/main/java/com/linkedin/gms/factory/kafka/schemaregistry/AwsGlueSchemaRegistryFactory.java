@@ -5,6 +5,7 @@ import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafka
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -32,8 +33,9 @@ public class AwsGlueSchemaRegistryFactory {
 
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(final ConfigurationProvider configurationProvider) {
-    Map<String, Object> props = new HashMap<>();
+  protected KafkaConfiguration.SerDeKeyValueConfig getInstance(
+      final ConfigurationProvider configurationProvider) {
+    Map<String, String> props = new HashMap<>();
     // FIXME: Properties for this factory should come from ConfigurationProvider object,
     // specifically under the
     // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
@@ -43,7 +45,14 @@ public class AwsGlueSchemaRegistryFactory {
     props.put(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.GENERIC_RECORD.getName());
     registryName.ifPresent(s -> props.put(AWSSchemaRegistryConstants.REGISTRY_NAME, s));
     log.info("Creating AWS Glue registry");
-    return new SchemaRegistryConfig(
-        GlueSchemaRegistryKafkaSerializer.class, GlueSchemaRegistryKafkaDeserializer.class, props);
+    return KafkaConfiguration.SerDeKeyValueConfig.builder()
+        .key(configurationProvider.getKafka().getSerde().getEvent().getKey())
+        .value(
+            KafkaConfiguration.SerDeProperties.builder()
+                .serializer(GlueSchemaRegistryKafkaSerializer.class.getName())
+                .deserializer(GlueSchemaRegistryKafkaDeserializer.class.getName())
+                .build())
+        .properties(props)
+        .build();
   }
 }

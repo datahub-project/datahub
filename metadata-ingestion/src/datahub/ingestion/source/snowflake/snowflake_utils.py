@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import ClassVar, Literal, Optional, Tuple
+from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -21,8 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
-    def structured_reporter(self) -> SourceReport:
-        ...
+    def structured_reporter(self) -> SourceReport: ...
 
 
 class SnowsightUrlBuilder:
@@ -119,17 +118,18 @@ class SnowflakeFilter:
     ) -> bool:
         if not dataset_type or not dataset_name:
             return True
-        dataset_params = dataset_name.split(".")
         if dataset_type.lower() not in (
             SnowflakeObjectDomain.TABLE,
             SnowflakeObjectDomain.EXTERNAL_TABLE,
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
+            SnowflakeObjectDomain.ICEBERG_TABLE,
         ):
             return False
         if _is_sys_table(dataset_name):
             return False
 
+        dataset_params = _split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
@@ -183,6 +183,46 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
+def _split_qualified_name(qualified_name: str) -> List[str]:
+    """
+    Split a qualified name into its constituent parts.
+
+    >>> _split_qualified_name("db.my_schema.my_table")
+    ['db', 'my_schema', 'my_table']
+    >>> _split_qualified_name('"db"."my_schema"."my_table"')
+    ['db', 'my_schema', 'my_table']
+    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
+    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
+    """
+
+    # Fast path - no quotes.
+    if '"' not in qualified_name:
+        return qualified_name.split(".")
+
+    # First pass - split on dots that are not inside quotes.
+    in_quote = False
+    parts: List[List[str]] = [[]]
+    for char in qualified_name:
+        if char == '"':
+            in_quote = not in_quote
+        elif char == "." and not in_quote:
+            parts.append([])
+        else:
+            parts[-1].append(char)
+
+    # Second pass - remove outer pairs of quotes.
+    result = []
+    for part in parts:
+        if len(part) > 2 and part[0] == '"' and part[-1] == '"':
+            part = part[1:-1]
+
+        result.append("".join(part))
+
+    return result
+
+
 # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
 # For example "test-database"."test-schema".test_table
 # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
@@ -191,7 +231,7 @@ def _is_sys_table(table_name: str) -> bool:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = qualified_name.split(".")
+    name_parts = _split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(
@@ -202,9 +242,9 @@ def _cleanup_qualified_name(
             )
         return qualified_name.replace('"', "")
     return _combine_identifier_parts(
-        db_name=name_parts[0].strip('"'),
-        schema_name=name_parts[1].strip('"'),
-        table_name=name_parts[2].strip('"'),
+        db_name=name_parts[0],
+        schema_name=name_parts[1],
+        table_name=name_parts[2],
     )
 
 
@@ -259,6 +299,28 @@ class SnowflakeIdentifierBuilder:
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
 
+    # Note - decide how to construct user urns.
+    # Historically urns were created using part before @ from user's email.
+    # Users without email were skipped from both user entries as well as aggregates.
+    # However email is not mandatory field in snowflake user, user_name is always present.
+    def get_user_identifier(
+        self,
+        user_name: str,
+        user_email: Optional[str],
+    ) -> str:
+        if user_email:
+            return self.snowflake_identifier(
+                user_email
+                if self.identifier_config.email_as_user_identifier is True
+                else user_email.split("@")[0]
+            )
+        return self.snowflake_identifier(
+            f"{user_name}@{self.identifier_config.email_domain}"
+            if self.identifier_config.email_as_user_identifier is True
+            and self.identifier_config.email_domain is not None
+            else user_name
+        )
+
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -273,24 +335,6 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     @cached_property
     def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config, self.report)
-
-    # Note - decide how to construct user urns.
-    # Historically urns were created using part before @ from user's email.
-    # Users without email were skipped from both user entries as well as aggregates.
-    # However email is not mandatory field in snowflake user, user_name is always present.
-    def get_user_identifier(
-        self,
-        user_name: str,
-        user_email: Optional[str],
-        email_as_user_identifier: bool,
-    ) -> str:
-        if user_email:
-            return self.identifiers.snowflake_identifier(
-                user_email
-                if email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
-        return self.identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint

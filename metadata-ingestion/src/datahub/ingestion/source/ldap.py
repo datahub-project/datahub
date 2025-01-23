@@ -1,4 +1,5 @@
 """LDAP Source"""
+
 import contextlib
 import dataclasses
 from typing import Any, Dict, Iterable, List, Optional

@@ -3,11 +3,12 @@ import logging
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 from pydantic import Field, validator
 from simple_salesforce import Salesforce
+from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -124,6 +125,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         default=dict(),
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
+    api_version: Optional[str] = Field(
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
+    )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
 
@@ -222,67 +226,81 @@ class SalesforceSource(Source):
         self.session = requests.Session()
         self.platform: str = "salesforce"
         self.fieldCounts = {}
+        common_args: Dict[str, Any] = {
+            "domain": "test" if self.config.is_sandbox else None,
+            "session": self.session,
+        }
+        if self.config.api_version:
+            common_args["version"] = self.config.api_version
 
         try:
             if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
                 logger.debug("Access Token Provided in Config")
-                assert (
-                    self.config.access_token is not None
-                ), "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
-                assert (
-                    self.config.instance_url is not None
-                ), "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                assert self.config.access_token is not None, (
+                    "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
+                )
+                assert self.config.instance_url is not None, (
+                    "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     instance_url=self.config.instance_url,
                     session_id=self.config.access_token,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
             elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
                 logger.debug("Username/Password Provided in Config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.password is not None
-                ), "Config password is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.security_token is not None
-                ), "Config security_token is required for USERNAME_PASSWORD auth"
+                assert self.config.username is not None, (
+                    "Config username is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.password is not None, (
+                    "Config password is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.security_token is not None, (
+                    "Config security_token is required for USERNAME_PASSWORD auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
                     password=self.config.password,
                     security_token=self.config.security_token,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
 
             elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
                 logger.debug("Json Web Token provided in the config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.consumer_key is not None
-                ), "Config consumer_key is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.private_key is not None
-                ), "Config private_key is required for JSON_WEB_TOKEN auth"
+                assert self.config.username is not None, (
+                    "Config username is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.consumer_key is not None, (
+                    "Config consumer_key is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.private_key is not None, (
+                    "Config private_key is required for JSON_WEB_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
                     consumer_key=self.config.consumer_key,
                     privatekey=self.config.private_key,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
 
-        except Exception as e:
+        except SalesforceAuthenticationFailed as e:
             logger.error(e)
-            raise ConfigurationError("Salesforce login failed") from e
-        else:
+            if "API_CURRENTLY_DISABLED" in str(e):
+                # https://help.salesforce.com/s/articleView?id=001473830&type=1
+                error = "Salesforce login failed. Please make sure user has API Enabled Access."
+            else:
+                error = "Salesforce login failed. Please verify your credentials."
+                if (
+                    self.config.instance_url
+                    and "sandbox" in self.config.instance_url.lower()
+                ):
+                    error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
+            raise ConfigurationError(error) from e
+
+        if not self.config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
                 instance=self.sf.sf_instance,
@@ -290,23 +308,37 @@ class SalesforceSource(Source):
             versions_response = self.sf._call_salesforce("GET", versions_url).json()
             latest_version = versions_response[-1]
             version = latest_version["version"]
+            # we could avoid setting the version like below (after the Salesforce object has been already initiated
+            # above), since, according to the docs:
+            # https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_versions.htm
+            # we don't need to be authenticated to list the versions (so we could perform this call before even
+            # authenticating)
             self.sf.sf_version = version
 
-            self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
-                instance=self.sf.sf_instance, sf_version=version
-            )
+        self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
+            instance=self.sf.sf_instance, sf_version=self.sf.sf_version
+        )
 
-            logger.debug(
-                "Using Salesforce REST API with {label} version: {version}".format(
-                    label=latest_version["label"], version=latest_version["version"]
-                )
+        logger.debug(
+            "Using Salesforce REST API version: {version}".format(
+                version=self.sf.sf_version
             )
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        sObjects = self.get_salesforce_objects()
-
-        for sObject in sObjects:
-            yield from self.get_salesforce_object_workunits(sObject)
+        try:
+            sObjects = self.get_salesforce_objects()
+        except Exception as e:
+            if "sObject type 'EntityDefinition' is not supported." in str(e):
+                # https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/tooling_api_objects_entitydefinition.htm
+                raise ConfigurationError(
+                    "Salesforce EntityDefinition query failed. "
+                    "Please verify if user has 'View Setup and Configuration' permission."
+                ) from e
+            raise e
+        else:
+            for sObject in sObjects:
+                yield from self.get_salesforce_object_workunits(sObject)
 
     def get_salesforce_object_workunits(
         self, sObject: dict
@@ -407,7 +439,8 @@ class SalesforceSource(Source):
         dataPlatformInstance = DataPlatformInstanceClass(
             builder.make_data_platform_urn(self.platform),
             instance=builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance  # type:ignore
+                self.platform,
+                self.config.platform_instance,  # type:ignore
             ),
         )
 
@@ -585,9 +618,9 @@ class SalesforceSource(Source):
 
         TypeClass = FIELD_TYPE_MAPPING.get(fieldType)
         if TypeClass is None:
-            self.report.report_warning(
-                sObjectName,
-                f"Unable to map type {fieldType} to metadata schema",
+            self.report.warning(
+                message="Unable to map field type to metadata schema",
+                context=f"{fieldType} for {fieldName} of {sObjectName}",
             )
             TypeClass = NullTypeClass
 
@@ -685,19 +718,30 @@ class SalesforceSource(Source):
             )
         )
 
-        sObject_custom_fields_response = self.sf._call_salesforce(
-            "GET", sObject_custom_fields_query_url
-        ).json()
+        customFields: Dict[str, Dict] = {}
+        try:
+            sObject_custom_fields_response = self.sf._call_salesforce(
+                "GET", sObject_custom_fields_query_url
+            ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} custom fields response".format(
-                sObject=sObjectName
+            logger.debug(
+                "Received Salesforce {sObject} custom fields response".format(
+                    sObject=sObjectName
+                )
             )
-        )
-        customFields: Dict[str, Dict] = {
-            record["DeveloperName"]: record
-            for record in sObject_custom_fields_response["records"]
-        }
+
+        except Exception as e:
+            error = "Salesforce CustomField query failed. "
+            if "sObject type 'CustomField' is not supported." in str(e):
+                # https://github.com/afawcett/apex-toolingapi/issues/19
+                error += "Please verify if user has 'View All Data' permission."
+
+            self.report.warning(message=error, exc=e)
+        else:
+            customFields = {
+                record["DeveloperName"]: record
+                for record in sObject_custom_fields_response["records"]
+            }
 
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []

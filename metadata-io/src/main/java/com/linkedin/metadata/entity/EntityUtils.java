@@ -72,7 +72,7 @@ public class EntityUtils {
     entityService.ingestProposal(
         opContext,
         AspectsBatchImpl.builder()
-            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext().get())
+            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())
             .build(),
         async);
   }
@@ -285,38 +285,51 @@ public class EntityUtils {
    * Use the precalculated next version from system metadata if it exists, otherwise lookup the next
    * version the normal way from the database
    *
+   * @param txContext
    * @param aspectDao database access
    * @param latestAspects aspect version 0 with system metadata
    * @param urnAspects urn/aspects which we need next version information for
    * @return map of the urn/aspect to the next aspect version
    */
   public static Map<String, Map<String, Long>> calculateNextVersions(
+      TransactionContext txContext,
       AspectDao aspectDao,
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Set<String>> urnAspects) {
-    Map<String, Map<String, Long>> precalculatedVersions =
-        latestAspects.entrySet().stream()
-            .map(
-                entry ->
-                    Map.entry(
-                        entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
-            .filter(entry -> !entry.getValue().isEmpty())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    Map<String, Set<String>> missingAspectVersions =
-        urnAspects.entrySet().stream()
-            .flatMap(
-                entry ->
-                    entry.getValue().stream()
-                        .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
-            .filter(
-                urnAspectName ->
-                    !precalculatedVersions
-                        .getOrDefault(urnAspectName.getKey(), Map.of())
-                        .containsKey(urnAspectName.getValue()))
-            .collect(
-                Collectors.groupingBy(
-                    Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
+    final Map<String, Map<String, Long>> precalculatedVersions;
+    final Map<String, Set<String>> missingAspectVersions;
+    if (txContext.getFailedAttempts() > 2 && txContext.lastExceptionIsDuplicateKey()) {
+      log.warn(
+          "Multiple exceptions detected, last exception detected as DuplicateKey, fallback to database max(version)+1");
+      precalculatedVersions = Map.of();
+      missingAspectVersions = urnAspects;
+    } else {
+      precalculatedVersions =
+          latestAspects.entrySet().stream()
+              .map(
+                  entry ->
+                      Map.entry(
+                          entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
+              .filter(entry -> !entry.getValue().isEmpty())
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      missingAspectVersions =
+          urnAspects.entrySet().stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().stream()
+                          .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
+              .filter(
+                  urnAspectName ->
+                      !precalculatedVersions
+                          .getOrDefault(urnAspectName.getKey(), Map.of())
+                          .containsKey(urnAspectName.getValue()))
+              .collect(
+                  Collectors.groupingBy(
+                      Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
+    }
+
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()

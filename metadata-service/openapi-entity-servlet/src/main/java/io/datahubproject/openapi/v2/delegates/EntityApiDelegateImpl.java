@@ -178,11 +178,6 @@ public class EntityApiDelegateImpl<I, O, S> {
     try {
       Urn entityUrn = Urn.createFromString(urn);
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -192,6 +187,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -242,11 +242,6 @@ public class EntityApiDelegateImpl<I, O, S> {
       Urn entityUrn = Urn.createFromString(urn);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -256,6 +251,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -612,13 +612,6 @@ public class EntityApiDelegateImpl<I, O, S> {
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-        authentication, _authorizationChain, READ, entitySpec.getName())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
-    }
-
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -628,6 +621,11 @@ public class EntityApiDelegateImpl<I, O, S> {
             _authorizationChain,
             authentication,
             true);
+
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
 
     List<SortCriterion> sortCriteria =
         Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
@@ -653,7 +651,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(authentication, _authorizationChain, result)) {
+    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }

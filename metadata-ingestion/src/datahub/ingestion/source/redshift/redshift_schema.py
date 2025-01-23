@@ -313,23 +313,19 @@ class RedshiftDataDictionary:
         size_in_bytes: Optional[int] = None
         rows_count: Optional[int] = None
         if schema in enriched_tables and table_name in enriched_tables[schema]:
-            if enriched_tables[schema][table_name].last_accessed is not None:
-                # Mypy seems to be not clever enough to understand the above check
-                last_accessed = enriched_tables[schema][table_name].last_accessed
-                assert last_accessed
+            if (
+                last_accessed := enriched_tables[schema][table_name].last_accessed
+            ) is not None:
                 last_altered = last_accessed.replace(tzinfo=timezone.utc)
             elif creation_time:
                 last_altered = creation_time
 
-            if enriched_tables[schema][table_name].size is not None:
-                # Mypy seems to be not clever enough to understand the above check
-                size = enriched_tables[schema][table_name].size
-                if size:
-                    size_in_bytes = size * 1024 * 1024
+            if (size := enriched_tables[schema][table_name].size) is not None:
+                size_in_bytes = size * 1024 * 1024
 
-            if enriched_tables[schema][table_name].estimated_visible_rows is not None:
-                rows = enriched_tables[schema][table_name].estimated_visible_rows
-                assert rows
+            if (
+                rows := enriched_tables[schema][table_name].estimated_visible_rows
+            ) is not None:
                 rows_count = int(rows)
         else:
             # The object was not found in the enriched data.

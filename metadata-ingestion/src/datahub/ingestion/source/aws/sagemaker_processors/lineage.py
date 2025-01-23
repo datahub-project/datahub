@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Set
@@ -5,6 +6,8 @@ from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Set
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
@@ -88,7 +91,6 @@ class LineageProcessor:
         paginator = self.sagemaker_client.get_paginator("list_contexts")
         for page in paginator.paginate():
             contexts += page["ContextSummaries"]
-
         return contexts
 
     def get_incoming_edges(self, node_arn: str) -> List["AssociationSummaryTypeDef"]:
@@ -225,27 +227,32 @@ class LineageProcessor:
         """
         Get the lineage of all artifacts in SageMaker.
         """
-
+        logger.info("Getting lineage for SageMaker artifacts...")
+        logger.info("Getting all actions")
         for action in self.get_all_actions():
             self.nodes[action["ActionArn"]] = {**action, "node_type": "action"}
+        logger.info("Getting all artifacts")
         for artifact in self.get_all_artifacts():
             self.nodes[artifact["ArtifactArn"]] = {**artifact, "node_type": "artifact"}
+        logger.info("Getting all contexts")
         for context in self.get_all_contexts():
             self.nodes[context["ContextArn"]] = {**context, "node_type": "context"}
 
+        logger.info("Getting lineage for model deployments and model groups")
         for node_arn, node in self.nodes.items():
+            logger.debug(f"Getting lineage for node {node_arn}")
             # get model-endpoint lineage
             if (
                 node["node_type"] == "action"
                 and node.get("ActionType") == "ModelDeployment"
             ):
                 self.get_model_deployment_lineage(node_arn)
-
+                self.report.model_endpoint_lineage += 1
             # get model-group lineage
             if (
                 node["node_type"] == "context"
                 and node.get("ContextType") == "ModelGroup"
             ):
                 self.get_model_group_lineage(node_arn, node)
-
+                self.report.model_group_lineage += 1
         return self.lineage_info

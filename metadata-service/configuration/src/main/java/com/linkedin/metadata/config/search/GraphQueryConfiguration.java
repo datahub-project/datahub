@@ -17,4 +17,7 @@ public class GraphQueryConfiguration {
    * to be prioritized in the case of a multiple path situation with multi-path search disabled
    */
   private boolean boostViaNodes;
+
+  /** Whether soft-delete status is tracked on entity URNs on graph edges */
+  private boolean graphStatusEnabled;
 }

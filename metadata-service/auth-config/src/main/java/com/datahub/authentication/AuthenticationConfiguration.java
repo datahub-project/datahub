@@ -9,6 +9,9 @@ public class AuthenticationConfiguration {
   /** Whether authentication is enabled */
   private boolean enabled;
 
+  /** Whether user existence is enforced */
+  private boolean enforceExistenceEnabled;
+
   /**
    * List of configurations for {@link com.datahub.plugins.auth.authentication.Authenticator}s to be
    * registered

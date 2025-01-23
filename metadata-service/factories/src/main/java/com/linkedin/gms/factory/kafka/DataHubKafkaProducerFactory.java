@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.util.Arrays;
 import java.util.Map;
@@ -24,14 +23,15 @@ public class DataHubKafkaProducerFactory {
   protected Producer<String, IndexedRecord> createInstance(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       final KafkaProperties properties,
-      @Qualifier("schemaRegistryConfig") final SchemaRegistryConfig schemaRegistryConfig) {
+      @Qualifier("schemaRegistryConfig")
+          final KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     return new KafkaProducer<>(
         buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties));
   }
 
   public static Map<String, Object> buildProducerProperties(
-      SchemaRegistryConfig schemaRegistryConfig,
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();
@@ -45,8 +45,8 @@ public class DataHubKafkaProducerFactory {
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> props = properties.buildProducerProperties(null);
-
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer());
+    props.putAll(
+        kafkaConfiguration.getSerde().getEvent().getProducerProperties(schemaRegistryConfig));
 
     props.put(ProducerConfig.RETRIES_CONFIG, kafkaConfiguration.getProducer().getRetryCount());
     props.put(
@@ -66,9 +66,7 @@ public class DataHubKafkaProducerFactory {
         kafkaConfiguration.getProducer().getMaxRequestSize());
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
-    schemaRegistryConfig.getProperties().entrySet().stream()
-        .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-        .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
+    props.putAll(kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
 
     return props;
   }

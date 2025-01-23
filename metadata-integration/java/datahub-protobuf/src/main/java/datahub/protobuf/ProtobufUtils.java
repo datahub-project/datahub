@@ -7,7 +7,6 @@ import com.google.protobuf.ExtensionRegistry;
 import com.linkedin.util.Pair;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -22,23 +21,14 @@ public class ProtobufUtils {
   private ProtobufUtils() {}
 
   public static String collapseLocationComments(DescriptorProtos.SourceCodeInfo.Location location) {
-    String orig =
-        Stream.concat(
-                location.getLeadingDetachedCommentsList().stream(),
-                Stream.of(location.getLeadingComments(), location.getTrailingComments()))
-            .filter(Objects::nonNull)
-            .flatMap(line -> Arrays.stream(line.split("\n")))
-            .map(line -> line.replaceFirst("^[*/ ]+", ""))
-            .collect(Collectors.joining("\n"))
-            .trim();
-
-    /*
-     * Sometimes DataHub doesn't like these strings. Not sure if its DataHub
-     * or protobuf issue: https://github.com/protocolbuffers/protobuf/issues/4691
-     *
-     * We essentially smash utf8 chars to ascii here
-     */
-    return new String(orig.getBytes(StandardCharsets.ISO_8859_1));
+    return Stream.concat(
+            location.getLeadingDetachedCommentsList().stream(),
+            Stream.of(location.getLeadingComments(), location.getTrailingComments()))
+        .filter(Objects::nonNull)
+        .flatMap(line -> Arrays.stream(line.split("\n")))
+        .map(line -> line.replaceFirst("^[*/ ]+", ""))
+        .collect(Collectors.joining("\n"))
+        .trim();
   }
 
   /*

@@ -1,5 +1,7 @@
 namespace com.linkedin.schemafield
 
+import com.linkedin.common.Urn
+
 @Aspect = {
    "name": "schemafieldInfo"
 }
@@ -8,6 +10,17 @@ record SchemaFieldInfo {
     @Searchable = {
         "fieldType": "KEYWORD",
         "fieldNameAliases": [ "_entityName" ]
-      }
-      name: optional string
+    }
+    name: optional string
+
+    /**
+    * Used to store field path variations for the schemaField urn.
+    */
+    @Searchable = {
+        "/*": {
+            "fieldType": "URN",
+            "queryByDefault": true,
+        }
+    }
+    schemaFieldAliases: optional array[Urn]
 }

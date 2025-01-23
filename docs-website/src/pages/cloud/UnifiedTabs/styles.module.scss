@@ -10,6 +10,7 @@
 
 .title {
   font-size: 2.5rem;
+  line-height: 2.75rem;
   font-weight: 500;
   margin-bottom: 2rem;
   text-align: center;
@@ -21,7 +22,7 @@
   &:before, &:after {
     content: " ";
     height: 2px;
-    width: calc((100vw - 468px - 120px)/2);
+    width: calc((100vw - 640px - 120px)/2);
     background: #EEE;
     display: block;
     position: absolute;

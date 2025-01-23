@@ -1,5 +1,6 @@
 namespace com.linkedin.structured
 
+import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
 import com.linkedin.datahub.DataHubSearchConfig
 
@@ -86,5 +87,27 @@ record StructuredPropertyDefinition {
      *                                   20240610, 20240611
      */
     version: optional string
+
+    /**
+      * Created Audit stamp
+      */
+    @Searchable = {
+      "/time": {
+        "fieldName": "createdTime",
+        "fieldType": "DATETIME"
+      }
+    }
+    created: optional AuditStamp
+
+    /**
+     * Last Modified Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "lastModified",
+       "fieldType": "DATETIME"
+      }
+    }
+    lastModified: optional AuditStamp
 }
 

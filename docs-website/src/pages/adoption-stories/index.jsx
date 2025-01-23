@@ -3,18 +3,21 @@ import Layout from "@theme/Layout";
 import BrowserOnly from "@docusaurus/BrowserOnly";
 import LearnItemCard from "./_components/LearnItemCard";
 import styles from "./styles.module.scss";
-
+import clsx from "clsx";
 import customerStoriesIndexes from "../../../adoptionStoriesIndexes.json";
 
 function AdoptionStoriesListPageContent() {
   const companies = (customerStoriesIndexes?.companies || []).filter((company) => company.link);
   const [activeFilters, setActiveFilters] = useState([]);
+  const [platformFilter, setPlatformFilter] = useState(false); // New state for platform filter
   const categories = ["B2B & B2C", "E-Commerce", "Financial & Fintech", "And More"];
   const selectedCardRef = useRef(null);
 
-  const filteredItems = activeFilters.length
-    ? companies.filter((company) => activeFilters.includes(company.category))
-    : companies;
+  const filteredItems = companies.filter((company) => {
+    const categoryMatch = activeFilters.length ? activeFilters.includes(company.category) : true;
+    const platformMatch = platformFilter ? company.platform === "cloud" : true;
+    return categoryMatch && platformMatch;
+  });
 
   const handleFilterToggle = (category) => {
     if (activeFilters.includes(category)) {
@@ -22,6 +25,10 @@ function AdoptionStoriesListPageContent() {
     } else {
       setActiveFilters([...new Set([...activeFilters, category])]);
     }
+  };
+
+  const handlePlatformFilterToggle = () => {
+    setPlatformFilter(!platformFilter);
   };
 
   useEffect(() => {
@@ -45,7 +52,6 @@ function AdoptionStoriesListPageContent() {
             </div>
           </div>
           <div className={styles.filterBar}>
-            <strong>For: </strong>
             {categories.map((category) => (
               <button
                 key={category}
@@ -55,6 +61,12 @@ function AdoptionStoriesListPageContent() {
                 {category}
               </button>
             ))}
+            <button
+              className={clsx(styles.cloudButton, 'button button--secondary', { 'button--active': platformFilter })}
+              onClick={handlePlatformFilterToggle}
+            >
+              DataHub Cloud
+            </button>
           </div>
         </div>
       </header>

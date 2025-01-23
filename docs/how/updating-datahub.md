@@ -20,7 +20,117 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
+- #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 0.15.0
+
+- OpenAPI Update: PIT Keep Alive parameter added to scroll endpoints. NOTE: This parameter requires the `pointInTimeCreationEnabled` feature flag to be enabled and the `elasticSearch.implementation` configuration to be `elasticsearch`. This feature is not supported for OpenSearch at this time and the parameter will not be respected without both of these set.
+- OpenAPI Update 2: Previously there was an incorrectly marked parameter named `sort` on the generic list entities endpoint for v3. This parameter is deprecated and only supports a single string value while the documentation indicates it supports a list of strings. This documentation error has been fixed and the correct field, `sortCriteria`, is now documented which supports a list of strings. 
+
+### Breaking Changes
+
+- #12223: For dbt Cloud ingestion, the "View in dbt" link will point at the "Explore" page in the dbt Cloud UI. You can revert to the old behavior of linking to the dbt Cloud IDE by setting `external_url_mode: ide".
+- #12191 - Configs `include_view_lineage` and `include_view_column_lineage` are removed from snowflake ingestion source. View and External Table DDL lineage will always be ingested when definitions are available.
+- #12181 - Configs `include_view_lineage`, `include_view_column_lineage` and `lineage_parse_view_ddl` are removed from bigquery ingestion source. View and Snapshot lineage will always be ingested when definitions are available.
+- #12077: `Kafka` source no longer ingests schemas from schema registry as separate entities by default, set `ingest_schemas_as_entities` to `true` to ingest them
+- #11486 - Criterion's `value` parameter has been previously deprecated. Use of `value` instead of `values` is no longer supported and will be completely removed on the next major version.
+- #11484 - Metadata service authentication enabled by default
+- #11484 - Rest API authorization enabled by default
+- #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+- #11619 - schema field/column paths can no longer be empty strings
+- #11619 - schema field/column paths can no longer be duplicated within the schema
+- #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
+- #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries _entities_ (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
+- #12020 - Removed `sql_parser` configuration from the Redash source, as Redash now exclusively uses the sqlglot-based parser for lineage extraction.
+- #12020 - Removed `datahub.utilities.sql_parser`, `datahub.utilities.sql_parser_base` and `datahub.utilities.sql_lineage_parser_impl` module along with `SqlLineageSQLParser` and `DefaultSQLParser`. Use `create_lineage_sql_parsed_result` from `datahub.sql_parsing.sqlglot_lineage` module instead.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted
+  (after 10d) or are timeseries *entities* (dataprocess, execution requests)
+  will be removed automatically using logic in the `datahub-gc` ingestion
+  source.
+- #12067 - Default behavior of DataJobPatchBuilder in Python sdk has been
+  changed to NOT fill out `created` and `lastModified` auditstamps by default
+  for input and output dataset edges. This should not have any user-observable
+  impact (time-based lineage viz will still continue working based on observed time), but could break assumptions previously being made by clients.
+- #12158 - Users provisioned with `user.props` will need to be enabled before login in order to be granted access to DataHub.
+
+### Potential Downtime
+
+### Deprecations
+
+- #12056: The DataHub Airflow plugin no longer supports Airflow 2.1 and Airflow 2.2.
+- #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
+- #11560 - The PowerBI ingestion source configuration option include_workspace_name_in_dataset_urn determines whether the workspace name is included in the PowerBI dataset's URN.<br/> PowerBI allows to have identical name of semantic model and their tables across the workspace, It will overwrite the semantic model in-case of multi-workspace ingestion.<br/>
+  Entity urn with `include_workspace_name_in_dataset_urn: false`
+
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.]<SemanticModelName>.<TableName>,<ENV>)
+  ```
+
+  Entity urn with `include_workspace_name_in_dataset_urn: true`
+
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.].<WorkspaceName>.<SemanticModelName>.<TableName>,<ENV>)
+  ```
+
+  The config `include_workspace_name_in_dataset_urn` is default to `false` for backward compatibility, However, we recommend enabling this flag after performing the necessary cleanup.
+  If stateful ingestion is enabled, running ingestion with the latest CLI version will handle the cleanup automatically. Otherwise, we recommend soft deleting all powerbi data via the DataHub CLI:
+  `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
+
+### Other Notable Changes
+
+- #12236: Data flow and data job entities may additionally produce container aspect that will require a corresponding upgrade of server. Otherwise server can reject the aspect.
+- #12056: The DataHub Airflow plugin now defaults to the v2 plugin implementation.
+- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
+- #11549 - Manage Operations Privilege is extended from throttle control to all system management and operations APIs.
+
+## 0.14.1
+
+### Breaking Changes
+
+- #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.
+
+  Old `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  New `urn`, where `data_base_name` is `Some_Database`:
+
+  ```
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
+  ```
+
+  Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs.
+
+- #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
+- #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
+- #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+- #10190 - `extractor_config.set_system_metadata` of `datahub` source has been moved to be a top level config in the recipe under `flags.set_system_metadata`
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+- Downgrade to previous version is not automatically supported.
+- Data Product Properties Unset side effect introduced
+  - Previously, Data Products could be set as linked to multiple Datasets if modified directly via the REST API rather than linked through the UI or GraphQL. This side effect aligns the REST API behavior with the GraphQL behavior by introducting a side effect that enforces the 1-to-1 constraint between Data Products and Datasets
+  - NOTE: There is a pathological pattern of writes for Data Products that can introduce issues with write processing that can occur with this side effect. If you are constantly changing all of the Datasets associated with a Data Product back and forth between multiple Data Products it will result in a high volume of writes due to the need to unset previous associations.
+
+## 0.14.0.2
+
+### Breaking Changes
+
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this
   behavior is required.
 - #10814 Data flow info and data job info aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
 - #10868 - OpenAPI V3 - Creation of aspects will need to be wrapped within a `value` key and the API is now symmetric with respect to input and outputs.
@@ -28,6 +138,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 Example Global Tags Aspect:
 
 Previous:
+
 ```json
 {
   "tags": [
@@ -55,34 +166,38 @@ New (optional fields `systemMetadata` and `headers`):
   "headers": {}
 }
 ```
+
 - #10858 Profiling configuration for Glue source has been updated.
 
-Previously, the configuration was:
-```yaml
-profiling: {}
-```
+  Previously, the configuration was:
 
-Now, it needs to be:
+  ```yaml
+  profiling: {}
+  ```
 
-```yaml
-profiling:
-  enabled: true
-```
+  Now, it needs to be:
+
+  ```yaml
+  profiling:
+    enabled: true
+  ```
 
 ### Potential Downtime
 
 ### Deprecations
 
-- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints 
+- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints
   will be deprecated in no less than 6 months. Endpoints will be replaced with equivalents in the `/v2` or `/v3` APIs.
   No loss of functionality expected unless explicitly mentioned in Breaking Changes.
 
 ### Other Notable Changes
+
 - #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
 - #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
 - #11002 - We will not auto-generate a `~/.datahubenv` file. You must either run `datahub init` to create that file, or set environment variables so that the config is loaded.
 - #11023 - Added a new parameter to datahub's `put` cli command: `--run-id`. This parameter is useful to associate a given write to an ingestion process. A use-case can be mimick transformers when a transformer for aspect being written does not exist.
 - #11051 - Ingestion reports will now trim the summary text to a maximum of 800k characters to avoid generating `dataHubExecutionRequestResult` that are too large for GMS to handle.
+
 ## 0.13.3
 
 ### Breaking Changes

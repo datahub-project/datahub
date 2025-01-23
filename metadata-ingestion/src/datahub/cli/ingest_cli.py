@@ -1,4 +1,3 @@
-import asyncio
 import csv
 import json
 import logging
@@ -24,9 +23,11 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+INGEST_SRC_TABLE_COLUMNS = ["runId", "source", "startTime", "status", "URN"]
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -119,14 +120,14 @@ def run(
     strict_warnings: bool,
     preview_workunits: int,
     test_source_connection: bool,
-    report_to: str,
+    report_to: Optional[str],
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
-    async def run_pipeline_to_completion(pipeline: Pipeline) -> int:
+    def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(disable=no_spinner or no_progress):
             try:
@@ -160,47 +161,31 @@ def run(
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
     if test_source_connection:
-        _test_source_connection(report_to, pipeline_config)
+        sys.exit(_test_source_connection(report_to, pipeline_config))
 
-    async def run_ingestion_and_check_upgrade() -> int:
-        # TRICKY: We want to make sure that the Pipeline.create() call happens on the
-        # same thread as the rest of the ingestion. As such, we must initialize the
-        # pipeline inside the async function so that it happens on the same event
-        # loop, and hence the same thread.
+    if no_default_report:
+        # The default is "datahub" reporting. The extra flag will disable it.
+        report_to = None
 
-        # logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            no_progress,
-            raw_pipeline_config,
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run=dry_run,
+        preview_mode=preview,
+        preview_workunits=preview_workunits,
+        report_to=report_to,
+        no_progress=no_progress,
+        raw_config=raw_pipeline_config,
+    )
+    with PerfTimer() as timer:
+        ret = run_pipeline_to_completion(pipeline)
+
+    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
+    if ret == 0:
+        upgrade.check_upgrade_post(
+            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
         )
 
-        version_stats_future = asyncio.ensure_future(
-            upgrade.retrieve_version_stats(pipeline.ctx.graph)
-        )
-        ingestion_future = asyncio.ensure_future(run_pipeline_to_completion(pipeline))
-        ret = await ingestion_future
-
-        # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-        if ret == 0:
-            try:
-                # we check the other futures quickly on success
-                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
-                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
-            except Exception as e:
-                logger.debug(
-                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
-                )
-
-        return ret
-
-    loop = asyncio.get_event_loop()
-    ret = loop.run_until_complete(run_ingestion_and_check_upgrade())
     if ret:
         sys.exit(ret)
     # don't raise SystemExit if there's no error
@@ -392,7 +377,7 @@ def deploy(
     click.echo(response)
 
 
-def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
     connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
@@ -401,12 +386,12 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
-        sys.exit(0)
+        return 0
     except Exception as e:
         logger.error(f"Failed to test connection due to {e}")
         if connection_report:
             logger.error(connection_report.as_json())
-        sys.exit(1)
+        return 1
 
 
 def parse_restli_response(response):
@@ -447,10 +432,129 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe, no_default_report=True)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
+
+
+@ingest.command()
+@click.argument("page_offset", type=int, default=0)
+@click.argument("page_size", type=int, default=100)
+@click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
+@click.option(
+    "--source", type=str, default=None, help="Filter by ingestion source name."
+)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
+    """List ingestion source runs with their details, optionally filtered by URN or source."""
+
+    query = """
+    query listIngestionRuns($input: ListIngestionSourcesInput!) {
+      listIngestionSources(input: $input) {
+        ingestionSources {
+          urn
+          name
+          executions {
+            executionRequests {
+              id
+              result {
+                startTimeMs
+                status
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    # filter by urn and/or source using CONTAINS
+    filters = []
+    if urn:
+        filters.append({"field": "urn", "values": [urn], "condition": "CONTAIN"})
+    if source:
+        filters.append({"field": "name", "values": [source], "condition": "CONTAIN"})
+
+    variables = {
+        "input": {
+            "start": page_offset,
+            "count": page_size,
+            "filters": filters,
+        }
+    }
+
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
+
+    url = f"{gms_host}/api/graphql"
+    try:
+        response = session.post(url, json={"query": query, "variables": variables})
+        response.raise_for_status()
+    except Exception as e:
+        click.echo(f"Error fetching data: {str(e)}")
+        return
+
+    try:
+        data = response.json()
+    except ValueError:
+        click.echo("Failed to parse JSON response from server.")
+        return
+
+    if not data:
+        click.echo("No response received from the server.")
+        return
+
+    # a lot of responses can be null if there's errors in the run
+    ingestion_sources = (
+        data.get("data", {}).get("listIngestionSources", {}).get("ingestionSources", [])
+    )
+
+    if not ingestion_sources:
+        click.echo("No ingestion sources or executions found.")
+        return
+
+    rows = []
+    for ingestion_source in ingestion_sources:
+        urn = ingestion_source.get("urn", "N/A")
+        name = ingestion_source.get("name", "N/A")
+
+        executions = ingestion_source.get("executions", {}).get("executionRequests", [])
+
+        for execution in executions:
+            if execution is None:
+                continue
+
+            execution_id = execution.get("id", "N/A")
+            result = execution.get("result") or {}
+            status = result.get("status", "N/A")
+
+            try:
+                start_time = (
+                    datetime.fromtimestamp(
+                        result.get("startTimeMs", 0) / 1000
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                    if status != "DUPLICATE" and result.get("startTimeMs") is not None
+                    else "N/A"
+                )
+            except (TypeError, ValueError):
+                start_time = "N/A"
+
+            rows.append([execution_id, name, start_time, status, urn])
+
+    if not rows:
+        click.echo("No execution data found.")
+        return
+
+    click.echo(
+        tabulate(
+            rows,
+            headers=INGEST_SRC_TABLE_COLUMNS,
+            tablefmt="grid",
+        )
+    )
 
 
 @ingest.command()

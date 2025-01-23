@@ -3,6 +3,7 @@ package io.datahubproject.openapi.v2.models;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.SystemMetadata;
@@ -37,29 +38,42 @@ public class GenericEntityV2 implements GenericEntity<GenericAspectV2> {
 
     public GenericEntityV2 build(
         ObjectMapper objectMapper, Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
+      return build(objectMapper, aspects, false);
+    }
+
+    public GenericEntityV2 build(
+        ObjectMapper objectMapper,
+        Map<String, Pair<RecordTemplate, SystemMetadata>> aspects,
+        boolean isAsyncAlternateValidation) {
       Map<String, GenericAspectV2> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
                   e -> {
                     try {
-                      Map<String, Object> valueMap =
+                      Map<String, JsonNode> valueMap =
                           Map.of(
                               "value",
                               objectMapper.readTree(
                                   RecordUtils.toJsonString(e.getValue().getFirst())
                                       .getBytes(StandardCharsets.UTF_8)));
 
+                      Object aspectValue =
+                          isAsyncAlternateValidation
+                              ? valueMap.get("value").get("value")
+                              : valueMap.get("value");
+
                       if (e.getValue().getSecond() != null) {
                         return Map.entry(
                             e.getKey(),
                             new GenericAspectV2(
                                 Map.of(
-                                    "systemMetadata", e.getValue().getSecond(),
-                                    "value", valueMap.get("value"))));
+                                    "systemMetadata",
+                                    e.getValue().getSecond(),
+                                    "value",
+                                    aspectValue)));
                       } else {
                         return Map.entry(
-                            e.getKey(),
-                            new GenericAspectV2(Map.of("value", valueMap.get("value"))));
+                            e.getKey(), new GenericAspectV2(Map.of("value", aspectValue)));
                       }
                     } catch (IOException ex) {
                       throw new RuntimeException(ex);

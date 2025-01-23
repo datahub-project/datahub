@@ -126,7 +126,6 @@ def log_http_error(e: BaseException, message: str) -> Any:
 
 
 def get_response_dict(response: requests.Response, error_message: str) -> dict:
-
     result_dict: dict = {}
     try:
         response.raise_for_status()
@@ -315,11 +314,11 @@ class Mapper:
                 "createdDate": str(report.created_date),
                 "modifiedBy": report.modified_by or "",
                 "modifiedDate": str(report.modified_date) or str(report.created_date),
-                "dataSource": str(
-                    [report.connection_string for report in _report.data_sources]
-                )
-                if _report.data_sources
-                else "",
+                "dataSource": (
+                    str([report.connection_string for report in _report.data_sources])
+                    if _report.data_sources
+                    else ""
+                ),
             }
 
         # DashboardInfo mcp
@@ -486,7 +485,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")

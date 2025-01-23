@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import java.io.IOException;
 import javax.annotation.Nonnull;
@@ -55,7 +56,9 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance(final ConfigurationProvider configurationProvider)
+  protected ElasticSearchService getInstance(
+      final ConfigurationProvider configurationProvider,
+      final QueryFilterRewriteChain queryFilterRewriteChain)
       throws IOException {
     log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
 
@@ -73,12 +76,16 @@ public class ElasticSearchServiceFactory {
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
             elasticSearchConfiguration.getImplementation(),
             searchConfiguration,
-            customSearchConfiguration);
+            customSearchConfiguration,
+            queryFilterRewriteChain);
     return new ElasticSearchService(
         entityIndexBuilders,
         esSearchDAO,
         new ESBrowseDAO(
-            components.getSearchClient(), searchConfiguration, customSearchConfiguration),
+            components.getSearchClient(),
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain),
         new ESWriteDAO(
             components.getSearchClient(),
             components.getBulkProcessor(),

@@ -196,8 +196,8 @@ export const AccessTokens = () => {
         return renderSearchResult(result);
     });
 
-    const totalTokens = tokensData?.listAccessTokens.total || 0;
-    const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
+    const totalTokens = tokensData?.listAccessTokens?.total || 0;
+    const tokens = useMemo(() => tokensData?.listAccessTokens?.tokens || [], [tokensData]);
     const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
 
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();
@@ -419,7 +419,7 @@ export const AccessTokens = () => {
             </PaginationContainer>
             <CreateTokenModal
                 currentUserUrn={currentUserUrn}
-                visible={isCreatingToken}
+                open={isCreatingToken}
                 onClose={() => setIsCreatingToken(false)}
                 onCreateToken={() => {
                     // Hack to deal with eventual consistency.

@@ -33,7 +33,22 @@ public class GlossaryUtils {
    */
   public static boolean canManageGlossaries(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+  }
+
+  // Returns whether this is a glossary entity and whether you can edit this glossary entity with
+  // the
+  // Manage all children or Manage direct children privileges
+  public static boolean canUpdateGlossaryEntity(
+      Urn targetUrn, QueryContext context, EntityClient entityClient) {
+    final boolean isGlossaryEntity =
+        targetUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
+            || targetUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME);
+    if (!isGlossaryEntity) {
+      return false;
+    }
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, entityClient);
+    return GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, entityClient);
   }
 
   /**
@@ -79,11 +94,7 @@ public class GlossaryUtils {
             ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        parentNodeUrn.getEntityType(),
-        parentNodeUrn.toString(),
-        orPrivilegeGroups);
+        context, parentNodeUrn.getEntityType(), parentNodeUrn.toString(), orPrivilegeGroups);
   }
 
   /**

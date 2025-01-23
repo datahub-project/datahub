@@ -56,6 +56,7 @@ import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
+import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
@@ -63,9 +64,11 @@ import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
@@ -121,6 +124,8 @@ import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.generated.VersionProperties;
+import com.linkedin.datahub.graphql.generated.VersionSet;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
@@ -171,6 +176,8 @@ import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -293,6 +300,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSet
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.DeleteStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
@@ -311,12 +319,14 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PropertyValueResolver;
+import com.linkedin.datahub.graphql.resolvers.type.ResolvedActorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.CreateNativeUserResetTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.versioning.VersionsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.view.CreateViewResolver;
 import com.linkedin.datahub.graphql.resolvers.view.DeleteViewResolver;
 import com.linkedin.datahub.graphql.resolvers.view.ListGlobalViewsResolver;
@@ -342,6 +352,7 @@ import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
+import com.linkedin.datahub.graphql.types.dataprocessinst.DataProcessInstanceType;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceRunEventMapper;
 import com.linkedin.datahub.graphql.types.dataproduct.DataProductType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
@@ -373,6 +384,7 @@ import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
+import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -385,6 +397,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -470,6 +483,7 @@ public class GmsGraphQLEngine {
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
+  private final EntityVersioningService entityVersioningService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -526,6 +540,8 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
+  private final DataProcessInstanceType dataProcessInstanceType;
+  private final VersionSetType versionSetType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -592,6 +608,7 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
+    this.entityVersioningService = args.entityVersioningService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -645,6 +662,8 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
+    this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
+    this.versionSetType = new VersionSetType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -694,8 +713,10 @@ public class GmsGraphQLEngine {
                 entityTypeType,
                 formType,
                 incidentType,
+                versionSetType,
                 restrictedType,
-                businessAttributeType));
+                businessAttributeType,
+                dataProcessInstanceType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
@@ -724,7 +745,7 @@ public class GmsGraphQLEngine {
    * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from a {@link
    * LoadableType}.
    */
-  public Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
+  public static Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(
       final Collection<? extends LoadableType<?, ?>> loadableTypes) {
     return loadableTypes.stream()
         .collect(
@@ -795,6 +816,8 @@ public class GmsGraphQLEngine {
     configureConnectionResolvers(builder);
     configureDeprecationResolvers(builder);
     configureMetadataAttributionResolver(builder);
+    configureVersionPropertiesResolvers(builder);
+    configureVersionSetResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -849,7 +872,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1020,6 +1044,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("tag", getResolver(tagType))
                 .dataFetcher("dataFlow", getResolver(dataFlowType))
                 .dataFetcher("dataJob", getResolver(dataJobType))
+                .dataFetcher("dataProcessInstance", getResolver(dataProcessInstanceType))
                 .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
                 .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
                 .dataFetcher("domain", getResolver((domainType)))
@@ -1034,6 +1059,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("assertion", getResolver(assertionType))
                 .dataFetcher("form", getResolver(formType))
                 .dataFetcher("view", getResolver(dataHubViewType))
+                .dataFetcher("structuredProperty", getResolver(structuredPropertyType))
+                .dataFetcher("versionSet", getResolver(versionSetType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
@@ -1135,16 +1162,16 @@ public class GmsGraphQLEngine {
         });
   }
 
-  private DataFetcher getResolver(LoadableType<?, String> loadableType) {
-    return getResolver(loadableType, this::getUrnField);
+  private static DataFetcher getResolver(LoadableType<?, String> loadableType) {
+    return getResolver(loadableType, GmsGraphQLEngine::getUrnField);
   }
 
-  private <T, K> DataFetcher getResolver(
+  private static <T, K> DataFetcher getResolver(
       LoadableType<T, K> loadableType, Function<DataFetchingEnvironment, K> keyProvider) {
     return new LoadableTypeResolver<>(loadableType, keyProvider);
   }
 
-  private String getUrnField(DataFetchingEnvironment env) {
+  private static String getUrnField(DataFetchingEnvironment env) {
     return env.getArgument(URN_FIELD_NAME);
   }
 
@@ -1190,13 +1217,15 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDescription",
                   new UpdateDescriptionResolver(entityService, this.entityClient))
-              .dataFetcher("addOwner", new AddOwnerResolver(entityService))
-              .dataFetcher("addOwners", new AddOwnersResolver(entityService))
-              .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
-              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
-              .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
+              .dataFetcher("addOwner", new AddOwnerResolver(entityService, entityClient))
+              .dataFetcher("addOwners", new AddOwnersResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchAddOwners", new BatchAddOwnersResolver(entityService, entityClient))
+              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-              .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+              .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
               .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
@@ -1210,7 +1239,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
                   "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
-              .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
+              .dataFetcher(
+                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
               .dataFetcher(
                   "updateDeprecation",
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
@@ -1310,7 +1340,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
               .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
               .dataFetcher(
-                  "createDataProduct", new CreateDataProductResolver(this.dataProductService))
+                  "createDataProduct",
+                  new CreateDataProductResolver(this.dataProductService, this.entityService))
               .dataFetcher(
                   "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
               .dataFetcher(
@@ -1343,6 +1374,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateStructuredProperty",
                   new UpdateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "deleteStructuredProperty",
+                  new DeleteStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
@@ -1373,6 +1407,16 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "removeBusinessAttribute",
                     new RemoveBusinessAttributeResolver(this.entityService));
+          }
+          if (featureFlags.isEntityVersioning()) {
+            typeWiring
+                .dataFetcher(
+                    "linkAssetVersion",
+                    new LinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
+                .dataFetcher(
+                    "unlinkAssetVersion",
+                    new UnlinkAssetVersionResolver(
+                        this.entityVersioningService, this.featureFlags));
           }
           return typeWiring;
         });
@@ -1464,6 +1508,19 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((BrowsePathEntry) env.getSource()).getEntity())))
+        .type(
+            "FacetMetadata",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> {
+                          FacetMetadata facetMetadata = env.getSource();
+                          return facetMetadata.getEntity() != null
+                              ? facetMetadata.getEntity()
+                              : null;
+                        })))
         .type(
             "LineageRelationship",
             typeWiring ->
@@ -1722,12 +1779,22 @@ public class GmsGraphQLEngine {
         .type(
             "InstitutionalMemoryMetadata",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "author",
-                    new LoadableTypeResolver<>(
-                        corpUserType,
-                        (env) ->
-                            ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn())))
+                typeWiring
+                    .dataFetcher(
+                        "author",
+                        new LoadableTypeResolver<>(
+                            corpUserType,
+                            (env) ->
+                                ((InstitutionalMemoryMetadata) env.getSource())
+                                    .getAuthor()
+                                    .getUrn()))
+                    .dataFetcher(
+                        "actor",
+                        new EntityTypeResolver(
+                            this.entityTypes,
+                            (env) ->
+                                (Entity)
+                                    ((InstitutionalMemoryMetadata) env.getSource()).getActor())))
         .type(
             "DatasetStatsSummary",
             typeWiring ->
@@ -2116,6 +2183,9 @@ public class GmsGraphQLEngine {
                             .getAllowedTypes().stream()
                                 .map(entityTypeType.getKeyProvider())
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "StructuredPropertyEntity",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**
@@ -2231,11 +2301,20 @@ public class GmsGraphQLEngine {
             "HyperParameterValueType",
             typeWiring -> typeWiring.typeResolver(new HyperParameterValueTypeResolver()))
         .type("PropertyValue", typeWiring -> typeWiring.typeResolver(new PropertyValueResolver()))
+        .type("ResolvedActor", typeWiring -> typeWiring.typeResolver(new ResolvedActorResolver()))
         .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
         .type(
             "TimeSeriesAspect",
             typeWiring -> typeWiring.typeResolver(new TimeSeriesAspectInterfaceTypeResolver()))
-        .type("ResultsType", typeWiring -> typeWiring.typeResolver(new ResultsTypeResolver()));
+        .type("ResultsType", typeWiring -> typeWiring.typeResolver(new ResultsTypeResolver()))
+        .type(
+            "SupportsVersions",
+            typeWiring ->
+                typeWiring.typeResolver(
+                    new EntityInterfaceTypeResolver(
+                        loadableTypes.stream()
+                            .map(graphType -> (EntityType<?, ?>) graphType)
+                            .collect(Collectors.toList()))));
   }
 
   /** Configures custom type extensions leveraged within our GraphQL schema. */
@@ -2338,6 +2417,17 @@ public class GmsGraphQLEngine {
                                   ? dataJob.getDataPlatformInstance().getUrn()
                                   : null;
                             }))
+                    .dataFetcher(
+                        "container",
+                        new LoadableTypeResolver<>(
+                            containerType,
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob.getContainer() != null
+                                  ? dataJob.getContainer().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                     .dataFetcher("runs", new DataJobRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -2415,6 +2505,17 @@ public class GmsGraphQLEngine {
                               ? dataFlow.getDataPlatformInstance().getUrn()
                               : null;
                         }))
+                .dataFetcher(
+                    "container",
+                    new LoadableTypeResolver<>(
+                        containerType,
+                        (env) -> {
+                          final DataFlow dataFlow = env.getSource();
+                          return dataFlow.getContainer() != null
+                              ? dataFlow.getContainer().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "health",
                     new EntityHealthResolver(
@@ -2728,9 +2829,11 @@ public class GmsGraphQLEngine {
                         corpUserType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getUsers().stream()
-                              .map(CorpUser::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getUsers() != null
+                              ? actors.getUsers().stream()
+                                  .map(CorpUser::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher(
                     "groups",
@@ -2738,9 +2841,11 @@ public class GmsGraphQLEngine {
                         corpGroupType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getGroups().stream()
-                              .map(CorpGroup::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getGroups() != null
+                              ? actors.getGroups().stream()
+                                  .map(CorpGroup::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher("isAssignedToMe", new IsFormAssignedToMeResolver(groupService)));
   }
@@ -2993,6 +3098,25 @@ public class GmsGraphQLEngine {
         "DataProcessInstance",
         typeWiring ->
             typeWiring
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        (env) -> {
+                          final DataProcessInstance dataProcessInstance = env.getSource();
+                          return dataProcessInstance.getDataPlatformInstance() != null
+                              ? dataProcessInstance.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher(
+                    "container",
+                    new LoadableTypeResolver<>(
+                        containerType,
+                        (env) -> {
+                          final DataProcessInstance dpi = env.getSource();
+                          return dpi.getContainer() != null ? dpi.getContainer().getUrn() : null;
+                        }))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
@@ -3021,7 +3145,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
+  private static <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
       final LoadableType<T, K> graphType, final QueryContext queryContext) {
     BatchLoaderContextProvider contextProvider = () -> queryContext;
     DataLoaderOptions loaderOptions =
@@ -3206,5 +3330,35 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes,
                         (env) -> ((MetadataAttribution) env.getSource()).getSource())));
+  }
+
+  private void configureVersionPropertiesResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "VersionProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "versionSet",
+                new LoadableTypeResolver<>(
+                    versionSetType,
+                    (env) -> {
+                      final VersionProperties versionProperties = env.getSource();
+                      return versionProperties != null
+                          ? versionProperties.getVersionSet().getUrn()
+                          : null;
+                    })));
+  }
+
+  private void configureVersionSetResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "VersionSet",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "latestVersion",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((VersionSet) env.getSource()).getLatestVersion()))
+                .dataFetcher(
+                    "versionsSearch",
+                    new VersionsSearchResolver(this.entityClient, this.viewService)));
   }
 }

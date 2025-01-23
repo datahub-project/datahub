@@ -78,10 +78,26 @@ export const EditOwnersModal = ({
     const renderSearchResult = (entity: Entity) => {
         const avatarUrl =
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
+        const corpUserDepartmentName =
+            (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.departmentName) || '';
+        const corpUserId = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
+        const corpUserTitle = (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.title) || '';
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
+
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            <Select.Option
+                key={entity.urn}
+                value={entity.urn}
+                label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />}
+            >
+                <OwnerLabel
+                    name={displayName}
+                    avatarUrl={avatarUrl}
+                    type={entity.type}
+                    corpUserId={corpUserId}
+                    corpUserTitle={corpUserTitle}
+                    corpUserDepartmentName={corpUserDepartmentName}
+                />
             </Select.Option>
         );
     };
@@ -336,7 +352,7 @@ export const EditOwnersModal = ({
     return (
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
-            visible
+            open
             onCancel={onModalClose}
             keyboard
             footer={
@@ -381,6 +397,7 @@ export const EditOwnersModal = ({
                                 value: owner.value.ownerUrn,
                                 label: owner.label,
                             }))}
+                            optionLabelProp="label"
                         >
                             {ownerSearchOptions}
                         </SelectInput>

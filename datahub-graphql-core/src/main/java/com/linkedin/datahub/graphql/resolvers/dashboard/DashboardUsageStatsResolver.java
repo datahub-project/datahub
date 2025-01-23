@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -14,7 +15,6 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUsageMetricMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -102,11 +102,7 @@ public class DashboardUsageStatsResolver
       final ArrayList<Criterion> criteria = new ArrayList<>();
 
       // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion =
-          new Criterion()
-              .setField(ES_FIELD_EVENT_GRANULARITY)
-              .setCondition(Condition.IS_NULL)
-              .setValue("");
+      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
       criteria.add(excludeTimeBucketsCriterion);
       filter.setOr(
           new ConjunctiveCriterionArray(

@@ -111,9 +111,9 @@ export const SettingsPage = () => {
     const me = useUserContext();
     const { config } = useAppConfig();
 
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
-    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
-    const isViewsEnabled = config?.viewsConfig.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
+    const isViewsEnabled = config?.viewsConfig?.enabled;
     const { readOnlyModeEnabled } = config.featureFlags;
 
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
@@ -121,7 +121,7 @@ export const SettingsPage = () => {
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
-    const showFeatures = true; // TODO: Add feature flag for this
+    const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
 
     return (
         <PageContainer>

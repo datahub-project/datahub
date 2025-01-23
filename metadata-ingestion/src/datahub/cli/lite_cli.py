@@ -84,10 +84,14 @@ class CompleteablePath(click.ParamType):
         try:
             completions = lite.ls(path)
             return [
-                CompletionItem(browseable.auto_complete.suggested_path, type="plain")
-                if browseable.auto_complete
-                else CompletionItem(
-                    f"{incomplete}/{browseable.name}".replace("//", "/")
+                (
+                    CompletionItem(
+                        browseable.auto_complete.suggested_path, type="plain"
+                    )
+                    if browseable.auto_complete
+                    else CompletionItem(
+                        f"{incomplete}/{browseable.name}".replace("//", "/")
+                    )
                 )
                 for browseable in completions
                 if not browseable.leaf
@@ -172,7 +176,7 @@ def get(
             )
         )
     end_time = time.time()
-    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+    logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
 
 
 @lite.command()
@@ -224,7 +228,7 @@ def ls(path: Optional[str]) -> None:
     try:
         browseables = lite.ls(path)
         end_time = time.time()
-        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+        logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]
@@ -240,12 +244,16 @@ def ls(path: Optional[str]) -> None:
             for browseable in [b for b in browseables if b.auto_complete is None]:
                 click.secho(
                     browseable.name,
-                    fg="white"
-                    if browseable.leaf
-                    else "green"
-                    if browseable.id.startswith("urn:")
-                    and not browseable.id.startswith("urn:li:systemNode")
-                    else "cyan",
+                    fg=(
+                        "white"
+                        if browseable.leaf
+                        else (
+                            "green"
+                            if browseable.id.startswith("urn:")
+                            and not browseable.id.startswith("urn:li:systemNode")
+                            else "cyan"
+                        )
+                    ),
                 )
     except PathNotFoundException:
         click.echo(f"Path not found: {path}")

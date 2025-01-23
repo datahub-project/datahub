@@ -3,6 +3,7 @@ import urllib
 
 import pytest
 import tenacity
+
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -22,15 +23,7 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-
-import requests_wrapper as requests
-from tests.utils import (
-    delete_urns_from_file,
-    get_gms_url,
-    get_sleep_info,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-)
+from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -225,8 +218,8 @@ def create_test_data(test_file):
     fileSink.close()
 
 
-@pytest.fixture(scope="session")
-def generate_test_data(tmp_path_factory):
+@pytest.fixture(scope="module")
+def generate_test_data(graph_client, tmp_path_factory):
     """Generates metadata events data and stores into a test file"""
     print("generating assertions test data")
     dir_name = tmp_path_factory.mktemp("test_dq_events")
@@ -234,30 +227,18 @@ def generate_test_data(tmp_path_factory):
     create_test_data(test_file=str(file_name))
     yield str(file_name)
     print("removing assertions test data")
-    delete_urns_from_file(str(file_name))
+    delete_urns_from_file(graph_client, str(file_name))
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks(generate_test_data):
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_run_ingestion(generate_test_data):
-    ingest_file_via_rest(generate_test_data)
+@pytest.fixture(scope="module")
+def test_run_ingestion(auth_session, generate_test_data):
+    ingest_file_via_rest(auth_session, generate_test_data)
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _gms_get_latest_assertions_results_by_partition():
+def _gms_get_latest_assertions_results_by_partition(auth_session):
     urn = make_dataset_urn("postgres", "foo")
 
     # Query
@@ -293,8 +274,8 @@ def _gms_get_latest_assertions_results_by_partition():
             ],
         }
     )
-    response = requests.post(
-        f"{get_gms_url()}/analytics?action=getTimeseriesStats",
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/analytics?action=getTimeseriesStats",
         data=query,
         headers=restli_default_headers,
     )
@@ -320,17 +301,17 @@ def _gms_get_latest_assertions_results_by_partition():
     )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_latest_assertions_results_by_partition():
-    _gms_get_latest_assertions_results_by_partition()
+def test_gms_get_latest_assertions_results_by_partition(
+    auth_session, test_run_ingestion
+):
+    _gms_get_latest_assertions_results_by_partition(auth_session)
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_assertions_on_dataset():
+def test_gms_get_assertions_on_dataset(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
     urn = make_dataset_urn("postgres", "foo")
-    response = requests.get(
-        f"{get_gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
     )
 
     response.raise_for_status()
@@ -338,13 +319,12 @@ def test_gms_get_assertions_on_dataset():
     assert len(data["relationships"]) == 1
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_assertions_on_dataset_field():
+def test_gms_get_assertions_on_dataset_field(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
     dataset_urn = make_dataset_urn("postgres", "foo")
     field_urn = make_schema_field_urn(dataset_urn, "col1")
-    response = requests.get(
-        f"{get_gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
     )
 
     response.raise_for_status()
@@ -352,11 +332,10 @@ def test_gms_get_assertions_on_dataset_field():
     assert len(data["relationships"]) == 1
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_assertion_info():
+def test_gms_get_assertion_info(auth_session, test_run_ingestion):
     assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
-    response = requests.get(
-        f"{get_gms_url()}/aspects/{urllib.parse.quote(assertion_urn)}\
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/aspects/{urllib.parse.quote(assertion_urn)}\
             ?aspect=assertionInfo&version=0",
         headers=restli_default_headers,
     )

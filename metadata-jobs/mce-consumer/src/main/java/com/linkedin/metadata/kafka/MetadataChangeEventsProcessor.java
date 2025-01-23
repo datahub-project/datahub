@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
@@ -60,7 +62,7 @@ public class MetadataChangeEventsProcessor {
           "${METADATA_CHANGE_EVENT_NAME:${KAFKA_MCE_TOPIC_NAME:"
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
-      containerFactory = "kafkaEventConsumer")
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME)
   @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {

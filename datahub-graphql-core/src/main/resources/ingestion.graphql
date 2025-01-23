@@ -448,6 +448,11 @@ input ListIngestionSourcesInput {
   Optional Facet filters to apply to the result set
   """
   filters: [FacetFilterInput!]
+
+  """
+  Optional sort order. Defaults to use systemCreated.
+  """
+  sort: SortCriterion
 }
 
 """

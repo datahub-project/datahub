@@ -9,7 +9,7 @@ const data = {
     {
       title: "Data Discovery",
       icon: "/img/assets/data-discovery.svg",
-      cloudPageLink: "https://www.acryldata.io/acryl-datahub",
+      cloudPageLink: "/solutions/discovery",
       cloudBenefits: [
         { text: "Enhanced search ranking", link: "" }, //  →
         { text: "Personalization for every persona", link: "" }, //  →
@@ -27,7 +27,7 @@ const data = {
     {
       title: "Data Observability",
       icon: "/img/assets/data-ob.svg",
-      cloudPageLink: "https://www.acryldata.io/observe",
+      cloudPageLink: "/solutions/observability",
       cloudBenefits: [
         { text: "Continuous data quality monitors", link: "" }, //  →
         { text: "End-to-end data incident tracking & management", link: "" }, //  →
@@ -45,7 +45,7 @@ const data = {
     {
       title: "Data Governance",
       icon: "/img/assets/data-governance.svg",
-      cloudPageLink: "https://www.acryldata.io/acryl-datahub#governance",
+      cloudPageLink: "/solutions/governance",
       cloudBenefits: [
         { text: "Human-assisted asset certification workflows", link: "" }, //  →
         { text: "Automations to enforce governance standards", link: "" }, //  →

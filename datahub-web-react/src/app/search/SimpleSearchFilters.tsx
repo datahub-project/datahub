@@ -4,7 +4,12 @@ import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { FilterScenarioType } from './filters/render/types';
 import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
-import { ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from './utils/constants';
+import {
+    DEGREE_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+} from './utils/constants';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
@@ -43,6 +48,15 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                           : filter,
                   )
                   .filter((filter) => filter.field !== field || !(filter.values?.length === 0));
+
+        // Do not let user unselect all degree filters
+        if (field === DEGREE_FILTER_NAME && !selected) {
+            const hasDegreeFilter = newFilters.find((filter) => filter.field === DEGREE_FILTER_NAME);
+            if (!hasDegreeFilter) {
+                return;
+            }
+        }
+
         setCachedProps({ ...cachedProps, selectedFilters: newFilters });
         onFilterSelect(newFilters);
     };

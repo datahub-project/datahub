@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -21,6 +20,7 @@ from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     DataProcessTypeClass,
 )
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
@@ -33,7 +33,7 @@ class DataProcessInstanceKey(DatahubKey):
     id: str
 
 
-class InstanceRunResult(str, Enum):
+class InstanceRunResult(StrEnum):
     SUCCESS = RunResultType.SUCCESS
     SKIPPED = RunResultType.SKIPPED
     FAILURE = RunResultType.FAILURE
@@ -190,14 +190,16 @@ class DataProcessInstance:
                 timestampMillis=end_timestamp_millis,
                 result=DataProcessInstanceRunResultClass(
                     type=result,
-                    nativeResultType=result_type
-                    if result_type is not None
-                    else self.orchestrator,
+                    nativeResultType=(
+                        result_type if result_type is not None else self.orchestrator
+                    ),
                 ),
                 attempt=attempt,
-                durationMillis=(end_timestamp_millis - start_timestamp_millis)
-                if start_timestamp_millis
-                else None,
+                durationMillis=(
+                    (end_timestamp_millis - start_timestamp_millis)
+                    if start_timestamp_millis
+                    else None
+                ),
             ),
         )
         yield mcp
@@ -258,9 +260,11 @@ class DataProcessInstance:
             aspect=DataProcessInstanceRelationships(
                 upstreamInstances=[str(urn) for urn in self.upstream_urns],
                 parentTemplate=str(self.template_urn) if self.template_urn else None,
-                parentInstance=str(self.parent_instance)
-                if self.parent_instance is not None
-                else None,
+                parentInstance=(
+                    str(self.parent_instance)
+                    if self.parent_instance is not None
+                    else None
+                ),
             ),
         )
         yield mcp

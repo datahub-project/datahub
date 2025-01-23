@@ -14,6 +14,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
+import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -24,6 +25,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -62,6 +64,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_ASPECT,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
@@ -82,9 +85,10 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
   private final OperationContext systemOperationContext;
-  private final SystemEntityClient entityClient;
+  private final SystemEntityClient systemEntityClient;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
+  private final List<String> entityExclusions;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
@@ -93,13 +97,16 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
-      @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix) {
+      @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
+      @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
+          List<String> entityExclusions) {
     this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    this.entityClient = Objects.requireNonNull(entityClient);
+    this.systemEntityClient = Objects.requireNonNull(entityClient);
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
+    this.entityExclusions = entityExclusions;
   }
 
   @VisibleForTesting
@@ -108,7 +115,13 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull Boolean isEnabled) {
-    this(systemOperationContext, entityChangeEventGeneratorRegistry, entityClient, isEnabled, "");
+    this(
+        systemOperationContext,
+        entityChangeEventGeneratorRegistry,
+        entityClient,
+        isEnabled,
+        "",
+        Collections.emptyList());
   }
 
   @Override
@@ -148,7 +161,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
               : null;
 
       final List<ChangeEvent> changeEvents =
-          generateChangeEvents(
+          ChangeEventGeneratorUtils.generateChangeEvents(
+              entityChangeEventGeneratorRegistry,
               logEvent.getEntityUrn(),
               logEvent.getEntityType(),
               logEvent.getAspectName(),
@@ -195,12 +209,13 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private boolean isEligibleForProcessing(final MetadataChangeLog log) {
     return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString())
-        && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
+        && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
+        && !entityExclusions.contains(log.getEntityType());
   }
 
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    entityClient.producePlatformEvent(
+    systemEntityClient.producePlatformEvent(
         systemOperationContext, Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
   }
 

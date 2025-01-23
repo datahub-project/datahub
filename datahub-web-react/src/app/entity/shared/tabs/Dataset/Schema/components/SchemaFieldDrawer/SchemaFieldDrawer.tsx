@@ -1,6 +1,7 @@
 import { Drawer } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+import SidebarStructuredPropsSection from '@src/app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import DrawerHeader from './DrawerHeader';
 import FieldHeader from './FieldHeader';
 import FieldDescription from './FieldDescription';
@@ -11,6 +12,7 @@ import FieldTags from './FieldTags';
 import FieldTerms from './FieldTerms';
 import FieldProperties from './FieldProperties';
 import FieldAttribute from './FieldAttribute';
+import useGetSchemaColumnProperties from './useGetSchemaColumnProperties';
 
 const StyledDrawer = styled(Drawer)`
     position: absolute;
@@ -47,9 +49,10 @@ export default function SchemaFieldDrawer({
     );
     const expandedField =
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? schemaFields[expandedFieldIndex] : undefined;
-    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
         pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
+    const schemaColumnProperties = useGetSchemaColumnProperties();
 
     return (
         <StyledDrawer
@@ -75,7 +78,13 @@ export default function SchemaFieldDrawer({
                         <FieldUsageStats expandedField={expandedField} />
                         <FieldTags expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldTerms expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
-                        <FieldProperties expandedField={expandedField} />
+                        <SidebarStructuredPropsSection
+                            properties={{ schemaField: expandedField, schemaColumnProperties }}
+                        />
+                        <FieldProperties
+                            expandedField={expandedField}
+                            schemaColumnProperties={schemaColumnProperties}
+                        />
                         <FieldAttribute expandedField={expandedField} />
                     </MetadataSections>
                 </>

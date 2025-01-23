@@ -77,12 +77,12 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
-    const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
+    const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>(new Map());
 
     // In the case that any URL params change, we want to reset asyncEntities. If new parameters are added,
     // they should be added to the dependency array below.
     useEffect(() => {
-        setAsyncEntities({});
+        setAsyncEntities(new Map());
         // this can also be our hook for emitting the tracking event
 
         analytics.event({
@@ -93,7 +93,7 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     useEffect(() => {
         if (showColumns) {
-            setAsyncEntities({});
+            setAsyncEntities(new Map());
         }
     }, [showColumns]);
 
@@ -101,7 +101,7 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
-            if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
+            if (entityAndType?.entity?.urn && !asyncEntities.get(entityAndType?.entity?.urn)?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(
                     fineGrainedMap,
@@ -145,10 +145,10 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     // set asyncEntity to have fullyFetched: false so we can update it in maybeAddAsyncLoadedEntity
     function resetAsyncEntity(entityUrn: string) {
-        setAsyncEntities({
-            ...asyncEntities,
-            [entityUrn]: { ...asyncEntities[entityUrn], fullyFetched: false },
-        });
+        const newAsyncEntities = new Map(asyncEntities);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        newAsyncEntities.set(entityUrn, { ...asyncEntities.get(entityUrn)!, fullyFetched: false });
+        setAsyncEntities(newAsyncEntities);
     }
 
     const handleClose = () => {
@@ -210,7 +210,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                 placement="left"
                 closable={false}
                 onClose={handleClose}
-                visible={isDrawerVisible}
+                open={isDrawerVisible}
                 width={490}
                 bodyStyle={{ overflowX: 'hidden' }}
                 mask={false}
@@ -221,7 +221,9 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             {selectedEntity.type !== EntityType.Restricted && (
-                                <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                <Button
+                                    href={`${entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}`}
+                                >
                                     <InfoCircleOutlined /> View details
                                 </Button>
                             )}

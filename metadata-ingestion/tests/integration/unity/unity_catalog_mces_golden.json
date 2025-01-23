@@ -12,13 +12,15 @@
                 "catalog": "hive_metastore"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore",
-            "name": "hive_metastore"
+            "name": "hive_metastore",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -101,13 +103,15 @@
                 "unity_schema": "bronze_kambi"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi",
-            "name": "bronze_kambi"
+            "name": "bronze_kambi",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1618,13 +1622,15 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
-            "description": ""
+            "description": "",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2316,13 +2322,15 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
             "name": "quickstart_schema",
-            "description": "A new Unity Catalog schema called quickstart_schema"
+            "description": "A new Unity Catalog schema called quickstart_schema",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -3032,8 +3040,8 @@
         "json": {
             "timestampMillis": 1705308660402,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 3,
             "columnCount": 3,
@@ -3163,8 +3171,8 @@
         "json": {
             "timestampMillis": 1705308660402,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 2,
@@ -3187,8 +3195,8 @@
         "json": {
             "timestampMillis": 1716198037325,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 3,
             "columnCount": 3,
@@ -3243,8 +3251,8 @@
         "json": {
             "timestampMillis": 1708671016385,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 2,

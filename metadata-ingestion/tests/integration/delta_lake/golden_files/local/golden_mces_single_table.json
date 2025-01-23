@@ -44,7 +44,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -57,7 +57,7 @@
                                 "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=int].bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -106,7 +106,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -193,7 +194,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -301,7 +303,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake"
             },
-            "name": "delta_lake"
+            "name": "delta_lake",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -413,7 +416,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -529,7 +533,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables"
             },
-            "name": "delta_tables"
+            "name": "delta_tables",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -662,8 +667,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -721,159 +726,20 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                },
-                {
-                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
-                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-                },
-                {
-                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-                },
-                {
-                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
-                },
-                {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655831477768
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

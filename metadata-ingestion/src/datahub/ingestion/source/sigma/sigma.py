@@ -4,7 +4,12 @@ from typing import Dict, Iterable, List, Optional
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
+from datahub.emitter.mcp_builder import (
+    add_entity_to_container,
+    add_owner_to_entity_wu,
+    add_tags_to_entity_wu,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -59,12 +64,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     ChangeAuditStampsClass,
     ChartInfoClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    EdgeClass,
     GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
@@ -74,6 +81,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
+    SubTypesClass,
     TagAssociationClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
@@ -175,9 +183,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             container_key=self._gen_workspace_key(workspace.workspaceId),
             name=workspace.name,
             sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
             created=int(workspace.createdAt.timestamp() * 1000),
             last_modified=int(workspace.updatedAt.timestamp() * 1000),
         )
@@ -255,11 +265,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entries = [
             BrowsePathEntryClass(id=parent_entity_urn, urn=parent_entity_urn)
         ] + [BrowsePathEntryClass(id=path) for path in paths]
-        if self.config.platform_instance:
-            urn = builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance
-            )
-            entries = [BrowsePathEntryClass(id=urn, urn=urn)] + entries
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=BrowsePathsV2Class(entries),
@@ -422,11 +427,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elements: List[Element],
         workbook: Workbook,
         all_input_fields: List[InputFieldClass],
+        paths: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
         """
-
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -457,11 +462,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             ).as_workunit()
 
-            yield from add_entity_to_container(
-                container_key=self._gen_workbook_key(workbook.workbookId),
-                entity_type="chart",
-                entity_urn=chart_urn,
-            )
+            if workbook.workspaceId:
+                yield self._gen_entity_browsepath_aspect(
+                    entity_urn=chart_urn,
+                    parent_entity_urn=builder.make_container_urn(
+                        self._gen_workspace_key(workbook.workspaceId)
+                    ),
+                    paths=paths + [workbook.name],
+                )
 
             # Add sigma dataset's upstream dataset urn mapping
             for dataset_urn, upstream_dataset_urns in inputs.items():
@@ -469,9 +477,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_dataset_urns
                     and dataset_urn not in self.dataset_upstream_urn_mapping
                 ):
-                    self.dataset_upstream_urn_mapping[
-                        dataset_urn
-                    ] = upstream_dataset_urns
+                    self.dataset_upstream_urn_mapping[dataset_urn] = (
+                        upstream_dataset_urns
+                    )
 
             element_input_fields = [
                 InputFieldClass(
@@ -492,7 +500,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             all_input_fields.extend(element_input_fields)
 
-    def _gen_pages_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
+    def _gen_pages_workunit(
+        self, workbook: Workbook, paths: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
         """
@@ -503,20 +513,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_dashboard_info_workunit(page)
 
-            yield from add_entity_to_container(
-                container_key=self._gen_workbook_key(workbook.workbookId),
-                entity_type="dashboard",
-                entity_urn=dashboard_urn,
-            )
-
             dpi_aspect = self._gen_dataplatform_instance_aspect(dashboard_urn)
             if dpi_aspect:
                 yield dpi_aspect
 
             all_input_fields: List[InputFieldClass] = []
 
+            if workbook.workspaceId:
+                yield self._gen_entity_browsepath_aspect(
+                    entity_urn=dashboard_urn,
+                    parent_entity_urn=builder.make_container_urn(
+                        self._gen_workspace_key(workbook.workspaceId)
+                    ),
+                    paths=paths + [workbook.name],
+                )
+
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields
+                page.elements, workbook, all_input_fields, paths
             )
 
             yield MetadataChangeProposalWrapper(
@@ -529,38 +542,89 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Map Sigma Workbook to Datahub container
         """
         owner_username = self.sigma_api.get_user_name(workbook.createdBy)
-        workbook_key = self._gen_workbook_key(workbook.workbookId)
-        yield from gen_containers(
-            container_key=workbook_key,
-            name=workbook.name,
-            sub_types=[BIContainerSubTypes.SIGMA_WORKBOOK],
-            parent_container_key=self._gen_workspace_key(workbook.workspaceId)
-            if workbook.workspaceId
-            else None,
-            extra_properties={
+
+        dashboard_urn = self._gen_dashboard_urn(workbook.workbookId)
+
+        yield self._gen_entity_status_aspect(dashboard_urn)
+
+        lastModified = AuditStampClass(
+            time=int(workbook.updatedAt.timestamp() * 1000),
+            actor="urn:li:corpuser:datahub",
+        )
+        created = AuditStampClass(
+            time=int(workbook.createdAt.timestamp() * 1000),
+            actor="urn:li:corpuser:datahub",
+        )
+
+        dashboard_info_cls = DashboardInfoClass(
+            title=workbook.name,
+            description=workbook.description if workbook.description else "",
+            dashboards=[
+                EdgeClass(
+                    destinationUrn=self._gen_dashboard_urn(page.get_urn_part()),
+                    sourceUrn=dashboard_urn,
+                )
+                for page in workbook.pages
+            ],
+            externalUrl=workbook.url,
+            lastModified=ChangeAuditStampsClass(
+                created=created, lastModified=lastModified
+            ),
+            customProperties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
             },
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
-            external_url=workbook.url,
-            tags=[workbook.badge] if workbook.badge else None,
-            created=int(workbook.createdAt.timestamp() * 1000),
-            last_modified=int(workbook.updatedAt.timestamp() * 1000),
         )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+        ).as_workunit()
+
+        # Set subtype
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=SubTypesClass(typeNames=[BIContainerSubTypes.SIGMA_WORKBOOK]),
+        ).as_workunit()
+
+        # Ownership
+        owner_urn = (
+            builder.make_user_urn(owner_username)
+            if self.config.ingest_owner and owner_username
+            else None
+        )
+        if owner_urn:
+            yield from add_owner_to_entity_wu(
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+                owner_urn=owner_urn,
+            )
+
+        # Tags
+        tags = [workbook.badge] if workbook.badge else None
+        if tags:
+            yield from add_tags_to_entity_wu(
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+                tags=sorted(tags),
+            )
 
         paths = workbook.path.split("/")[1:]
-        if len(paths) > 0 and workbook.workspaceId:
+        if workbook.workspaceId:
             yield self._gen_entity_browsepath_aspect(
-                entity_urn=builder.make_container_urn(workbook_key),
+                entity_urn=dashboard_urn,
                 parent_entity_urn=builder.make_container_urn(
                     self._gen_workspace_key(workbook.workspaceId)
                 ),
-                paths=paths,
+                paths=paths + [workbook.name],
             )
 
-        yield from self._gen_pages_workunit(workbook)
+            if len(paths) == 0:
+                yield from add_entity_to_container(
+                    container_key=self._gen_workspace_key(workbook.workspaceId),
+                    entity_type="dashboard",
+                    entity_urn=dashboard_urn,
+                )
+
+        yield from self._gen_pages_workunit(workbook, paths)
 
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,

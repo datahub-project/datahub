@@ -12,26 +12,26 @@ public class SearchContextTest {
   @Test
   public void searchContextId() {
     SearchContext testNoFlags =
-        SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
+        SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("MD5")).build();
 
     assertEquals(
         testNoFlags.getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .build()
             .getCacheKeyComponent(),
         "Expected consistent context ids across instances");
 
     SearchContext testWithFlags =
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .searchFlags(new SearchFlags().setFulltext(true))
             .build();
 
     assertEquals(
         testWithFlags.getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .searchFlags(new SearchFlags().setFulltext(true))
             .build()
             .getCacheKeyComponent(),
@@ -44,7 +44,7 @@ public class SearchContextTest {
     assertNotEquals(
         testWithFlags.getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .searchFlags(new SearchFlags().setFulltext(true).setIncludeRestricted(true))
             .build()
             .getCacheKeyComponent(),
@@ -53,7 +53,12 @@ public class SearchContextTest {
     assertNotEquals(
         testNoFlags.getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(new IndexConventionImpl("Some Prefix"))
+            .indexConvention(
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("Some Prefix")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .searchFlags(null)
             .build()
             .getCacheKeyComponent(),
@@ -61,7 +66,7 @@ public class SearchContextTest {
 
     assertNotEquals(
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .searchFlags(
                 new SearchFlags()
                     .setFulltext(false)
@@ -70,7 +75,7 @@ public class SearchContextTest {
             .build()
             .getCacheKeyComponent(),
         SearchContext.builder()
-            .indexConvention(IndexConventionImpl.NO_PREFIX)
+            .indexConvention(IndexConventionImpl.noPrefix("MD5"))
             .searchFlags(new SearchFlags().setFulltext(true).setIncludeRestricted(true))
             .build()
             .getCacheKeyComponent(),
@@ -80,7 +85,7 @@ public class SearchContextTest {
   @Test
   public void testImmutableSearchFlags() {
     SearchContext initial =
-        SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
+        SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("MD5")).build();
     assertEquals(initial.getSearchFlags(), new SearchFlags().setSkipCache(false));
 
     SearchContext mutated = initial.withFlagDefaults(flags -> flags.setSkipCache(true));

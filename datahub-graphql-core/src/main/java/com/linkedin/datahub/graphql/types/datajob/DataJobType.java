@@ -75,11 +75,13 @@ public class DataJobType
           DOMAINS_ASPECT_NAME,
           DEPRECATION_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          CONTAINER_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
           BROWSE_PATHS_V2_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          DATA_TRANSFORM_LOGIC_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 
@@ -229,11 +231,7 @@ public class DataJobType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType(),
-        urn,
-        orPrivilegeGroups);
+        context, PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DataJobUpdateInput updateInput) {

@@ -14,15 +14,12 @@ public class IngestionAuthUtils {
 
   public static boolean canManageIngestion(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
-        context.getActorUrn(),
-        context.getAuthorizer(),
-        MANAGE,
-        List.of(INGESTION_SOURCE_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(INGESTION_SOURCE_ENTITY_NAME));
   }
 
   public static boolean canManageSecrets(@Nonnull QueryContext context) {
     return isAuthorizedEntityType(
-        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(SECRETS_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(SECRETS_ENTITY_NAME));
   }
 
   private IngestionAuthUtils() {}

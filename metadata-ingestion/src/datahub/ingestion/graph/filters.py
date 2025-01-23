@@ -110,6 +110,10 @@ def _get_env_filters(env: str) -> List[SearchFilterRule]:
             "field": "customProperties",
             "value": f"instance={env}",
         },
+        {
+            "field": "env",
+            "value": env,
+        },
         # Note that not all entity types have an env (e.g. dashboards / charts).
         # If the env filter is specified, these will be excluded.
     ]

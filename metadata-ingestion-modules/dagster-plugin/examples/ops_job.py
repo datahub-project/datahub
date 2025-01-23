@@ -1,6 +1,7 @@
 from dagster import Definitions, In, Out, PythonObjectDagsterType, job, op
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubDagsterSourceConfig,
     make_datahub_sensor,
@@ -17,12 +18,12 @@ def extract():
     ins={
         "data": In(
             dagster_type=PythonObjectDagsterType(list),
-            metadata={"datahub.inputs": [DatasetUrn("snowflake", "tableA").urn]},
+            metadata={"datahub.inputs": [DatasetUrn("snowflake", "tableA").urn()]},
         )
     },
     out={
         "result": Out(
-            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableB").urn]}
+            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableB").urn()]}
         )
     },
 )
@@ -38,13 +39,9 @@ def do_stuff():
     transform(extract())
 
 
-config = DatahubDagsterSourceConfig.parse_obj(
-    {
-        "rest_sink_config": {
-            "server": "http://localhost:8080",
-        },
-        "dagster_url": "http://localhost:3000",
-    }
+config = DatahubDagsterSourceConfig(
+    datahub_client_config=DatahubClientConfig(server="http://localhost:8080"),
+    dagster_url="http://localhost:3000",
 )
 
 datahub_sensor = make_datahub_sensor(config=config)

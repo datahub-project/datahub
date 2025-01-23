@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.recommendation;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -17,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.RecommendationParams;
 import com.linkedin.datahub.graphql.generated.RecommendationRenderType;
 import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
 import com.linkedin.datahub.graphql.generated.SearchParams;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -105,9 +105,7 @@ public class ListRecommendationsResolver
         searchRequestContext.setFilters(
             new CriterionArray(
                 requestContext.getSearchRequestContext().getFilters().stream()
-                    .map(
-                        facetField ->
-                            criterionFromFilter(facetField, opContext.getAspectRetriever()))
+                    .map(ResolverUtils::criterionFromFilter)
                     .collect(Collectors.toList())));
       }
       mappedRequestContext.setSearchRequestContext(searchRequestContext);
@@ -180,7 +178,7 @@ public class ListRecommendationsResolver
                     criterion ->
                         FacetFilter.builder()
                             .setField(criterion.getField())
-                            .setValues(ImmutableList.of(criterion.getValue()))
+                            .setValues(criterion.getValues())
                             .build())
                 .collect(Collectors.toList()));
       }

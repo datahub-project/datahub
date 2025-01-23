@@ -1,0 +1,22 @@
+namespace com.linkedin.schemafield
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+   "name": "schemaFieldAliases"
+}
+
+record SchemaFieldAliases {
+
+    /**
+    * Used to store aliases
+    */
+    @Searchable = {
+        "/*": {
+            "fieldName": "schemaFieldAliases",
+            "fieldType": "URN",
+            "queryByDefault": false,
+        }
+    }
+    aliases: optional array[Urn]
+}

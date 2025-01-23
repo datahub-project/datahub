@@ -135,8 +135,8 @@ class HiveMetastoreProxy(Closeable):
     def get_view_names(self, schema_name: str) -> List[str]:
         try:
             rows = self._execute_sql(f"SHOW VIEWS FROM `{schema_name}`")
-            # 3 columns - database, tableName, isTemporary
-            return [row.tableName for row in rows]
+            # 4 columns - namespace, viewName, isTemporary, isMaterialized
+            return [row.viewName for row in rows]
         except Exception as e:
             self.report.report_warning("Failed to get views for schema", schema_name)
             logger.warning(

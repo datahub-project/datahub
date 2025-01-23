@@ -122,12 +122,13 @@ transformers:
 ```
 ## Simple Add Dataset ownership 
 ### Config Details
-| Field              | Required | Type         | Default     | Description                                                         |
-|--------------------|----------|--------------|-------------|---------------------------------------------------------------------|
-| `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                 |
-| `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn) |
-| `replace_existing` |          | boolean      | `false`     | Whether to remove ownership from entity sent by ingestion source.      |
-| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.    |
+| Field              | Required | Type         | Default     | Description                                                                                                |
+|--------------------|----------|--------------|-------------|------------------------------------------------------------------------------------------------------------|
+| `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                                                        |
+| `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                                        |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove ownership from entity sent by ingestion source.                                          |
+| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                           |
+| `on_conflict`      |          | enum         | `DO_UPDATE` | Whether to make changes if domains already exist. If set to DO_NOTHING, `semantics` setting is irrelevant. |
 
 For transformer behaviour on `replace_existing` and `semantics`, please refer section [Relationship Between replace_existing And semantics](#relationship-between-replace_existing-and-semantics).
 
@@ -191,14 +192,18 @@ transformers:
 
 ## Pattern Add Dataset ownership 
 ### Config Details
-| Field              | Required | Type                 | Default     | Description                                                                             |
-|--------------------|----------|----------------------|-------------|-----------------------------------------------------------------------------------------|
-| `owner_pattern`    | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of owners urn apply to matching entity urn. |
-| `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                     |
-| `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                          |
-| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                        |
+| Field              | Required | Type                 | Default     | Description                                                                                                                  |
+|--------------------|----------|----------------------|-------------|------------------------------------------------------------------------------------------------------------------------------|
+| `owner_pattern`    | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of owners urn apply to matching entity urn.                                      |
+| `ownership_type`   |          | string               | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn)                                                          |
+| `replace_existing` |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                                                               |
+| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                             |
+| `is_container`     |          | bool                 | `false`     | Whether to also consider a container or not. If true, then ownership will be attached to both the dataset and its container. |
+| `on_conflict`      |          | enum                 | `DO_UPDATE` | Whether to make changes if domains already exist. If set to DO_NOTHING, `semantics` setting is irrelevant.                   |
 
 let’s suppose we’d like to append a series of users who we know to own a different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework.  This will match the pattern to `urn` of the dataset and assign the respective owners.
+
+If the is_container field is set to true, the module will not only attach the ownerships to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -251,6 +256,35 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
               ".*example2.*": ["urn:li:corpuser:username2"]
           ownership_type: "PRODUCER"
     ```
+- Add owner to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_ownership"
+      config:
+        is_container: true
+        replace_existing: true  # false is default behaviour
+        semantics: PATCH / OVERWRITE # Based on user 
+        owner_pattern:
+          rules:
+            ".*example1.*": ["urn:li:corpuser:username1"]
+            ".*example2.*": ["urn:li:corpuser:username2"]
+        ownership_type: "PRODUCER"
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different owners, all owners will be added for that dataset containers.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_ownership"
+    config:
+      is_container: true
+      owner_pattern:
+        rules:
+          ".*example1.*": ["urn:li:corpuser:username1"]
+          ".*example2.*": ["urn:li:corpuser:username2"]
+```
+If example1 and example2 are in the same container, then both urns urn:li:corpuser:username1 and urn:li:corpuser:username2 will be added for respective dataset containers.
 
 ## Simple Remove Dataset ownership
 If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` transformer which removes all owners sent by the ingestion source.
@@ -1074,9 +1108,12 @@ transformers:
 | `domain_pattern`           | ✅         | map[regx, list[union[urn, str]] |                 | dataset urn with regular expression and list of simple domain name or domain urn need to be apply on matching dataset urn. |
 | `replace_existing`         |           | boolean                         | `false`         | Whether to remove domains from entity sent by ingestion source.                                                             |
 | `semantics`                |           | enum                            | `OVERWRITE`     | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                           |
+| `is_container`     |          | bool    | `false`    | Whether to also consider a container or not. If true, then domains will be attached to both the dataset and its container. |
 
 Let’s suppose we’d like to append a series of domain to specific datasets. To do so, we can use the pattern_add_dataset_domain transformer that’s included in the ingestion framework. 
 This will match the regex pattern to urn of the dataset and assign the respective domain urns given in the array.
+
+If the is_container field is set to true, the module will not only attach the domains to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified owners.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 Here we can set domain list to either urn (i.e. urn:li:domain:hr) or simple domain name (i.e. hr) 
@@ -1129,6 +1166,33 @@ in both of the cases domain should be provisioned on DataHub GMS
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
     ```
 
+- Add domains to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_domain"
+      config:
+        is_container: true
+        semantics: PATCH / OVERWRITE # Based on user
+        domain_pattern:
+          rules:
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different domains, all domains will be added for that dataset containers.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_domain"
+    config:
+      is_container: true
+      domain_pattern:
+        rules:
+          ".*example1.*": ["hr"]
+          ".*example2.*": ["urn:li:domain:finance"]
+```
+If example1 and example2 are in the same container, then both domains hr and finance will be added for respective dataset containers.
 
 
 ## Domain Mapping Based on Tags
@@ -1207,11 +1271,16 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
 | Field                                 | Required | Type                 | Default     | Description                                                                                 |
 |---------------------------------------|----------|----------------------|-------------|---------------------------------------------------------------------------------------------|
 | `dataset_to_data_product_urns_pattern`| ✅       | map[regx, urn]       |             | Dataset Entity urn with regular expression and dataproduct urn apply to matching entity urn.|
+| `is_container`      |          | bool    | `false`   | Whether to also consider a container or not. If true, the data product will be attached to both the dataset and its container. |
 
-Let’s suppose we’d like to append a series of dataproducts with specific datasets as its assets. To do so, we can use the `pattern_add_dataset_dataproduct` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and create the data product entity with given urn and matched datasets as its assets. 
+
+Let’s suppose we’d like to append a series of data products with specific datasets or their containers as assets. To do so, we can use the pattern_add_dataset_dataproduct module that’s included in the ingestion framework. This module matches a regex pattern to the urn of the dataset and creates a data product entity with the given urn, associating the matched datasets as its assets.
+
+If the is_container field is set to true, the module will not only attach the data product to the matching datasets but will also find and attach the containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified data product.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
+- Add Product to dataset
   ```yaml
   transformers:
     - type: "pattern_add_dataset_dataproduct"
@@ -1221,6 +1290,32 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             ".*example1.*": "urn:li:dataProduct:first"
             ".*example2.*": "urn:li:dataProduct:second"
   ```
+- Add Product to dataset container
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_dataproduct"
+      config:
+        is_container: true
+        dataset_to_data_product_urns_pattern:
+          rules:
+            ".*example1.*": "urn:li:dataProduct:first"
+            ".*example2.*": "urn:li:dataProduct:second"
+  ```
+⚠️ Warning:
+When working with two datasets in the same container but with different data products, only one data product can be attached to the container.
+
+For example:
+```yaml
+transformers:
+  - type: "pattern_add_dataset_dataproduct"
+    config:
+      is_container: true
+      dataset_to_data_product_urns_pattern:
+        rules:
+          ".*example1.*": "urn:li:dataProduct:first"
+          ".*example2.*": "urn:li:dataProduct:second"
+```
+If example1 and example2 are in the same container, only urn:li:dataProduct:first will be added. However, if they are in separate containers, the system works as expected and assigns the correct data product URNs.
 
 ## Add Dataset dataProduct
 ### Config Details

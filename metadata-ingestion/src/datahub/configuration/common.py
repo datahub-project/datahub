@@ -10,7 +10,6 @@ from typing import (
     List,
     Optional,
     Type,
-    TypeVar,
     Union,
     runtime_checkable,
 )
@@ -19,13 +18,11 @@ import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
-from typing_extensions import Protocol
+from typing_extensions import Protocol, Self
 
-from datahub.configuration._config_enum import ConfigEnum
+from datahub.configuration._config_enum import ConfigEnum as ConfigEnum  # noqa: I250
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.utilities.dedup_list import deduplicate_list
-
-_ConfigSelf = TypeVar("_ConfigSelf", bound="ConfigModel")
 
 REDACT_KEYS = {
     "password",
@@ -109,7 +106,7 @@ class ConfigModel(BaseModel):
             schema_extra = _schema_extra
 
     @classmethod
-    def parse_obj_allow_extras(cls: Type[_ConfigSelf], obj: Any) -> _ConfigSelf:
+    def parse_obj_allow_extras(cls, obj: Any) -> Self:
         if PYDANTIC_VERSION_2:
             try:
                 with unittest.mock.patch.dict(
@@ -203,8 +200,7 @@ class IgnorableError(MetaError):
 
 @runtime_checkable
 class ExceptionWithProps(Protocol):
-    def get_telemetry_props(self) -> Dict[str, Any]:
-        ...
+    def get_telemetry_props(self) -> Dict[str, Any]: ...
 
 
 def should_show_stack_trace(exc: Exception) -> bool:
@@ -258,7 +254,7 @@ class AllowDenyPattern(ConfigModel):
         return AllowDenyPattern()
 
     def allowed(self, string: str) -> bool:
-        if self._denied(string):
+        if self.denied(string):
             return False
 
         return any(
@@ -266,7 +262,7 @@ class AllowDenyPattern(ConfigModel):
             for allow_pattern in self.allow
         )
 
-    def _denied(self, string: str) -> bool:
+    def denied(self, string: str) -> bool:
         for deny_pattern in self.deny:
             if re.match(deny_pattern, string, self.regex_flags):
                 return True
@@ -290,7 +286,7 @@ class AllowDenyPattern(ConfigModel):
             raise ValueError(
                 "allow list must be fully specified to get list of allowed strings"
             )
-        return [a for a in self.allow if not self._denied(a)]
+        return [a for a in self.allow if not self.denied(a)]
 
     def __eq__(self, other):  # type: ignore
         return isinstance(other, self.__class__) and self.__dict__ == other.__dict__

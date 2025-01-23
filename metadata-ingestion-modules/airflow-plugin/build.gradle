@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -11,7 +13,7 @@ if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
 if (!project.hasProperty("extra_pip_extras")) {
-    ext.extra_pip_extras = "plugin-v2"
+    ext.extra_pip_extras = ""
 }
 // If extra_pip_extras is non-empty, we need to add a comma to the beginning of the string.
 if (extra_pip_extras != "") {
@@ -26,7 +28,7 @@ task environmentSetup(type: Exec) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c', 
     "${python_executable} -m venv ${venv_name} && set -x && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+    "${venv_name}/bin/python -m pip install --upgrade uv && " +
     "touch ${sentinel_file}"
 }
 
@@ -34,12 +36,8 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  // Workaround for https://github.com/yaml/pyyaml/issues/601.
-  // See https://github.com/yaml/pyyaml/issues/601#issuecomment-1638509577.
-  // and https://github.com/datahub-project/datahub/pull/8435.
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pip install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
     "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
 }
@@ -75,18 +73,15 @@ task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ && " +
-    "isort --check --diff src/ tests/ && " +
-    "flake8 --count --statistics src/ tests/ && " +
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/ "
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ "
 }
 
 // HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).
@@ -101,7 +96,7 @@ task testQuick(type: Exec, dependsOn: installTest) {
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest --cov-config=setup.cfg --cov-report xml:coverage_quick.xml -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 
@@ -123,5 +118,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

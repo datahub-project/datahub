@@ -45,7 +45,7 @@ def _get_owner_urn(maybe_urn: str) -> str:
 
 def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) -> None:
     try:
-        parsed_urn: Urn = Urn.create_from_string(urn)
+        parsed_urn: Urn = Urn.from_string(urn)
         entity_type = parsed_urn.get_type()
     except Exception:
         click.secho(f"Provided urn {urn} does not seem valid", fg="red")
@@ -363,7 +363,7 @@ def remove_owner(urn: str, owner_urn: str) -> None:
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "remove owners")
         for mcp in dataproduct_patcher.build():
-            print(json.dumps(mcp.to_obj()))
+            click.echo(json.dumps(mcp.to_obj()))
             graph.emit(mcp)
 
 

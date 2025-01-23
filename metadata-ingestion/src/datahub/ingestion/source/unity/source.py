@@ -205,9 +205,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[
-            Tuple[TableReference, str]
-        ] = FileBackedDict()
+        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
+            FileBackedDict()
+        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -263,86 +263,86 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.report.report_ingestion_stage_start("Ingestion Setup")
-        wait_on_warehouse = None
-        if self.config.include_hive_metastore:
-            self.report.report_ingestion_stage_start("Start warehouse")
-            # Can take several minutes, so start now and wait later
-            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-            if wait_on_warehouse is None:
-                self.report.report_failure(
-                    "initialization",
-                    f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                )
-                return
-            else:
-                # wait until warehouse is started
-                wait_on_warehouse.result()
+        with self.report.new_stage("Ingestion Setup"):
+            wait_on_warehouse = None
+            if self.config.include_hive_metastore:
+                with self.report.new_stage("Start warehouse"):
+                    # Can take several minutes, so start now and wait later
+                    wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+                    if wait_on_warehouse is None:
+                        self.report.report_failure(
+                            "initialization",
+                            f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                        )
+                        return
+                    else:
+                        # wait until warehouse is started
+                        wait_on_warehouse.result()
 
         if self.config.include_ownership:
-            self.report.report_ingestion_stage_start("Ingest service principals")
-            self.build_service_principal_map()
-            self.build_groups_map()
+            with self.report.new_stage("Ingest service principals"):
+                self.build_service_principal_map()
+                self.build_groups_map()
         if self.config.include_notebooks:
-            self.report.report_ingestion_stage_start("Ingest notebooks")
-            yield from self.process_notebooks()
+            with self.report.new_stage("Ingest notebooks"):
+                yield from self.process_notebooks()
 
         yield from self.process_metastores()
 
         yield from self.get_view_lineage()
 
         if self.config.include_notebooks:
-            self.report.report_ingestion_stage_start("Notebook lineage")
-            for notebook in self.notebooks.values():
-                wu = self._gen_notebook_lineage(notebook)
-                if wu:
-                    yield wu
+            with self.report.new_stage("Notebook lineage"):
+                for notebook in self.notebooks.values():
+                    wu = self._gen_notebook_lineage(notebook)
+                    if wu:
+                        yield wu
 
         if self.config.include_usage_statistics:
-            self.report.report_ingestion_stage_start("Ingest usage")
-            usage_extractor = UnityCatalogUsageExtractor(
-                config=self.config,
-                report=self.report,
-                proxy=self.unity_catalog_api_proxy,
-                table_urn_builder=self.gen_dataset_urn,
-                user_urn_builder=self.gen_user_urn,
-            )
-            yield from usage_extractor.get_usage_workunits(
-                self.table_refs | self.view_refs
-            )
+            with self.report.new_stage("Ingest usage"):
+                usage_extractor = UnityCatalogUsageExtractor(
+                    config=self.config,
+                    report=self.report,
+                    proxy=self.unity_catalog_api_proxy,
+                    table_urn_builder=self.gen_dataset_urn,
+                    user_urn_builder=self.gen_user_urn,
+                )
+                yield from usage_extractor.get_usage_workunits(
+                    self.table_refs | self.view_refs
+                )
 
         if self.config.is_profiling_enabled():
-            self.report.report_ingestion_stage_start("Start warehouse")
-            # Need to start the warehouse again for profiling,
-            # as it may have been stopped after ingestion might take
-            # longer time to complete
-            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-            if wait_on_warehouse is None:
-                self.report.report_failure(
-                    "initialization",
-                    f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                )
-                return
-            else:
-                # wait until warehouse is started
-                wait_on_warehouse.result()
+            with self.report.new_stage("Start warehouse"):
+                # Need to start the warehouse again for profiling,
+                # as it may have been stopped after ingestion might take
+                # longer time to complete
+                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+                if wait_on_warehouse is None:
+                    self.report.report_failure(
+                        "initialization",
+                        f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                    )
+                    return
+                else:
+                    # wait until warehouse is started
+                    wait_on_warehouse.result()
 
-            self.report.report_ingestion_stage_start("Profiling")
-            if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
-                yield from UnityCatalogAnalyzeProfiler(
-                    self.config.profiling,
-                    self.report,
-                    self.unity_catalog_api_proxy,
-                    self.gen_dataset_urn,
-                ).get_workunits(self.table_refs)
-            elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
-                yield from UnityCatalogGEProfiler(
-                    sql_common_config=self.config,
-                    profiling_config=self.config.profiling,
-                    report=self.report,
-                ).get_workunits(list(self.tables.values()))
-            else:
-                raise ValueError("Unknown profiling config method")
+            with self.report.new_stage("Profiling"):
+                if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
+                    yield from UnityCatalogAnalyzeProfiler(
+                        self.config.profiling,
+                        self.report,
+                        self.unity_catalog_api_proxy,
+                        self.gen_dataset_urn,
+                    ).get_workunits(self.table_refs)
+                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                    yield from UnityCatalogGEProfiler(
+                        sql_common_config=self.config,
+                        profiling_config=self.config.profiling,
+                        report=self.report,
+                    ).get_workunits(list(self.tables.values()))
+                else:
+                    raise ValueError("Unknown profiling config method")
 
     def build_service_principal_map(self) -> None:
         try:
@@ -462,11 +462,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.schemas.dropped(schema.id)
                 continue
 
-            self.report.report_ingestion_stage_start(f"Ingest schema {schema.id}")
-            yield from self.gen_schema_containers(schema)
-            yield from self.process_tables(schema)
+            with self.report.new_stage(f"Ingest schema {schema.id}"):
+                yield from self.gen_schema_containers(schema)
+                yield from self.process_tables(schema)
 
-            self.report.schemas.processed(schema.id)
+                self.report.schemas.processed(schema.id)
 
     def process_tables(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
@@ -556,6 +556,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if table_props:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Consider enabling incremental_properties by default
             patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
@@ -974,6 +976,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self.report.num_view_definitions_parsed += 1
+            if raw_lineage.out_tables != [view_urn]:
+                self.report.num_view_definitions_view_urn_mismatch += 1
         return view_definition_lineage_helper(raw_lineage, view_urn)
 
     def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:

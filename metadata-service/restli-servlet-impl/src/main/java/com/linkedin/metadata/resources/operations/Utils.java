@@ -52,16 +52,17 @@ public class Utils {
       resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext,
+                    "restoreIndices", List.of()), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             PoliciesConfig.RESTORE_INDICES_PRIVILEGE,
             resourceSpec)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to restore indices.");
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext, "restoreIndices", List.of()), authorizer, auth, true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()

@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
 @AllArgsConstructor
 @EqualsAndHashCode
 public abstract class PluginSpec {
-  protected static String ENTITY_WILDCARD = "*";
+  protected static String WILDCARD = "*";
 
   @Nonnull
   public abstract AspectPluginConfig getConfig();
@@ -50,7 +50,7 @@ public abstract class PluginSpec {
     return (getConfig().getSupportedEntityAspectNames().stream()
             .anyMatch(
                 supported ->
-                    ENTITY_WILDCARD.equals(supported.getEntityName())
+                    WILDCARD.equals(supported.getEntityName())
                         || supported.getEntityName().equals(entityName)))
         && isAspectSupported(aspectName);
   }
@@ -59,13 +59,16 @@ public abstract class PluginSpec {
     return getConfig().getSupportedEntityAspectNames().stream()
         .anyMatch(
             supported ->
-                ENTITY_WILDCARD.equals(supported.getAspectName())
+                WILDCARD.equals(supported.getAspectName())
                     || supported.getAspectName().equals(aspectName));
   }
 
   protected boolean isChangeTypeSupported(@Nullable ChangeType changeType) {
     return (changeType == null && getConfig().getSupportedOperations().isEmpty())
         || getConfig().getSupportedOperations().stream()
-            .anyMatch(supported -> supported.equalsIgnoreCase(String.valueOf(changeType)));
+            .anyMatch(
+                supported ->
+                    WILDCARD.equals(supported)
+                        || supported.equalsIgnoreCase(String.valueOf(changeType)));
   }
 }

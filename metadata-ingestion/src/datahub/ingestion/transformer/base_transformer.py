@@ -257,10 +257,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                         transformed_aspect = self.transform_aspect(
                             entity_urn=urn,
                             aspect_name=self.aspect_name(),
-                            aspect=last_seen_mcp.aspect
-                            if last_seen_mcp
-                            and last_seen_mcp.aspectName == self.aspect_name()
-                            else None,
+                            aspect=(
+                                last_seen_mcp.aspect
+                                if last_seen_mcp
+                                and last_seen_mcp.aspectName == self.aspect_name()
+                                else None
+                            ),
                         )
                         if transformed_aspect:
                             structured_urn = Urn.from_string(urn)
@@ -269,9 +271,11 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 MetadataChangeProposalWrapper(
                                     entityUrn=urn,
                                     entityType=structured_urn.get_type(),
-                                    systemMetadata=last_seen_mcp.systemMetadata
-                                    if last_seen_mcp
-                                    else last_seen_mce_system_metadata,
+                                    systemMetadata=(
+                                        last_seen_mcp.systemMetadata
+                                        if last_seen_mcp
+                                        else last_seen_mce_system_metadata
+                                    ),
                                     aspectName=self.aspect_name(),
                                     aspect=transformed_aspect,
                                 )

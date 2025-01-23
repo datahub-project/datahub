@@ -10,34 +10,34 @@ public class CookieConfigs {
   public static final String AUTH_COOKIE_SECURE = "play.http.session.secure";
   public static final boolean DEFAULT_AUTH_COOKIE_SECURE = false;
 
-  private final int _ttlInHours;
-  private final String _authCookieSameSite;
-  private final boolean _authCookieSecure;
+  private final int ttlInHours;
+  private final String authCookieSameSite;
+  private final boolean authCookieSecure;
 
   public CookieConfigs(final Config configs) {
-    _ttlInHours =
+    ttlInHours =
         configs.hasPath(SESSION_TTL_CONFIG_PATH)
             ? configs.getInt(SESSION_TTL_CONFIG_PATH)
             : DEFAULT_SESSION_TTL_HOURS;
-    _authCookieSameSite =
+    authCookieSameSite =
         configs.hasPath(AUTH_COOKIE_SAME_SITE)
             ? configs.getString(AUTH_COOKIE_SAME_SITE)
             : DEFAULT_AUTH_COOKIE_SAME_SITE;
-    _authCookieSecure =
+    authCookieSecure =
         configs.hasPath(AUTH_COOKIE_SECURE)
             ? configs.getBoolean(AUTH_COOKIE_SECURE)
             : DEFAULT_AUTH_COOKIE_SECURE;
   }
 
   public int getTtlInHours() {
-    return _ttlInHours;
+    return ttlInHours;
   }
 
   public String getAuthCookieSameSite() {
-    return _authCookieSameSite;
+    return authCookieSameSite;
   }
 
   public boolean getAuthCookieSecure() {
-    return _authCookieSecure;
+    return authCookieSecure;
   }
 }

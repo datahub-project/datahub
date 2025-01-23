@@ -24,7 +24,7 @@ public class DefaultUpgradeContext implements UpgradeContext {
   private final List<String> args;
   private final Map<String, Optional<String>> parsedArgs;
 
-  DefaultUpgradeContext(
+  public DefaultUpgradeContext(
       @Nonnull OperationContext opContext,
       Upgrade upgrade,
       UpgradeReport report,

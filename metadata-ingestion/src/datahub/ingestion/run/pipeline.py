@@ -44,7 +44,8 @@ from datahub.ingestion.transformer.system_metadata_transformer import (
 )
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
-from datahub.telemetry import stats, telemetry
+from datahub.telemetry import stats
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
@@ -75,8 +76,9 @@ class LoggingCallback(WriteCallback):
         failure_metadata: dict,
     ) -> None:
         logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {failure_exception} and info {failure_metadata}"
+            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}",
+            extra={"failure_metadata": failure_metadata},
+            exc_info=failure_exception,
         )
 
 
@@ -107,9 +109,9 @@ class DeadLetterQueueCallback(WriteCallback):
                         mcp.systemMetadata.properties = {}
                     if "workunit_id" not in mcp.systemMetadata.properties:
                         # update the workunit id
-                        mcp.systemMetadata.properties[
-                            "workunit_id"
-                        ] = record_envelope.metadata["workunit_id"]
+                        mcp.systemMetadata.properties["workunit_id"] = (
+                            record_envelope.metadata["workunit_id"]
+                        )
                 record_envelope.record = mcp
         self.file_sink.write_record_async(record_envelope, self.logging_callback)
 
@@ -220,8 +222,7 @@ class Pipeline:
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
-        report_to: Optional[str] = None,
-        no_default_report: bool = False,
+        report_to: Optional[str] = "datahub",
         no_progress: bool = False,
     ):
         self.config = config
@@ -274,12 +275,13 @@ class Pipeline:
         if self.graph is None and isinstance(self.sink, DatahubRestSink):
             with _add_init_error_context("setup default datahub client"):
                 self.graph = self.sink.emitter.to_graph()
+                self.graph.test_connection()
         self.ctx.graph = self.graph
-        telemetry.telemetry_instance.update_capture_exception_context(server=self.graph)
+        telemetry_instance.set_context(server=self.graph)
 
         with set_graph_context(self.graph):
             with _add_init_error_context("configure reporters"):
-                self._configure_reporting(report_to, no_default_report)
+                self._configure_reporting(report_to)
 
             with _add_init_error_context(
                 f"find a registered source for type {self.source_type}"
@@ -326,15 +328,19 @@ class Pipeline:
         # Add the system metadata transformer at the end of the list.
         self.transformers.append(SystemMetadataTransformer(self.ctx))
 
-    def _configure_reporting(
-        self, report_to: Optional[str], no_default_report: bool
-    ) -> None:
-        if report_to == "datahub":
+    def _configure_reporting(self, report_to: Optional[str]) -> None:
+        if self.dry_run:
+            # In dry run mode, we don't want to report anything.
+            return
+
+        if not report_to:
+            # Reporting is disabled.
+            pass
+        elif report_to == "datahub":
             # we add the default datahub reporter unless a datahub reporter is already configured
-            if not no_default_report and (
-                not self.config.reporting
-                or "datahub" not in [x.type for x in self.config.reporting]
-            ):
+            if not self.config.reporting or "datahub" not in [
+                reporter.type for reporter in self.config.reporting
+            ]:
                 self.config.reporting.append(
                     ReporterConfig.parse_obj({"type": "datahub"})
                 )
@@ -409,7 +415,6 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = "datahub",
-        no_default_report: bool = False,
         no_progress: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
@@ -420,13 +425,13 @@ class Pipeline:
             preview_mode=preview_mode,
             preview_workunits=preview_workunits,
             report_to=report_to,
-            no_default_report=no_default_report,
             no_progress=no_progress,
         )
 
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
         current_time = int(time.time())
+        # TODO: Replace with ProgressTimer.
         if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
             self.num_intermediate_workunits = 0
@@ -613,7 +618,7 @@ class Pipeline:
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
 
-        telemetry.telemetry_instance.ping(
+        telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
@@ -635,7 +640,6 @@ class Pipeline:
                 ),
                 "has_pipeline_name": bool(self.config.pipeline_name),
             },
-            self.ctx.graph,
         )
 
     def _approx_all_vals(self, d: LossyList[Any]) -> int:
@@ -673,7 +677,7 @@ class Pipeline:
         else:
             click.echo()
             click.secho("Cli report:", bold=True)
-            click.secho(self.cli_report.as_string())
+            click.echo(self.cli_report.as_string())
             click.secho(f"Source ({self.source_type}) report:", bold=True)
             click.echo(self.source.get_report().as_string())
             click.secho(f"Sink ({self.sink_type}) report:", bold=True)
@@ -697,7 +701,7 @@ class Pipeline:
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_failures_source+num_failures_sink} failures"
+                    status=f"with at least {num_failures_source + num_failures_sink} failures"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=True, warnings=False
@@ -715,7 +719,7 @@ class Pipeline:
             num_warn_global = len(global_warnings)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_warn_source+num_warn_sink+num_warn_global} warnings"
+                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True
@@ -734,11 +738,14 @@ class Pipeline:
             return 0
 
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
-        logger.exception("Ingestion pipeline threw an uncaught exception")
+        logger.exception(
+            f"Ingestion pipeline threw an uncaught exception: {exc}", stacklevel=2
+        )
         self.source.get_report().report_failure(
             title="Pipeline Error",
             message="Ingestion pipeline raised an unexpected exception!",
             exc=exc,
+            log=False,
         )
 
     def _get_structured_report(self) -> Dict[str, Any]:

@@ -7,7 +7,7 @@ import AvatarsGroup from '../AvatarsGroup';
 
 type Props = {
     role: DataHubRole;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
@@ -34,7 +34,7 @@ const ThinDivider = styled(Divider)`
 /**
  * Component used for displaying the details about an existing Role.
  */
-export default function RoleDetailsModal({ role, visible, onClose }: Props) {
+export default function RoleDetailsModal({ role, open, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const actionButtons = (
@@ -45,11 +45,11 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
 
     const castedRole = role as any;
 
-    const users = castedRole?.users?.relationships.map((relationship) => relationship.entity as CorpUser);
-    const policies = castedRole?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy);
+    const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
+    const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
 
     return (
-        <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>

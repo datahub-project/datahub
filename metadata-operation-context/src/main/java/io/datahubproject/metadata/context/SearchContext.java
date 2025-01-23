@@ -14,14 +14,16 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Builder(toBuilder = true)
 @Getter
+@EqualsAndHashCode
 public class SearchContext implements ContextInterface {
 
   public static SearchContext EMPTY =
-      SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
+      SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("")).build();
 
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,

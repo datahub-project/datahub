@@ -122,11 +122,6 @@ class DeltaLakeSource(Source):
             config_report,
         )
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = DeltaLakeSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
 
@@ -223,15 +218,14 @@ class DeltaLakeSource(Source):
         )
 
         customProperties = {
-            "number_of_files": str(get_file_count(delta_table)),
             "partition_columns": str(delta_table.metadata().partition_columns),
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
             "location": self.source_config.complete_path,
         }
-        if not self.source_config.require_files:
-            del customProperties["number_of_files"]  # always 0
+        if self.source_config.require_files:
+            customProperties["number_of_files"] = str(get_file_count(delta_table))
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,

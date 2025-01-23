@@ -26,7 +26,7 @@ type Props = {
     table1Schema?: any;
     table2?: any;
     table2Schema?: any;
-    visible: boolean;
+    open: boolean;
     setModalVisible?: any;
     onCancel: () => void;
     editERModelRelation?: ErModelRelationship;
@@ -42,7 +42,7 @@ export const CreateERModelRelationModal = ({
     table1Schema,
     table2,
     table2Schema,
-    visible,
+    open,
     setModalVisible,
     onCancel,
     editERModelRelation,
@@ -241,9 +241,9 @@ export const CreateERModelRelationModal = ({
     };
 
     const table1NameBusiness = getDatasetName(table1Dataset);
-    const table1NameTech = table1Dataset?.name || table1Dataset?.urn.split(',').at(1) || '';
+    const table1NameTech = table1Dataset?.name || table1Dataset?.urn?.split(',').at(1) || '';
     const table2NameBusiness = getDatasetName(table2Dataset);
-    const table2NameTech = table2Dataset?.name || table2Dataset?.urn.split(',').at(1) || '';
+    const table2NameTech = table2Dataset?.name || table2Dataset?.urn?.split(',').at(1) || '';
 
     const handleAdd = () => {
         const newData: ERModelRelationDataType = {
@@ -349,7 +349,7 @@ export const CreateERModelRelationModal = ({
                     </div>
                 </div>
             }
-            visible={visible}
+            open={open}
             closable={false}
             className="CreateERModelRelationModal"
             okButtonProps={{ hidden: true }}

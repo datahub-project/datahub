@@ -1,36 +1,18 @@
 import pytest
 
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-)
+from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(request):
+def ingest_cleanup_data(auth_session, graph_client, request):
     print("ingesting test data")
-    ingest_file_via_rest("tests/tags_and_terms/data.json")
+    ingest_file_via_rest(auth_session, "tests/tags_and_terms/data.json")
     yield
     print("removing test data")
-    delete_urns_from_file("tests/tags_and_terms/data.json")
+    delete_urns_from_file(graph_client, "tests/tags_and_terms/data.json")
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_add_tag(frontend_session):
+def test_add_tag(auth_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -54,8 +36,8 @@ def test_add_tag(frontend_session):
     }
 
     # Fetch tags
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -77,8 +59,8 @@ def test_add_tag(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -88,8 +70,8 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["addTag"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -121,8 +103,8 @@ def test_add_tag(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -134,8 +116,8 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["removeTag"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -146,8 +128,7 @@ def test_add_tag(frontend_session):
     assert res_data["data"]["dataset"]["globalTags"] == {"tags": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_add_tag_to_chart(frontend_session):
+def test_add_tag_to_chart(auth_session):
     chart_urn = "urn:li:chart:(looker,test-tags-terms-sample-chart)"
 
     chart_json = {
@@ -168,8 +149,8 @@ def test_add_tag_to_chart(frontend_session):
     }
 
     # Fetch tags
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=chart_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=chart_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -191,8 +172,8 @@ def test_add_tag_to_chart(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -202,8 +183,8 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["addTag"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=chart_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=chart_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -235,8 +216,8 @@ def test_add_tag_to_chart(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -246,8 +227,8 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["removeTag"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=chart_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=chart_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -258,8 +239,7 @@ def test_add_tag_to_chart(frontend_session):
     assert res_data["data"]["chart"]["globalTags"] == {"tags": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_add_term(frontend_session):
+def test_add_term(auth_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -282,8 +262,8 @@ def test_add_term(frontend_session):
     }
 
     # Fetch the terms
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -305,8 +285,8 @@ def test_add_term(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -318,8 +298,8 @@ def test_add_term(frontend_session):
     assert res_data["data"]["addTerm"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -350,8 +330,8 @@ def test_add_term(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -362,8 +342,8 @@ def test_add_term(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["removeTerm"] is True
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -374,8 +354,7 @@ def test_add_term(frontend_session):
     assert res_data["data"]["dataset"]["glossaryTerms"] == {"terms": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_update_schemafield(frontend_session):
+def test_update_schemafield(auth_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -454,8 +433,8 @@ def test_update_schemafield(frontend_session):
     }
 
     # dataset schema tags
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
     )
     response.raise_for_status()
     res_data = response.json()
@@ -479,8 +458,8 @@ def test_update_schemafield(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -490,8 +469,8 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["addTag"] is True
 
     # Refetch the dataset schema
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
     )
     response.raise_for_status()
     res_data = response.json()
@@ -531,8 +510,8 @@ def test_update_schemafield(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -544,8 +523,8 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["removeTag"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
     )
     response.raise_for_status()
     res_data = response.json()
@@ -571,8 +550,8 @@ def test_update_schemafield(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=add_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -582,8 +561,8 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["addTerm"] is True
 
     # Refetch the dataset schema
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
     )
     response.raise_for_status()
     res_data = response.json()
@@ -622,8 +601,8 @@ def test_update_schemafield(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -633,8 +612,8 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["removeTerm"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
     )
     response.raise_for_status()
     res_data = response.json()
@@ -647,8 +626,8 @@ def test_update_schemafield(frontend_session):
     }
 
     # dataset schema tags
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
     )
     response.raise_for_status()
     res_data = response.json()
@@ -668,8 +647,9 @@ def test_update_schemafield(frontend_session):
     }
 
     # fetch no description
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_description
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=dataset_schema_json_description,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -681,8 +661,8 @@ def test_update_schemafield(frontend_session):
         "editableSchemaFieldInfo": [{"description": None}]
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_description_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_description_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -692,8 +672,9 @@ def test_update_schemafield(frontend_session):
     assert res_data["data"]["updateDescription"] is True
 
     # Refetch the dataset
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_schema_json_description
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=dataset_schema_json_description,
     )
     response.raise_for_status()
     res_data = response.json()

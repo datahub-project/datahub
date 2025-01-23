@@ -29,7 +29,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.git.git_import import GitClone
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerExplore,
@@ -45,6 +44,9 @@ from datahub.ingestion.source.looker.looker_connection import (
     get_connection_def_based_on_connection_string,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_template_language import (
+    load_and_preprocess_file,
+)
 from datahub.ingestion.source.looker.looker_view_id_cache import (
     LookerModel,
     LookerViewFileLoader,
@@ -55,10 +57,8 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerViewContext,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
-    _MODEL_FILE_EXTENSION,
-    VIEW_LANGUAGE_LOOKML,
-    VIEW_LANGUAGE_SQL,
+    BASE_PROJECT_NAME,
+    MODEL_FILE_EXTENSION,
     LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -95,6 +95,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +144,6 @@ class LookerView:
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = view_context.name()
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -281,23 +283,21 @@ class LookMLSource(StatefulIngestionSourceBase):
     """
 
     platform = "lookml"
-    source_config: LookMLSourceConfig
-    reporter: LookMLSourceReport
-    looker_client: Optional[LookerAPI] = None
-
-    # This is populated during the git clone step.
-    base_projects_folder: Dict[str, pathlib.Path] = {}
-    remote_projects_git_info: Dict[str, GitInfo] = {}
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
+        self.source_config: LookMLSourceConfig = config
         self.ctx = ctx
         self.reporter = LookMLSourceReport()
 
         # To keep track of projects (containers) which have already been ingested
         self.processed_projects: List[str] = []
 
+        # This is populated during the git clone step.
+        self.base_projects_folder: Dict[str, pathlib.Path] = {}
+        self.remote_projects_git_info: Dict[str, GitInfo] = {}
+
+        self.looker_client: Optional[LookerAPI] = None
         if self.source_config.api:
             self.looker_client = LookerAPI(self.source_config.api)
             self.reporter._looker_api = self.looker_client
@@ -311,13 +311,19 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
-        parsed = load_lkml(path)
+
+        parsed = load_and_preprocess_file(
+            path=path,
+            source_config=self.source_config,
+        )
+
         looker_model = LookerModel.from_looker_dict(
             parsed,
-            _BASE_PROJECT_NAME,
+            BASE_PROJECT_NAME,
             self.source_config.project_name,
             self.base_projects_folder,
             path,
+            self.source_config,
             self.reporter,
         )
         return looker_model
@@ -411,7 +417,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
-
         view_urn = looker_view.id.get_urn(self.source_config)
 
         subTypeEvent = MetadataChangeProposalWrapper(
@@ -477,14 +482,14 @@ class LookMLSource(StatefulIngestionSourceBase):
         if self.source_config.project_name is not None:
             return self.source_config.project_name
 
-        assert (
-            self.looker_client is not None
-        ), "Failed to find a configured Looker API client"
+        assert self.looker_client is not None, (
+            "Failed to find a configured Looker API client"
+        )
         try:
             model = self.looker_client.lookml_model(model_name, fields="project_name")
-            assert (
-                model.project_name is not None
-            ), f"Failed to find a project name for model {model_name}"
+            assert model.project_name is not None, (
+                f"Failed to find a project name for model {model_name}"
+            )
             return model.project_name
         except SDKError:
             raise ValueError(
@@ -495,7 +500,9 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-            manifest_dict = load_lkml(manifest_file)
+            manifest_dict = load_and_preprocess_file(
+                path=manifest_file, source_config=self.source_config
+            )
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
@@ -534,9 +541,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
 
-            self.base_projects_folder[
-                _BASE_PROJECT_NAME
-            ] = self.source_config.base_folder
+            self.base_projects_folder[BASE_PROJECT_NAME] = (
+                self.source_config.base_folder
+            )
 
             visited_projects: Set[str] = set()
 
@@ -567,7 +574,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, _BASE_PROJECT_NAME, visited_projects
+                tmp_dir, BASE_PROJECT_NAME, visited_projects
             )
 
             yield from self.get_internal_workunits()
@@ -598,7 +605,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         # Special case handling if the root project has a name in the manifest file.
-        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+        if project_name == BASE_PROJECT_NAME and manifest.project_name:
             if (
                 self.source_config.project_name is not None
                 and manifest.project_name != self.source_config.project_name
@@ -634,9 +641,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     repo_url=remote_project.url,
                 )
 
-                self.base_projects_folder[
-                    remote_project.name
-                ] = p_checkout_dir.resolve()
+                self.base_projects_folder[remote_project.name] = (
+                    p_checkout_dir.resolve()
+                )
                 repo = p_cloner.get_last_repo_cloned()
                 assert repo
                 remote_git_info = GitInfo(
@@ -669,7 +676,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
-            self.source_config.liquid_variable,
+            self.source_config,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
@@ -687,7 +694,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
-            self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}")
+            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}")
         )
         model_suffix_len = len(".model")
 
@@ -823,7 +830,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                             current_project_name: str = (
                                 include.project
-                                if include.project != _BASE_PROJECT_NAME
+                                if include.project != BASE_PROJECT_NAME
                                 else project_name
                             )
 
@@ -832,7 +839,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             base_folder_path: str = str(
                                 self.base_projects_folder.get(
                                     current_project_name,
-                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                    self.base_projects_folder[BASE_PROJECT_NAME],
                                 )
                             )
 
@@ -923,9 +930,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         logger.warning(
                                             f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables"
                                         )
-                                        if (
-                                            not self.source_config.emit_reachable_views_only
-                                        ):
+                                        if not self.source_config.emit_reachable_views_only:
                                             logger.warning(
                                                 "Consider enabling the `emit_reachable_views_only` flag to handle this case."
                                             )

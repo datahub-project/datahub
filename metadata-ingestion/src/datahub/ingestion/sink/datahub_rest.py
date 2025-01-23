@@ -9,6 +9,8 @@ import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
+import pydantic
+
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -16,7 +18,10 @@ from datahub.configuration.common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.rest_emitter import (
+    BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DataHubRestEmitter,
+)
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -39,7 +44,7 @@ from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REST_SINK_MAX_THREADS = int(
+_DEFAULT_REST_SINK_MAX_THREADS = int(
     os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
 )
 
@@ -49,27 +54,44 @@ class RestSinkMode(ConfigEnum):
     ASYNC = auto()
 
     # Uses the new ingestProposalBatch endpoint. Significantly more efficient than the other modes,
-    # but requires a server version that supports it.
+    # but requires a server version that supports it. Added in
     # https://github.com/datahub-project/datahub/pull/10706
     ASYNC_BATCH = auto()
 
 
+_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
+    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
+)
+
+
 class DatahubRestSinkConfig(DatahubClientConfig):
-    mode: RestSinkMode = RestSinkMode.ASYNC
+    mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
 
     # These only apply in async modes.
-    max_threads: int = DEFAULT_REST_SINK_MAX_THREADS
-    max_pending_requests: int = 2000
+    max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
+    max_pending_requests: pydantic.PositiveInt = 2000
 
     # Only applies in async batch mode.
-    max_per_batch: int = 100
+    max_per_batch: pydantic.PositiveInt = 100
+
+    @pydantic.validator("max_per_batch", always=True)
+    def validate_max_per_batch(cls, v):
+        if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
+            raise ValueError(
+                f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
+            )
+        return v
 
 
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
+    mode: Optional[RestSinkMode] = None
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
+
+    async_batches_prepared: int = 0
+    async_batches_split: int = 0
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -117,6 +139,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             .get("acryldata/datahub", {})
             .get("version", None)
         )
+        self.report.mode = self.config.mode
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")
@@ -248,7 +271,14 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        self.emitter.emit_mcps(events)
+        chunks = self.emitter.emit_mcps(events)
+        self.report.async_batches_prepared += 1
+        if chunks > 1:
+            self.report.async_batches_split += chunks
+            logger.info(
+                f"In async_batch mode, the payload was split into {chunks} batches. "
+                "If there's many of these issues, consider decreasing `max_per_batch`."
+            )
 
     def write_record_async(
         self,

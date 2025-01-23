@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.AssertionRunEventsResult;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterInput;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -147,7 +148,7 @@ public class AssertionRunEventResolver
                     .setAnd(
                         new CriterionArray(
                             facetFilters.stream()
-                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
+                                .map(ResolverUtils::criterionFromFilter)
                                 .collect(Collectors.toList())))));
   }
 }

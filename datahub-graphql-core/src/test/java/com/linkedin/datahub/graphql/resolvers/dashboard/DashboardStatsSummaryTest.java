@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
@@ -55,13 +54,10 @@ public class DashboardStatsSummaryTest {
     // Execute resolver
     DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Authorizer mockAuthorizor = mock(Authorizer.class);
-    when(mockAuthorizor.authorize(any()))
-        .thenAnswer(
-            args ->
-                new AuthorizationResult(args.getArgument(0), AuthorizationResult.Type.ALLOW, ""));
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizor);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

@@ -56,9 +56,12 @@ Example:
   "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
 }
 ```
+
 ##### How to set up Airflow
-Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html
+
+Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html).
 The transport should look like this:
+
 ```json
 {"type": "http",
   "url": "https://GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/",
@@ -71,12 +74,13 @@ The transport should look like this:
 ```
 
 #### Known Limitations
+
 With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
 
-- **[PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available.
+- **[PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available in the OpenLineage endpoint but it is available in the Acryl Spark Plugin.
 
-- **Column-level Lineage**: DataHub's current OpenLineage support does not provide full column-level lineage tracking.
-- etc...
+etc...
+
 ### 2. Spark Event Listener Plugin
 
 DataHub's Spark Event Listener plugin enhances OpenLineage support by providing additional features such as PathSpec support, column-level lineage, and more.

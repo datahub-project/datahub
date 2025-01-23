@@ -4,19 +4,19 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import io.ebean.Model;
 import io.ebean.annotation.Index;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Lob;
+import jakarta.persistence.Table;
+import java.io.Serializable;
 import java.sql.Timestamp;
 import javax.annotation.Nonnull;
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
-import javax.persistence.EmbeddedId;
-import javax.persistence.Entity;
-import javax.persistence.Lob;
-import javax.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 import lombok.Setter;
 
 /** Schema definition for the new aspect table. */
@@ -27,8 +27,6 @@ import lombok.Setter;
 @Entity
 @Table(name = "metadata_aspect_v2")
 public class EbeanAspectV2 extends Model {
-
-  private static final long serialVersionUID = 1L;
 
   public static final String ALL_COLUMNS = "*";
   public static final String KEY_ID = "key";
@@ -48,16 +46,16 @@ public class EbeanAspectV2 extends Model {
   @AllArgsConstructor
   @NoArgsConstructor
   @EqualsAndHashCode
-  public static class PrimaryKey {
+  public static class PrimaryKey implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @NonNull
+    @Nonnull
     @Index
     @Column(name = URN_COLUMN, length = 500, nullable = false)
     private String urn;
 
-    @NonNull
+    @Nonnull
     @Index
     @Column(name = ASPECT_COLUMN, length = 200, nullable = false)
     private String aspect;
@@ -75,29 +73,29 @@ public class EbeanAspectV2 extends Model {
     }
   }
 
-  @NonNull @EmbeddedId @Index protected PrimaryKey key;
+  @Nonnull @EmbeddedId @Index protected PrimaryKey key;
 
-  @NonNull
+  @Nonnull
   @Column(name = URN_COLUMN, length = 500, nullable = false)
   private String urn;
 
-  @NonNull
+  @Nonnull
   @Column(name = ASPECT_COLUMN, length = 200, nullable = false)
   private String aspect;
 
   @Column(name = VERSION_COLUMN, nullable = false)
   private long version;
 
-  @NonNull
+  @Nonnull
   @Lob
   @Column(name = METADATA_COLUMN, nullable = false)
   protected String metadata;
 
-  @NonNull
+  @Nonnull
   @Column(name = CREATED_ON_COLUMN, nullable = false)
   private Timestamp createdOn;
 
-  @NonNull
+  @Nonnull
   @Column(name = CREATED_BY_COLUMN, nullable = false)
   private String createdBy;
 

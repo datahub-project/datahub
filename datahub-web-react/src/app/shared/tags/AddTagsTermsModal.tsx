@@ -29,7 +29,7 @@ export enum OperationType {
 }
 
 type EditTagsModalProps = {
-    visible: boolean;
+    open: boolean;
     onCloseModal: () => void;
     resources: ResourceRefInput[];
     type?: EntityType;
@@ -93,7 +93,7 @@ const defaultValuesToSelectedValue = (defaultValues?: { urn: string; entity?: En
 };
 
 export default function EditTagTermsModal({
-    visible,
+    open,
     onCloseModal,
     resources,
     type = EntityType.Tag,
@@ -213,7 +213,7 @@ export default function EditTagTermsModal({
     if (showCreateModal) {
         return (
             <CreateTagModal
-                visible={visible}
+                open={open}
                 onClose={onCloseModal}
                 onBack={handleOnClickBack}
                 tagName={inputValue}
@@ -236,7 +236,7 @@ export default function EditTagTermsModal({
         setUrns(newUrns);
         setSelectedTerms([
             ...selectedTerms,
-            { urn, component: <TagTermLabel termName={selectedSearchOption?.props.name} /> },
+            { urn, component: <TagTermLabel termName={selectedSearchOption?.props?.name} /> },
         ]);
         setSelectedTags([
             ...selectedTags,
@@ -443,7 +443,7 @@ export default function EditTagTermsModal({
     return (
         <Modal
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
-            visible={visible}
+            open={open}
             onCancel={onCloseModal}
             footer={
                 <>

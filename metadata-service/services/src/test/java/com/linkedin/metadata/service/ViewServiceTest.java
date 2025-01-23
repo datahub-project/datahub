@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
@@ -21,7 +22,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -69,10 +69,8 @@ public class ViewServiceTest {
                                         .setAnd(
                                             new CriterionArray(
                                                 ImmutableList.of(
-                                                    new Criterion()
-                                                        .setField("field")
-                                                        .setCondition(Condition.EQUAL)
-                                                        .setValue("value")))))))),
+                                                    buildCriterion(
+                                                        "field", Condition.EQUAL, "value")))))))),
             0L);
 
     Assert.assertEquals(urn, TEST_VIEW_URN);
@@ -99,10 +97,8 @@ public class ViewServiceTest {
                                         .setAnd(
                                             new CriterionArray(
                                                 ImmutableList.of(
-                                                    new Criterion()
-                                                        .setField("field")
-                                                        .setCondition(Condition.EQUAL)
-                                                        .setValue("value")))))))),
+                                                    buildCriterion(
+                                                        "field", Condition.EQUAL, "value")))))))),
             0L);
 
     Assert.assertEquals(urn, TEST_VIEW_URN);
@@ -138,10 +134,10 @@ public class ViewServiceTest {
                                             .setAnd(
                                                 new CriterionArray(
                                                     ImmutableList.of(
-                                                        new Criterion()
-                                                            .setField("field")
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                        buildCriterion(
+                                                            "field",
+                                                            Condition.EQUAL,
+                                                            "value")))))))),
                 0L));
 
     // Case 2: missing View name
@@ -166,10 +162,10 @@ public class ViewServiceTest {
                                             .setAnd(
                                                 new CriterionArray(
                                                     ImmutableList.of(
-                                                        new Criterion()
-                                                            .setField("field")
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                        buildCriterion(
+                                                            "field",
+                                                            Condition.EQUAL,
+                                                            "value")))))))),
                 0L));
 
     // Case 3: missing View definition
@@ -218,10 +214,10 @@ public class ViewServiceTest {
                                             .setAnd(
                                                 new CriterionArray(
                                                     ImmutableList.of(
-                                                        new Criterion()
-                                                            .setField("field")
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                        buildCriterion(
+                                                            "field",
+                                                            Condition.EQUAL,
+                                                            "value")))))))),
                 1L));
   }
 
@@ -264,10 +260,8 @@ public class ViewServiceTest {
                                     .setAnd(
                                         new CriterionArray(
                                             ImmutableList.of(
-                                                new Criterion()
-                                                    .setField("field")
-                                                    .setCondition(Condition.EQUAL)
-                                                    .setValue("value"))))))));
+                                                buildCriterion(
+                                                    "field", Condition.EQUAL, "value"))))))));
 
     // Case 1: Update name only
     service.updateView(opContext, TEST_VIEW_URN, newName, null, null, 1L);
@@ -441,10 +435,8 @@ public class ViewServiceTest {
                                     .setAnd(
                                         new CriterionArray(
                                             ImmutableList.of(
-                                                new Criterion()
-                                                    .setField("field")
-                                                    .setCondition(Condition.EQUAL)
-                                                    .setValue("value"))))))));
+                                                buildCriterion(
+                                                    "field", Condition.EQUAL, "value"))))))));
 
     resetGetViewInfoMockEntityClient(
         mockClient, TEST_VIEW_URN, type, name, description, definition, TEST_USER_URN, 0L, 1L);

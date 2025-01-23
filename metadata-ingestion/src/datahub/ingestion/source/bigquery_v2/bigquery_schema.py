@@ -1,11 +1,13 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from datetime import datetime
+from functools import lru_cache
+from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
-from google.cloud import bigquery, datacatalog_v1
+from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
+from google.cloud.bigquery import retry as bq_retry
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -13,12 +15,15 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
 )
+from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
 from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
@@ -36,6 +41,20 @@ class BigqueryColumn(BaseColumn):
     is_partition_column: bool
     cluster_column_position: Optional[int]
     policy_tags: Optional[List[str]] = None
+
+
+@dataclass
+class BigqueryTableConstraint:
+    name: str
+    project_id: str
+    dataset_name: str
+    table_name: str
+    type: str
+    field_path: str
+    referenced_project_id: Optional[str] = None
+    referenced_dataset: Optional[str] = None
+    referenced_table_name: Optional[str] = None
+    referenced_column_name: Optional[str] = None
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -100,7 +119,9 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
-    columns_ignore_from_profiling: List[str] = field(default_factory=list)
+    external: bool = False
+    constraints: List[BigqueryTableConstraint] = field(default_factory=list)
+    table_type: Optional[str] = None
 
 
 @dataclass
@@ -131,6 +152,21 @@ class BigqueryDataset:
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
+
 
 @dataclass
 class BigqueryProject:
@@ -144,28 +180,46 @@ class BigQuerySchemaApi:
         self,
         report: BigQuerySchemaApiPerfReport,
         client: bigquery.Client,
+        projects_client: resourcemanager_v3.ProjectsClient,
         datacatalog_client: Optional[datacatalog_v1.PolicyTagManagerClient] = None,
     ) -> None:
         self.bq_client = client
+        self.projects_client = projects_client
         self.report = report
         self.datacatalog_client = datacatalog_client
 
     def get_query_result(self, query: str) -> RowIterator:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(f"Exception occurred for job query. Reason: {exc}")
+            # Jobs sometimes fail with transient errors.
+            # This is not currently handled by the python-bigquery client.
+            # https://github.com/googleapis/python-bigquery/issues/23
+            return "Retrying the job may solve the problem" in str(exc)
+
         logger.debug(f"Query : {query}")
-        resp = self.bq_client.query(query)
+        resp = self.bq_client.query(
+            query,
+            job_retry=retry.Retry(
+                predicate=lambda exc: (
+                    bq_retry.DEFAULT_JOB_RETRY._predicate(exc) or _should_retry(exc)
+                ),
+                deadline=bq_retry.DEFAULT_JOB_RETRY._deadline,
+            ),
+        )
         return resp.result()
 
+    @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
             )
             self.report.num_list_projects_retry_request += 1
             return True
 
         page_token = None
         projects: List[BigqueryProject] = []
-        with self.report.list_projects:
+        with self.report.list_projects_timer:
             while True:
                 try:
                     self.report.num_list_projects_api_requests += 1
@@ -175,7 +229,7 @@ class BigQuerySchemaApi:
                     # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
                     # Hence, added the api request retry of 15 min.
                     # We already tried adding rate_limit externally, proving max_result and page_size
-                    # to restrict the request calls inside list_project but issue still occured.
+                    # to restrict the request calls inside list_project but issue still occurred.
                     projects_iterator = self.bq_client.list_projects(
                         max_results=max_results_per_page,
                         page_token=page_token,
@@ -202,14 +256,44 @@ class BigQuerySchemaApi:
                     return []
         return projects
 
+    @lru_cache(maxsize=1)
+    def get_projects_with_labels(self, labels: FrozenSet[str]) -> List[BigqueryProject]:
+        with self.report.list_projects_with_labels_timer:
+            try:
+                projects = []
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(
+                            id=project.project_id, name=project.display_name
+                        )
+                    )
+
+                return projects
+
+            except Exception as e:
+                logger.error(
+                    f"Error getting projects with labels: {labels}. {e}", exc_info=True
+                )
+                return []
+
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        with self.report.list_datasets:
+        with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
-                BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
+                BigqueryDataset(
+                    name=d.dataset_id,
+                    labels=d.labels,
+                    location=(
+                        d._properties.get("location")
+                        if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                        else None
+                    ),
+                )
+                for d in datasets
             ]
 
     # This is not used anywhere
@@ -252,12 +336,12 @@ class BigQuerySchemaApi:
         dataset_name: str,
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
-        with_data_read_permission: bool = False,
+        with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
 
-            if with_data_read_permission:
+            if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
@@ -309,13 +393,8 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if table.get("last_altered") is not None
-                else None
-            ),
+            table_type=table.table_type,
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -331,6 +410,7 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
+            external=(table.table_type == BigqueryTableType.EXTERNAL),
         )
 
     def get_views_for_dataset(
@@ -375,11 +455,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(
-                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
-                if view.get("last_altered") is not None
-                else None
-            ),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -437,6 +513,65 @@ class BigQuerySchemaApi:
                 context=table_ref,
                 exc=e,
             )
+
+    def get_table_constraints_for_dataset(
+        self,
+        project_id: str,
+        dataset_name: str,
+        report: BigQueryV2Report,
+    ) -> Optional[Dict[str, List[BigqueryTableConstraint]]]:
+        constraints: Dict[str, List[BigqueryTableConstraint]] = defaultdict(list)
+        with PerfTimer() as timer:
+            try:
+                cur = self.get_query_result(
+                    BigqueryQuery.constraints_for_table.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    )
+                )
+            except Exception as e:
+                report.warning(
+                    title="Failed to retrieve table constraints for dataset",
+                    message="Query to get table constraints for dataset failed with exception",
+                    context=f"{project_id}.{dataset_name}",
+                    exc=e,
+                )
+                return None
+
+            for constraint in cur:
+                constraints[constraint.table_name].append(
+                    BigqueryTableConstraint(
+                        name=constraint.constraint_name,
+                        project_id=constraint.table_catalog,
+                        dataset_name=constraint.table_schema,
+                        table_name=constraint.table_name,
+                        type=constraint.constraint_type,
+                        field_path=constraint.column_name,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                    )
+                )
+            self.report.num_get_table_constraints_for_dataset_api_requests += 1
+            self.report.get_table_constraints_for_dataset_sec += timer.elapsed_seconds()
+
+        return constraints
 
     def get_columns_for_dataset(
         self,
@@ -561,13 +696,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    snapshot.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if snapshot.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,
@@ -579,3 +708,78 @@ class BigQuerySchemaApi:
                 table=snapshot.base_table_name,
             ),
         )
+
+
+def query_project_list(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    try:
+        projects = schema_api.get_projects()
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            report.failure(
+                title="Get projects didn't return any project. ",
+                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+    except Exception as e:
+        report.failure(
+            title="Failed to get BigQuery Projects",
+            message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            exc=e,
+        )
+        projects = []
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )
+
+
+def get_projects(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> List[BigqueryProject]:
+    logger.info("Getting projects")
+    if filters.filter_config.project_ids:
+        return [
+            BigqueryProject(id=project_id, name=project_id)
+            for project_id in filters.filter_config.project_ids
+        ]
+    elif filters.filter_config.project_labels:
+        return list(query_project_list_from_labels(schema_api, report, filters))
+    else:
+        return list(query_project_list(schema_api, report, filters))
+
+
+def query_project_list_from_labels(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    projects = schema_api.get_projects_with_labels(
+        frozenset(filters.filter_config.project_labels)
+    )
+
+    if not projects:  # Report failure on exception and if empty list is returned
+        report.report_failure(
+            "metadata-extraction",
+            "Get projects didn't return any project with any of the specified label(s). "
+            "Maybe resourcemanager.projects.list permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+        )
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )

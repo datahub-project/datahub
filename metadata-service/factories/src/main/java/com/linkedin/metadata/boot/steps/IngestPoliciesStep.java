@@ -20,7 +20,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -188,14 +187,11 @@ public class IngestPoliciesStep implements BootstrapStep {
       return;
     }
 
-    Optional<String> docId = SearchUtils.getDocId(entityResponse.getUrn());
-
-    if (!docId.isPresent()) {
-      return;
-    }
+    final String docId =
+        _entitySearchService.getIndexConvention().getEntityDocumentId(entityResponse.getUrn());
 
     _entitySearchService.upsertDocument(
-        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId.get());
+        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId);
   }
 
   private void ingestPolicy(
@@ -229,7 +225,7 @@ public class IngestPoliciesStep implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                systemOperationContext.getRetrieverContext().get())
+                systemOperationContext.getRetrieverContext())
             .build(),
         false);
   }

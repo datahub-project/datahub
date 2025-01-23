@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.util.Pair;
@@ -47,4 +48,16 @@ public interface IndexConvention {
    *     if one cannot be extracted
    */
   Optional<Pair<String, String>> getEntityAndAspectName(String timeseriesAspectIndexName);
+
+  @Nonnull
+  String getIdHashAlgo();
+
+  /**
+   * Given the URN generate the document id for entity indices
+   *
+   * @param entityUrn the entity which the document belongs
+   * @return document id
+   */
+  @Nonnull
+  String getEntityDocumentId(Urn entityUrn);
 }

@@ -1,0 +1,99 @@
+.testimonials {
+    background: linear-gradient(90deg, #F8F9F9 0%, #E9EAEC 100%);
+  
+    :global {
+      .testimonials__content {
+        width: 80vw;
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
+        padding: 4.5rem 0;
+  
+        .testimonials__card {
+          margin: 0rem 4rem;
+          display: flex;
+  
+          .testimonials__logo {
+            min-width: 100px;
+            margin: 2rem auto;
+            img {
+              max-width: 100%;
+            }
+          }
+  
+          .testimonials__text {
+            width: 94%;
+            padding-left: 2rem;
+            color: #2e2e38;
+
+            .testimonials__quote_title {
+              font-family: "Manrope";
+              font-style: normal;
+              font-weight: 500;
+              font-size: 3.5rem;
+              line-height: 120%;
+              position: relative;
+              margin: 1.8rem auto;
+            }
+
+            .testimonials__quote_description {
+              font-size: 1.8rem;
+              margin-top: 0.5rem;
+              color: #656c77;
+              font-weight: 300;
+              line-height: normal;
+            }
+
+            .testimonials__quote_black {
+              color: #2E2E38;
+
+              &:hover {
+                text-decoration: none;
+                opacity: 0.8;
+                cursor: pointer;
+              }
+            }
+          }
+        }
+      }
+  
+      @media only screen and (max-width: 800px) {
+        .testimonials__content {
+          width: 100vw;
+          padding: 2rem 0;
+          text-align: center;
+          
+          .testimonials__card {
+            flex-direction: column;
+            margin: 2rem 1rem;
+  
+            .testimonials__logo {
+              max-width: 40px;
+              margin-bottom: 16px;
+            }
+  
+            .testimonials__text {
+              width: 100%;
+              padding-left: 0;
+              max-width: 100%;
+              .testimonials__quote_title {
+                font-size: 2.25rem;
+              }
+              .testimonials__quote_description {
+                font-size: 1.5rem;
+              }
+              .testimonials__quote {
+                font-size: 1.1rem;
+                line-height: 1.75rem;
+              }
+              .testimonials__company {
+                font-size: 1rem;
+              }
+            }
+          }
+        }
+        
+      }
+    }
+  }
+  

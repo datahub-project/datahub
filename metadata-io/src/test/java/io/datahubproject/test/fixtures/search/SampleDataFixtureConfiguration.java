@@ -2,16 +2,16 @@ package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -72,7 +73,11 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private SearchConfiguration _searchConfiguration;
 
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  private CustomSearchConfiguration _customSearchConfiguration;
+
+  @Autowired private QueryFilterRewriteChain queryFilterRewriteChain;
 
   @Bean(name = "sampleDataPrefix")
   protected String sampleDataPrefix() {
@@ -86,12 +91,20 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -124,7 +137,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "longTailOperationContext")
@@ -135,7 +148,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   protected EntityIndexBuilders entityIndexBuildersHelper(OperationContext opContext) {
@@ -177,11 +190,6 @@ public class SampleDataFixtureConfiguration {
 
   protected ElasticSearchService entitySearchServiceHelper(EntityIndexBuilders indexBuilders)
       throws IOException {
-    CustomConfiguration customConfiguration = new CustomConfiguration();
-    customConfiguration.setEnabled(true);
-    customConfiguration.setFile("search_config_fixture_test.yml");
-    CustomSearchConfiguration customSearchConfiguration =
-        customConfiguration.resolve(new YAMLMapper());
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
@@ -189,9 +197,15 @@ public class SampleDataFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             _searchConfiguration,
-            customSearchConfiguration);
+            _customSearchConfiguration,
+            queryFilterRewriteChain,
+            true);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(_searchClient, _searchConfiguration, _customSearchConfiguration);
+        new ESBrowseDAO(
+            _searchClient,
+            _searchConfiguration,
+            _customSearchConfiguration,
+            queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(_searchClient, _bulkProcessor, 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
@@ -290,7 +304,7 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet()))
+    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
               Set<EntityAspectIdentifier> ids = args.getArgument(0);
@@ -318,6 +332,6 @@ public class SampleDataFixtureConfiguration {
         null,
         null,
         null,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 }

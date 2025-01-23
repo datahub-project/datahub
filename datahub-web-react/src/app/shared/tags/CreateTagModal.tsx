@@ -8,7 +8,7 @@ import { useEnterKeyListener } from '../useEnterKeyListener';
 import { handleBatchError } from '../../entity/shared/utils';
 
 type CreateTagModalProps = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onBack: () => void;
     tagName: string;
@@ -19,7 +19,7 @@ const FullWidthSpace = styled(Space)`
     width: 100%;
 `;
 
-export default function CreateTagModal({ onClose, onBack, visible, tagName, resources }: CreateTagModalProps) {
+export default function CreateTagModal({ onClose, onBack, open, tagName, resources }: CreateTagModalProps) {
     const [stagedDescription, setStagedDescription] = useState('');
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
@@ -80,7 +80,7 @@ export default function CreateTagModal({ onClose, onBack, visible, tagName, reso
     return (
         <Modal
             title={`Create ${tagName}`}
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>

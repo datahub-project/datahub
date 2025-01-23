@@ -40,6 +40,7 @@ const platformLogos = [
     name: "CouchBase",
     imageUrl: "/img/logos/platforms/couchbase.svg",
   },
+  { name: "Dagster", imageUrl: "/img/logos/platforms/dagster.png" },
   { name: "Databricks", imageUrl: "/img/logos/platforms/databricks.png" },
   { name: "DBT", imageUrl: "/img/logos/platforms/dbt.svg" },
   { name: "Deltalake", imageUrl: "/img/logos/platforms/deltalake.svg" },
@@ -87,6 +88,7 @@ const platformLogos = [
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
   { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },
   { name: "PowerBI", imageUrl: "/img/logos/platforms/powerbi.png" },
+  { name: "Prefect", imageUrl: "/img/logos/platforms/prefect.svg" },
   { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
   { name: "Protobuf", imageUrl: "/img/logos/platforms/protobuf.png" },
   { name: "Pulsar", imageUrl: "/img/logos/platforms/pulsar.png" },
@@ -169,7 +171,7 @@ export const CompanyLogos = () => (
       className={clsx("mySwiper", styles.companyWrapper)}
     >
       {companies
-        .filter((company) => company.imageUrl) // Filter companies with imageUrl
+        .filter((company) => company.imageUrl && company.link) // Filter companies with imageUrl and link
         .map((company, idx) => (
           <SwiperSlide key={idx}>
             {company.link ? (

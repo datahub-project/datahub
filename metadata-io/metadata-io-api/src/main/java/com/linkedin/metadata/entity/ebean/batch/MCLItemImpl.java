@@ -5,7 +5,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -13,7 +15,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,6 +45,27 @@ public class MCLItemImpl implements MCLItem {
     // Ensure use of other builders
     private MCLItemImpl build() {
       return null;
+    }
+
+    public MCLItemImpl build(
+        MCPItem mcpItem,
+        @Nullable RecordTemplate oldAspectValue,
+        @Nullable SystemMetadata oldSystemMetadata,
+        AspectRetriever aspectRetriever) {
+      return MCLItemImpl.builder()
+          .build(
+              PegasusUtils.constructMCL(
+                  mcpItem.getMetadataChangeProposal(),
+                  mcpItem.getUrn().getEntityType(),
+                  mcpItem.getUrn(),
+                  mcpItem.getChangeType(),
+                  mcpItem.getAspectName(),
+                  mcpItem.getAuditStamp(),
+                  mcpItem.getRecordTemplate(),
+                  mcpItem.getSystemMetadata(),
+                  oldAspectValue,
+                  oldSystemMetadata),
+              aspectRetriever);
     }
 
     public MCLItemImpl build(MetadataChangeLog metadataChangeLog, AspectRetriever aspectRetriever) {
@@ -132,6 +157,11 @@ public class MCLItemImpl implements MCLItem {
 
       return Pair.of(aspect, prevAspect);
     }
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
   }
 
   @Override

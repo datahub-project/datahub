@@ -83,7 +83,7 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { AZURE, BIGQUERY_BETA, CSV, DBT_CLOUD, MYSQL, OKTA, POWER_BI, UNITY_CATALOG, VERTICA } from '../constants';
+import { AZURE, BIGQUERY_BETA, CSV, DBT_CLOUD, MYSQL, OKTA, POWER_BI, SAC, UNITY_CATALOG, VERTICA } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
@@ -171,6 +171,20 @@ import {
     USER_ALLOW,
     USER_DENY,
 } from './azure';
+import {
+    SAC_TENANT_URL,
+    SAC_TOKEN_URL,
+    SAC_CLIENT_ID,
+    SAC_CLIENT_SECRET,
+    INGEST_STORIES,
+    INGEST_APPLICATIONS,
+    RESOURCE_ID_ALLOW,
+    RESOURCE_ID_DENY,
+    RESOURCE_NAME_ALLOW,
+    RESOURCE_NAME_DENY,
+    FOLDER_ALLOW,
+    FOLDER_DENY,
+} from './sac';
 
 export enum RecipeSections {
     Connection = 0,
@@ -519,8 +533,29 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
         advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
     },
+    [SAC]: {
+        fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
+        filterFields: [
+            INGEST_STORIES,
+            INGEST_APPLICATIONS,
+            RESOURCE_ID_ALLOW,
+            RESOURCE_ID_DENY,
+            RESOURCE_NAME_ALLOW,
+            RESOURCE_NAME_DENY,
+            FOLDER_ALLOW,
+            FOLDER_DENY,
+        ],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, UNITY_CATALOG]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
+    SNOWFLAKE,
+    LOOKER,
+    BIGQUERY_BETA,
+    BIGQUERY,
+    UNITY_CATALOG,
+    SAC,
+]);

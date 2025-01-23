@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "metastore"
             },
-            "name": "metastore"
+            "name": "metastore",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -99,7 +100,8 @@
                 "database": "metastore",
                 "schema": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

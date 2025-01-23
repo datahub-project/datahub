@@ -1,8 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Optional, Set, cast
+from typing import Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, SecretStr, root_validator, validator
@@ -17,6 +16,9 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -29,8 +31,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
-from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
@@ -48,7 +51,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 ]
 
 
-class TagOption(str, Enum):
+class TagOption(StrEnum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"
@@ -118,9 +121,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern is not None and schema_pattern:
+        if schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            cast(AllowDenyPattern, schema_pattern).deny.append(r".*INFORMATION_SCHEMA$")
+            assert isinstance(schema_pattern, AllowDenyPattern)
+            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
         return values
 
@@ -132,6 +136,25 @@ class SnowflakeIdentifierConfig(
     convert_urns_to_lowercase: bool = Field(
         default=True,
         description="Whether to convert dataset urns to lowercase.",
+    )
+
+    email_domain: Optional[str] = pydantic.Field(
+        default=None,
+        description="Email domain of your organization so users can be displayed on UI appropriately.",
+    )
+
+    email_as_user_identifier: bool = Field(
+        default=True,
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
+    )
+
+
+class SnowflakeUsageConfig(BaseUsageConfig):
+    apply_view_usage_to_tables: bool = pydantic.Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
     )
 
 
@@ -148,25 +171,12 @@ class SnowflakeConfig(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
-    include_view_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
-    )
+
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
-
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_include_view_lineage(cls, values):
-        if (
-            "include_table_lineage" in values
-            and not values.get("include_table_lineage")
-            and values.get("include_view_lineage")
-        ):
-            raise ValueError(
-                "include_table_lineage must be True for include_view_lineage to be set."
-            )
-        return values
 
 
 class SnowflakeV2Config(
@@ -176,6 +186,7 @@ class SnowflakeV2Config(
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_usage_stats: bool = Field(
         default=True,
@@ -206,14 +217,17 @@ class SnowflakeV2Config(
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
     )
 
-    include_view_column_lineage: bool = Field(
-        default=True,
-        description="Populates view->view and table->view column lineage using DataHub's sql parser.",
-    )
-
     use_queries_v2: bool = Field(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
+    )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
 
     lazy_schema_resolver: bool = Field(
@@ -228,6 +242,11 @@ class SnowflakeV2Config(
     extract_tags: TagOption = Field(
         default=TagOption.skip,
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
+    )
+
+    extract_tags_as_structured_properties: bool = Field(
+        default=False,
+        description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
     include_external_url: bool = Field(
@@ -249,6 +268,14 @@ class SnowflakeV2Config(
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
+    structured_property_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "List of regex patterns for structured properties to include in ingestion."
+            " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
+        ),
+    )
+
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
         default=DEFAULT_TEMP_TABLES_PATTERNS,
@@ -267,13 +294,6 @@ class SnowflakeV2Config(
         "If specified, connector creates lineage and siblings relationship between current account's database tables "
         "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
-    )
-
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
     )
 
     include_assertion_results: bool = Field(
@@ -339,10 +359,6 @@ class SnowflakeV2Config(
             self, database=database, username=username, password=password, role=role
         )
 
-    @property
-    def parse_view_ddl(self) -> bool:
-        return self.include_view_column_lineage
-
     @validator("shares")
     def validate_shares(
         cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
@@ -368,18 +384,20 @@ class SnowflakeV2Config(
                     assert all(
                         consumer.platform_instance != share_details.platform_instance
                         for consumer in share_details.consumers
-                    ), "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
+                    ), (
+                        "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
+                    )
 
                 databases_included_in_share.append(shared_db)
                 databases_created_from_share.extend(share_details.consumers)
 
             for db_from_share in databases_created_from_share:
-                assert (
-                    db_from_share not in databases_included_in_share
-                ), "Database included in a share can not be present as consumer in any share."
-                assert (
-                    databases_created_from_share.count(db_from_share) == 1
-                ), "Same database can not be present as consumer in more than one share."
+                assert db_from_share not in databases_included_in_share, (
+                    "Database included in a share can not be present as consumer in any share."
+                )
+                assert databases_created_from_share.count(db_from_share) == 1, (
+                    "Same database can not be present as consumer in more than one share."
+                )
 
         return shares
 

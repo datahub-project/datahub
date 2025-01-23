@@ -42,18 +42,13 @@ public class WebApplicationInitializer
     // Independent dispatcher
     schemaRegistryServlet(container);
 
-    // Non-Spring servlets
-    healthCheckServlet(container);
-    configServlet(container);
-
-    // Restli non-Dispatcher
-    servletNames.add(restliServlet(rootContext, container));
-
     // Spring Dispatcher servlets
     DispatcherServlet dispatcherServlet = new DispatcherServlet(rootContext);
     servletNames.add(authServlet(rootContext, dispatcherServlet, container));
     servletNames.add(graphQLServlet(rootContext, dispatcherServlet, container));
     servletNames.add(openAPIServlet(rootContext, dispatcherServlet, container));
+    // Restli non-Dispatcher default
+    servletNames.add(restliServlet(rootContext, container));
 
     FilterRegistration.Dynamic filterRegistration =
         container.addFilter("authenticationFilter", AuthenticationFilter.class);
@@ -62,6 +57,10 @@ public class WebApplicationInitializer
         EnumSet.of(DispatcherType.ASYNC, DispatcherType.REQUEST),
         false,
         servletNames.toArray(String[]::new));
+
+    // Non-Spring servlets
+    healthCheckServlet(container);
+    configServlet(container);
   }
 
   /*
@@ -133,10 +132,13 @@ public class WebApplicationInitializer
     rootContext.register(RestliServletConfig.class);
 
     ServletRegistration.Dynamic registration =
-        container.addServlet(servletName, new HttpRequestHandlerServlet());
+        container.addServlet(servletName, HttpRequestHandlerServlet.class);
     registration.addMapping("/*");
     registration.setLoadOnStartup(10);
     registration.setAsyncSupported(true);
+    registration.setInitParameter(
+        "org.springframework.web.servlet.FrameworkServlet.ORDER",
+        String.valueOf(Integer.MAX_VALUE - 1));
 
     return servletName;
   }

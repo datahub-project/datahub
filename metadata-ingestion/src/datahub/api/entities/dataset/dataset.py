@@ -94,20 +94,24 @@ class SchemaFieldSpecification(BaseModel):
             description=schema_field.description,
             label=schema_field.label,
             created=schema_field.created.__dict__ if schema_field.created else None,
-            lastModified=schema_field.lastModified.__dict__
-            if schema_field.lastModified
-            else None,
+            lastModified=(
+                schema_field.lastModified.__dict__
+                if schema_field.lastModified
+                else None
+            ),
             recursive=schema_field.recursive,
-            globalTags=schema_field.globalTags.__dict__
-            if schema_field.globalTags
-            else None,
-            glossaryTerms=schema_field.glossaryTerms.__dict__
-            if schema_field.glossaryTerms
-            else None,
+            globalTags=(
+                schema_field.globalTags.__dict__ if schema_field.globalTags else None
+            ),
+            glossaryTerms=(
+                schema_field.glossaryTerms.__dict__
+                if schema_field.glossaryTerms
+                else None
+            ),
             isPartitioningKey=schema_field.isPartitioningKey,
-            jsonProps=json.loads(schema_field.jsonProps)
-            if schema_field.jsonProps
-            else None,
+            jsonProps=(
+                json.loads(schema_field.jsonProps) if schema_field.jsonProps else None
+            ),
         )
 
     @validator("urn", pre=True, always=True)
@@ -262,7 +266,8 @@ class Dataset(BaseModel):
             if self.schema_metadata.fields:
                 for field in self.schema_metadata.fields:
                     field_urn = field.urn or make_schema_field_urn(
-                        self.urn, field.id  # type: ignore[arg-type]
+                        self.urn,  # type: ignore[arg-type]
+                        field.id,  # type: ignore[arg-type]
                     )
                     assert field_urn.startswith("urn:li:schemaField:")
 
@@ -300,9 +305,11 @@ class Dataset(BaseModel):
                                 properties=[
                                     StructuredPropertyValueAssignmentClass(
                                         propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                        values=prop_value
-                                        if isinstance(prop_value, list)
-                                        else [prop_value],
+                                        values=(
+                                            prop_value
+                                            if isinstance(prop_value, list)
+                                            else [prop_value]
+                                        ),
                                     )
                                     for prop_key, prop_value in field.structured_properties.items()
                                 ]
@@ -359,9 +366,11 @@ class Dataset(BaseModel):
                     properties=[
                         StructuredPropertyValueAssignmentClass(
                             propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                            values=prop_value
-                            if isinstance(prop_value, list)
-                            else [prop_value],
+                            values=(
+                                prop_value
+                                if isinstance(prop_value, list)
+                                else [prop_value]
+                            ),
                         )
                         for prop_key, prop_value in self.structured_properties.items()
                     ]
@@ -501,25 +510,29 @@ class Dataset(BaseModel):
 
         return Dataset(  # type: ignore[call-arg]
             urn=urn,
-            description=dataset_properties.description
-            if dataset_properties and dataset_properties.description
-            else None,
-            name=dataset_properties.name
-            if dataset_properties and dataset_properties.name
-            else None,
+            description=(
+                dataset_properties.description
+                if dataset_properties and dataset_properties.description
+                else None
+            ),
+            name=(
+                dataset_properties.name
+                if dataset_properties and dataset_properties.name
+                else None
+            ),
             schema=Dataset._schema_from_schema_metadata(graph, urn),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            glossary_terms=[term.urn for term in glossary_terms.terms]
-            if glossary_terms
-            else None,
+            glossary_terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
             owners=yaml_owners,
-            properties=dataset_properties.customProperties
-            if dataset_properties
-            else None,
+            properties=(
+                dataset_properties.customProperties if dataset_properties else None
+            ),
             subtypes=[subtype for subtype in subtypes.typeNames] if subtypes else None,
-            structured_properties=structured_properties_map
-            if structured_properties
-            else None,
+            structured_properties=(
+                structured_properties_map if structured_properties else None
+            ),
         )
 
     def to_yaml(

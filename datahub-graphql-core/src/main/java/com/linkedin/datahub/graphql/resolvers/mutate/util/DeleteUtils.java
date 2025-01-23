@@ -25,7 +25,7 @@ public class DeleteUtils {
 
   public static boolean isAuthorizedToDeleteEntity(@Nonnull QueryContext context, Urn entityUrn) {
     return AuthUtil.isAuthorizedEntityUrns(
-        context.getAuthorizer(), context.getActorUrn(), DELETE, List.of(entityUrn));
+        context.getOperationContext(), DELETE, List.of(entityUrn));
   }
 
   public static void updateStatusForResources(

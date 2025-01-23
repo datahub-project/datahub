@@ -162,6 +162,21 @@ input  SearchFlags {
   Whether to include restricted entities
   """
   includeRestricted: Boolean
+
+  """
+  fields to include for custom Highlighting
+  """
+  customHighlightingFields: [String!]
+
+  """
+  Whether or not to fetch and request for structured property facets when doing a search
+  """
+  includeStructuredPropertyFacets: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """
@@ -517,6 +532,11 @@ enum FilterOperator {
   EQUAL
 
   """
+  Represent the relation: field = value (case-insensitive), e.g. platform = HDFS
+  """
+  IEQUAL
+
+  """
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
@@ -545,6 +565,32 @@ enum FilterOperator {
   Represent the relation less than or equal to, e.g. ownerCount <= 3
   """
   LESS_THAN_OR_EQUAL_TO
+
+  """
+  Represent the relation: String field starts with value, e.g. name starts with PageView
+  """
+  START_WITH
+
+  """
+  Represent the relation: String field ends with value, e.g. name ends with Event
+  """
+  END_WITH
+
+  """
+  Represent the relation: URN field any nested children in addition to the given URN
+  """
+  DESCENDANTS_INCL
+
+  """
+  Represent the relation: URN field matches any nested parent in addition to the given URN
+  """
+  ANCESTORS_INCL
+
+  """
+  Represent the relation: URN field matches any nested child or parent in addition to the given URN
+  """
+  RELATED_INCL
+
 }
 
 """
@@ -582,6 +628,18 @@ type SearchResults {
   suggestions: [SearchSuggestion!]
 }
 
+type ExtraProperty {
+  """
+  Name of the extra property
+  """
+  name: String!
+
+  """
+  Value of the extra property
+  """
+  value: String!
+}
+
 """
 An individual search result hit
 """
@@ -600,6 +658,11 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+
+  """
+  Additional properties about the search result. Used for rendering in the UI
+  """
+  extraProperties: [ExtraProperty!]
 }
 
 """
@@ -818,6 +881,11 @@ type FacetMetadata {
   Display name of the field
   """
   displayName: String
+
+  """
+  Entity corresponding to the facet
+  """
+  entity: Entity
 
   """
   Aggregated search result counts by value of the field

@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.20 AS base
+FROM alpine:3.21 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -25,7 +25,7 @@ RUN apk --no-cache --update-cache --available upgrade \
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
-FROM base as unpack
+FROM base AS unpack
 
 COPY ./datahub-frontend.zip /
 RUN unzip datahub-frontend.zip -d /tmp/out \
@@ -33,16 +33,16 @@ RUN unzip datahub-frontend.zip -d /tmp/out \
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
-FROM base as prod-install
+FROM base AS prod-install
 
 COPY --from=unpack /datahub-frontend/ /datahub-frontend/
 
-FROM base as dev-install
+FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 VOLUME [ "/datahub-frontend" ]
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 USER datahub
 

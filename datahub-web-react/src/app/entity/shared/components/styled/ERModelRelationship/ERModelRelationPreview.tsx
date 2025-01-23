@@ -132,7 +132,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         <div className="ERModelRelationPreview">
             {ermodelrelationData?.properties?.relationshipFieldMappings !== undefined && (
                 <CreateERModelRelationModal
-                    visible={modalVisible}
+                    open={modalVisible}
                     setModalVisible={setModalVisible}
                     onCancel={() => {
                         setModalVisible(false);

@@ -40,7 +40,10 @@ def run_test():
     print("Data generated")
 
     config = UnityCatalogSourceConfig(
-        token="", workspace_url="http://localhost:1234", include_usage_statistics=False
+        token="",
+        workspace_url="http://localhost:1234",
+        include_usage_statistics=True,
+        include_hive_metastore=False,
     )
     ctx = PipelineContext(run_id="test")
     with patch(
@@ -56,12 +59,12 @@ def run_test():
         workunits = source.get_workunits()
         num_workunits, peak_memory_usage = workunit_sink(workunits)
         print(f"Workunits Generated: {num_workunits}")
-        print(f"Seconds Elapsed: {timer.elapsed_seconds():.2f} seconds")
+        print(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
 
     print(
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
     )
-    print(source.report.aspects)
+    print(source.report.as_string())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,281 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "0749f75a-cc58-e1fd-ba66-d2d2b9dbe2cb",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0e2c4d41-12b9-fbd4-d4e0-463c165ecb29",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0e75ad46-7474-6e02-6d1b-20781db40587",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "Segment",
+                            "table": {
+                                "__typename": "DatabaseTable",
+                                "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "11242a9a-c161-754c-bdcc-fdc22bfce2b2",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Sales",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "18f817fa-a4df-6dfe-98c0-ffdce9f6cdc5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1a63d0cd-0b37-3dea-b171-8893a9fb1417",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1a6595e6-5eac-1f32-4d8b-dd0569b4e827",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "204a2d38-c144-f946-b426-ee66ef3eb492",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2e0aa617-9d3d-15db-3597-17b8ccda2381",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "345f239e-1dd0-30fb-8ed4-103810a0b7cc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3cc344da-0d30-75a8-1364-a14a1a93350d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "53ef59b0-7f59-55fb-ead0-4232a8be86d7",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5b043b44-cbe5-fd3b-2022-7e14f400e11d",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "60dae0c9-0b36-ead5-977a-07dc049dbd57",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "695e65cb-0c30-fb94-0f09-2323fd88f0fa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "6c1c7e77-731b-045d-69e9-af6c3c30ac99",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7ba23f14-240b-517d-bffc-e603d6874f29",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7e40e9c2-8da8-d0c4-6a18-8fade009f33b",
+                    "upstreamFields": [
+                        {
+                            "name": "Category",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Sub-Category",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Manufacturer",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Product Name",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8c6d612c-ce53-29d5-3754-9508ca139d1f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a0900626-117b-25bb-104d-e7e4272f6e0a",
+                    "upstreamFields": [
+                        {
+                            "name": "City",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Postal Code",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Country/Region",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "Region",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        },
+                        {
+                            "name": "State",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a443959b-f9a4-d0fb-4900-28eaa3a4b88e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "aa1a9b8f-2fbc-53f4-2e6b-1f7257d28f74",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "acd7abc3-db70-a36f-6f75-2bf28eb6cff1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b0011709-ba93-895c-6f49-0e3f5548c96f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c96df737-f0d7-5e5e-ac09-9149435647fa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cc070953-68a0-ed87-82be-221c0d93f943",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cd6063c2-58b4-619a-4229-accea19f5189",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cfcbc551-00d3-c773-3d68-5cafabc95b61",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d6e46283-01fe-cfd1-ee25-be4c9ea985c6",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d96dc3eb-5bc7-6c7e-4fed-edffb1de00f2",
+                    "upstreamFields": [
+                        {
+                            "name": "Sub-Category",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "db0ddcfe-7c23-7031-f774-bfd1eb5dffa5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f04ff107-5ddb-375d-c1d0-34e65406c841",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f4c6a79d-05e4-b7ab-22a5-f667b7c708bb",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fd261ef6-c698-900c-fe37-6694ba107367",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

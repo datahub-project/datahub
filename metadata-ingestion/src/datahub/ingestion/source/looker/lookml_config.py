@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -33,17 +33,11 @@ logger = logging.getLogger(__name__)
 
 NAME: str = "name"
 
-_BASE_PROJECT_NAME = "__BASE"
+BASE_PROJECT_NAME = "__BASE"
 
-_EXPLORE_FILE_EXTENSION = ".explore.lkml"
-
-_VIEW_FILE_EXTENSION = ".view.lkml"
-
-_MODEL_FILE_EXTENSION = ".model.lkml"
-
-VIEW_LANGUAGE_LOOKML: str = "lookml"
-
-VIEW_LANGUAGE_SQL: str = "sql"
+EXPLORE_FILE_EXTENSION = ".explore.lkml"
+VIEW_FILE_EXTENSION = ".view.lkml"
+MODEL_FILE_EXTENSION = ".model.lkml"
 
 DERIVED_VIEW_SUFFIX = r".sql_table_name"
 
@@ -124,9 +118,6 @@ class LookMLSourceConfig(
         description="List of regex patterns for LookML views to include in the extraction.",
     )
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
-    sql_parser: str = Field(
-        "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
-    )
     api: Optional[LookerAPIConfig]
     project_name: Optional[str] = Field(
         None,
@@ -172,6 +163,13 @@ class LookMLSourceConfig(
         description="A dictionary containing Liquid variables and their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
+    )
+
+    looker_environment: Literal["prod", "dev"] = Field(
+        "prod",
+        description="A looker prod or dev environment. "
+        "It helps to evaluate looker if comments i.e. -- if prod --. "
+        "All if comments are evaluated to true for configured looker_environment value",
     )
 
     @validator("connection_to_platform_map", pre=True)

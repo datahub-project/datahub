@@ -3,6 +3,8 @@ plugins {
   id 'java-library'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   api project(':metadata-service:restli-api')
   api project(':metadata-auth:auth-api')

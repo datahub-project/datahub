@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceTestBase;
@@ -9,7 +11,6 @@ import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 @Import({ElasticSearchSuite.class, SearchTestContainerConfiguration.class})
@@ -42,6 +43,6 @@ public class TimeseriesAspectServiceElasticSearchTest extends TimeseriesAspectSe
 
   @Test
   public void initTest() {
-    AssertJUnit.assertNotNull(_searchClient);
+    assertNotNull(_searchClient);
   }
 }

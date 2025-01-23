@@ -1,0 +1,36 @@
+source:
+  type: dremio
+  config:
+    # Coordinates
+    hostname: localhost
+    port: 9047
+    tls: true
+
+    # Credentials with personal access token(recommended)
+    authentication_method: PAT
+    password: pass
+    # OR Credentials with basic auth
+    # authentication_method: password
+    # username: user
+    # password: pass
+
+    #For cloud instance
+    #is_dremio_cloud: True
+    #dremio_cloud_project_id: <project_id>
+
+    include_query_lineage: True
+
+    ingest_owner: true
+
+    #Optional
+    source_mappings:
+      - platform: s3
+        source_name: samples
+
+    #Optional
+    schema_pattern:
+      allow:
+        - "<source_name>.<table_name>"
+
+sink:
+  # sink configs

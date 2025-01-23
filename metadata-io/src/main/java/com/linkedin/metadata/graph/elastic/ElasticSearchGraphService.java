@@ -1,12 +1,16 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
+import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusFieldName;
+import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusQuery;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
@@ -17,7 +21,6 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.LineageRegistry;
-import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -35,6 +38,7 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,23 +55,26 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
 
 @Slf4j
 @RequiredArgsConstructor
 public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
-
   private final LineageRegistry _lineageRegistry;
   private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
   private final ESIndexBuilder _indexBuilder;
+  private final String idHashAlgo;
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
-  private String toDocument(@Nonnull final Edge edge) {
+  private static String toDocument(@Nonnull final Edge edge) {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
 
     final ObjectNode sourceObject = JsonNodeFactory.instance.objectNode();
@@ -113,6 +120,18 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     if (edge.getVia() != null) {
       searchDocument.put(EDGE_FIELD_VIA, edge.getVia().toString());
     }
+    if (edge.getViaStatus() != null) {
+      searchDocument.put(EDGE_FIELD_VIA_STATUS, edge.getViaStatus());
+    }
+    if (edge.getLifecycleOwnerStatus() != null) {
+      searchDocument.put(EDGE_FIELD_LIFECYCLE_OWNER_STATUS, edge.getLifecycleOwnerStatus());
+    }
+    if (edge.getSourceStatus() != null) {
+      searchDocument.put(EDGE_SOURCE_STATUS, edge.getSourceStatus());
+    }
+    if (edge.getDestinationStatus() != null) {
+      searchDocument.put(EDGE_DESTINATION_STATUS, edge.getDestinationStatus());
+    }
     log.debug("Search doc for write {}", searchDocument);
 
     return searchDocument.toString();
@@ -125,7 +144,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
@@ -137,12 +156,14 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     _graphWriteDAO.deleteDocument(docId);
   }
 
+  @Override
   @Nonnull
   public RelatedEntitiesResult findRelatedEntities(
+      @Nonnull final OperationContext opContext,
       @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -160,6 +181,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
     SearchResponse response =
         _graphReadDAO.getSearchResponse(
+            opContext,
             sourceTypes,
             sourceEntityFilter,
             destinationTypes,
@@ -187,6 +209,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   @Deprecated
   public EntityLineageResult getLineage(
+      @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
@@ -194,28 +217,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       int count,
       int maxHops) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
-    return new EntityLineageResult()
-        .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
-        .setStart(offset)
-        .setCount(count)
-        .setTotal(lineageResponse.getTotal());
-  }
-
-  @Nonnull
-  @WithSpan
-  @Override
-  public EntityLineageResult getLineage(
-      @Nonnull Urn entityUrn,
-      @Nonnull LineageDirection direction,
-      GraphFilters graphFilters,
-      int offset,
-      int count,
-      int maxHops,
-      @Nullable LineageFlags lineageFlags) {
-    ESGraphQueryDAO.LineageResponse lineageResponse =
         _graphReadDAO.getLineage(
-            entityUrn, direction, graphFilters, offset, count, maxHops, lineageFlags);
+            opContext, entityUrn, direction, graphFilters, offset, count, maxHops);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
@@ -223,13 +226,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setTotal(lineageResponse.getTotal());
   }
 
-  private Filter createUrnFilter(@Nonnull final Urn urn) {
+  private static Filter createUrnFilter(@Nonnull final Urn urn) {
     Filter filter = new Filter();
     CriterionArray criterionArray = new CriterionArray();
-    Criterion criterion = new Criterion();
-    criterion.setCondition(Condition.EQUAL);
-    criterion.setField("urn");
-    criterion.setValue(urn.toString());
+    Criterion criterion = buildCriterion("urn", Condition.EQUAL, urn.toString());
     criterionArray.add(criterion);
     filter.setOr(
         new ConjunctiveCriterionArray(
@@ -238,7 +238,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return filter;
   }
 
-  public void removeNode(@Nonnull final Urn urn) {
+  public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
     Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
     List<String> relationshipTypes = new ArrayList<>();
@@ -249,19 +249,47 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
 
     _graphWriteDAO.deleteByQuery(
-        null, urnFilter, null, emptyFilter, relationshipTypes, outgoingFilter);
+        opContext, null, urnFilter, null, emptyFilter, relationshipTypes, outgoingFilter);
 
     _graphWriteDAO.deleteByQuery(
-        null, urnFilter, null, emptyFilter, relationshipTypes, incomingFilter);
+        opContext, null, urnFilter, null, emptyFilter, relationshipTypes, incomingFilter);
 
     // Delete all edges where this entity is a lifecycle owner
     _graphWriteDAO.deleteByQuery(
-        null, emptyFilter, null, emptyFilter, relationshipTypes, incomingFilter, urn.toString());
+        opContext,
+        null,
+        emptyFilter,
+        null,
+        emptyFilter,
+        relationshipTypes,
+        incomingFilter,
+        urn.toString());
+  }
 
-    return;
+  @Override
+  public void setEdgeStatus(
+      @Nonnull Urn urn, boolean removed, @Nonnull EdgeUrnType... edgeUrnTypes) {
+
+    for (EdgeUrnType edgeUrnType : edgeUrnTypes) {
+      // Update the graph status fields per urn type which do not match target state
+      QueryBuilder negativeQuery = getUrnStatusQuery(edgeUrnType, urn, !removed);
+
+      // Set up the script to update the boolean field
+      String scriptContent =
+          "ctx._source." + getUrnStatusFieldName(edgeUrnType) + " = params.newValue";
+      Script script =
+          new Script(
+              ScriptType.INLINE,
+              "painless",
+              scriptContent,
+              Collections.singletonMap("newValue", removed));
+
+      _graphWriteDAO.updateByQuery(script, negativeQuery);
+    }
   }
 
   public void removeEdgesFromNode(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
@@ -270,7 +298,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     Filter emptyFilter = new Filter().setOr(new ConjunctiveCriterionArray());
 
     _graphWriteDAO.deleteByQuery(
-        null, urnFilter, null, emptyFilter, relationshipTypes, relationshipFilter);
+        opContext, null, urnFilter, null, emptyFilter, relationshipTypes, relationshipFilter);
   }
 
   @Override
@@ -307,8 +335,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Nonnull
-  @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nonnull final OperationContext opContext,
       @Nullable List<String> sourceTypes,
       @Nullable Filter sourceEntityFilter,
       @Nullable List<String> destinationTypes,
@@ -325,6 +353,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
     SearchResponse response =
         _graphReadDAO.getSearchResponse(
+            opContext,
             sourceTypes,
             sourceEntityFilter,
             destinationTypes,

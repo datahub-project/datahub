@@ -86,7 +86,6 @@ services:
     - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
     - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
     - ELASTICSEARCH_PORT=9200
-    - ELASTIC_ID_HASH_ALGO=MD5
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - ENTITY_SERVICE_ENABLE_RETENTION=true
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
@@ -98,7 +97,7 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
-    - METADATA_SERVICE_AUTH_ENABLED=false
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     - NEO4J_HOST=http://neo4j:7474
     - NEO4J_PASSWORD=datahub
     - NEO4J_URI=bolt://neo4j
@@ -292,7 +291,6 @@ services:
     volumes:
     - zkdata:/var/lib/zookeeper/data
     - zklogs:/var/lib/zookeeper/log
-version: '3.9'
 volumes:
   broker: null
   esdata: null

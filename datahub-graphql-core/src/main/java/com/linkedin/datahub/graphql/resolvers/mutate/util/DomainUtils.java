@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -58,7 +60,12 @@ public class DomainUtils {
   private DomainUtils() {}
 
   public static boolean isAuthorizedToUpdateDomainsForEntity(
-      @Nonnull QueryContext context, Urn entityUrn) {
+      @Nonnull QueryContext context, Urn entityUrn, EntityClient entityClient) {
+
+    if (GlossaryUtils.canUpdateGlossaryEntity(entityUrn, context, entityClient)) {
+      return true;
+    }
+
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
@@ -67,11 +74,7 @@ public class DomainUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static void setDomainForResources(
@@ -122,16 +125,9 @@ public class DomainUtils {
   private static List<Criterion> buildRootDomainCriteria() {
     final List<Criterion> criteria = new ArrayList<>();
 
-    criteria.add(
-        new Criterion()
-            .setField(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME)
-            .setValue("false")
-            .setCondition(Condition.EQUAL));
-    criteria.add(
-        new Criterion()
-            .setField(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME)
-            .setValue("")
-            .setCondition(Condition.IS_NULL));
+    criteria.add(buildCriterion(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME, Condition.EQUAL, "false"));
+
+    criteria.add(buildIsNullCriterion(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME));
 
     return criteria;
   }
@@ -139,25 +135,17 @@ public class DomainUtils {
   private static List<Criterion> buildParentDomainCriteria(@Nonnull final Urn parentDomainUrn) {
     final List<Criterion> criteria = new ArrayList<>();
 
+    criteria.add(buildCriterion(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME, Condition.EQUAL, "true"));
+
     criteria.add(
-        new Criterion()
-            .setField(HAS_PARENT_DOMAIN_INDEX_FIELD_NAME)
-            .setValue("true")
-            .setCondition(Condition.EQUAL));
-    criteria.add(
-        new Criterion()
-            .setField(PARENT_DOMAIN_INDEX_FIELD_NAME)
-            .setValue(parentDomainUrn.toString())
-            .setCondition(Condition.EQUAL));
+        buildCriterion(
+            PARENT_DOMAIN_INDEX_FIELD_NAME, Condition.EQUAL, parentDomainUrn.toString()));
 
     return criteria;
   }
 
   private static Criterion buildNameCriterion(@Nonnull final String name) {
-    return new Criterion()
-        .setField(NAME_INDEX_FIELD_NAME)
-        .setValue(name)
-        .setCondition(Condition.EQUAL);
+    return buildCriterion(NAME_INDEX_FIELD_NAME, Condition.EQUAL, name);
   }
 
   /**

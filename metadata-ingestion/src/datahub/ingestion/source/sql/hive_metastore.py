@@ -2,15 +2,12 @@ import base64
 import json
 import logging
 from collections import namedtuple
-from enum import Enum
-from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
-from pyhive import hive  # noqa: F401
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
@@ -60,14 +57,16 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
-class HiveMetastoreConfigMode(str, Enum):
+class HiveMetastoreConfigMode(StrEnum):
     hive: str = "hive"  # noqa: F811
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"
@@ -124,6 +123,10 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
+    include_view_lineage: bool = Field(
+        default=False, description="", hidden_from_docs=True
+    )
+
     include_catalog_name_in_ids: bool = Field(
         default=False,
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
@@ -161,6 +164,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
+@capability(
+    SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
 class HiveMetastoreSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -484,7 +490,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
 
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -641,7 +647,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         )
 
         iter_res = self._alchemy_client.execute_query(statement)
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
 
             schema_name = (

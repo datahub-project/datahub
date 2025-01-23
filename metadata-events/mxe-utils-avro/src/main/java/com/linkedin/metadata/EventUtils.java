@@ -81,7 +81,7 @@ public class EventUtils {
   private static final Schema RENAMED_PE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.PlatformEvent.SCHEMA$;
 
-  private static final Schema RENAMED_MCP_AVRO_SCHEMA =
+  public static final Schema RENAMED_MCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataChangeProposal.SCHEMA$;
 
   public static final Schema RENAMED_MCL_AVRO_SCHEMA =

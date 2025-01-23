@@ -25,6 +25,7 @@ import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.Conjunctive;
 import com.linkedin.util.Pair;
+import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,16 +98,14 @@ public class AuthUtilTest {
     // User A (Entity 1 & 2 Edit, View only Entity 3)
     assertTrue(
         AuthUtil.isAPIAuthorizedEntityUrns(
-            TEST_AUTH_A,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             READ,
             List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3)),
         "Expected read allowed for all entities");
 
     assertEquals(
         AuthUtil.isAPIAuthorizedUrns(
-            TEST_AUTH_A,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             ENTITY,
             List.of(
                 Pair.of(ChangeType.UPSERT, TEST_ENTITY_1),
@@ -120,8 +119,7 @@ public class AuthUtilTest {
 
     assertEquals(
         AuthUtil.isAPIAuthorizedUrns(
-            TEST_AUTH_A,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             ENTITY,
             List.of(
                 Pair.of(ChangeType.DELETE, TEST_ENTITY_1),
@@ -136,20 +134,20 @@ public class AuthUtilTest {
     // User B Entity 2 Denied, Read access 1 & 3
     assertFalse(
         AuthUtil.isAPIAuthorizedEntityUrns(
-            TEST_AUTH_B,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             READ,
             List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3)),
         "Expected read denied for based on entity 2");
     assertTrue(
         AuthUtil.isAPIAuthorizedEntityUrns(
-            TEST_AUTH_B, mockAuthorizer, READ, List.of(TEST_ENTITY_1, TEST_ENTITY_3)),
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_3)),
         "Expected read allowed due to exclusion of entity 2");
 
     assertEquals(
         AuthUtil.isAPIAuthorizedUrns(
-            TEST_AUTH_B,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             ENTITY,
             List.of(
                 Pair.of(ChangeType.UPSERT, TEST_ENTITY_1),
@@ -163,8 +161,7 @@ public class AuthUtilTest {
 
     assertEquals(
         AuthUtil.isAPIAuthorizedUrns(
-            TEST_AUTH_B,
-            mockAuthorizer,
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             ENTITY,
             List.of(
                 Pair.of(ChangeType.DELETE, TEST_ENTITY_1),

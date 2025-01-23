@@ -1,23 +1,22 @@
 package com.linkedin.metadata.resources.operations;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
@@ -37,7 +36,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -91,7 +89,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   OperationsResource(OperationContext systemOperationContext, TimeseriesAspectService timeseriesAspectService) {
     this._timeseriesAspectService = timeseriesAspectService;
     this.systemOperationContext = systemOperationContext;
-    this._authorizer = systemOperationContext.getAuthorizerContext().getAuthorizer();
+    this._authorizer = systemOperationContext.getAuthorizationContext().getAuthorizer();
   }
 
   @Action(name = ACTION_RESTORE_INDICES)
@@ -106,7 +104,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
       () ->  Utils.restoreIndices(systemOperationContext, getContext(),
                   aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
@@ -131,12 +129,16 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_NODE_ID) @Optional String nodeId,
       @ActionParam(PARAM_TASK_ID) @Optional("0") long taskId,
       @ActionParam(PARAM_TASK) @Optional String task) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
-          if (!isAPIAuthorized(
-                  AuthenticationContext.getAuthentication(),
-                  _authorizer,
+          final Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
+
+          if (!isAPIOperationsAuthorized(
+                  opContext,
                   PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get ES task status");
@@ -190,19 +192,20 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Nonnull
   @WithSpan
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () -> {
 
             final Authentication auth = AuthenticationContext.getAuthentication();
-          if (!isAPIAuthorized(
-                  AuthenticationContext.getAuthentication(),
-                  _authorizer,
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+
+          if (!isAPIOperationsAuthorized(
+                  opContext,
                   PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
             TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -224,15 +227,16 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nullable Boolean forceReindex) {
 
       final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            _authorizer,
+            opContext,
             PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
       return "please only set forceReindex OR forceDeleteByQuery flags";
@@ -240,8 +244,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
 
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(
-        QueryUtils.newCriterion(
-            "timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
+        buildCriterion(
+            "timestampMillis", Condition.LESS_THAN_OR_EQUAL_TO, String.valueOf(endTimeMillis)));
 
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
     long numToDelete = _timeseriesAspectService.countByFilter(opContext, entityType, aspectName, filter);
@@ -283,8 +287,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         // count
         List<Criterion> reindexCriteria = new ArrayList<>();
         reindexCriteria.add(
-            QueryUtils.newCriterion(
-                "timestampMillis", String.valueOf(endTimeMillis), Condition.GREATER_THAN));
+            buildCriterion(
+                "timestampMillis", Condition.GREATER_THAN, String.valueOf(endTimeMillis)));
 
         final Filter reindexFilter = QueryUtils.getFilterFromCriteria(reindexCriteria);
         String taskId =
@@ -313,7 +317,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds,
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex) {
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(
         () ->
             executeTruncateTimeseriesAspect(
                 entityType,

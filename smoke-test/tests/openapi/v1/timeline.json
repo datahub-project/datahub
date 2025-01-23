@@ -339,7 +339,7 @@
       "json": [
         {
           "timestamp": 1723245258298,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "0.0.0-computed",
           "semVerChange": "MINOR",
           "changeEvents": [
@@ -351,7 +351,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service'."
@@ -364,7 +365,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.type)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.type'."
@@ -377,7 +379,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider'."
@@ -390,7 +393,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.id'."
@@ -403,7 +407,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.name'."
@@ -416,7 +421,8 @@
               "parameters": {
                 "fieldPath": "property_id",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),property_id)",
-                "nullable": false
+                "nullable": false,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'property_id'."
@@ -426,7 +432,7 @@
         },
         {
           "timestamp": 1723245269788,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "1.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [
@@ -438,7 +444,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "RENAME"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to renaming of the field 'service.provider.id to service.provider.id2'."
@@ -451,7 +458,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.id3'."
@@ -464,7 +472,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.name'."
@@ -474,7 +483,7 @@
         },
         {
           "timestamp": 1723245279320,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "2.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [
@@ -486,7 +495,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id2)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "RENAME"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to renaming of the field 'service.provider.id2 to service.provider.id'."
@@ -499,7 +509,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MAJOR",
               "description": "A backwards incompatible change due to removal of field: 'service.provider.id3'."
@@ -512,7 +523,8 @@
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
                 "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
-                "nullable": true
+                "nullable": true,
+                "modificationCategory": "OTHER"
               },
               "semVerChange": "MINOR",
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.name'."

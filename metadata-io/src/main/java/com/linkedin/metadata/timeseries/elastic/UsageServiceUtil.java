@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeseries.elastic;
 
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -97,26 +98,19 @@ public class UsageServiceUtil {
     // 1. Populate the filter. This is common for all queries.
     Filter filter = new Filter();
     ArrayList<Criterion> criteria = new ArrayList<>();
-    Criterion hasUrnCriterion =
-        new Criterion()
-            .setField("urn")
-            .setCondition(Condition.EQUAL)
-            .setValues(new StringArray(resource));
+    Criterion hasUrnCriterion = buildCriterion("urn", Condition.EQUAL, resource);
+
     criteria.add(hasUrnCriterion);
     if (startTime != null) {
       Criterion startTimeCriterion =
-          new Criterion()
-              .setField(ES_FIELD_TIMESTAMP)
-              .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-              .setValues(new StringArray(startTime.toString()));
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTime.toString());
+
       criteria.add(startTimeCriterion);
     }
     if (endTime != null) {
       Criterion endTimeCriterion =
-          new Criterion()
-              .setField(ES_FIELD_TIMESTAMP)
-              .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-              .setValues(new StringArray(endTime.toString()));
+          buildCriterion(ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTime.toString());
       criteria.add(endTimeCriterion);
     }
 

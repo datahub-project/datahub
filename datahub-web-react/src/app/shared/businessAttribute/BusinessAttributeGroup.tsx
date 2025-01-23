@@ -84,7 +84,7 @@ export default function BusinessAttributeGroup({
             {showAddModal && !!entityUrn && !!entityType && (
                 <EditBusinessAttributeModal
                     type={addModalType}
-                    visible
+                    open
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);

@@ -1,5 +1,5 @@
 import types
-from typing import Any, Dict, Optional, Type, cast
+from typing import Any, Callable, Dict, Optional, Type, cast
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
@@ -10,6 +10,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
 )
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -99,6 +100,13 @@ def mock_datahub_graph():
 
     mock_datahub_graph_ctx = MockDataHubGraphContext()
     return mock_datahub_graph_ctx.mock_graph
+
+
+@pytest.fixture
+def mock_datahub_graph_instance(
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+) -> DataHubGraph:
+    return mock_datahub_graph(DatahubClientConfig(server="http://fake.domain.local"))
 
 
 def get_current_checkpoint_from_pipeline(

@@ -1,0 +1,74 @@
+.hs-input {
+  width: 100% !important;
+}
+
+.hs-form input,
+.hs-form select,
+.hs-form textarea {
+  border: .5px solid #DDD;
+  background-color: #FFF;
+  padding: .75rem 1rem; 
+  margin: 0.4rem auto;
+  border-radius: 8px; 
+  font-size: 16px;
+}
+
+.hs-form ::placeholder {
+  font-style: Manrope;
+}
+
+.hs-form input[type="submit"] {
+  background-color: #1990FF;
+  color: #fff; 
+  border: none; 
+  padding: 10px 20px; /* Custom padding */
+  cursor: pointer;
+  border-radius: 8px; /* Rounded corners */
+  font-size: 16px;
+  font-weight: 600;
+  width: 100px;
+}
+
+.hs-form input[type="submit"]:hover {
+  background-color: #0056b3; /* Button hover color */
+}
+
+/* hide the label */
+
+.hs-form label span {
+  display: none;
+}
+
+/* error labels */
+
+.hs-form .hs-error-msgs {
+  font-size: 15px;
+  color: red;
+  list-style-type: none;
+  padding: 0;
+  text-align: left;
+}
+
+.hs-form .error {
+  border: red 1.5px solid !important;
+}
+
+/* customize placeholder style */
+
+.hs-form input::placeholder, 
+.hs-form textarea::placeholder,
+.hs-form textarea {
+  font-size: 16px;
+  font-weight: 400;
+  font-family: sans-serif;
+  color: gray;
+}
+
+.hs-form .hs_firstname {
+  padding-right: 0.5rem;
+}
+
+.hs-form .hs_lastname {
+  padding-left: 0.5rem;
+}
+

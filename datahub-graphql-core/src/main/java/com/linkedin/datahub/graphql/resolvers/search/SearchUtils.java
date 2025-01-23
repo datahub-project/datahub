@@ -18,12 +18,18 @@ import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -32,23 +38,31 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.codehaus.plexus.util.CollectionUtils;
 
 @Slf4j
 public class SearchUtils {
   private SearchUtils() {}
+
+  private static final int DEFAULT_SEARCH_COUNT = 10;
+  private static final int DEFAULT_SCROLL_COUNT = 10;
+  private static final String DEFAULT_SCROLL_KEEP_ALIVE = "5m";
 
   /** Entities that are searched by default in Search Across Entities */
   public static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
@@ -325,5 +339,120 @@ public class SearchUtils {
     result.setSuggestions(new ArrayList<>());
     result.setFacets(new ArrayList<>());
     return result;
+  }
+
+  public static List<SortCriterion> getSortCriteria(@Nullable final SearchSortInput sortInput) {
+    List<SortCriterion> sortCriteria;
+    if (sortInput != null) {
+      if (sortInput.getSortCriteria() != null) {
+        sortCriteria =
+            sortInput.getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            sortInput.getSortCriterion() != null
+                ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
+                : new ArrayList<>();
+      }
+    } else {
+      sortCriteria = new ArrayList<>();
+    }
+
+    return sortCriteria;
+  }
+
+  public static CompletableFuture<SearchResults> searchAcrossEntities(
+      QueryContext inputContext,
+      final EntityClient _entityClient,
+      final ViewService _viewService,
+      List<EntityType> inputEntityTypes,
+      String inputQuery,
+      Filter baseFilter,
+      String viewUrn,
+      List<SortCriterion> sortCriteria,
+      com.linkedin.datahub.graphql.generated.SearchFlags inputSearchFlags,
+      Integer inputCount,
+      Integer inputStart,
+      String className) {
+
+    final List<EntityType> entityTypes =
+        (inputEntityTypes == null || inputEntityTypes.isEmpty())
+            ? SEARCHABLE_ENTITY_TYPES
+            : inputEntityTypes;
+    final List<String> entityNames =
+        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+
+    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // blank/empty
+    final String query =
+        StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";
+
+    final Optional<SearchFlags> searchFlags =
+        Optional.ofNullable(inputSearchFlags)
+            .map((flags) -> SearchFlagsInputMapper.map(inputContext, flags));
+    final OperationContext context =
+        inputContext.getOperationContext().withSearchFlags(searchFlags::orElse);
+
+    final int count = Optional.ofNullable(inputCount).orElse(DEFAULT_SEARCH_COUNT);
+    final int start = Optional.ofNullable(inputStart).orElse(0);
+
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          final OperationContext baseContext = inputContext.getOperationContext();
+          final Optional<DataHubViewInfo> maybeResolvedView =
+              Optional.ofNullable(viewUrn)
+                  .map((urn) -> resolveView(baseContext, _viewService, UrnUtils.getUrn(urn)));
+
+          final List<String> finalEntityNames =
+              maybeResolvedView
+                  .map(
+                      (view) ->
+                          intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
+                  .orElse(entityNames);
+
+          final Filter finalFilters =
+              maybeResolvedView
+                  .map((view) -> combineFilters(baseFilter, view.getDefinition().getFilter()))
+                  .orElse(baseFilter);
+
+          log.debug(
+              "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
+              finalEntityNames,
+              query,
+              finalFilters,
+              start,
+              count);
+
+          try {
+            final SearchResult searchResult =
+                _entityClient.searchAcrossEntities(
+                    context,
+                    finalEntityNames,
+                    query,
+                    finalFilters,
+                    start,
+                    count,
+                    sortCriteria,
+                    null);
+            return UrnSearchResultsMapper.map(inputContext, searchResult);
+          } catch (Exception e) {
+            log.warn(
+                "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
+                finalEntityNames,
+                query,
+                finalFilters,
+                start,
+                count);
+            throw new RuntimeException(
+                "Failed to execute search: "
+                    + String.format(
+                        "entity types %s, query %s, filters: %s, start: %s, count: %s",
+                        finalEntityNames, query, finalFilters, start, count),
+                e);
+          }
+        },
+        className,
+        "searchAcrossEntities");
   }
 }

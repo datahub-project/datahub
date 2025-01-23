@@ -1,8 +1,10 @@
 package com.linkedin.gms.factory.timeseries;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import javax.annotation.Nonnull;
@@ -25,12 +27,16 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
 
   @Bean(name = "elasticSearchTimeseriesAspectService")
   @Nonnull
-  protected ElasticSearchTimeseriesAspectService getInstance() {
+  protected ElasticSearchTimeseriesAspectService getInstance(
+      final QueryFilterRewriteChain queryFilterRewriteChain,
+      final ConfigurationProvider configurationProvider) {
     return new ElasticSearchTimeseriesAspectService(
         components.getSearchClient(),
         new TimeseriesAspectIndexBuilders(
             components.getIndexBuilder(), entityRegistry, components.getIndexConvention()),
         components.getBulkProcessor(),
-        components.getNumRetries());
+        components.getNumRetries(),
+        queryFilterRewriteChain,
+        configurationProvider.getTimeseriesAspectService());
   }
 }

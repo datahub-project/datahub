@@ -1,0 +1,87 @@
+name: Prefect Plugin
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/prefect-plugin.yml"
+      - "metadata-ingestion-modules/prefect-plugin/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/prefect-plugin.yml"
+      - "metadata-ingestion-modules/prefect-plugin/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prefect-plugin:
+    runs-on: ubuntu-latest
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+      fail-fast: false
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Install prefect package
+        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint :metadata-ingestion-modules:prefect-plugin:testQuick
+      - name: pip freeze show list installed
+        if: always()
+        run: source metadata-ingestion-modules/prefect-plugin/venv/bin/activate && uv pip freeze
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && matrix.python-version == '3.11'}}
+        with:
+          name: Test Results (Prefect Plugin ${{ matrix.python-version}})
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+      - name: Upload coverage to Codecov with ingestion flag
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion-modules/prefect-plugin/
+          fail_ci_if_error: false
+          flags: ingestion-prefect-plugin
+          name: pytest-prefect-${{ matrix.python-version }}
+          verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

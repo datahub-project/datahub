@@ -18,11 +18,13 @@ import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
 import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
+import StructuredPropertyBadge from './StructuredPropertyBadge';
 
 const TitleWrapper = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    gap: 8px;
 
     .ant-typography-edit-content {
         padding-top: 7px;
@@ -60,6 +62,7 @@ const TopButtonsWrapper = styled.div`
 export function getCanEditName(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
+    isEditableDatasetNameEnabled: boolean,
     privileges?: PlatformPrivileges,
 ) {
     switch (entityType) {
@@ -73,7 +76,7 @@ export function getCanEditName(
         case EntityType.BusinessAttribute:
             return privileges?.manageBusinessAttributes;
         case EntityType.Dataset:
-            return entityData?.privileges?.canEditProperties;
+            return isEditableDatasetNameEnabled && entityData?.privileges?.canEditProperties;
         default:
             return false;
     }
@@ -99,9 +102,13 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isEditableDatasetNameEnabled &&
         isNameEditable &&
-        getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        getCanEditName(
+            entityType,
+            entityData,
+            isEditableDatasetNameEnabled,
+            me?.platformPrivileges as PlatformPrivileges,
+        );
     const entityRegistry = useEntityRegistry();
 
     return (
@@ -127,6 +134,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
                                 )}
+                                <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
                             </TitleWrapper>
                             <EntityCount
                                 entityCount={entityCount}

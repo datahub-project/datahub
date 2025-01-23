@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
@@ -45,11 +46,7 @@ public class DomainEntitiesResolverTest {
     final String childUrn = "urn:li:dataset:(test,test,test)";
     final String domainUrn = "urn:li:domain:test-domain";
 
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("domains.keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue(domainUrn);
+    final Criterion filterCriterion = buildCriterion("domains.keyword", Condition.EQUAL, domainUrn);
 
     Mockito.when(
             mockClient.searchAcrossEntities(

@@ -9,6 +9,8 @@ import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.service.UpdateIndicesService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +35,8 @@ import org.testng.annotations.Test;
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
 public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
+  @Autowired private UpdateIndicesService updateIndicesService;
+
   @Test
   public void testHooks() {
     MCLKafkaListenerRegistrar registrar =
@@ -54,5 +58,17 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
         registrar.getMetadataChangeLogHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
+  }
+
+  @Test
+  public void testUpdateIndicesServiceInit() {
+    assertNotNull(updateIndicesService);
+    assertTrue(updateIndicesService.isSearchDiffMode());
+    assertTrue(updateIndicesService.isStructuredPropertiesHookEnabled());
+    assertTrue(updateIndicesService.isStructuredPropertiesWriteEnabled());
+
+    assertNotNull(updateIndicesService.getUpdateGraphIndicesService());
+    assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphDiffMode());
+    assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
   }
 }

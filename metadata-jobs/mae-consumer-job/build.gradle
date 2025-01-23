@@ -4,6 +4,7 @@ plugins {
     id 'com.palantir.docker'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {

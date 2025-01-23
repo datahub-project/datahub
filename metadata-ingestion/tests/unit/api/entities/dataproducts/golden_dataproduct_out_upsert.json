@@ -5,8 +5,59 @@
     "changeType": "PATCH",
     "aspectName": "dataProductProperties",
     "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/name\", \"value\": \"Pet of the Week Campaign\"}, {\"op\": \"add\", \"path\": \"/assets\", \"value\": [{\"destinationUrn\": \"urn:li:container:DATABASE\", \"created\": {\"time\": 1681455600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"yaml\"}}, {\"destinationUrn\": \"urn:li:container:SCHEMA\", \"created\": {\"time\": 1681455600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"yaml\"}}, {\"destinationUrn\": \"urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)\", \"created\": {\"time\": 1681455600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"yaml\"}}]}, {\"op\": \"add\", \"path\": \"/customProperties\", \"value\": {\"version\": \"2.0\", \"classification\": \"pii\"}}, {\"op\": \"add\", \"path\": \"/externalUrl\", \"value\": \"https://github.com/datahub-project/datahub\"}]",
-        "contentType": "application/json-patch+json"
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "Pet of the Week Campaign"
+            },
+            {
+                "op": "add",
+                "path": "/assets",
+                "value": [
+                    {
+                        "destinationUrn": "urn:li:container:DATABASE",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    },
+                    {
+                        "destinationUrn": "urn:li:container:SCHEMA",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    },
+                    {
+                        "destinationUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
+                        "created": {
+                            "time": 1681455600000,
+                            "actor": "urn:li:corpuser:datahub",
+                            "message": "yaml"
+                        },
+                        "outputPort": false
+                    }
+                ]
+            },
+            {
+                "op": "add",
+                "path": "/customProperties",
+                "value": {
+                    "version": "2.0",
+                    "classification": "pii"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://github.com/datahub-project/datahub"
+            }
+        ]
     }
 },
 {
@@ -70,6 +121,7 @@
                     "type": "BUSINESS_OWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"

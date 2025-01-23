@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
@@ -39,16 +40,25 @@ public class MceConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public SystemEntityClient systemEntityClient(
-      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider) {
+      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+      final EntityClientConfig entityClientConfig) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
         restClient,
-        new ExponentialBackoff(1),
-        1,
-        configurationProvider.getCache().getClient().getEntityClient(),
-        1,
-        2);
+        entityClientConfig,
+        configurationProvider.getCache().getClient().getEntityClient());
+  }
+
+  @Bean
+  @Primary
+  public EntityClientConfig entityClientConfig() {
+    return EntityClientConfig.builder()
+        .backoffPolicy(new ExponentialBackoff(1))
+        .retryCount(1)
+        .batchGetV2Size(1)
+        .batchGetV2Concurrency(2)
+        .build();
   }
 
   @MockBean public Database ebeanServer;

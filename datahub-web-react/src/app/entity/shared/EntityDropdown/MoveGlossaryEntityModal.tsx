@@ -67,7 +67,7 @@ function MoveGlossaryEntityModal(props: Props) {
         <Modal
             data-testid="move-glossary-entity-modal"
             title="Move"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

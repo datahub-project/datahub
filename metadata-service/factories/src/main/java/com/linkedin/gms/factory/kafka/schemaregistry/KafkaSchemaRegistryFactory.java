@@ -1,10 +1,9 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -43,8 +42,9 @@ public class KafkaSchemaRegistryFactory {
 
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
-    Map<String, Object> props = new HashMap<>();
+  protected KafkaConfiguration.SerDeKeyValueConfig getInstance(
+      ConfigurationProvider configurationProvider) {
+    Map<String, String> props = new HashMap<>();
     // FIXME: Properties for this factory should come from ConfigurationProvider object,
     // specifically under the
     // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
@@ -65,7 +65,9 @@ public class KafkaSchemaRegistryFactory {
           sslKeystoreLocation);
     }
 
-    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+    return configurationProvider.getKafka().getSerde().getEvent().toBuilder()
+        .properties(props)
+        .build();
   }
 
   private String withNamespace(String configKey) {

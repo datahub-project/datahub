@@ -156,6 +156,15 @@ type PlatformPrivileges {
   """
   manageBusinessAttributes: Boolean!
 
+  """
+  Whether the user can create, edit, and delete structured properties.
+  """
+  manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
 }
 
 """
@@ -517,6 +526,16 @@ type FeatureFlagsConfig {
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!
+
+  """
+  If turned on, show the manage structured properties tab in the govern dropdown
+  """
+  showManageStructuredProperties: Boolean!
+
+  """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
 }
 
 """

@@ -8,6 +8,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.ExtensionRegistry;
 import datahub.protobuf.model.ProtobufGraph;
 import java.io.IOException;
+import java.util.Arrays;
 import org.testng.annotations.Test;
 
 public class ProtobufUtilsTest {
@@ -43,5 +44,20 @@ public class ProtobufUtilsTest {
             + "[meta.msg.repeat_enum]: ENTITY\n"
             + "[meta.msg.repeat_enum]: EVENT\n",
         graph.root().messageProto().getOptions().toString());
+  }
+
+  @Test
+  public void testCollapseLocationCommentsWithUTF8() {
+    DescriptorProtos.SourceCodeInfo.Location location =
+        DescriptorProtos.SourceCodeInfo.Location.newBuilder()
+            .addAllLeadingDetachedComments(Arrays.asList("/* Emoji 😊 */", "/* Accented é */"))
+            .setLeadingComments("/* Chinese 你好 */\n// Russian Привет")
+            .setTrailingComments("// Korean 안녕")
+            .build();
+
+    String actual = ProtobufUtils.collapseLocationComments(location);
+    String expected = "Emoji 😊 */\nAccented é */\nChinese 你好 */\nRussian Привет\nKorean 안녕";
+
+    assertEquals(expected, actual);
   }
 }

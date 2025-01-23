@@ -1,5 +1,4 @@
 import contextlib
-import enum
 import functools
 import json
 import logging
@@ -34,7 +33,9 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+    DatahubClientConfig as DatahubClientConfig,
+)
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
@@ -66,7 +67,9 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
@@ -176,18 +179,24 @@ class DataHubGraph(DatahubRestEmitter):
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
+        session_config = emitter._session_config
+        if isinstance(session_config.timeout, tuple):
+            # TODO: This is slightly lossy. Eventually, we want to modify the emitter
+            # to accept a tuple for timeout_sec, and then we'll be able to remove this.
+            timeout_sec: Optional[float] = session_config.timeout[0]
+        else:
+            timeout_sec = session_config.timeout
         return cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
-                timeout_sec=emitter._read_timeout_sec,
-                retry_status_codes=emitter._retry_status_codes,
-                retry_max_times=emitter._retry_max_times,
-                extra_headers=emitter._session.headers,
-                disable_ssl_verification=emitter._session.verify is False,
-                # TODO: Support these headers.
-                # ca_certificate_path=emitter._ca_certificate_path,
-                # client_certificate_path=emitter._client_certificate_path,
+                timeout_sec=timeout_sec,
+                retry_status_codes=session_config.retry_status_codes,
+                retry_max_times=session_config.retry_max_times,
+                extra_headers=session_config.extra_headers,
+                disable_ssl_verification=session_config.disable_ssl_verification,
+                ca_certificate_path=session_config.ca_certificate_path,
+                client_certificate_path=session_config.client_certificate_path,
             )
         )
 
@@ -214,33 +223,36 @@ class DataHubGraph(DatahubRestEmitter):
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
 
-    def _make_rest_sink_config(self) -> "DatahubRestSinkConfig":
-        from datahub.ingestion.sink.datahub_rest import (
-            DatahubRestSinkConfig,
-            RestSinkMode,
-        )
+    def _make_rest_sink_config(
+        self, extra_config: Optional[Dict] = None
+    ) -> "DatahubRestSinkConfig":
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 
         # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
         # but initializing the rest sink creates another rest emitter.
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), mode=RestSinkMode.ASYNC)
+        return DatahubRestSinkConfig(**self.config.dict(), **(extra_config or {}))
 
     @contextlib.contextmanager
     def make_rest_sink(
-        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+        self,
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+        extra_sink_config: Optional[Dict] = None,
     ) -> Iterator["DatahubRestSink"]:
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 
-        sink_config = self._make_rest_sink_config()
+        sink_config = self._make_rest_sink_config(extra_config=extra_sink_config)
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
+            logger.error(
+                f"Failed to emit {len(sink.report.failures)} records\n{sink.report.as_string()}"
+            )
             raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
+                f"Failed to emit {len(sink.report.failures)} records"
             )
 
     def emit_all(
@@ -350,6 +362,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=GlossaryTermsClass)
 
+    @functools.lru_cache(maxsize=1)
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
@@ -506,9 +519,9 @@ class DataHubGraph(DatahubRestEmitter):
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
-        assert len(aspects) == len(
-            aspect_types
-        ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        assert len(aspects) == len(aspect_types), (
+            f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        )
 
         # TODO: generate aspects list from type classes
         response_json = self.get_entity_raw(entity_urn, aspects)
@@ -526,6 +539,52 @@ class DataHubGraph(DatahubRestEmitter):
                 result[aspect_type_name] = None
 
         return result
+
+    def get_entity_as_mcps(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Get all non-timeseries aspects for an entity.
+
+        By formatting the entity's aspects as MCPWs, we can also include SystemMetadata.
+
+        Warning: Do not use this method to determine if an entity exists! This method will always return
+        something, even if the entity doesn't actually exist in DataHub.
+
+        Args:
+            entity_urn: The urn of the entity
+            aspects: Optional list of aspect names being requested (e.g. ["schemaMetadata", "datasetProperties"])
+
+        Returns:
+            A list of MCPWs.
+        """
+
+        response_json = self.get_entity_raw(entity_urn, aspects)
+
+        # Now, we parse the response into proper aspect objects.
+        results: List[MetadataChangeProposalWrapper] = []
+        for aspect_name, aspect_json in response_json.get("aspects", {}).items():
+            aspect_type = ASPECT_NAME_MAP.get(aspect_name)
+            if aspect_type is None:
+                logger.warning(f"Ignoring unknown aspect type {aspect_name}")
+                continue
+
+            post_json_obj = post_json_transform(aspect_json)
+            aspect_value = aspect_type.from_obj(post_json_obj["value"])
+
+            system_metadata_raw = post_json_obj.get("systemMetadata")
+            system_metadata = None
+            if system_metadata_raw:
+                system_metadata = SystemMetadataClass.from_obj(system_metadata_raw)
+
+            mcpw = MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=aspect_value,
+                systemMetadata=system_metadata,
+            )
+
+            results.append(mcpw)
+
+        return results
 
     def get_entity_semityped(
         self, entity_urn: str, aspects: Optional[List[str]] = None
@@ -545,19 +604,12 @@ class DataHubGraph(DatahubRestEmitter):
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        response_json = self.get_entity_raw(entity_urn, aspects)
+        mcps = self.get_entity_as_mcps(entity_urn, aspects=aspects)
 
-        # Now, we parse the response into proper aspect objects.
         result: AspectBag = {}
-        for aspect_name, aspect_json in response_json.get("aspects", {}).items():
-            aspect_type = ASPECT_NAME_MAP.get(aspect_name)
-            if aspect_type is None:
-                logger.warning(f"Ignoring unknown aspect type {aspect_name}")
-                continue
-
-            post_json_obj = post_json_transform(aspect_json)
-            aspect_value = aspect_type.from_obj(post_json_obj["value"])
-            result[aspect_name] = aspect_value  # type: ignore
+        for mcp in mcps:
+            if mcp.aspect:
+                result[mcp.aspect.get_aspect_name()] = mcp.aspect  # type: ignore
 
         return result
 
@@ -1138,9 +1190,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result["data"]
 
-    class RelationshipDirection(str, enum.Enum):
-        # FIXME: Upgrade to enum.StrEnum when we drop support for Python 3.10
-
+    class RelationshipDirection(StrEnum):
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
@@ -1202,14 +1252,29 @@ class DataHubGraph(DatahubRestEmitter):
         Args:
             urn: The urn of the entity to soft-delete.
         """
+        self.set_soft_delete_status(
+            urn=urn, run_id=run_id, deletion_timestamp=deletion_timestamp, delete=True
+        )
 
+    def set_soft_delete_status(
+        self,
+        urn: str,
+        delete: bool,
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+        deletion_timestamp: Optional[int] = None,
+    ) -> None:
+        """Change status of soft-delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to soft-delete.
+        """
         assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
         self.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=StatusClass(removed=True),
+                aspect=StatusClass(removed=delete),
                 systemMetadata=SystemMetadataClass(
                     runId=run_id, lastObserved=deletion_timestamp
                 ),
@@ -1511,9 +1576,7 @@ class DataHubGraph(DatahubRestEmitter):
                     ... assertionResult
                 }
             }
-        """ % (
-            self._assertion_result_shared()
-        )
+        """ % (self._assertion_result_shared())
 
         variables = {
             "assertionUrn": urn,
@@ -1742,9 +1805,9 @@ class DataHubGraph(DatahubRestEmitter):
             "type": type,
             "properties": properties,
             "externalUrl": external_url,
-            "error": {"type": error_type, "message": error_message}
-            if error_type
-            else None,
+            "error": (
+                {"type": error_type, "message": error_message} if error_type else None
+            ),
         }
 
         res = self.execute_graphql(
@@ -1763,4 +1826,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph

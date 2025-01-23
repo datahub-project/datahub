@@ -1,0 +1,38 @@
+version: "1"
+services:
+  test-cassandra:
+    image: cassandra:latest
+    container_name: test-cassandra
+    ports:
+      - 9042:9042
+    volumes:
+      - ./setup/cassandra.yaml:/etc/cassandra/cassandra.yaml
+      - ./setup/init_keyspaces.cql:/docker-entrypoint-initdb.d/init_keyspaces.cql
+    networks:
+      - testnet
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  test-cassandra-load-keyspace:
+    container_name: test-cassandra-load-keyspace
+    image: cassandra:latest
+    depends_on:
+      test-cassandra:
+        condition: service_healthy
+    volumes:
+      - ./setup/init_keyspaces.cql:/init_keyspaces.cql
+    command: /bin/bash -c "echo loading cassandra keyspace && cqlsh test-cassandra -f init_keyspaces.cql"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 100s
+    networks:
+      - testnet
+
+networks:
+  testnet:
