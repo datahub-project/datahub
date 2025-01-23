@@ -156,7 +156,7 @@ class MSSQLDataJob:
     entity: Union[StoredProcedure, JobStep]
     type: str = "dataJob"
     source: str = "mssql"
-    external_url: str = ""
+    external_url: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     incoming: List[str] = field(default_factory=list)
@@ -228,7 +228,7 @@ class MSSQLDataFlow:
     entity: Union[MSSQLJob, MSSQLProceduresContainer]
     type: str = "dataFlow"
     source: str = "mssql"
-    external_url: str = ""
+    external_url: Optional[str] = None
     flow_properties: Dict[str, str] = field(default_factory=dict)
 
     def add_property(
