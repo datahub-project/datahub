@@ -26,6 +26,10 @@ import SummaryTab from './profile/DataProcessInstanceSummary';
 //         ''
 //     );
 // };
+type PreviewEntity = {
+    urn: string;
+    type: EntityType;
+};
 
 const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
     const parentEntity = data?.relationships?.relationships?.find(
@@ -151,10 +155,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     renderPreview = (_: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
-        type PreviewEntity = {
-            urn: string;
-            type: EntityType;
-        };
         return (
             <Preview
                 urn={data.urn}
@@ -185,10 +185,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         const parentEntities = getParentEntities(data);
 
         const firstState = data?.state && data.state.length > 0 ? data.state[0] : undefined;
-        type PreviewEntity = {
-            urn: string;
-            type: EntityType;
-        };
 
         return (
             <Preview
