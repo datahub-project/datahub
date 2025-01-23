@@ -138,7 +138,7 @@ jobs:
           echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "INTEGRATION_SERVICE_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-integrations-service' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "EXECUTOR_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-executor' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (build)
@@ -215,7 +215,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}
