@@ -21,7 +21,7 @@ from tests.utils import delete_urns
 generated_urns: List[str] = []
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(auth_session, graph_client, request):
     yield
     delete_urns(graph_client, generated_urns)
