@@ -110,6 +110,10 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         self.__post_init__()
 
     def __post_init__(self) -> None:
+        """Hook called after the sink's main initialization is complete.
+
+        Sink subclasses can override this method to customize initialization.
+        """
         pass
 
     @classmethod
@@ -117,9 +121,17 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         return cls(ctx, cls.get_config_class().parse_obj(config_dict))
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        """Called at the start of each new workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        """Called at the end of each workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     @abstractmethod
