@@ -857,7 +857,6 @@ setuptools.setup(
         "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
-    data_files=[('', ['../LICENSE'])],
     description="A CLI to work with DataHub metadata",
     long_description="""\
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
