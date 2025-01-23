@@ -43,7 +43,7 @@
 
 **Additional Notes**
 
-Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views. This behavior is sufficient since DataHub LookML ingestion processes only views and their upstream dependencies.
+Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.
 
 ### Multi-Project LookML (Advanced)
 
