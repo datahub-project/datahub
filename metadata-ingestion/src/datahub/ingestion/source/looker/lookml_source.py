@@ -885,6 +885,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_urn = maybe_looker_view.id.get_urn(
                                     self.source_config
                                 )
+
                                 view_connection_mapping = view_connection_map.get(
                                     view_urn
                                 )
@@ -943,28 +944,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 )
 
         if not self.source_config.emit_reachable_views_only:
-            view_files: Dict[str, List[pathlib.Path]] = {}
-            # Collect view files from each project
-            for project, folder_path in self.base_projects_folder.items():
-                folder = pathlib.Path(folder_path)
-                view_files[project] = list(folder.glob(f"**/*{VIEW_FILE_EXTENSION}"))
-
-            for project, views in view_files.items():
-                for view_path in views:
-                    # Check if the view is already in processed_view_map
-                    if not any(
-                        str(view_path) in view_set
-                        for view_set in processed_view_map.values()
-                    ):
-                        self.reporter.info(
-                            title="Skipped View File",
-                            message=(
-                                "The Looker view file was skipped because it may not be referenced by any models."
-                            ),
-                            context=(
-                                f"Project: {project}, " f"View File Path: {view_path}, "
-                            ),
-                        )
+            self.report_skipped_unreachable_views(viewfile_loader, processed_view_map)
 
         if (
             self.source_config.tag_measures_and_dimensions
@@ -992,6 +972,50 @@ class LookMLSource(StatefulIngestionSourceBase):
                 path=[BrowsePathEntryClass("Folders")],
             ),
         ).as_workunit()
+
+    def report_skipped_unreachable_views(
+        self,
+        viewfile_loader: LookerViewFileLoader,
+        processed_view_map: Dict[str, Set[str]] = {},
+    ) -> None:
+        view_files: Dict[str, List[pathlib.Path]] = {}
+        # Collect view files from each project
+        for project, folder_path in self.base_projects_folder.items():
+            folder = pathlib.Path(folder_path)
+            view_files[project] = list(folder.glob(f"**/*{VIEW_FILE_EXTENSION}"))
+
+        for project, views in view_files.items():
+            for view_path in views:
+                # Check if the view is already in processed_view_map
+                if not any(
+                    str(view_path) in view_set
+                    for view_set in processed_view_map.values()
+                ):
+                    looker_viewfile = viewfile_loader.load_viewfile(
+                        path=str(view_path),
+                        project_name=project,
+                        connection=None,
+                        reporter=self.reporter,
+                    )
+                    raw_view_name = ""
+                    if looker_viewfile is not None:
+                        for raw_view in looker_viewfile.views:
+                            raw_view_name = raw_view["name"]
+                            break
+
+                    if not raw_view_name:
+                        continue
+
+                    if self.source_config.view_pattern.allowed(raw_view_name):
+                        self.reporter.report_warning(
+                            title="Skipped View File",
+                            message=(
+                                "The Looker view file was skipped because it may not be referenced by any models."
+                            ),
+                            context=(
+                                f"Project: {project}, View File Path: {view_path}, "
+                            ),
+                        )
 
     def get_report(self):
         return self.reporter
