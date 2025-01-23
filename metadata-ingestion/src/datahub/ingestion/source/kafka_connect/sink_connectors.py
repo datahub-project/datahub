@@ -199,9 +199,9 @@ class BigQuerySinkConnector(BaseConnector):
             transforms.append(transform)
             for key in self.connector_manifest.config.keys():
                 if key.startswith(f"transforms.{name}."):
-                    transform[
-                        key.replace(f"transforms.{name}.", "")
-                    ] = self.connector_manifest.config[key]
+                    transform[key.replace(f"transforms.{name}.", "")] = (
+                        self.connector_manifest.config[key]
+                    )
 
         if "defaultDataset" in connector_manifest.config:
             defaultDataset = connector_manifest.config["defaultDataset"]

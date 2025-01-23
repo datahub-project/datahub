@@ -176,7 +176,7 @@ def get(
             )
         )
     end_time = time.time()
-    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+    logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
 
 
 @lite.command()
@@ -228,7 +228,7 @@ def ls(path: Optional[str]) -> None:
     try:
         browseables = lite.ls(path)
         end_time = time.time()
-        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+        logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]

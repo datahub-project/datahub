@@ -172,6 +172,7 @@ fragment nonSiblingDatasetFields on Dataset {
     forms {
         ...formsFields
     }
+    ...entityProfileVersionProperties
 }
 
 query getRecentQueries($urn: String!) {

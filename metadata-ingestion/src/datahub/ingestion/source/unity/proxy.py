@@ -363,7 +363,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     @staticmethod
     def _create_metastore(
-        obj: Union[GetMetastoreSummaryResponse, MetastoreInfo]
+        obj: Union[GetMetastoreSummaryResponse, MetastoreInfo],
     ) -> Optional[Metastore]:
         if not obj.name:
             return None

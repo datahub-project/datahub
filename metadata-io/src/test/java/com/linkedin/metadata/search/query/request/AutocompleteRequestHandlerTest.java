@@ -1,9 +1,12 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -13,22 +16,35 @@ import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -40,6 +56,8 @@ public class AutocompleteRequestHandlerTest {
   private static AutocompleteRequestHandler handler;
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
+  private OperationContext nonMockOpContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   static {
     testQueryConfig = new SearchConfiguration();
@@ -140,7 +158,7 @@ public class AutocompleteRequestHandlerTest {
     assertEquals("keyPart1.delimited", prefixQuery.fieldName());
 
     assertEquals(wrapper.mustNot().size(), 1);
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
@@ -185,7 +203,7 @@ public class AutocompleteRequestHandlerTest {
         (MatchPhrasePrefixQueryBuilder) query.should().get(1);
     assertEquals("field.delimited", prefixQuery.fieldName());
 
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
@@ -465,10 +483,148 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(wrapper.filterFunctionBuilders(), expectedCustomScoreFunctions);
   }
 
+  @Test
+  public void testFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getQuery(
+            filterCriterion,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            true);
+
+    List<QueryBuilder> isLatestQueries =
+        testQuery.filter().stream()
+            .filter(filter -> filter instanceof BoolQueryBuilder)
+            .flatMap(filter -> ((BoolQueryBuilder) filter).must().stream())
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertTrue(isLatestQueries.size() == 2, "Expected to find two queries");
+    final TermQueryBuilder termQueryBuilder = (TermQueryBuilder) isLatestQueries.get(0);
+    assertEquals(termQueryBuilder.fieldName(), "isLatest");
+    Set<Boolean> values = new HashSet<>();
+    values.add((Boolean) termQueryBuilder.value());
+
+    assertEquals(values.size(), 1, "Expected only true value.");
+    assertTrue(values.contains(true));
+    final ExistsQueryBuilder existsQueryBuilder = (ExistsQueryBuilder) isLatestQueries.get(1);
+    assertEquals(existsQueryBuilder.fieldName(), "isLatest");
+  }
+
+  @Test
+  public void testNoFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getQuery(
+            filterCriterion,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            false);
+
+    // bool -> filter -> [bool] -> must -> [bool]
+    List<QueryBuilder> isLatestQueries =
+        testQuery.filter().stream()
+            .filter(filter -> filter instanceof BoolQueryBuilder)
+            .flatMap(filter -> ((BoolQueryBuilder) filter).must().stream())
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
+  }
+
   private static QueryBuilder extractNestedQuery(BoolQueryBuilder nested) {
     assertEquals(nested.should().size(), 1);
     BoolQueryBuilder firstLevel = (BoolQueryBuilder) nested.should().get(0);
     assertEquals(firstLevel.should().size(), 1);
     return firstLevel.should().get(0);
+  }
+
+  private BoolQueryBuilder getQuery(
+      final Criterion filterCriterion, final EntitySpec entitySpec, boolean filterNonLatest) {
+    final Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))));
+
+    AutocompleteRequestHandler requestHandler =
+        AutocompleteRequestHandler.getBuilder(
+            entitySpec,
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig);
+
+    return (BoolQueryBuilder)
+        ((FunctionScoreQueryBuilder)
+                requestHandler
+                    .getSearchRequest(
+                        mockOpContext.withSearchFlags(
+                            flags ->
+                                flags
+                                    .setFulltext(false)
+                                    .setFilterNonLatestVersions(filterNonLatest)),
+                        "",
+                        "platform",
+                        filter,
+                        3)
+                    .source()
+                    .query())
+            .query();
   }
 }

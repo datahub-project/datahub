@@ -384,7 +384,6 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "varchar": StringType,
     "char": StringType,
     "varbinary": BytesType,
-    "json": RecordType,
     "date": DateType,
     "time": TimeType,
     "timestamp": TimeType,

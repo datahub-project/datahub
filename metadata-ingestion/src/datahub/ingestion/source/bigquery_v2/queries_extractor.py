@@ -271,9 +271,9 @@ class BigQueryQueriesExtractor(Closeable):
             # Preprocessing stage that deduplicates the queries using query hash per usage bucket
             # Note: FileBackedDict is an ordered dictionary, so the order of execution of
             # queries is inherently maintained
-            queries_deduped: FileBackedDict[
-                Dict[int, ObservedQuery]
-            ] = self.deduplicate_queries(queries)
+            queries_deduped: FileBackedDict[Dict[int, ObservedQuery]] = (
+                self.deduplicate_queries(queries)
+            )
             self.report.num_unique_queries = len(queries_deduped)
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 

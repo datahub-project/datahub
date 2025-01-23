@@ -1221,6 +1221,11 @@ enum EntityType {
     A Business Attribute
     """
     BUSINESS_ATTRIBUTE
+
+    """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
 }
 
 """
@@ -13023,11 +13028,6 @@ extend type DataProcessInstance {
     The parent container in which the entity resides
     """
     container: Container
-
-    """
-    Standardized platform urn where the data process instance is defined
-    """
-    platform: DataPlatform!
 
     """
     Recursively get the lineage of containers for this entity

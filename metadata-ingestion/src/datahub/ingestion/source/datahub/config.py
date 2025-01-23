@@ -25,6 +25,10 @@ DEFAULT_EXCLUDE_ASPECTS = {
     "globalSettingsKey",
     "globalSettingsInfo",
     "testResults",
+    "dataHubExecutionRequestKey",
+    "dataHubExecutionRequestInput",
+    "dataHubExecutionRequestSignal",
+    "dataHubExecutionRequestResult",
 }
 
 

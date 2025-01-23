@@ -893,11 +893,11 @@ class ModeSource(StatefulIngestionSourceBase):
                         jinja_params[key] = parameters[key].get("default", "")
 
                 normalized_query = re.sub(
-                    r"{% form %}(.*){% endform %}",
-                    "",
-                    query,
-                    0,
-                    re.MULTILINE | re.DOTALL,
+                    pattern=r"{% form %}(.*){% endform %}",
+                    repl="",
+                    string=query,
+                    count=0,
+                    flags=re.MULTILINE | re.DOTALL,
                 )
 
             # Wherever we don't resolve the jinja params, we replace it with NULL

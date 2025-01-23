@@ -4,6 +4,7 @@ import tempfile
 from random import randint
 
 import pytest
+
 from datahub.emitter.mce_builder import make_ml_model_group_urn, make_ml_model_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -14,7 +15,6 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
 )
-
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,
