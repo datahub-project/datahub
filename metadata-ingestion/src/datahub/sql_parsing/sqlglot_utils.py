@@ -404,7 +404,7 @@ def detach_ctes(
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
                 )
             break
         statement = new_statement

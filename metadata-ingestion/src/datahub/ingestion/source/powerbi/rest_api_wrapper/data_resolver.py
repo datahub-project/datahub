@@ -425,9 +425,9 @@ class DataResolverBase(ABC):
 
             response.raise_for_status()
 
-            assert (
-                Constant.VALUE in response.json()
-            ), "'value' key is not present in paginated response"
+            assert Constant.VALUE in response.json(), (
+                "'value' key is not present in paginated response"
+            )
 
             if not response.json()[Constant.VALUE]:  # if it is an empty list then break
                 break
@@ -447,13 +447,13 @@ class DataResolverBase(ABC):
         if raw_app is None:
             return None
 
-        assert (
-            Constant.ID in raw_app
-        ), f"{Constant.ID} is required field not present in server response"
+        assert Constant.ID in raw_app, (
+            f"{Constant.ID} is required field not present in server response"
+        )
 
-        assert (
-            Constant.NAME in raw_app
-        ), f"{Constant.NAME} is required field not present in server response"
+        assert Constant.NAME in raw_app, (
+            f"{Constant.NAME} is required field not present in server response"
+        )
 
         return App(
             id=raw_app[Constant.ID],

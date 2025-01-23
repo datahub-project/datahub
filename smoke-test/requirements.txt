@@ -9,10 +9,8 @@ joblib
 pytest-xdist
 networkx
 # libaries for linting below this
-black==23.7.0
-isort==5.12.0
 mypy==1.5.1
-ruff==0.0.287
+ruff==0.9.2
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
 types-requests>=2.28.11.6,<=2.31.0.3
 types-PyYAML

@@ -142,9 +142,9 @@ class _SnowflakeTagCache:
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
-        self._table_tags: Dict[
-            str, Dict[str, Dict[str, List[SnowflakeTag]]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        self._table_tags: Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[

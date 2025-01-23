@@ -14,6 +14,7 @@ from datahub.cli.cli_utils import (
     make_shim_command,
 )
 from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
+from datahub.cli.container_cli import container
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -44,6 +45,12 @@ logger = logging.getLogger(__name__)
 _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
+
+if sys.version_info >= (3, 12):
+    click.secho(
+        "Python versions above 3.11 are not tested with. Please use Python 3.11.",
+        fg="red",
+    )
 
 
 @click.group(
@@ -174,6 +181,7 @@ datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
 datahub.add_command(assertions)
+datahub.add_command(container)
 
 try:
     from datahub.cli.lite_cli import lite

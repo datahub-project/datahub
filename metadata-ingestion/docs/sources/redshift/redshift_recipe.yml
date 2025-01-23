@@ -1,3 +1,4 @@
+source:
   type: redshift
   config:
     # Coordinates

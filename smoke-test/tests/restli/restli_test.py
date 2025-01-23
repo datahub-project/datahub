@@ -4,6 +4,7 @@ import time
 from typing import List
 
 import pytest
+
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import make_dashboard_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,7 +17,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
-
 from tests.utils import delete_urns
 
 generated_urns: List[str] = []

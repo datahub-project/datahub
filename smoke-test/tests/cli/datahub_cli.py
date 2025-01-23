@@ -1,11 +1,11 @@
 import json
 
 import pytest
+
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     EditableDatasetPropertiesClass,
 )
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 ingested_dataset_run_id = ""

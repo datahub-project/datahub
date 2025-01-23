@@ -296,9 +296,9 @@ def _restore(
     restore_indices: Optional[bool],
     primary_restore_file: Optional[str],
 ) -> int:
-    assert (
-        restore_primary or restore_indices
-    ), "Either restore_primary or restore_indices must be set"
+    assert restore_primary or restore_indices, (
+        "Either restore_primary or restore_indices must be set"
+    )
     msg = "datahub> "
     if restore_primary:
         msg += f"Will restore primary database from {primary_restore_file}. "
@@ -314,9 +314,9 @@ def _restore(
         assert primary_restore_file
         resolved_restore_file = os.path.expanduser(primary_restore_file)
         logger.info(f"Restoring primary db from backup at {resolved_restore_file}")
-        assert os.path.exists(
-            resolved_restore_file
-        ), f"File {resolved_restore_file} does not exist"
+        assert os.path.exists(resolved_restore_file), (
+            f"File {resolved_restore_file} does not exist"
+        )
         with open(resolved_restore_file) as fp:
             result = subprocess.run(
                 [

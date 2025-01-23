@@ -549,9 +549,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         ):
             # NOTE: Generated emails may be incorrect, as email may be different than
             # username@email_domain
-            event_dict[
-                "EMAIL"
-            ] = f'{event_dict["USER_NAME"]}@{self.config.email_domain}'.lower()
+            event_dict["EMAIL"] = (
+                f"{event_dict['USER_NAME']}@{self.config.email_domain}".lower()
+            )
 
         if not event_dict["EMAIL"]:
             self.report.rows_missing_email += 1

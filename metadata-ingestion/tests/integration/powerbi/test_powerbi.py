@@ -828,9 +828,9 @@ def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
     # Generate default dataset_type_mapping and compare it with source_config.dataset_type_mapping
     default_dataset_type_mapping: dict = {}
     for item in SupportedDataPlatform:
-        default_dataset_type_mapping[
-            item.value.powerbi_data_platform_name
-        ] = item.value.datahub_data_platform_name
+        default_dataset_type_mapping[item.value.powerbi_data_platform_name] = (
+            item.value.datahub_data_platform_name
+        )
 
     assert default_dataset_type_mapping == source_config.dataset_type_mapping
 
@@ -1438,14 +1438,14 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "Missing Lineage For Tile":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), 'Info message "Missing Lineage For Tile" should be present in reporter'
+    assert is_entry_present, (
+        'Info message "Missing Lineage For Tile" should be present in reporter'
+    )
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -1563,11 +1563,11 @@ def test_powerbi_app_ingest_info_message(
 
     is_entry_present: bool = False
     # Printing INFO entries
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "App Ingestion Is Disabled":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    assert is_entry_present, (
+        "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    )
