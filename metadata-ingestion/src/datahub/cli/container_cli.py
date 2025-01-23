@@ -1,10 +1,13 @@
 import logging
-from typing import List
+from typing import Any, List
 
 import click
+import progressbar
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
+    DomainsClass,
     GlossaryTermAssociationClass,
     OwnerClass,
     OwnershipTypeClass,
@@ -27,12 +30,12 @@ def apply_association_to_container(
     association_type: str,
 ) -> None:
     """
-    Common function to add either tags, terms, or owners to child datasets (for now).
+    Common function to add either tags, terms, domains, or owners to child datasets (for now).
 
     Args:
         container_urn: The URN of the container
         association_urn: The URN of the tag, term, or user to apply
-        association_type: One of 'tag', 'term', or 'owner'
+        association_type: One of 'tag', 'term', 'domain' or 'owner'
     """
     urns: List[str] = []
     graph = get_default_graph()
@@ -43,10 +46,10 @@ def apply_association_to_container(
         )
     )
 
+    all_patches: List[Any] = []
     for urn in urns:
-        logger.info(f"Adding {association_type} {association_urn} to {urn}")
         builder = DatasetPatchBuilder(urn)
-
+        patches: List[Any] = []
         if association_type == "tag":
             patches = builder.add_tag(TagAssociationClass(association_urn)).build()
         elif association_type == "term":
@@ -60,9 +63,17 @@ def apply_association_to_container(
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
             ).build()
-
-        for mcp in patches:
-            graph.emit(mcp)
+        elif association_type == "domain":
+            patches = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DomainsClass(domains=[association_urn]),
+                )
+            ]
+        all_patches.extend(patches)
+    mcps_iter = progressbar.progressbar(all_patches, redirect_stdout=True)
+    for mcp in mcps_iter:
+        graph.emit(mcp)
 
 
 @container.command()
@@ -83,7 +94,15 @@ def term(container_urn: str, term_urn: str) -> None:
 
 @container.command()
 @click.option("--container-urn", required=True, type=str)
-@click.option("--owner-id", required=True, type=str)
-def owner(container_urn: str, owner_id: str) -> None:
+@click.option("--owner-urn", required=True, type=str)
+def owner(container_urn: str, owner_urn: str) -> None:
     """Add patch to add a owner to all datasets in a container"""
-    apply_association_to_container(container_urn, owner_id, "owner")
+    apply_association_to_container(container_urn, owner_urn, "owner")
+
+
+@container.command()
+@click.option("--container-urn", required=True, type=str)
+@click.option("--domain-urn", required=True, type=str)
+def domain(container_urn: str, domain_urn: str) -> None:
+    """Add patch to add a domain to all datasets in a container"""
+    apply_association_to_container(container_urn, domain_urn, "domain")
