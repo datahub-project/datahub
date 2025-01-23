@@ -506,7 +506,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             else:
                 error_msg = "Failed to get secure views definitions."
             self.structured_reporter.warning(
-                error_msg + " Lineage will be missing for the view.",
+                f"{error_msg} Lineage will be missing for the view.",
                 context=f"{db_name}.{schema_name}.{table_name}",
                 exc=e,
             )
