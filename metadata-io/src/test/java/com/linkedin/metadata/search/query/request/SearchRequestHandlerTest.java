@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
@@ -56,6 +57,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -433,7 +436,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   private void testFilterQuery(BoolQueryBuilder testQuery) {
-    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition =
+    Optional<TermQueryBuilder> mustNotHaveRemovedCondition =
         testQuery.filter().stream()
             .filter(or -> or instanceof BoolQueryBuilder)
             .map(or -> (BoolQueryBuilder) or)
@@ -442,8 +445,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   System.out.println("processing: " + or.mustNot());
                   return or.mustNot().stream();
                 })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
+            .filter(and -> and instanceof TermQueryBuilder)
+            .map(and -> (TermQueryBuilder) and)
             .filter(match -> match.fieldName().equals("removed"))
             .findAny();
 
@@ -772,6 +775,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 EntityType.SCHEMA_FIELD,
                 Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_PROCESS_INSTANCE,
+                Stream.concat(
+                        COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
+                    .collect(Collectors.toSet()))
             .build();
 
     for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
@@ -800,7 +808,214 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     }
   }
 
+  @Test
+  public void testFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getQuery(
+            filterCriterion,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            true);
+
+    List<QueryBuilder> isLatestQueries =
+        testQuery.filter().stream()
+            .filter(filter -> filter instanceof BoolQueryBuilder)
+            .flatMap(filter -> ((BoolQueryBuilder) filter).must().stream())
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertEquals(isLatestQueries.size(), 2, "Expected to find two queries");
+    final TermQueryBuilder termQueryBuilder = (TermQueryBuilder) isLatestQueries.get(0);
+    assertEquals(termQueryBuilder.fieldName(), "isLatest");
+    Set<Boolean> values = new HashSet<>();
+    values.add((Boolean) termQueryBuilder.value());
+
+    assertEquals(values.size(), 1, "Expected only true value.");
+    assertTrue(values.contains(true));
+    final ExistsQueryBuilder existsQueryBuilder = (ExistsQueryBuilder) isLatestQueries.get(1);
+    assertEquals(existsQueryBuilder.fieldName(), "isLatest");
+  }
+
+  @Test
+  public void testNoFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getQuery(
+            filterCriterion,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            false);
+
+    List<QueryBuilder> isLatestQueries =
+        testQuery.filter().stream()
+            .filter(filter -> filter instanceof BoolQueryBuilder)
+            .flatMap(filter -> ((BoolQueryBuilder) filter).must().stream())
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
+  }
+
+  @Test
+  public void testAggregationFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getAggregationQuery(
+            filterCriterion,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            true);
+
+    List<QueryBuilder> isLatestQueries =
+        testQuery.must().stream()
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertEquals(isLatestQueries.size(), 2, "Expected to find two queries");
+    final TermQueryBuilder termQueryBuilder = (TermQueryBuilder) isLatestQueries.get(0);
+    assertEquals(termQueryBuilder.fieldName(), "isLatest");
+    Set<Boolean> values = new HashSet<>();
+    values.add((Boolean) termQueryBuilder.value());
+
+    assertEquals(values.size(), 1, "Expected only true value.");
+    assertTrue(values.contains(true));
+    final ExistsQueryBuilder existsQueryBuilder = (ExistsQueryBuilder) isLatestQueries.get(1);
+    assertEquals(existsQueryBuilder.fieldName(), "isLatest");
+  }
+
+  @Test
+  public void testAggregationNoFilterLatestVersions() {
+    final Criterion filterCriterion =
+        buildCriterion("platform", Condition.EQUAL, "mysql", "bigquery");
+
+    final BoolQueryBuilder testQuery =
+        getAggregationQuery(
+            filterCriterion,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            false);
+
+    List<QueryBuilder> isLatestQueries =
+        testQuery.must().stream()
+            .filter(must -> must instanceof BoolQueryBuilder)
+            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
+            .filter(should -> should instanceof BoolQueryBuilder)
+            .flatMap(
+                should -> {
+                  BoolQueryBuilder boolShould = (BoolQueryBuilder) should;
+
+                  // Get isLatest: true term queries
+                  Stream<QueryBuilder> filterQueries =
+                      boolShould.filter().stream()
+                          .filter(
+                              f ->
+                                  f instanceof TermQueryBuilder
+                                      && ((TermQueryBuilder) f).fieldName().equals("isLatest"));
+
+                  // Get isLatest exists queries
+                  Stream<QueryBuilder> existsQueries =
+                      boolShould.mustNot().stream()
+                          .filter(mn -> mn instanceof BoolQueryBuilder)
+                          .flatMap(mn -> ((BoolQueryBuilder) mn).must().stream())
+                          .filter(
+                              mq ->
+                                  mq instanceof ExistsQueryBuilder
+                                      && ((ExistsQueryBuilder) mq).fieldName().equals("isLatest"));
+
+                  return Stream.concat(filterQueries, existsQueries);
+                })
+            .collect(Collectors.toList());
+
+    assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
+  }
+
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
+    return getQuery(filterCriterion, TestEntitySpecBuilder.getSpec(), true);
+  }
+
+  private BoolQueryBuilder getQuery(
+      final Criterion filterCriterion, final EntitySpec entitySpec, boolean filterNonLatest) {
     final Filter filter =
         new Filter()
             .setOr(
@@ -811,7 +1026,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
             operationContext.getEntityRegistry(),
-            TestEntitySpecBuilder.getSpec(),
+            entitySpec,
             testQueryConfig,
             null,
             QueryFilterRewriteChain.EMPTY);
@@ -819,13 +1034,43 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     return (BoolQueryBuilder)
         requestHandler
             .getSearchRequest(
-                operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(false).setFilterNonLatestVersions(filterNonLatest)),
                 "",
                 filter,
                 null,
                 0,
                 10,
                 null)
+            .source()
+            .query();
+  }
+
+  private BoolQueryBuilder getAggregationQuery(
+      final Criterion filterCriterion, final EntitySpec entitySpec, boolean filterNonLatest) {
+    final Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))));
+
+    final SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext.getEntityRegistry(),
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY);
+
+    return (BoolQueryBuilder)
+        requestHandler
+            .getAggregationRequest(
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(false).setFilterNonLatestVersions(filterNonLatest)),
+                "platform",
+                filter,
+                10)
             .source()
             .query();
   }

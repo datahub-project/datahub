@@ -1,0 +1,175 @@
+fragment processInstanceRelationshipResults on EntityRelationshipsResult {
+    start
+    count
+    total
+    relationships {
+        type
+        direction
+        entity {
+            urn
+            type
+            ... on Dataset {
+                name
+                properties {
+                    name
+                    description
+                    qualifiedName
+                }
+                editableProperties {
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                subTypes {
+                    typeNames
+                }
+                status {
+                    removed
+                }
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+                deprecation {
+                    ...deprecationFields
+                }
+                dataPlatformInstance {
+                    ...dataPlatformInstanceFields
+                }
+                subTypes {
+                    typeNames
+                }
+                editableProperties {
+                    description
+                }
+                status {
+                    removed
+                }
+            }
+        }
+    }
+}
+
+fragment dataProcessInstanceFields on DataProcessInstance {
+    urn
+    type
+    parentContainers {
+        ...parentContainersFields
+    }
+    container {
+        ...entityContainer
+    }
+    subTypes {
+        typeNames
+    }
+    properties {
+        name
+        createdTS: created {
+            time
+            actor
+        }
+        customProperties {
+            key
+            value
+        }
+    }
+    mlTrainingRunProperties {
+        outputUrls
+        trainingMetrics {
+            name
+            description
+            value
+        }
+        hyperParams {
+            name
+            description
+            value
+        }
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+        status
+        attempt
+        result {
+            resultType
+            nativeResultType
+        }
+        timestampMillis
+        durationMillis
+    }
+    relationships(input: { types: ["InstanceOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 50 }) {
+        ...processInstanceRelationshipResults
+    }
+}
+
+query getDataProcessInstance($urn: String!) {
+    dataProcessInstance(urn: $urn) {
+        urn
+        type
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+        container {
+            ...entityContainer
+        }
+        name
+        properties {
+            name
+            created {
+                time
+                actor
+            }
+        }
+        mlTrainingRunProperties {
+            id
+            outputUrls
+            trainingMetrics {
+                name
+                description
+                value
+            }
+            hyperParams {
+                name
+                description
+                value
+            }
+        }
+        relationships(
+            input: { types: ["InstanceOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 50 }
+        ) {
+            ...processInstanceRelationshipResults
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+            status
+            attempt
+            result {
+                resultType
+                nativeResultType
+            }
+            timestampMillis
+            durationMillis
+        }
+    }
+}

@@ -160,12 +160,12 @@ class SQLAlchemyQueryCombiner:
     _greenlets_by_thread_lock: threading.Lock = dataclasses.field(
         default_factory=lambda: threading.Lock()
     )
-    _queries_by_thread: Dict[
-        greenlet.greenlet, Dict[str, _QueryFuture]
-    ] = dataclasses.field(default_factory=lambda: collections.defaultdict(dict))
-    _greenlets_by_thread: Dict[
-        greenlet.greenlet, Set[greenlet.greenlet]
-    ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    _queries_by_thread: Dict[greenlet.greenlet, Dict[str, _QueryFuture]] = (
+        dataclasses.field(default_factory=lambda: collections.defaultdict(dict))
+    )
+    _greenlets_by_thread: Dict[greenlet.greenlet, Set[greenlet.greenlet]] = (
+        dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    )
 
     @staticmethod
     def _generate_sql_safe_identifier() -> str:

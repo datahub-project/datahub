@@ -172,7 +172,7 @@ def ingest_cleanup_data(auth_session, graph_client):
 
 def _get_js_files(base_path: str):
     file_paths = []
-    for root, dirs, files in os.walk(base_path):
+    for root, _, files in os.walk(base_path):
         for file in files:
             if file.endswith(".js"):
                 file_paths.append(os.path.relpath(os.path.join(root, file), base_path))

@@ -1221,6 +1221,11 @@ enum EntityType {
     A Business Attribute
     """
     BUSINESS_ATTRIBUTE
+
+    """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
 }
 
 """
@@ -6276,6 +6281,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6456,6 +6471,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     Additional read write properties associated with the Data Job
@@ -10078,7 +10103,7 @@ type MLModelProperties {
     """
     The display name of the model used in the UI
     """
-    name: String!
+    name: String
 
     """
     Detailed description of the model's purpose and characteristics
@@ -13003,11 +13028,6 @@ extend type DataProcessInstance {
     The parent container in which the entity resides
     """
     container: Container
-
-    """
-    Standardized platform urn where the data process instance is defined
-    """
-    platform: DataPlatform!
 
     """
     Recursively get the lineage of containers for this entity

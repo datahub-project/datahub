@@ -45,14 +45,17 @@ class SnowflakeTag:
     name: str
     value: str
 
-    def display_name(self) -> str:
+    def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
 
-    def identifier(self) -> str:
+    def tag_identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
     def _id_prefix_as_str(self) -> str:
         return f"{self.database}.{self.schema}.{self.name}"
+
+    def structured_property_identifier(self) -> str:
+        return f"snowflake.{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass
@@ -139,9 +142,9 @@ class _SnowflakeTagCache:
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
-        self._table_tags: Dict[
-            str, Dict[str, Dict[str, List[SnowflakeTag]]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        self._table_tags: Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[

@@ -37,9 +37,9 @@ logger = logging.getLogger(__name__)
 
 
 class SpecialVariable:
-    SPECIAL_VARIABLE_PATTERN: ClassVar[
-        str
-    ] = r"\b\w+(\.\w+)*\._(is_selected|in_query|is_filtered)\b"
+    SPECIAL_VARIABLE_PATTERN: ClassVar[str] = (
+        r"\b\w+(\.\w+)*\._(is_selected|in_query|is_filtered)\b"
+    )
     liquid_variable: dict
 
     def __init__(self, liquid_variable):

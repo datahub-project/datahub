@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-
 from datahub_airflow_plugin._config import DatahubLineageConfig
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (

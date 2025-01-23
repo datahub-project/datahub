@@ -12,6 +12,10 @@ DataHub has several APIs to manipulate metadata on the platform. Here's the list
 In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance.
 We don't recommend using the **OpenAPI** directly, as it's more complex and less user-friendly than the other APIs.
 
+:::warning
+About async usage of APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
+:::
+
 ## Python and Java SDK
 
 We offer an SDK for both Python and Java that provide full functionality when it comes to CRUD operations and any complex functionality you may want to build into DataHub. We recommend using the SDKs for most use cases. Here are the examples of how to use the SDKs:

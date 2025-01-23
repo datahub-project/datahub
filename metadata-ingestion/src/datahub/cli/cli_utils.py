@@ -3,7 +3,7 @@ import logging
 import time
 import typing
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
 import requests
@@ -31,6 +31,15 @@ log = logging.getLogger(__name__)
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
+
+
+_T = TypeVar("_T")
+
+
+def get_or_else(value: Optional[_T], default: _T) -> _T:
+    # Normally we'd use `value or default`. However, that runs into issues
+    # when value is falsey but not None.
+    return value if value is not None else default
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -321,6 +330,8 @@ def get_frontend_session_login_as(
 def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
     if "acryl.io" not in url:
         return url
+    if url.endswith(":8080"):
+        url = url.replace(":8080", "")
     if url.startswith("http://"):
         url = url.replace("http://", "https://")
     if url.endswith("acryl.io"):
@@ -401,7 +412,7 @@ def generate_access_token(
 def ensure_has_system_metadata(
     event: Union[
         MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
-    ]
+    ],
 ) -> None:
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()

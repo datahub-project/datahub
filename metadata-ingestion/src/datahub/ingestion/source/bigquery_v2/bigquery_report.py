@@ -190,6 +190,3 @@ class BigQueryV2Report(
     num_skipped_external_table_lineage: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
-
-    def set_ingestion_stage(self, project_id: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{project_id}: {stage}")
