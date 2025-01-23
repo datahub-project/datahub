@@ -3,6 +3,7 @@ import { Form, Input, Modal, Typography } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
 import { useCommands } from '@remirror/react';
 import { CommandButton } from './CommandButton';
+import { Image } from '@phosphor-icons/react';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
@@ -33,7 +34,7 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<PictureOutlined />}
+                icon={<Image size={24} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />

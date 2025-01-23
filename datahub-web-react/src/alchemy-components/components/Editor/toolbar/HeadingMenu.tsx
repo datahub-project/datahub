@@ -2,6 +2,7 @@ import React, { MouseEventHandler, useCallback } from 'react';
 import { Select } from 'antd';
 import styled from 'styled-components';
 import { useActive, useCommands } from '@remirror/react';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 const { Option } = Select;
 
@@ -18,6 +19,8 @@ const OPTIONS = [
 const Wrapper = styled.div`
     display: inline-block;
     width: 120px;
+    border: 1px solid ${ANTD_GRAY[4.5]};
+    border-radius: 8px;
 `;
 
 const StyledSelect = styled(Select)`

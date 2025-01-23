@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { LinkOutlined } from '@ant-design/icons';
 import { useActive } from '@remirror/react';
 
 import { CommandButton } from './CommandButton';
 import { LinkModal } from './LinkModal';
+import { LinkSimpleHorizontal } from '@phosphor-icons/react';
 
 export const AddLinkButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
@@ -20,7 +20,7 @@ export const AddLinkButton = () => {
         <>
             <CommandButton
                 active={active}
-                icon={<LinkOutlined />}
+                icon={<LinkSimpleHorizontal size={24} />}
                 commandName="insertLink"
                 onClick={handleButtonClick}
             />
