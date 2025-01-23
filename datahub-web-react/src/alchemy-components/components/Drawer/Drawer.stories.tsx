@@ -1,4 +1,3 @@
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
 import { Button } from '../Button';
@@ -13,7 +12,6 @@ const meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
-        badges: [BADGE.EXPERIMENTAL],
         docs: {
             subtitle: 'A panel which slides in from the edge of the screen.',
         },
