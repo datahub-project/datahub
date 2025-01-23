@@ -228,11 +228,13 @@ def construct_schema_pymongo(
     if should_add_document_size_filter:
         doc_size_field = "temporary_doc_size_field"
         # create a temporary field to store the size of the document. filter on it and then remove it.
-        aggregations.extend([
-            {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
-            {"$match": {doc_size_field: {"$lt": max_document_size}}},
-            {"$project": {doc_size_field: 0}},
-        ])
+        aggregations.extend(
+            [
+                {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+                {"$match": {doc_size_field: {"$lt": max_document_size}}},
+                {"$project": {doc_size_field: 0}},
+            ]
+        )
 
     documents = collection.aggregate(aggregations, allowDiskUse=True)
 
