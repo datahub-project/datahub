@@ -1,3 +1,4 @@
+import argparse
 import random
 import time
 from dataclasses import dataclass
@@ -391,7 +392,11 @@ def generate_pipeline(
 
 
 if __name__ == "__main__":
-    token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjY0OWU5Zjk0LWI3MzctNGJiOS1iZmQ2LTA5MzU3OWI5ZjJmNiIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NDAwNjUyNjYsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.K-1U2sw2yMLpWRf4Nqf0zysUbXREx2qrVlP-Irl_T_Q"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--token", help="Datahub Access Token")
+    args = parser.parse_args()
+    token = args.token
+
     graph_config = DatahubClientConfig(
         server="http://localhost:8080",
         token=token,
