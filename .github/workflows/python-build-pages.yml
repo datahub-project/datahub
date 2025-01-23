@@ -53,6 +53,13 @@ jobs:
           ./gradlew :python-build:buildSite
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: upload logs
+          path: "datahub/build/reports/problems/problems-report.html"
+          retention-days: 5
       - name: Publish
         uses: cloudflare/pages-action@v1
         with:
