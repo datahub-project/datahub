@@ -170,7 +170,6 @@
                 "items" : "com.linkedin.common.Urn"
               },
               "doc" : "The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.\nIf this changes in the future, this data modeling will suffice.",
-              "optional" : true,
               "Searchable" : {
                 "/*" : {
                   "addToFilters" : true,
@@ -6743,6 +6742,12 @@
       "default" : true,
       "optional" : true
     }, {
+      "name" : "includeDefaultFacets",
+      "type" : "boolean",
+      "doc" : "Include default facets when getting facets to aggregate on in search requests.\nBy default we include these, but custom aggregation requests don't need them.",
+      "default" : true,
+      "optional" : true
+    }, {
       "name" : "fetchExtraFields",
       "type" : {
         "type" : "array",
@@ -6750,12 +6755,6 @@
       },
       "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
       "default" : [ ],
-      "optional" : true
-    }, {
-      "name" : "includeDefaultFacets",
-      "type" : "boolean",
-      "doc" : "Include default facets when getting facets to aggregate on in search requests.\nBy default we include these, but custom aggregation requests don't need them.",
-      "default" : true,
       "optional" : true
     }, {
       "name" : "filterNonLatestVersions",

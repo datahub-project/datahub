@@ -260,6 +260,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

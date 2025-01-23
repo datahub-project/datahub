@@ -15,6 +15,8 @@ import useMergedProps from '../BarChart/hooks/useMergedProps';
 import { roundToEven } from './utils';
 import { AxisProps, GridProps } from '../BarChart/types';
 import { GLYPH_DROP_SHADOW_FILTER } from './constants';
+import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import useMaxDataValue from '../BarChart/hooks/useMaxDataValue';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -90,6 +92,7 @@ export function LineChart<DatumType extends object>({
     yAccessor = lineChartDefault.yAccessor,
     xScale = lineChartDefault.xScale,
     yScale = lineChartDefault.yScale,
+    maxYDomainForZeroData,
 
     lineColor = lineChartDefault.lineColor,
     areaColor = lineChartDefault.areaColor,
@@ -113,6 +116,9 @@ export function LineChart<DatumType extends object>({
         bottom: (margin?.bottom ?? 0) + 35,
         left: (margin?.left ?? 0) + 40,
     };
+
+    const maxDataValue = useMaxDataValue(data, yAccessor);
+    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
 
     const accessors = { xAccessor, yAccessor };
 
@@ -146,7 +152,7 @@ export function LineChart<DatumType extends object>({
                             width={width}
                             height={height}
                             xScale={xScale}
-                            yScale={yScale}
+                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={!isEmpty}
                         >

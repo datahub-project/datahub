@@ -4,7 +4,6 @@ import { AssertionType, OperationType, TimeRange } from '@src/types.generated';
 import React, { useEffect, useMemo, useState } from 'react';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import MoreInfoModalContent from '../components/MoreInfoModalContent';
 import NoPermission from '../NoPermission';
@@ -17,17 +16,18 @@ import useColorAccessors from './hooks/useColorAccessors';
 import useDataRange from './hooks/useDataRange';
 import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
 import { AnyOperationType, OperationsData } from './types';
+import { SectionKeys } from '../../utils';
 import { addPrefix } from './utils';
 
 const CHANGE_HISTORY_TIME_RANGE = TimeRange.Year;
 
 export default function ChangeHistoryGraph() {
     const {
-        sections,
-        setSectionState,
         dataInfo: { capabilitiesLoading, oldestOperationTime },
         statsEntityUrn,
         permissions: { canViewDatasetOperations },
+        sections,
+        setSectionState,
     } = useStatsSectionsContext();
 
     // The data of change history
@@ -38,21 +38,6 @@ export default function ChangeHistoryGraph() {
         customOperationTypes,
         loading: dataLoading,
     } = useChangeHistoryData(statsEntityUrn, CHANGE_HISTORY_TIME_RANGE);
-
-    // The day details drawer
-    const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
-    const [dayOfDayDetailsDrawer, setDayOfDayDetailsDrawer] = useState<string | null>();
-    const [drawerOperationValue, setDrawerOperationValue] = useState<OperationsData | undefined | null>();
-    const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
-        setDayOfDayDetailsDrawer(dayData.day);
-        setDrawerOperationValue(dayData.value);
-        setIsDayDetailsDrawerShown(true);
-    };
-    const hideDayDetailsDrawer = () => {
-        setDayOfDayDetailsDrawer(null);
-        setDrawerOperationValue(null);
-        setIsDayDetailsDrawerShown(false);
-    };
 
     // Operation types
     const operationTypesOptions = useMemo(
@@ -100,12 +85,32 @@ export default function ChangeHistoryGraph() {
     // The interval of the data
     const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(buckets, oldestOperationTime);
 
+    // The day details drawer
+    const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
+    const [dateOfDayDetailsDrawer, setDateOfDayDetailsDrawer] = useState<string | null>();
+    const [drawerOperationsData, setDrawerOperationsData] = useState<OperationsData | undefined | null>();
+    const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
+        setDateOfDayDetailsDrawer(dayData.day);
+        setIsDayDetailsDrawerShown(true);
+    };
+    const hideDayDetailsDrawer = () => {
+        setDateOfDayDetailsDrawer(null);
+        setIsDayDetailsDrawerShown(false);
+    };
     useEffect(() => {
-        if (!sections.changes.hasData && buckets.length > 0) setSectionState(SectionKeys.CHANGES, true);
-        else if (!!sections.changes.hasData && !buckets.length) setSectionState(SectionKeys.CHANGES, false);
-    }, [buckets, setSectionState, sections.changes]);
+        setDrawerOperationsData(buckets?.find((datum) => datum.day === dateOfDayDetailsDrawer)?.value ?? null);
+    }, [dateOfDayDetailsDrawer, buckets]);
 
     const loading = capabilitiesLoading || dataLoading;
+
+    useEffect(() => {
+        const currentSection = sections.changes;
+        const hasData = canViewDatasetOperations && !loading && buckets.length > 0;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.CHANGES, hasData, loading);
+        }
+    }, [buckets, loading, sections.changes, setSectionState, canViewDatasetOperations]);
 
     return (
         <>
@@ -139,7 +144,7 @@ export default function ChangeHistoryGraph() {
                         startDate={calendarStartDay}
                         endDate={calendarEndDay}
                         colorAccessor={colorAccessors.day}
-                        selectedDay={dayOfDayDetailsDrawer}
+                        selectedDay={dateOfDayDetailsDrawer}
                         onDayClick={(datum) => showDayDetailsDrawer(datum)}
                         showPopover={!isDayDetailsDrawerShown}
                         popoverRenderer={(datum) => (
@@ -160,12 +165,13 @@ export default function ChangeHistoryGraph() {
 
             {statsEntityUrn && isDayDetailsDrawerShown && (
                 <ChangeHistoryDrawer
-                    selectedDay={dayOfDayDetailsDrawer}
+                    selectedDate={dateOfDayDetailsDrawer}
+                    setSelectedDate={setDateOfDayDetailsDrawer}
                     urn={statsEntityUrn}
                     open={isDayDetailsDrawerShown}
                     onClose={() => hideDayDetailsDrawer()}
-                    operationTypesOptions={operationTypesOptions}
-                    value={drawerOperationValue}
+                    allOperationTypesOptions={operationTypesOptions}
+                    operationsData={drawerOperationsData}
                 />
             )}
         </>

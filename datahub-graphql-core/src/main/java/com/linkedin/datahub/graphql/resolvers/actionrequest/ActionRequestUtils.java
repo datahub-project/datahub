@@ -9,7 +9,9 @@ import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
 import com.linkedin.actionrequest.CreateGlossaryTermProposal;
 import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.DomainProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
@@ -33,12 +35,16 @@ import com.linkedin.datahub.graphql.generated.CreateGlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.DataContractProposalOperationType;
 import com.linkedin.datahub.graphql.generated.DataContractProposalParams;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.InferenceMetadata;
+import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnerProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
@@ -46,6 +52,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyProposalParams;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnerMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -348,6 +355,12 @@ public class ActionRequestUtils {
           mapStructuredPropertyProposal(
               context, params.getStructuredPropertyProposal(), entityUrn));
     }
+    if (params.hasDomainProposal()) {
+      result.setDomainProposal(mapDomainProposal(params.getDomainProposal()));
+    }
+    if (params.hasOwnerProposal()) {
+      result.setOwnerProposal(mapOwnerProposal(context, params.getOwnerProposal(), entityUrn));
+    }
     return result;
   }
 
@@ -481,6 +494,32 @@ public class ActionRequestUtils {
     }
     propertyProposalParams.setStructuredProperties(actualPropertyProposals);
     return propertyProposalParams;
+  }
+
+  public static DomainProposalParams mapDomainProposal(final DomainProposal proposal) {
+    final DomainProposalParams domainProposalParams = new DomainProposalParams();
+    if (proposal.hasDomains() && proposal.getDomains().size() > 0) {
+      // Extract the first domain for proposal
+      final Urn domainUrn = proposal.getDomains().get(0);
+      final Domain partialDomain = new Domain();
+      partialDomain.setUrn(domainUrn.toString());
+      domainProposalParams.setDomain(partialDomain);
+    }
+    return domainProposalParams;
+  }
+
+  public static OwnerProposalParams mapOwnerProposal(
+      final QueryContext context, final OwnerProposal proposal, final Urn entityUrn) {
+    final OwnerProposalParams ownerProposalParams = new OwnerProposalParams();
+    if (proposal.hasOwners()) {
+      List<Owner> owners = new ArrayList<>();
+      for (com.linkedin.common.Owner owner : proposal.getOwners()) {
+        Owner proposedOwner = OwnerMapper.map(context, owner, entityUrn);
+        owners.add(proposedOwner);
+      }
+      ownerProposalParams.setOwners(owners);
+    }
+    return ownerProposalParams;
   }
 
   public static Criterion createStatusCriterion(ActionRequestStatus status) {

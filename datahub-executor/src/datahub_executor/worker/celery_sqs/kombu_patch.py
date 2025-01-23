@@ -11,7 +11,7 @@ from datahub_executor.common.monitoring.metrics import (
     STATS_CREDENTIALS_REFRESH_ERRORS,
     STATS_CREDENTIALS_REFRESH_REQUESTS,
 )
-from datahub_executor.config import DATAHUB_EXECUTOR_WORKER_ID
+from datahub_executor.config import DATAHUB_EXECUTOR_POOL_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def patched_handle_sts_session(
     if queue in self._predefined_queue_clients:
         return self._predefined_queue_clients[queue]
 
-    queue_id = queue if queue is not None else DATAHUB_EXECUTOR_WORKER_ID
+    queue_id = queue if queue is not None else DATAHUB_EXECUTOR_POOL_NAME
     metadata = refresh_external_credentials(queue_id)
 
     credentials = botocore.credentials.RefreshableCredentials.create_from_metadata(

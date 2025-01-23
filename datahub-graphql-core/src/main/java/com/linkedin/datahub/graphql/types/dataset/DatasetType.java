@@ -93,7 +93,8 @@ public class DatasetType
           SHARE_ASPECT_NAME,
           ORIGIN_ASPECT_NAME,
           DOCUMENTATION_ASPECT_NAME,
-          LINEAGE_FEATURES_ASPECT_NAME);
+          LINEAGE_FEATURES_ASPECT_NAME,
+          VERSION_PROPERTIES_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataset";

@@ -170,7 +170,6 @@
                 "items" : "com.linkedin.common.Urn"
               },
               "doc" : "The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.\nIf this changes in the future, this data modeling will suffice.",
-              "optional" : true,
               "Searchable" : {
                 "/*" : {
                   "addToFilters" : true,

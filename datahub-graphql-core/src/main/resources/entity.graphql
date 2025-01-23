@@ -971,16 +971,6 @@ type Mutation {
     Update a particular entity's display properties
     """
     updateDisplayProperties(urn: String!, input: DisplayPropertiesUpdateInput!): Boolean
-
-    """
-    Link the latest versioned entity to a Version Set
-    """
-    linkAssetVersion(input: LinkVersionInput!): String
-
-    """
-    Unlink a versioned entity from a Version Set
-    """
-    unlinkAssetVersion(input: UnlinkVersionInput!): Boolean
 }
 
 """
@@ -1261,6 +1251,11 @@ enum EntityType {
     A Business Attribute
     """
     BUSINESS_ATTRIBUTE
+
+    """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
 }
 
 """
@@ -9205,9 +9200,9 @@ input OwnerInput {
 
     """
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
-    Deprecated - Use ownershipTypeUrn field instead.
+    If a custom ownership type is desired, use the ownershipTypeUrn field instead.
     """
-    type: OwnershipType @deprecated
+    type: OwnershipType
 
     """
     The urn of the ownership type entity.
@@ -13888,56 +13883,6 @@ input ListBusinessAttributesInput {
     Optional search query
     """
     query: String
-}
-
-"""
-Input for linking a versioned entity to a Version Set
-"""
-input LinkVersionInput {
-    """
-    The target version set
-    """
-    versionSet: String!
-
-    """
-    The target versioned entity to link
-    """
-    linkedEntity: String!
-
-    """
-    Version Tag label for the version, should be unique within a Version Set
-    """
-    version: String!
-
-    """
-    Optional timestamp from the source system
-    """
-    sourceTimestamp: Long
-
-    """
-    Optional creator from the source system, will be converted to an Urn
-    """
-    sourceCreator: String
-
-    """
-    Optional comment about the version
-    """
-    comment: String
-}
-
-"""
-Input for unlinking a versioned entity from a Version Set
-"""
-input UnlinkVersionInput {
-    """
-    The target version set
-    """
-    versionSet: String
-
-    """
-    The target versioned entity to unlink
-    """
-    unlinkedEntity: String
 }
 
 """

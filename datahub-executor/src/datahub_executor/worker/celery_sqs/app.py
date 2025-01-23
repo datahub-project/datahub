@@ -30,9 +30,9 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE,
+    DATAHUB_EXECUTOR_POOL_NAME,
     DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE,
     DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
-    DATAHUB_EXECUTOR_WORKER_ID,
     DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL,
 )
 
@@ -182,13 +182,13 @@ def worker_startup(*args, **kwargs):
 @app.task
 def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
-        STATS_WORKER_ASSERTION_REQUESTS.labels(DATAHUB_EXECUTOR_WORKER_ID).inc()
+        STATS_WORKER_ASSERTION_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
 
         global assertion_executor
         assertion_executor.execute(execution_request)
     else:
         STATS_WORKER_ASSERTION_ERRORS.labels(
-            DATAHUB_EXECUTOR_WORKER_ID, "UnsupportedRequest"
+            DATAHUB_EXECUTOR_POOL_NAME, "UnsupportedRequest"
         ).inc()
         logger.error(
             f"Unsupported ExecutionRequest type {execution_request.name} provided. Skipping execution of {execution_request.exec_id}.."
@@ -221,7 +221,7 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
                 raise RuntimeError(
                     f"ExecutionRequest {execution_request.exec_id} dropped due to exceeded SQS visibility timeout."
                 )
-            STATS_WORKER_INGESTION_REQUESTS.labels(DATAHUB_EXECUTOR_WORKER_ID).inc()
+            STATS_WORKER_INGESTION_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
 
 
 @typing.no_type_check

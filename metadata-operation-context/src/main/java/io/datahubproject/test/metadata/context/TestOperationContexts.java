@@ -69,7 +69,9 @@ public class TestOperationContexts {
                 Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
         defaultEntityRegistryInstance =
             new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
-      } catch (EntityRegistryException e) {
+        // if this is returned immediately a test may run before it is completely populated
+        Thread.sleep(1000);
+      } catch (EntityRegistryException | InterruptedException e) {
         throw new RuntimeException(e);
       }
     }

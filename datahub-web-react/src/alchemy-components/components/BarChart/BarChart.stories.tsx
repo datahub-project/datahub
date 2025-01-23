@@ -3,6 +3,8 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { BarChart } from './BarChart';
 import { getMockedProps } from './utils';
+import { DEFAULT_MIN_VALUE } from './hooks/useAdaptYAccessorToZeroValues';
+import { DEFAULT_MAX_DOMAIN_VALUE } from './hooks/useAdaptYScaleToZeroValues';
 
 const meta = {
     title: 'Charts / BarChart',
@@ -27,6 +29,20 @@ const meta = {
         },
         yAccessor: {
             description: 'A function to convert datum to value of Y',
+        },
+        maxYDomainForZeroData: {
+            description:
+                'For the case where the data has only zero values, you can set the yScale domain to better display the chart',
+            table: {
+                defaultValue: { summary: `${DEFAULT_MAX_DOMAIN_VALUE}` },
+            },
+        },
+        minYForZeroData: {
+            description:
+                'For the case where the data has only zero values, you can set minimal Y value to better display the chart',
+            table: {
+                defaultValue: { summary: `${DEFAULT_MIN_VALUE}` },
+            },
         },
         popoverRenderer: {
             description: 'A function to replace default rendering of toolbar',

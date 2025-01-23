@@ -99,6 +99,7 @@ export const DEFAULT_APP_CONFIG = {
         showFormAnalytics: false,
         showStatsTabRedesign: false,
         requestMinimalSlackPermissions: false,
+        entityVersioningEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,
@@ -107,6 +108,7 @@ export const DEFAULT_APP_CONFIG = {
         editableDatasetNameEnabled: false,
         showSeparateSiblings: false,
         showManageStructuredProperties: false,
+        entityVersioningEnabled: false,
     },
 };
 

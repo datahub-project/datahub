@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
@@ -97,6 +98,8 @@ import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagsResolver;
@@ -136,6 +139,7 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.action.ActionPipelineType;
 import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
+import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -177,6 +181,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private GlossaryNodeType glossaryNodeType;
   private TagType tagType;
   private FormType formType;
+  private DomainType domainType;
 
   // Acryl Types
   private ActionPipelineType actionPipelineType; // Saas-ONLY
@@ -249,6 +254,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
     this.tagType = new TagType(args.getEntityClient());
     this.formType = new FormType(args.getEntityClient());
+    this.domainType = new DomainType(args.getEntityClient());
 
     this.actionPipelineType = new ActionPipelineType(args.getEntityClient()); // SaaS only
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
@@ -351,6 +357,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "proposeStructuredProperties",
                     new ProposeStructuredPropertiesResolver(actionRequestService))
+                .dataFetcher("proposeDomain", new ProposeDomainResolver(actionRequestService))
+                .dataFetcher("proposeOwners", new ProposeOwnersResolver(actionRequestService))
                 .dataFetcher(
                     "proposeCreateGlossaryTerm",
                     new ProposeCreateGlossaryTermResolver(actionRequestService))
@@ -569,6 +577,19 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                           env.getSource();
                       return proposalProperties.getParentNode() != null
                           ? proposalProperties.getParentNode().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "DomainProposalParams",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> {
+                      final DomainProposalParams proposalParams = env.getSource();
+                      return proposalParams.getDomain() != null
+                          ? proposalParams.getDomain().getUrn()
                           : null;
                     })));
   }

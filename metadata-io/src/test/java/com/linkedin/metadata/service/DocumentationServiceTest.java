@@ -72,7 +72,8 @@ public class DocumentationServiceTest {
     service.updateDocumentation(opContext, TEST_DATASET_URN, TEST_DOCUMENTATION, TEST_ACTOR_URN);
 
     // Verify that ingestProposal was called once
-    verifyIngest(mockClient, TEST_DATASET_URN, DATASET_ENTITY_NAME, DATASET_PROPERTIES_ASPECT_NAME);
+    verifyIngest(
+        mockClient, TEST_DATASET_URN, DATASET_ENTITY_NAME, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
   }
 
   @Test

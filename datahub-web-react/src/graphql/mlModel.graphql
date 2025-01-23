@@ -47,5 +47,6 @@ query getMLModel($urn: String!) {
             total
         }
         ...notes
+        ...entityProfileVersionProperties
     }
 }

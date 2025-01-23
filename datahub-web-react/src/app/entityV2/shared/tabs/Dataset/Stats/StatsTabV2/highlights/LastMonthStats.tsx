@@ -1,6 +1,7 @@
 import { Card, Text } from '@components';
 import { capitalizeFirstLetter, pluralize } from '@src/app/shared/textUtil';
 import React from 'react';
+import { useStatsSectionsContext } from '../StatsSectionsContext';
 import { useGetStatsData } from '../useGetStatsData';
 import { useGetStatsSections } from '../useGetStatsSections';
 import { SectionKeys } from '../utils';
@@ -10,6 +11,7 @@ import { ViewButton } from './ViewButton';
 const LastMonthStats = () => {
     const { users, queryCount, totalOperations } = useGetStatsData();
     const { scrollToSection } = useGetStatsSections();
+    const { sections } = useStatsSectionsContext();
 
     return (
         <LastMonthStatsContainer>
@@ -23,8 +25,8 @@ const LastMonthStats = () => {
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={users === undefined}
-                    button={users && users.length ? <ViewButton /> : undefined}
-                    onClick={() => (users && users.length ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
+                    button={sections.users.hasData ? <ViewButton /> : undefined}
+                    onClick={() => (sections.users.hasData ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
                 />
                 <Card
                     title={queryCount?.toString() || ''}
@@ -32,8 +34,8 @@ const LastMonthStats = () => {
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={queryCount === undefined}
-                    button={queryCount ? <ViewButton /> : undefined}
-                    onClick={() => (queryCount ? scrollToSection?.(SectionKeys.QUERIES) : undefined)}
+                    button={sections.queries.hasData ? <ViewButton /> : undefined}
+                    onClick={() => (sections.queries.hasData ? scrollToSection?.(SectionKeys.QUERIES) : undefined)}
                 />
                 <Card
                     title={totalOperations?.toString() || ''}
@@ -41,8 +43,8 @@ const LastMonthStats = () => {
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={totalOperations === undefined}
-                    button={totalOperations ? <ViewButton /> : undefined}
-                    onClick={() => (totalOperations ? scrollToSection?.(SectionKeys.CHANGES) : undefined)}
+                    button={sections.changes.hasData ? <ViewButton /> : undefined}
+                    onClick={() => (sections.changes.hasData ? scrollToSection?.(SectionKeys.CHANGES) : undefined)}
                 />
             </StatCards>
         </LastMonthStatsContainer>

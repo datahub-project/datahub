@@ -1,14 +1,19 @@
 import React from 'react';
 import { SelectOption, SimpleSelect } from '@src/alchemy-components';
+import { SelectSkeleton } from '../../SelectSkeleton';
 
 type UsersSelectProps = {
     options: SelectOption[];
     values: string[];
     onUpdate: (selectedValues: string[]) => void;
-    isDisabled: boolean;
+    loading: boolean;
 };
 
-export default function UsersSelect({ options, values, onUpdate, isDisabled }: UsersSelectProps) {
+export default function UsersSelect({ options, values, onUpdate, loading }: UsersSelectProps) {
+    if (loading) return <SelectSkeleton active />;
+
+    if (options.length < 2) return null;
+
     return (
         <SimpleSelect
             selectLabelProps={{ variant: 'labeled', label: 'Users' }}
@@ -16,7 +21,6 @@ export default function UsersSelect({ options, values, onUpdate, isDisabled }: U
             options={options}
             onUpdate={onUpdate}
             width="full"
-            isDisabled={isDisabled}
             showClear={false}
             isMultiSelect
         />

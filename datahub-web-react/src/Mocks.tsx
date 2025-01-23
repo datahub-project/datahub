@@ -737,6 +737,7 @@ export const dataset3 = {
     upstream: null,
     downstream: null,
     extraProperties: null,
+    versionProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {

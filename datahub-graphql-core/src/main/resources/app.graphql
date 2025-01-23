@@ -1317,6 +1317,11 @@ type FeatureFlagsConfig {
   If turned on, request minimal required slack permissions
   """
   requestMinimalSlackPermissions: Boolean!
+
+  """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
 }
 
 """

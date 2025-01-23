@@ -12,7 +12,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LinkVersionInput;
+import com.linkedin.datahub.graphql.generated.VersionSet;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
@@ -21,24 +23,22 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
 /**
  * Currently only supports linking the latest version, but may be modified later to support inserts
  */
-public class LinkAssetVersionResolver implements DataFetcher<CompletableFuture<String>> {
+@Slf4j
+@RequiredArgsConstructor
+public class LinkAssetVersionResolver implements DataFetcher<CompletableFuture<VersionSet>> {
 
   private final EntityVersioningService entityVersioningService;
   private final FeatureFlags featureFlags;
 
-  public LinkAssetVersionResolver(
-      EntityVersioningService entityVersioningService, FeatureFlags featureFlags) {
-    this.entityVersioningService = entityVersioningService;
-    this.featureFlags = featureFlags;
-  }
-
   @Override
-  public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<VersionSet> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final LinkVersionInput input =
         bindArgument(environment.getArgument("input"), LinkVersionInput.class);
@@ -75,12 +75,22 @@ public class LinkAssetVersionResolver implements DataFetcher<CompletableFuture<S
               entityVersioningService.linkLatestVersion(
                   opContext, versionSetUrn, entityUrn, versionPropertiesInput);
 
-          return linkResults.stream()
-              .filter(
-                  ingestResult -> input.getLinkedEntity().equals(ingestResult.getUrn().toString()))
-              .map(ingestResult -> ingestResult.getUrn().toString())
-              .findAny()
-              .orElse(StringUtils.EMPTY);
+          String successVersionSetUrn =
+              linkResults.stream()
+                  .filter(
+                      ingestResult ->
+                          input.getLinkedEntity().equals(ingestResult.getUrn().toString()))
+                  .map(ingestResult -> ingestResult.getUrn().toString())
+                  .findAny()
+                  .orElse(StringUtils.EMPTY);
+
+          if (StringUtils.isEmpty(successVersionSetUrn)) {
+            return null;
+          }
+          VersionSet versionSet = new VersionSet();
+          versionSet.setUrn(versionSetUrn.toString());
+          versionSet.setType(EntityType.VERSION_SET);
+          return versionSet;
         },
         this.getClass().getSimpleName(),
         "get");

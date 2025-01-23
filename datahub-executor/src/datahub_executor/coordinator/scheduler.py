@@ -20,10 +20,10 @@ from datahub_executor.common.monitoring.metrics import (
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+    DATAHUB_EXECUTOR_POOL_NAME,
     DATAHUB_EXECUTOR_SCHEDULER_ASSERTIONS_MAX_THREADS,
     DATAHUB_EXECUTOR_SCHEDULER_INGESTIONS_MAX_THREADS,
     DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
-    DATAHUB_EXECUTOR_WORKER_ID,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
 
@@ -243,5 +243,5 @@ class ExecutionRequestScheduler:
         """
         return DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
             execution_request.executor_id is None
-            or DATAHUB_EXECUTOR_WORKER_ID == execution_request.executor_id
+            or DATAHUB_EXECUTOR_POOL_NAME == execution_request.executor_id
         )

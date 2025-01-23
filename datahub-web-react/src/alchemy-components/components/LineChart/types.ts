@@ -13,6 +13,7 @@ export type LineChartProps<DatumType extends object> = {
     yAccessor: (datum: DatumType) => number;
     xScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yScale?: ScaleConfig<AxisScaleOutput, any, any>;
+    maxYDomainForZeroData?: number;
 
     lineColor?: string;
     areaColor?: string;

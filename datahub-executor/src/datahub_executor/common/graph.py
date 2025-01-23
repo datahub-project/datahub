@@ -22,7 +22,11 @@ from datahub_executor.common.constants import (
     DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME,
 )
 from datahub_executor.common.types import ExecutionRequestStatus
-from datahub_executor.config import DATAHUB_GMS_TOKEN, DATAHUB_GMS_URL
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_GRAPH_ES_BATCH_SIZE,
+    DATAHUB_GMS_TOKEN,
+    DATAHUB_GMS_URL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +165,11 @@ class DataHubExecutorGraph(DataHubGraph):
         for entry in self.scroll_entities(
             entity=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME, params=params
         ):
-            ers = self._entity_to_execution_request_status(entry)
-            retval.append(ers)
+            try:
+                ers = self._entity_to_execution_request_status(entry)
+                retval.append(ers)
+            except Exception as e:
+                logger.exception(f"Failed to parse execution request entry: {e}")
 
         return retval
 
@@ -170,30 +177,20 @@ class DataHubExecutorGraph(DataHubGraph):
         self, input: List
     ) -> Dict[str, List[ExecutionRequestStatus]]:
         retval: Dict[str, List[ExecutionRequestStatus]] = {}
-        batch_size = 10
+        batch_size = DATAHUB_EXECUTOR_GRAPH_ES_BATCH_SIZE
 
         for i in range(0, len(input), batch_size):
             slice = input[i : i + batch_size]
             conditions = map(
-                lambda x: (
-                    '(ingestionSource:"{}" AND requestTimeMs: >={} AND '
-                    "(((!(_exists_:executionResultStatus)) AND requestTimeMs: >{}) OR (!executionResultStatus:{})))"
-                ).format(
-                    *(
-                        x
-                        + [
-                            DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
-                            DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
-                        ]
-                    )
-                ),
+                lambda x: '(ingestionSource:"{}" AND requestTimeMs: >={})'.format(*x),
                 slice,
             )
             conditions_string = " OR ".join(conditions)
             params = {
-                "query": "requestTimeMs: >{} AND ({})".format(
-                    DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
+                "query": "({}) AND requestTimeMs: >{} AND ((!(_exists_:executionResultStatus)) OR (!executionResultStatus:{}))".format(
                     conditions_string,
+                    DATAHUB_EXECUTION_REQUEST_INDEX_THRESHOLD_MS,
+                    DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
                 ),
             }
             entries = self._get_execution_requests(params)

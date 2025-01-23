@@ -32,7 +32,7 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_SIGNAL_POLL_INTERVAL,
-    DATAHUB_EXECUTOR_WORKER_ID,
+    DATAHUB_EXECUTOR_POOL_NAME,
 )
 from datahub_executor.worker.remote import apply_remote_ingestion_request
 
@@ -44,7 +44,7 @@ class IngestionAction(Action):
     discovery: Optional[DatahubExecutorDiscovery]
     ingestion_enabled: bool
     embedded_worker_enabled: bool
-    embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID
+    embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class IngestionAction(Action):
         discovery: Optional[DatahubExecutorDiscovery],
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID,
+        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME,
     ) -> None:
         self.ingestion_enabled = ingestion_enabled
         self.embedded_worker_id = embedded_worker_id
@@ -82,7 +82,7 @@ class IngestionAction(Action):
         discovery: Optional[DatahubExecutorDiscovery],
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID,
+        embedded_worker_id: str = DATAHUB_EXECUTOR_POOL_NAME,
     ) -> Action:
         return cls(
             graph,

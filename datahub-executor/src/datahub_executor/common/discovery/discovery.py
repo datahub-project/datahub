@@ -14,7 +14,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_INTERNAL_WORKER,
     DATAHUB_EXECUTOR_NAMESPACE,
-    DATAHUB_EXECUTOR_WORKER_ID,
+    DATAHUB_EXECUTOR_POOL_NAME,
     DATAHUB_GMS_URL,
 )
 
@@ -63,7 +63,7 @@ class DatahubExecutorDiscovery:
         instance_id = "{}-{}.{}.{}".format(
             self.my_address_hash,
             get_random_string(8),
-            DATAHUB_EXECUTOR_WORKER_ID,
+            DATAHUB_EXECUTOR_POOL_NAME,
             hostname,
         )
 
@@ -82,7 +82,7 @@ class DatahubExecutorDiscovery:
     def _ping(self) -> None:
         try:
             status = RemoteExecutorStatusClass(
-                executorId=DATAHUB_EXECUTOR_WORKER_ID,
+                poolName=DATAHUB_EXECUTOR_POOL_NAME,
                 executorReleaseVersion=self.build_info.get_version(),
                 executorAddress=self.my_address,
                 executorHostname=self.my_hostname,

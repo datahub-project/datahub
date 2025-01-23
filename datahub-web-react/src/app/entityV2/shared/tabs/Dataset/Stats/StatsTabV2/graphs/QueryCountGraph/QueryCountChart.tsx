@@ -3,8 +3,6 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { useGetStatsData } from '../../useGetStatsData';
-import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import MoreInfoModalContent from '../components/MoreInfoModalContent';
@@ -14,42 +12,36 @@ import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsBy
 import NoPermission from '../NoPermission';
 import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
 import useQueryCountData from './useQueryCountData';
+import { SectionKeys } from '../../utils';
 
 const QueryCountChart = () => {
     const {
-        sections,
-        setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
         statsEntityUrn,
         permissions: { canViewDatasetUsage },
+        sections,
+        setSectionState,
     } = useStatsSectionsContext();
-
-    const { usageStats } = useGetStatsData();
-    const queryCountBuckets = canViewDatasetUsage ? usageStats?.buckets || undefined : [];
 
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
 
-    const {
-        chartData,
-        loading: dataLoading,
-        groupInterval,
-    } = useQueryCountData(
-        statsEntityUrn,
-        timeRange,
-        timeRange === TimeRange.Month ? queryCountBuckets || [] : undefined,
-    );
+    const { chartData, loading: dataLoading, groupInterval } = useQueryCountData(statsEntityUrn, timeRange);
+
+    const loading = capabilitiesLoading || dataLoading;
 
     useEffect(() => {
-        if (!sections.queries.hasData && chartData.length > 0) setSectionState(SectionKeys.QUERIES, true);
-        else if (!!sections.queries.hasData && !chartData.length) setSectionState(SectionKeys.QUERIES, false);
-    }, [chartData, setSectionState, sections.queries]);
+        const currentSection = sections.queries;
+        const hasData = canViewDatasetUsage && !loading && chartData.length > 0;
+
+        if (currentSection.hasData !== hasData || currentSection.isLoading !== loading) {
+            setSectionState(SectionKeys.QUERIES, hasData, loading);
+        }
+    }, [chartData, loading, sections.queries, setSectionState, canViewDatasetUsage]);
 
     const handleFilterChange = (value: TimeRange) => {
         setTimeRange(value);
     };
-
-    const loading = capabilitiesLoading || dataLoading;
 
     const renderBarChart = () => {
         return (

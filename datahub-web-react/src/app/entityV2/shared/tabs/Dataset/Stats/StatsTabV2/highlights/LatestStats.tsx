@@ -2,6 +2,7 @@ import { Card, Text } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { countFormatter } from '@src/utils/formatter';
 import React from 'react';
+import { useStatsSectionsContext } from '../StatsSectionsContext';
 import { useGetStatsData } from '../useGetStatsData';
 import { useGetStatsSections } from '../useGetStatsSections';
 import { SectionKeys } from '../utils';
@@ -13,6 +14,7 @@ const LatestStats = () => {
     const hasColumnStats = columnStats?.length > 0;
 
     const { scrollToSection } = useGetStatsSections();
+    const { sections } = useStatsSectionsContext();
 
     return (
         <LatestStatsContainer>
@@ -26,8 +28,8 @@ const LatestStats = () => {
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={rowCount === undefined}
-                    button={rowCount ? <ViewButton /> : undefined}
-                    onClick={() => (rowCount ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
+                    button={sections.rows.hasData ? <ViewButton /> : undefined}
+                    onClick={() => (sections.rows.hasData ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
                 />
                 <Card
                     title={columnCount?.toString() || ''}

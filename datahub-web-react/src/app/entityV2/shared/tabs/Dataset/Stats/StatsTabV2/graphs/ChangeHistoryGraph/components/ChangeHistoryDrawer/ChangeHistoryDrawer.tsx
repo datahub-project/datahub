@@ -1,16 +1,17 @@
 import { Drawer, SelectOption } from '@components';
 import { OperationType } from '@src/types.generated';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { AnyOperationType, OperationsData } from '../../types';
 import TypesSelect from '../TypesSelect';
 import ChangeHistoryTimeline from './components/ChangeHistoryTimeline';
+import DateSwitcher from './components/DateSwitcher';
+import UsersSelect from './components/UsersSelect';
 import useDebounceFalse from './useDebounceFalse';
 import useGetOperations from './useGetOperations';
 import useGetUsers from './useGetUsers';
-import useSelectUserOptions from './useSelectUserOptions';
+import useUsersSelectOptions from './useUsersSelectOptions';
 import { getUniqueActorsFromOperations } from './utils';
-import UsersSelect from './components/UsersSelect';
 
 const FlexRow = styled.div`
     display: flex;
@@ -19,11 +20,11 @@ const FlexRow = styled.div`
 `;
 
 const Controls = styled(FlexRow)`
-    align-items: start;
+    justify-content: flex-end;
 `;
 
 const ControlWrapper = styled.div`
-    width: 280px;
+    max-width: 280px;
 `;
 
 const DrawerContent = styled.div`
@@ -34,42 +35,42 @@ const DrawerContent = styled.div`
 
 type ChangeHistoryDrawerProps = {
     urn: string;
-    selectedDay?: string | null;
+    selectedDate?: string | null;
+    setSelectedDate?: (value: string | null | undefined) => void;
     onClose: () => void;
     open: boolean;
-    operationTypesOptions: SelectOption[];
-    value?: OperationsData | null;
+    allOperationTypesOptions: SelectOption[];
+    operationsData?: OperationsData | null;
 };
 
 export const ChangeHistoryDrawer = ({
     urn,
-    selectedDay,
+    operationsData,
+    selectedDate,
+    setSelectedDate,
     open,
     onClose,
-    operationTypesOptions,
-    value,
+    allOperationTypesOptions,
 }: ChangeHistoryDrawerProps) => {
-    const keysFromValue = useMemo(
-        () =>
-            Object.entries(value?.operations || {})
-                .filter(([_, operation]) => operation.value > 0)
-                .map(([_, operation]) => operation.key),
-        [value?.operations],
+    const [selectedOperationTypes, setSelectedOperationTypes] = useState<AnyOperationType[]>([]);
+    const operationTypesOptions = useMemo(() => {
+        const operationKeys = Object.entries(operationsData?.operations || {})
+            .filter(([_, operation]) => operation.value > 0)
+            .map(([_, operation]) => operation.key);
+        return allOperationTypesOptions?.filter((option) => operationKeys.includes(option.value)) ?? [];
+    }, [operationsData, allOperationTypesOptions]);
+    useEffect(
+        () => setSelectedOperationTypes(operationTypesOptions.map((option) => option.value)),
+        [operationTypesOptions],
     );
 
     const [selectedActors, setSelectedActors] = useState<string[]>([]);
     const [isUsersSelectUpdated, setIsUsersSelectUpdated] = useState<boolean>(false);
-
-    const filteredOperationTypesOptions = useMemo(() => {
-        return operationTypesOptions.filter((option) => keysFromValue.includes(option.value));
-    }, [operationTypesOptions, keysFromValue]);
-    const [selectedOperationTypes, setSelectedOperationTypes] = useState<AnyOperationType[]>(
-        filteredOperationTypesOptions.map((option) => option.value),
-    );
+    useEffect(() => setIsUsersSelectUpdated(false), [selectedDate]);
 
     const { operations, loading: operationsLoading } = useGetOperations(
         urn,
-        selectedDay,
+        selectedDate,
         selectedOperationTypes,
         isUsersSelectUpdated ? selectedActors : undefined,
     );
@@ -80,9 +81,9 @@ export const ChangeHistoryDrawer = ({
     // because of a little gap between operations and users requests
     // that makes some blinks of loading state on the timeline
     const loading = useDebounceFalse(150, operationsLoading, usersLoading);
-    const selectUsersOptions = useSelectUserOptions(users, loading);
 
-    const initialSelectedUsers = useMemo(() => selectUsersOptions.map((option) => option.value), [selectUsersOptions]);
+    const usersSelectOptions = useUsersSelectOptions(users, loading, selectedDate);
+    const initialSelectedUsers = useMemo(() => usersSelectOptions.map((option) => option.value), [usersSelectOptions]);
 
     return (
         <Drawer title="Change History Details" open={open} onClose={onClose} maskTransparent>
@@ -90,27 +91,30 @@ export const ChangeHistoryDrawer = ({
                 <Controls>
                     <ControlWrapper>
                         <UsersSelect
-                            options={selectUsersOptions}
+                            options={usersSelectOptions}
                             values={isUsersSelectUpdated ? selectedActors : initialSelectedUsers}
                             onUpdate={(values) => {
                                 setSelectedActors(values);
                                 setIsUsersSelectUpdated(true);
                             }}
-                            isDisabled={loading || selectUsersOptions.length === 0}
+                            loading={loading}
                         />
                     </ControlWrapper>
                     <ControlWrapper>
                         <TypesSelect
-                            options={filteredOperationTypesOptions}
+                            options={operationTypesOptions}
                             values={selectedOperationTypes}
                             onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
                             loading={loading}
                         />
                     </ControlWrapper>
+                    <ControlWrapper>
+                        <DateSwitcher value={selectedDate} setValue={(v) => setSelectedDate?.(v)} />
+                    </ControlWrapper>
                 </Controls>
 
                 <ChangeHistoryTimeline
-                    selectedDay={selectedDay}
+                    selectedDay={selectedDate}
                     operations={operations}
                     users={users}
                     loading={loading}

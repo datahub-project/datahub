@@ -1,0 +1,12 @@
+namespace com.linkedin.platformresource.globalconfig
+
+/**
+ * Global singleton storing configs for remote executor pools.
+ */
+record RemoteExecutorPoolGlobalConfig {
+    /**
+     * The default pool to use for tasks that require remote executors.
+     * References 'poolName' in com.linkedin.metadata.key.RemoteExecutorKey
+     */
+    defaultPoolName: string
+}

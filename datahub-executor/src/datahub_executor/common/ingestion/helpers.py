@@ -40,7 +40,7 @@ from datahub_executor.common.monitoring.metrics import (
     STATS_MCP_EMIT_EVENTS,
 )
 from datahub_executor.config import (
-    DATAHUB_EXECUTOR_WORKER_ID,
+    DATAHUB_EXECUTOR_POOL_NAME,
     DATAHUB_GMS_TOKEN,
     DATAHUB_GMS_URL,
 )
@@ -65,7 +65,7 @@ def setup_ingestion_executor(
 
     # Build default executor config
     ingestion_executor_config = ReportingExecutorConfig(
-        id=DATAHUB_EXECUTOR_WORKER_ID,
+        id=DATAHUB_EXECUTOR_POOL_NAME,
         task_configs=[ingest_task_config, test_connection_task_config],
         secret_stores=[
             SecretStoreConfig(type="env", config=dict({})),
@@ -136,7 +136,7 @@ def extract_execution_request(
 
     if (
         "executorId" in aspect_dict
-        and not aspect_dict["executorId"] == DATAHUB_EXECUTOR_WORKER_ID
+        and not aspect_dict["executorId"] == DATAHUB_EXECUTOR_POOL_NAME
     ):
         logger.error(
             f"Ignoring ExecutionRequest for non-configured executorId {aspect_dict['executorId']}"

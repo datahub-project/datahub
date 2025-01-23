@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
@@ -7,14 +8,17 @@ import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.DomainsPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
@@ -50,6 +54,50 @@ public class DomainService extends BaseService {
   }
 
   /**
+   * Fetches the domains for an entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the entity
+   */
+  public List<Urn> getEntityDomains(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    final Domains maybeDomains = getDomains(opContext, entityUrn);
+    if (maybeDomains != null) {
+      return maybeDomains.getDomains();
+    }
+    return Collections.emptyList();
+  }
+
+  /**
+   * Sets a single domain for a single entity. Assumes that the operation was already authorized.
+   * Assumes that the entity & domain already exist.
+   *
+   * @param domainUrn the urns of the domain to set
+   * @param entityUrn the urn of the entity to change
+   */
+  public void setDomain(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn)
+      throws RemoteInvocationException {
+    log.debug("Setting Domain for entity. domain: {}, entity: {}", domainUrn, entityUrn);
+    setDomainForResources(
+        opContext, domainUrn, ImmutableList.of(new ResourceReference(entityUrn, null, null)), null);
+  }
+
+  /**
+   * Unset / remove a single domain for a single entity. Assumes that the operation was already
+   * authorized. Assumes that the entity already exists.
+   *
+   * @param entityUrn the urn of the entity to change
+   */
+  public void unsetDomain(@Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn)
+      throws RemoteInvocationException {
+    log.debug("Unsettings Domain for entity. entity: {}", entityUrn);
+    unsetDomainForResources(
+        opContext, ImmutableList.of(new ResourceReference(entityUrn, null, null)), null);
+  }
+
+  /**
    * Batch sets a single domain for a set of resources.
    *
    * @param domainUrn the urns of the domain to set
@@ -62,7 +110,7 @@ public class DomainService extends BaseService {
       @Nonnull Urn domainUrn,
       @Nonnull List<ResourceReference> resources,
       @Nullable String appSource) {
-    log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
+    log.debug("Batch setting Domain to entities. domain: {}, resources: {}", domainUrn, resources);
     try {
       setDomainForResources(opContext, domainUrn, resources, appSource);
     } catch (Exception e) {
@@ -156,8 +204,7 @@ public class DomainService extends BaseService {
       @Nonnull OperationContext opContext,
       com.linkedin.common.urn.Urn domainUrn,
       List<ResourceReference> resources,
-      @Nullable String appSource)
-      throws Exception {
+      @Nullable String appSource) {
     final List<MetadataChangeProposal> changes =
         buildSetDomainProposals(domainUrn, resources, appSource);
     if (appSource != null) {
@@ -183,8 +230,7 @@ public class DomainService extends BaseService {
   private void unsetDomainForResources(
       @Nonnull OperationContext opContext,
       List<ResourceReference> resources,
-      @Nullable String appSource)
-      throws Exception {
+      @Nullable String appSource) {
     final List<MetadataChangeProposal> changes = buildUnsetDomainProposals(resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
@@ -340,5 +386,27 @@ public class DomainService extends BaseService {
       domainAssociationArray.removeIf(urn -> urn.equals(domainUrn));
     }
     return domainAssociationArray;
+  }
+
+  @Nullable
+  private Domains getDomains(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    final EntityResponse response = getDomainsEntityResponse(opContext, entityUrn);
+    if (response != null && response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+      return new Domains(response.getAspects().get(DOMAINS_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
+
+  @Nullable
+  private EntityResponse getDomainsEntityResponse(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      return this.entityClient.getV2(
+          opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(DOMAINS_ASPECT_NAME));
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve domains for entity with urn %s", entityUrn), e);
+    }
   }
 }

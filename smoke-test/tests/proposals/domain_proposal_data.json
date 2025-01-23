@@ -1,0 +1,133 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:test-domain-already-applied",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "Test Domain Applied"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-domains",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:test-domain-to-apply",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "Test Domain"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-domains",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-domain,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleKafkaTestProposal",
+              "platform": "urn:li:dataPlatform:kafka",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-domain,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": ["urn:li:domain:test-domain-already-applied"]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-domains",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]
