@@ -1,6 +1,14 @@
-#### Configuration Notes
+### Configuration Notes
 
-1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variables` config as shown below:
+1. Handling Liquid Templates
+
+   If a view contains a liquid template, for example:
+
+   ```
+   sql_table_name: {{ user_attributes['db'] }}.kafka_streaming.events
+   ```
+
+   where `db=ANALYTICS_PROD`, you need to specify the values of those variables in the liquid_variables configuration as shown below:
 
    ```yml
    liquid_variables:
@@ -8,20 +16,35 @@
        db: ANALYTICS_PROD
    ```
 
-2. If a view contains a lookml constant (e.g., `sql_table_name: @{db}.kafka_streaming.events;`), its value is resolved in the following order:
+2. Resolving LookML Constants
 
-- **First, checks the `manifest.lkml` file** for the constant definition.
-  ```manifest.lkml
-    constant: db {
-        value: "ANALYTICS_PROD"
-    }
-  ```
-- **If not found, falls back to `config`**
+   If a view contains a LookML constant, for example:
 
-  ```yml
-  lookml_constants:
-    db: ANALYTICS_PROD
-  ```
+   ```
+   sql_table_name: @{db}.kafka_streaming.events;
+   ```
+
+   its value is resolved in the following order:
+
+   - First, checks the `lookml_constants` configuration.
+
+     ```yml
+     lookml_constants:
+       db: ANALYTICS_PROD
+     ```
+
+   - If not found, falls back to `manifest.lkml`:
+
+     ```yml
+     manifest.lkml
+       constant: db {
+           value: "ANALYTICS_PROD"
+       }
+     ```
+
+**Additional Notes**
+
+Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views. This behavior is sufficient since DataHub LookML ingestion processes only views and their upstream dependencies.
 
 ### Multi-Project LookML (Advanced)
 

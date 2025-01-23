@@ -392,7 +392,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
             if key in self.source_config.liquid_variables:
                 self.reporter.report_warning(
                     title="Misplaced lookml constant",
-                    message="Misplaced lookml constant, Use 'lookml_constants' instead of 'liquid_variables'.",
+                    message="Use 'lookml_constants' instead of 'liquid_variables'.",
                     context=f"Key {key}",
                 )
                 return f"@{{{key}}}"

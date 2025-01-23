@@ -1056,8 +1056,8 @@ def test_special_liquid_variables():
         ),
         # Case 10: Misplaced lookml constant
         (
-            {"sql_table_name": "@{liquid1}.@{constant1}"},
-            {"datahub_transformed_sql_table_name": "@{liquid1}.value1"},
+            {"sql_table_name": "@{constant1}.@{constant2}.@{constant4}"},
+            {"datahub_transformed_sql_table_name": "value1.value2.@{constant4}"},
             True,
         ),
     ],
@@ -1074,7 +1074,7 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
         "constant2": "value2",
     }
     config.liquid_variables = {
-        "liquid1": "liquid_value1",
+        "constant4": "liquid_value1",
     }
 
     transformer = LookmlConstantTransformer(
@@ -1091,8 +1091,8 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
     if warning_expected:
         report.report_warning.assert_called_once_with(
             title="Misplaced lookml constant",
-            message="Misplaced lookml constant, Use 'lookml_constants' instead of 'liquid_variables'.",
-            context="Key liquid1",
+            message="Use 'lookml_constants' instead of 'liquid_variables'.",
+            context="Key constant4",
         )
 
 
