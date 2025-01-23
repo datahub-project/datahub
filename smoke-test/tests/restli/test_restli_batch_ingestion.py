@@ -3,6 +3,7 @@ from typing import List
 
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dashboard_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -12,6 +13,7 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass,
 )
+from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
 from tests.utils import delete_urns
@@ -133,3 +135,36 @@ def test_restli_batch_ingestion_async(graph_client):
     assert aspect.title == "Dummy Title For Testing"
     assert aspect.description == "Dummy Description For Testing"
     assert aspect.lastModified is not None
+
+
+def test_restli_batch_ingest_exception_equivalence(graph_client):
+    """
+    Test that batch ingest exceptions are equivalent to single ingest exceptions.
+    """
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,my_dataset,PROD)"
+    model_urn = MlModelUrn("mlflow", "my_model", "PROD").urn()
+    bad_mcps = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.StatusClass(removed=False),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.UpstreamLineageClass(
+                upstreams=[
+                    models.UpstreamClass(
+                        dataset=model_urn,
+                        type=models.DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                ]
+            ),
+        ),
+    ]
+    generated_urns.extend([mcp.entityUrn for mcp in bad_mcps if mcp.entityUrn])
+    try:
+        graph_client.emit_mcps(bad_mcps, async_flag=False)
+        raise AssertionError("should have thrown an exception")
+    except Exception as e:
+        if isinstance(e, AssertionError):
+            raise e
+        print(f"Error emitting MCPs due to {e}")
