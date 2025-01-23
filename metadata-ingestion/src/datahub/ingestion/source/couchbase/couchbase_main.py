@@ -352,9 +352,9 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties[
-                "schema.totalFields"
-            ] = f"{collection_schema_size}"
+            dataset_properties.customProperties["schema.totalFields"] = (
+                f"{collection_schema_size}"
+            )
 
         logger.debug(f"Size of collection fields = {len(collection_fields)}")
         # append each schema field (sort so output is consistent)

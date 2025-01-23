@@ -123,7 +123,7 @@ def discard(_tuple: Tuple[str, ...], element: str) -> Tuple[str, ...]:
 
 
 def construct_schema(
-    collection: Dict[str, Any]
+    collection: Dict[str, Any],
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
     Construct JSON schema.
