@@ -582,8 +582,11 @@ class Mapper:
             if tile.dataset is not None and tile.dataset.webUrl is not None:
                 custom_properties[Constant.DATASET_WEB_URL] = tile.dataset.webUrl
 
-            if tile.report is not None and tile.report.id is not None:
-                custom_properties[Constant.REPORT_ID] = tile.report.id
+            if tile.report_id is not None:
+                custom_properties[Constant.REPORT_ID] = tile.report_id
+
+            if tile.report is not None and tile.report.webUrl is not None:
+                custom_properties[Constant.REPORT_WEB_URL] = tile.report.webUrl
 
             return custom_properties
 
