@@ -31,7 +31,7 @@ from datahub_executor.common.types import (
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
-    DATAHUB_EXECUTOR_WORKER_ID,
+    DATAHUB_EXECUTOR_POOL_NAME,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
 
@@ -130,7 +130,7 @@ def _evaluate_assertion(
         monitor_urn=monitor_urn,
     )
     is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
-        DATAHUB_EXECUTOR_WORKER_ID == executor_id
+        DATAHUB_EXECUTOR_POOL_NAME == executor_id
     )
 
     if async_flag and not is_embedded:

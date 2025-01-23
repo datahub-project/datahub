@@ -133,7 +133,7 @@ class SweeperJob:
         return SweeperAction.parse_obj(
             {
                 "action": action,
-                "description": f"Processing stale remote executor status record: {urn}; executorId = {status.executorId}",
+                "description": f"Processing stale remote executor status record: {urn}; executorId = {status.poolName}",
                 "args": {
                     "urn": urn,
                     "status": status,
@@ -365,14 +365,14 @@ class SweeperJob:
         for urn, status in executors.items():
             # Save urn of the most recent status update for each executor id
             if (
-                status.executorId not in keep
-                or keep[status.executorId][1] < status.reportedAt
+                status.poolName not in keep
+                or keep[status.poolName][1] < status.reportedAt
             ):
-                keep[status.executorId] = [urn, status.reportedAt]
+                keep[status.poolName] = [urn, status.reportedAt]
             # Delete status records updated over a month ago
             if status.reportedAt < purge_threshold:
                 logger.info(
-                    f"Sweeper: going to DELETE executor status record for {status.executorId}: {urn}; reportedAt = {status.reportedAt}"
+                    f"Sweeper: going to DELETE executor status record for {status.poolName}: {urn}; reportedAt = {status.reportedAt}"
                 )
                 actions[urn] = self._build_executor_action(
                     urn, status, "EXECUTOR_DELETE"
@@ -382,7 +382,7 @@ class SweeperJob:
                 (status.reportedAt < expire_threshold) or status.executorStopped
             ) and not status.executorExpired:
                 logger.info(
-                    f"Sweeper: going to EXPIRE executor status record for {status.executorId}: {urn}; reportedAt = {status.reportedAt}"
+                    f"Sweeper: going to EXPIRE executor status record for {status.poolName}: {urn}; reportedAt = {status.reportedAt}"
                 )
                 actions[urn] = self._build_executor_action(
                     urn, status, "EXECUTOR_EXPIRE"
@@ -503,7 +503,7 @@ class SweeperJob:
                 self._execute_restart_action(action)
             elif action.action in ["EXECUTOR_EXPIRE", "EXECUTOR_DELETE"]:
                 self._execute_executor_action(action)
-            elif action.action in ["CANCELLED", "DUPLICATE"]:
+            elif action.action in ["CANCELLED", "DUPLICATE", "ABORTED"]:
                 self._execute_cancel_action(action)
             else:
                 raise ValueError(f"Unrecognized action: {action.action}")
