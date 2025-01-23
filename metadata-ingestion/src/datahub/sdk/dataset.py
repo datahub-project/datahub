@@ -177,7 +177,7 @@ class SchemaField:
 
     def _ensure_editable_schema_field(self) -> models.EditableSchemaFieldInfoClass:
         editable_schema = self._parent._setdefault_aspect(
-            models.EditableSchemaMetadataClass()
+            models.EditableSchemaMetadataClass(editableSchemaFieldInfo=[])
         )
         for field in editable_schema.editableSchemaFieldInfo:
             if field.fieldPath == self._field_path:
