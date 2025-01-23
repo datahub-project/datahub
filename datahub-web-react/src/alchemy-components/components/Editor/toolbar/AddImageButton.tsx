@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Form, Input, Modal, Typography } from 'antd';
-import { PictureOutlined } from '@ant-design/icons';
 import { useCommands } from '@remirror/react';
-import { CommandButton } from './CommandButton';
 import { Image } from '@phosphor-icons/react';
+import { colors } from '@src/alchemy-components/theme';
+import { CommandButton } from './CommandButton';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
@@ -34,7 +34,7 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={24} />}
+                icon={<Image size={24} color={colors.gray[1800]} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />

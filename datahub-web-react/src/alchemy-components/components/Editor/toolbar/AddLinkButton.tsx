@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useActive } from '@remirror/react';
+import { LinkSimpleHorizontal } from '@phosphor-icons/react';
+import { colors } from '@src/alchemy-components/theme';
 
 import { CommandButton } from './CommandButton';
 import { LinkModal } from './LinkModal';
-import { LinkSimpleHorizontal } from '@phosphor-icons/react';
 
 export const AddLinkButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
@@ -20,7 +21,7 @@ export const AddLinkButton = () => {
         <>
             <CommandButton
                 active={active}
-                icon={<LinkSimpleHorizontal size={24} />}
+                icon={<LinkSimpleHorizontal size={24} color={colors.gray[1800]} />}
                 commandName="insertLink"
                 onClick={handleButtonClick}
             />

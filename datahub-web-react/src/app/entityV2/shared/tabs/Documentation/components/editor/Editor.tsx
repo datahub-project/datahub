@@ -40,34 +40,33 @@ type EditorProps = {
     onChange?: (md: string) => void;
     className?: string;
     doNotFocus?: boolean;
-    placeholder?: string;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder } = props;
+    const { content, readOnly, onChange, className } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
-            new BoldExtension({}),
-            new BulletListExtension({}),
+            new BoldExtension(),
+            new BulletListExtension(),
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
-            new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DataHubMentionsExtension(),
+            new DropCursorExtension(),
             new HardBreakExtension(),
-            new HeadingExtension({}),
-            new HistoryExtension({}),
-            new HorizontalRuleExtension({}),
+            new HeadingExtension(),
+            new HistoryExtension(),
+            new HorizontalRuleExtension(),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
-            new ListItemExtension({}),
+            new ListItemExtension(),
             new MarkdownExtension({ htmlSanitizer: DOMPurify.sanitize, htmlToMarkdown, markdownToHtml }),
             new OrderedListExtension(),
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
-            ...(readOnly ? [] : [new HistoryExtension({})]),
+            ...(readOnly ? [] : [new HistoryExtension()]),
         ],
         content,
         stringHandler: 'markdown',
@@ -90,13 +89,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     return (
         <EditorContainer className={className}>
             <ThemeProvider theme={EditorTheme}>
-                <Remirror
-                    classNames={['ant-typography']}
-                    editable={!readOnly}
-                    manager={manager}
-                    initialContent={state}
-                    placeholder={placeholder || ''}
-                >
+                <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
                     {!readOnly && (
                         <>
                             <Toolbar />

@@ -11,11 +11,11 @@ import {
 } from '@ant-design/icons';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
 import { createMarkPositioner } from 'remirror/extensions';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 import { CommandButton } from './CommandButton';
 import { LinkModal } from './LinkModal';
 import { CodeIcon } from './Icons';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 const { Text } = Typography;
 

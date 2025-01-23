@@ -1,12 +1,7 @@
-import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 import React from 'react';
 import { Divider } from 'antd';
 import { useActive, useCommands } from '@remirror/react';
 import styled from 'styled-components';
-import { CommandButton } from './CommandButton';
-import { HeadingMenu } from './HeadingMenu';
-import { AddImageButton } from './AddImageButton';
-import { AddLinkButton } from './AddLinkButton';
 import {
     Code,
     CodeBlock,
@@ -19,6 +14,10 @@ import {
     TextUnderline,
 } from '@phosphor-icons/react';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import { CommandButton } from './CommandButton';
+import { HeadingMenu } from './HeadingMenu';
+import { AddImageButton } from './AddImageButton';
+import { AddLinkButton } from './AddLinkButton';
 
 const Container = styled.div`
     position: sticky;
@@ -33,15 +32,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-`;
-
-const PopoverContainer = styled.div`
-    display: flex;
-    max-width: 450px;
-    align-items: baseline;
-    strong {
-        font-size: 16px;
-    }
+    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 `;
 
 export const Toolbar = () => {
@@ -109,7 +100,7 @@ export const Toolbar = () => {
             <AddImageButton />
             <AddLinkButton />
             <CommandButton
-                icon={<Table size={24} />}
+                icon={<Table size={24} color={colors.gray[1800]} />}
                 commandName="createTable"
                 onClick={() => commands.createTable()}
                 disabled={active.table()} /* Disables nested tables */

@@ -5,10 +5,10 @@ import { Empty, Spin } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
-import { MentionsDropdown } from './MentionsDropdown';
-import { useDataHubMentions } from './useDataHubMentions';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import { MentionsDropdown } from './MentionsDropdown';
+import { useDataHubMentions } from './useDataHubMentions';
 
 const Container = styled.div`
     position: relative;
