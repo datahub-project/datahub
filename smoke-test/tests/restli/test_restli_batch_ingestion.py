@@ -182,5 +182,6 @@ def test_restli_batch_ingestion_exception_async(graph_client):
     """
     bad_mcps = _create_invalid_dataset_mcps()
     generated_urns.extend([mcp.entityUrn for mcp in bad_mcps if mcp.entityUrn])
+    # TODO expectation is that it throws exception, but it doesn't currently.this test case need to change after fix.
     ret = graph_client.emit_mcps(bad_mcps, async_flag=True)
     assert ret >= 0
