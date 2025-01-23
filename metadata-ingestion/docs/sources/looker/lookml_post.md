@@ -24,16 +24,7 @@
    sql_table_name: @{db}.kafka_streaming.events;
    ```
 
-   its value is resolved in the following order:
-
-   - First, checks the `lookml_constants` configuration.
-
-     ```yml
-     lookml_constants:
-       db: ANALYTICS_PROD
-     ```
-
-   - If not found, falls back to `manifest.lkml`:
+   Ingestion attempts to resolve it's value by looking at project manifest files
 
      ```yml
      manifest.lkml
@@ -41,6 +32,14 @@
            value: "ANALYTICS_PROD"
        }
      ```
+
+   - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
+
+     ```yml
+     lookml_constants:
+       db: ANALYTICS_PROD
+     ```
+
 
 **Additional Notes**
 
