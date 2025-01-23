@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -10,6 +10,7 @@ from datahub.metadata.urns import (
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
+    SchemaFieldUrn,
     TagUrn,
     Urn,
 )
@@ -104,4 +105,13 @@ class SDKGraph:
         raise NotImplementedError("TODO: need to implement this")
 
     def get_term_urn_by_name(self, term_name: str, /) -> GlossaryTermUrn:
+        raise NotImplementedError("TODO: need to implement this")
+
+    def propose(
+        self,
+        entity: Union[DatasetUrn, ContainerUrn, SchemaFieldUrn],
+        proposal: Union[TagUrn, GlossaryTermUrn, str],  # str = description?
+    ) -> None:
+        # TODO: Also need to evaluate if this is the right interface?
+        # e.g. a single unified "propose" interface vs multiple individual methods
         raise NotImplementedError("TODO: need to implement this")
