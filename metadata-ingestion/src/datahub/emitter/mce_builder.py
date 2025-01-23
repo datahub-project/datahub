@@ -440,6 +440,10 @@ def can_add_aspect_to_snapshot(
 
 
 def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    # TODO: This is specific to snapshot types. We have a more general method
+    # in `entity_supports_aspect`, which should be used instead. This method
+    # should be deprecated, and all usages should be replaced.
+
     SnapshotType = type(mce.proposedSnapshot)
 
     return can_add_aspect_to_snapshot(SnapshotType, AspectType)
