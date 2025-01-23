@@ -301,7 +301,7 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/v2/entity/dataset")
+            MockMvcRequestBuilders.post("/openapi/v2/entity/dataset")
                 .content(body)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))

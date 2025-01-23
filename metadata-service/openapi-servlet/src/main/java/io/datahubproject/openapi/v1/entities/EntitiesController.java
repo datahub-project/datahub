@@ -61,7 +61,7 @@ import org.springframework.web.bind.annotation.RestController;
 */
 @Deprecated
 @RestController
-@RequestMapping("/entities/v1")
+@RequestMapping("/openapi/entities/v1")
 @Slf4j
 @Tag(
     name = "Entities",

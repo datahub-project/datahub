@@ -57,24 +57,30 @@ Options:
   --help                          Show this message and exit.
 
 Commands:
-  actions      <disabled due to missing dependencies>
-  check        Helper commands for checking various aspects of DataHub.
-  dataproduct  A group of commands to interact with the DataProduct entity in DataHub.
-  delete       Delete metadata from datahub using a single urn or a combination of filters
-  docker       Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  exists       A group of commands to check existence of entities in DataHub.
-  get          A group of commands to get metadata from DataHub.
-  group        A group of commands to interact with the Group entity in DataHub.
-  ingest       Ingest metadata into DataHub.
-  init         Configure which datahub instance to connect to
-  lite         A group of commands to work with a DataHub Lite instance
-  migrate      Helper commands for migrating metadata within DataHub.
-  put          A group of commands to put metadata in DataHub.
-  state        Managed state stored in DataHub by stateful ingestion.
-  telemetry    Toggle telemetry.
-  timeline     Get timeline for an entity based on certain categories
-  user         A group of commands to interact with the User entity in DataHub.
-  version      Print version number and exit.
+  actions       <disabled due to missing dependencies>
+  assertions    A group of commands to interact with the Assertion entity in DataHub.
+  check         Helper commands for checking various aspects of DataHub.
+  container     A group of commands to interact with containers in DataHub.
+  datacontract  A group of commands to interact with the DataContract entity in DataHub.
+  dataproduct   A group of commands to interact with the DataProduct entity in DataHub.
+  dataset       A group of commands to interact with the Dataset entity in DataHub.
+  delete        Delete metadata from DataHub.
+  docker        Helper commands for setting up and interacting with a local DataHub instance using Docker.
+  exists        A group of commands to check existence of entities in DataHub.
+  forms         A group of commands to interact with forms in DataHub.
+  get           A group of commands to get metadata from DataHub.
+  group         A group of commands to interact with the Group entity in DataHub.
+  ingest        Ingest metadata into DataHub.
+  init          Configure which datahub instance to connect to
+  lite          A group of commands to work with a DataHub Lite instance
+  migrate       Helper commands for migrating metadata within DataHub.
+  properties    A group of commands to interact with structured properties in DataHub.
+  put           A group of commands to put metadata in DataHub.
+  state         Managed state stored in DataHub by stateful ingestion.
+  telemetry     Toggle telemetry.
+  timeline      Get timeline for an entity based on certain categories
+  user          A group of commands to interact with the User entity in DataHub.
+  version       Print version number and exit.
 ```
 
 The following top-level commands listed below are here mainly to give the reader a high-level picture of what are the kinds of things you can accomplish with the cli.
@@ -272,6 +278,18 @@ DATAHUB_GMS_TOKEN=
 DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10
 DATAHUB_DEBUG=false
+```
+
+### container
+
+A group of commands to interact with containers in DataHub.
+
+e.g. You can use this to apply a tag to all datasets recursively in this container.
+```shell
+datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
+datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"
+datahub container owner --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --owner-urn  "urn:li:corpGroup:eng@example.com"
+datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --term-urn  "urn:li:term:PII"
 ```
 
 ### check
