@@ -2432,7 +2432,7 @@ class TableauSiteSource:
     ) -> Optional["SqlParsingResult"]:
         database_info = {
             c.NAME: datasource.get(c.DATABASE, {}).get(c.NAME) or c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE) or "snowflake",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
         }
         logger.info(f"database_info={database_info}")
 
