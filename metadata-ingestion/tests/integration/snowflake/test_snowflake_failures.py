@@ -283,10 +283,13 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         pipeline.run()
 
         pipeline.raise_from_status(raise_warnings=True)
-        assert (
-            "Secure view definition not found. Lineage will be missing for the view."
-            in [info.message for info in pipeline.source.get_report().infos]
-        )
+        assert pipeline.source.get_report().infos.as_obj() == [
+            {
+                "title": "Secure view definition not found",
+                "message": "Lineage will be missing for the view.",
+                "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
+            }
+        ]
 
 
 @freeze_time(FROZEN_TIME)
@@ -308,7 +311,12 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert (
-            "Failed to get secure views definitions. Please check permissions. "
-            "Lineage will be missing for the view."
-        ) in [info.message for info in pipeline.source.get_report().warnings]
+        assert pipeline.source.get_report().warnings.as_obj() == [
+            {
+                "title": "Failed to get secure views definitions",
+                "message": "Lineage will be missing for the view. Please check permissions.",
+                "context": [
+                    "TEST_DB.TEST_SCHEMA.VIEW_1 <class 'datahub.ingestion.source.snowflake.snowflake_connection.SnowflakePermissionError'>: Database 'SNOWFLAKE' does not exist or not authorized."
+                ],
+            }
+        ]
