@@ -494,19 +494,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         except KeyError:
             # Received secure view definitions but the view is not present in results
             self.structured_reporter.info(
-                "Secure view definition not found. Lineage will be missing for the view.",
+                title="Secure view definition not found",
+                message="Lineage will be missing for the view.",
                 context=f"{db_name}.{schema_name}.{table_name}",
             )
             return None
         except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = (
-                    "Failed to get secure views definitions. Please check permissions."
-                )
-            else:
-                error_msg = "Failed to get secure views definitions."
+            action_msg = (
+                "Please check permissions."
+                if isinstance(e, SnowflakePermissionError)
+                else ""
+            )
+
             self.structured_reporter.warning(
-                f"{error_msg} Lineage will be missing for the view.",
+                title="Failed to get secure views definitions",
+                message=f"Lineage will be missing for the view. {action_msg}",
                 context=f"{db_name}.{schema_name}.{table_name}",
                 exc=e,
             )
