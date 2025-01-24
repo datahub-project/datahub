@@ -28,6 +28,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Users of Sigma and PowerBI Apps ingestion may need to run a targeted reindex to update metadata on these edges.
+
 ## 0.15.0
 
 - OpenAPI Update: PIT Keep Alive parameter added to scroll endpoints. NOTE: This parameter requires the `pointInTimeCreationEnabled` feature flag to be enabled and the `elasticSearch.implementation` configuration to be `elasticsearch`. This feature is not supported for OpenSearch at this time and the parameter will not be respected without both of these set.
