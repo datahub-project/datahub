@@ -170,8 +170,7 @@ class AbstractLineage(ABC):
         logger.debug(f"Processing arguments {arguments}")
 
         if (
-            len(arguments)
-            >= 4  # [0] is warehouse FQDN.
+            len(arguments) >= 4  # [0] is warehouse FQDN.
             # [1] is endpoint, we are not using it.
             # [2] is "Catalog" key
             # [3] is catalog's value
@@ -215,16 +214,16 @@ class AbstractLineage(ABC):
             native_sql_parser.remove_special_characters(query)
         )
 
-        parsed_result: Optional[
-            "SqlParsingResult"
-        ] = native_sql_parser.parse_custom_sql(
-            ctx=self.ctx,
-            query=query,
-            platform=self.get_platform_pair().datahub_data_platform_name,
-            platform_instance=platform_detail.platform_instance,
-            env=platform_detail.env,
-            database=database,
-            schema=schema,
+        parsed_result: Optional["SqlParsingResult"] = (
+            native_sql_parser.parse_custom_sql(
+                ctx=self.ctx,
+                query=query,
+                platform=self.get_platform_pair().datahub_data_platform_name,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env,
+                database=database,
+                schema=schema,
+            )
         )
 
         if parsed_result is None:
@@ -410,9 +409,9 @@ class DatabricksLineage(AbstractLineage):
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
         table_detail: Dict[str, str] = {}
-        temp_accessor: Optional[
-            IdentifierAccessor
-        ] = data_access_func_detail.identifier_accessor
+        temp_accessor: Optional[IdentifierAccessor] = (
+            data_access_func_detail.identifier_accessor
+        )
 
         while temp_accessor:
             # Condition to handle databricks M-query pattern where table, schema and database all are present in
@@ -647,11 +646,13 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
         schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor.next  # type: ignore
+            IdentifierAccessor,
+            data_access_func_detail.identifier_accessor.next,  # type: ignore
         ).items["Name"]
         # Third is table name
         table_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor.next.next  # type: ignore
+            IdentifierAccessor,
+            data_access_func_detail.identifier_accessor.next.next,  # type: ignore
         ).items["Name"]
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
@@ -768,10 +769,13 @@ class NativeQueryLineage(AbstractLineage):
         ):  # database name is explicitly set
             return database
 
-        return get_next_item(  # database name is set in Name argument
-            data_access_tokens, "Name"
-        ) or get_next_item(  # If both above arguments are not available, then try Catalog
-            data_access_tokens, "Catalog"
+        return (
+            get_next_item(  # database name is set in Name argument
+                data_access_tokens, "Name"
+            )
+            or get_next_item(  # If both above arguments are not available, then try Catalog
+                data_access_tokens, "Catalog"
+            )
         )
 
     def create_lineage(
@@ -819,9 +823,7 @@ class NativeQueryLineage(AbstractLineage):
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(flat_argument_list[1])
             ),
-        )[
-            0
-        ]  # Remove any whitespaces and double quotes character
+        )[0]  # Remove any whitespaces and double quotes character
 
         server = tree_function.strip_char_from_list([data_access_tokens[2]])[0]
 

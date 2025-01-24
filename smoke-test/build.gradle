@@ -73,17 +73,16 @@ task installDev(type: Exec) {
 task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff tests/ && " +
-        "isort --check --diff tests/ && " +
-        "ruff --statistics tests/ && " +
+        "ruff check tests/ && " +
+        "ruff format --check tests/ && " +
         "mypy tests/"
 }
+
 task pythonLintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black tests/ && " +
-        "isort tests/ && " +
-        "ruff --fix tests/ && " +
+        "ruff check --fix tests/ && " +
+        "ruff format tests/ && " +
         "mypy tests/"
 }
 
@@ -155,3 +154,19 @@ task lint {
 task lintFix {
     dependsOn pythonLintFix
 }
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-c',
+    "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
+}
+clean.dependsOn cleanPythonCache

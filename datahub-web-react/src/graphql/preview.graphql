@@ -346,4 +346,9 @@ fragment entityPreview on Entity {
     ... on Container {
         ...entityContainer
     }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
 }

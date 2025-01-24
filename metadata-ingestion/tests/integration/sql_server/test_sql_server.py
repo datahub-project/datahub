@@ -57,7 +57,7 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
         pytestconfig,
         output_path=tmp_path / "mssql_mces.json",
         golden_path=test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('yml','json')}",
+        / f"golden_files/golden_mces_{config_file.replace('yml', 'json')}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['job_id'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_created'\]",

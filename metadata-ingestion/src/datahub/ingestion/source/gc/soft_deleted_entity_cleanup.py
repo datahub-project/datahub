@@ -99,6 +99,7 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
 
 @dataclass
 class SoftDeletedEntitiesReport(SourceReport):
+    num_calls_made: Dict[str, int] = field(default_factory=dict)
     num_entities_found: Dict[str, int] = field(default_factory=dict)
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
@@ -154,9 +155,9 @@ class SoftDeletedEntitiesCleanup:
             current_count = self.report.num_hard_deleted_by_type.get(entity_type, 0)
             self.report.num_hard_deleted_by_type[entity_type] = current_count + 1
             if entity_type not in self.report.sample_hard_deleted_aspects_by_type:
-                self.report.sample_hard_deleted_aspects_by_type[
-                    entity_type
-                ] = LossyList()
+                self.report.sample_hard_deleted_aspects_by_type[entity_type] = (
+                    LossyList()
+                )
             self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 
     def delete_entity(self, urn: str) -> None:
@@ -242,6 +243,11 @@ class SoftDeletedEntitiesCleanup:
 
         while True:
             try:
+                if entity_type not in self.report.num_calls_made:
+                    self.report.num_calls_made[entity_type] = 1
+                else:
+                    self.report.num_calls_made[entity_type] += 1
+                self._print_report()
                 result = self.ctx.graph.execute_graphql(
                     graphql_query,
                     {
@@ -270,7 +276,13 @@ class SoftDeletedEntitiesCleanup:
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
-            if not scroll_across_entities or not scroll_across_entities.get("count"):
+            if not scroll_across_entities:
+                break
+            search_results = scroll_across_entities.get("searchResults")
+            count = scroll_across_entities.get("count")
+            if not count or not search_results:
+                # Due to a server bug we cannot rely on just count as it was returning response like this
+                # {'count': 1, 'nextScrollId': None, 'searchResults': []}
                 break
             if entity_type == "DATA_PROCESS_INSTANCE":
                 # Temp workaround. See note in beginning of the function
@@ -282,7 +294,7 @@ class SoftDeletedEntitiesCleanup:
             self.report.num_entities_found[entity_type] += scroll_across_entities.get(
                 "count"
             )
-            for query in scroll_across_entities.get("searchResults"):
+            for query in search_results:
                 yield query["entity"]["urn"]
 
     def _get_urns(self) -> Iterable[str]:
