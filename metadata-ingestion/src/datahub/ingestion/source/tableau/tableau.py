@@ -2092,6 +2092,9 @@ class TableauSiteSource:
                 aspects=[self.get_data_platform_instance()],
             )
             logger.info(f"Processing custom sql {csql_id} = {csql}")
+            logger.info(
+                f"Processing custom sql {csql_id}.database = {csql.get(c.DATABASE)}"
+            )
 
             datasource_name = None
             project = None
@@ -2441,10 +2444,10 @@ class TableauSiteSource:
             return None
 
         if (
-            database_info.get(c.NAME) is None
-            or database_info.get(c.CONNECTION_TYPE) is None
+            # database_info.get(c.NAME) is None or
+            database_info.get(c.CONNECTION_TYPE) is None
         ):
-            logger.debug(
+            logger.info(
                 f"database information is missing from datasource {datasource_urn}"
             )
             return None
