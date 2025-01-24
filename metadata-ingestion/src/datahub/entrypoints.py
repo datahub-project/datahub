@@ -6,7 +6,7 @@ from typing import ContextManager, Optional
 
 import click
 
-import datahub as datahub_package
+import datahub._version as datahub_version
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     fixup_gms_url,
@@ -74,8 +74,8 @@ if sys.version_info >= (3, 12):
     help="Write debug-level logs to a file.",
 )
 @click.version_option(
-    version=datahub_package.nice_version_name(),
-    prog_name=datahub_package.__package_name__,
+    version=datahub_version.nice_version_name(),
+    prog_name=datahub_version.__package_name__,
 )
 def datahub(
     debug: bool,
