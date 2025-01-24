@@ -84,7 +84,7 @@ export const EMPTY_MESSAGES = {
     },
     mlModel: {
         title: 'No ML models',
-        description: 'Add ML models to entities to classify their data.',
+        description: 'ML models will appear here if they are associated with this ML model group.',
     },
 };
 
