@@ -13,13 +13,13 @@ class CompositeEmitter(Emitter):
         self.emitters = emitters
 
     def emit(
-            self,
-            item: Union[
-                MetadataChangeEvent,
-                MetadataChangeProposal,
-                MetadataChangeProposalWrapper,
-            ],
-            callback: Optional[Callable[[Exception, str], None]] = None,
+        self,
+        item: Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ],
+        callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         callback_called = False
         for emitter in self.emitters:
