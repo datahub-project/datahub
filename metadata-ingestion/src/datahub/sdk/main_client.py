@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
@@ -68,9 +70,9 @@ class DataHubClient:
     # TODO: Make all of these methods sync by default.
 
     @overload
-    def get(self, urn: ContainerUrn) -> "Container": ...
+    def get(self, urn: ContainerUrn) -> Container: ...
     @overload
-    def get(self, urn: DatasetUrn) -> "Dataset": ...
+    def get(self, urn: DatasetUrn) -> Dataset: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
