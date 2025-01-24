@@ -21,7 +21,7 @@ import { CopyUrnAction } from './CopyUrnAction';
 import { SubscribeAction } from './SubscribeAction';
 import { RunAction } from './RunAction';
 import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsSeparateSiblingsMode } from '../../../../../../useIsSeparateSiblingsMode';
+import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
 import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
 
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
@@ -53,7 +53,7 @@ export const AssertionListItemActions = ({
     refetch,
     shouldRightAlign,
 }: Props) => {
-    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const isSiblingsView = useIsOnSiblingsView();
     const mostRun = assertion.runEvents?.runEvents;
     const externalUrl =
         assertion?.info?.externalUrl ||
@@ -66,7 +66,7 @@ export const AssertionListItemActions = ({
     const menu = (
         <Menu>
             {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
-            {isSeparateSiblingsMode ? (
+            {!isSiblingsView ? (
                 <Menu.Item key="1">
                     <ContractAction
                         assertion={assertion}
