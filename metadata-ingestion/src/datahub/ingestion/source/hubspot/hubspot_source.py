@@ -40,9 +40,7 @@ class HubSpotReport(SourceReport, StaleEntityRemovalSourceReport):
 @config_class(HubSpotConfig)
 @support_status(SupportStatus.TESTING)
 class HubSpotSource(StatefulIngestionSourceBase):
-    NODE = "node"
-    RELATIONSHIP = "relationship"
-    PLATFORM = "neo4j"
+    PLATFORM = "hubspot"
 
     def __init__(self, ctx: PipelineContext, config: HubSpotConfig):
         self.ctx = ctx
