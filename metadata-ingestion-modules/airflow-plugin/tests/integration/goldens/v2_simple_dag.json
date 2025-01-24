@@ -28,6 +28,17 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,simple_dag,prod)",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,simple_dag,prod)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -82,6 +93,17 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,simple_dag,prod)",
     "changeType": "UPSERT",
@@ -115,7 +137,7 @@
                 "downstream_task_ids": "['run_another_data_task']",
                 "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')]",
                 "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['run_another_data_task']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"task_1\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['run_another_data_task']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"task_1\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
             "name": "task_1",
@@ -128,7 +150,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),run_another_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),task_1)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -251,16 +273,16 @@
                 "state": "running",
                 "operator": "BashOperator",
                 "priority_weight": "2",
-                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "simple_dag",
                 "task_id": "task_1"
             },
-            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718733547259,
+                "time": 1737511109044,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -275,6 +297,18 @@
         "json": {
             "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),task_1)",
             "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fdbbbcd638bc0e91bbf8d7775efbecaf",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,prod)"
         }
     }
 },
@@ -351,7 +385,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717179559032,
+            "timestampMillis": 1737511109044,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -368,14 +402,55 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1717179559525,
+            "timestampMillis": 1737511109806,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1717179559525
+            "lastUpdatedTimestamp": 1737511109806
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),task_1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'task_1'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "task_id": "'task_1'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['run_another_data_task']",
+                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.tableA', env='PROD', platform_instance=None), Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)'), Urn(_urn='urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)')]",
+                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.tableD', env='PROD', platform_instance=None)]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['run_another_data_task']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"task_1\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=task_1",
+            "name": "task_1",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),task_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -481,7 +556,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717179559610,
+            "timestampMillis": 1737511109986,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -513,7 +588,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"run_another_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['task_1']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"downstream\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"run_another_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['task_1']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
             "name": "run_another_data_task",
@@ -521,6 +596,17 @@
                 "string": "COMMAND"
             },
             "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -594,16 +680,16 @@
                 "state": "running",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "simple_dag",
                 "task_id": "run_another_data_task"
             },
-            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718733551439,
+                "time": 1737511118405,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -625,16 +711,69 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:888f71b79d9a0b162fe44acad7b2c2ae",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,prod)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:888f71b79d9a0b162fe44acad7b2c2ae",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717179564453,
+            "timestampMillis": 1737511118405,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'run_another_data_task'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "task_id": "'run_another_data_task'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"run_another_data_task\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['task_1']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=simple_dag&_flt_3_task_id=run_another_data_task",
+            "name": "run_another_data_task",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,simple_dag,prod),run_another_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -696,7 +835,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717179564937,
+            "timestampMillis": 1737511119195,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
