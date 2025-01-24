@@ -156,6 +156,7 @@ export const Table = <T,>({
                                                     columns.length - 1 === i && canExpand ? 'right' : column.alignment
                                                 }
                                                 isGroupHeader={canExpand}
+                                                isExpanded={isExpanded}
                                             >
                                                 {/* Add expandable icon if applicable or render row */}
                                                 {columns.length - 1 === i && canExpand ? (

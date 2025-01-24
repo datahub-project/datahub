@@ -87,7 +87,7 @@ export const AcrylAssertionListTable = ({
             return 'group-header';
         }
         if (record.urn === focusAssertionUrn) {
-            return 'acryl-selected-table-row' || 'acryl-assertions-table-row';
+            return 'acryl-selected-table-row';
         }
         return 'acryl-assertions-table-row';
     };

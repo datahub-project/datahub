@@ -72,11 +72,12 @@ export const TableCell = styled.td<{
     width?: string;
     alignment?: AlignmentOptions;
     isGroupHeader?: boolean;
-}>(({ width, alignment, isGroupHeader }) => ({
+    isExpanded?: boolean;
+}>(({ width, alignment, isGroupHeader, isExpanded }) => ({
     padding: isGroupHeader
         ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
-    borderBottom: isGroupHeader ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
+    borderBottom: isGroupHeader && !isExpanded ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
     color: colors.gray[1700],
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,
