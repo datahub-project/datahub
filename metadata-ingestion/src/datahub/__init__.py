@@ -18,3 +18,4 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.main_client import DataHubClient
