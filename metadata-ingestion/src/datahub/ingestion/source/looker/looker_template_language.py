@@ -213,11 +213,9 @@ class LookMLViewTransformer(ABC):
         self,
         source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
-        manifest_constants: List["LookerConstant"] = [],
     ):
         self.source_config = source_config
         self.reporter = reporter
-        self.manifest_constants = manifest_constants
 
     def transform(self, view: dict) -> dict:
         value_to_transform: Optional[str] = None
@@ -368,6 +366,15 @@ class LookmlConstantTransformer(LookMLViewTransformer):
 
     CONSTANT_PATTERN = r"@{(\w+)}"  # Matches @{constant}
 
+    def __init__(
+        self,
+        source_config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
+        manifest_constants: List["LookerConstant"],
+    ):
+        super().__init__(source_config=source_config, reporter=reporter)
+        self.manifest_constants = manifest_constants
+
     def resolve_lookml_constant(self, text: str, view_name: Optional[str]) -> str:
         """
         Resolves LookML constants (@{ }) from manifest or config.
@@ -407,7 +414,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 message="The constant is missing. Either add it under 'lookml_constants' in the config or define it in `manifest.lkml`.",
                 context=f"view-name: {view_name}, constant: {key}",
             )
-            return "NULL"
+            return f"@{{{key}}}"
 
         # Resolve @{} (constant)
         return re.sub(self.CONSTANT_PATTERN, replace_constants, text)
@@ -473,6 +480,7 @@ def process_lookml_template_language(
     view_lkml_file_dict: dict,
     reporter: LookMLSourceReport,
     manifest_constants: List["LookerConstant"] = [],
+    resolve_constants: bool = False,
 ) -> None:
     if "views" not in view_lkml_file_dict:
         return
@@ -484,11 +492,6 @@ def process_lookml_template_language(
         LiquidVariableTransformer(
             source_config=source_config, reporter=reporter
         ),  # Now resolve liquid variables
-        LookmlConstantTransformer(
-            source_config=source_config,
-            manifest_constants=manifest_constants,
-            reporter=reporter,
-        ),  # Resolve @{} constant with its corresponding value
         DropDerivedViewPatternTransformer(
             source_config=source_config, reporter=reporter
         ),  # Remove any ${} symbol
@@ -496,6 +499,14 @@ def process_lookml_template_language(
             source_config=source_config, reporter=reporter
         ),  # complete any incomplete sql
     ]
+    if resolve_constants:
+        transformers.append(
+            LookmlConstantTransformer(
+                source_config=source_config,
+                manifest_constants=manifest_constants,
+                reporter=reporter,
+            ),  # Resolve @{} constant with its corresponding value
+        )
 
     transformed_views: List[dict] = []
 
@@ -512,6 +523,7 @@ def load_and_preprocess_file(
     source_config: LookMLSourceConfig,
     reporter: LookMLSourceReport,
     manifest_constants: List["LookerConstant"] = [],
+    resolve_constants: bool = False,
 ) -> dict:
     parsed = load_lkml(path)
 
@@ -520,6 +532,7 @@ def load_and_preprocess_file(
         reporter=reporter,
         source_config=source_config,
         manifest_constants=manifest_constants,
+        resolve_constants=resolve_constants,
     )
 
     return parsed

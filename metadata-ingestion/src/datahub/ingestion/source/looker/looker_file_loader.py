@@ -76,10 +76,14 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
 
+            # load_and preprocess_file is called multiple times for loading view file from multiple flows.
+            # Flag resolve_constants is a hack to avoid passing around manifest_constants from all of the flows.
+            # This is fine as rest of flows do not need resolution of constants.
             parsed = load_and_preprocess_file(
                 path=path,
                 reporter=self.reporter,
                 source_config=self.source_config,
+                resolve_constants=True,
                 manifest_constants=self.manifest_constants,
             )
 
