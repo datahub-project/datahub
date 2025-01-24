@@ -180,7 +180,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         cache_info = report.data_dictionary_cache.as_obj()
         assert cache_info["get_tables_for_database"]["misses"] == 1
         assert cache_info["get_views_for_database"]["misses"] == 1
-        assert cache_info["get_columns_for_schema"]["misses"] == 1
+        # When streams query specific tables, the query will not be cached resulting in 2 cache misses
+        assert cache_info["get_columns_for_schema"]["misses"] == 2
         assert cache_info["get_pk_constraints_for_schema"]["misses"] == 1
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
