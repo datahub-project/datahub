@@ -909,7 +909,7 @@ def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_t
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
 
     golden_path = test_resources_dir / "vv_lineage_lookml_constant_golden.json"
     mce_helpers.check_golden_file(

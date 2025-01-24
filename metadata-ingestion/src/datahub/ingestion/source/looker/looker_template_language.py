@@ -368,7 +368,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
 
     CONSTANT_PATTERN = r"@{(\w+)}"  # Matches @{constant}
 
-    def resolve_lookml_constant(self, text: str) -> str:
+    def resolve_lookml_constant(self, text: str, view_name: Optional[str]) -> str:
         """
         Resolves LookML constants (@{ }) from manifest or config.
         Logs warnings for misplaced or missing variables.
@@ -402,14 +402,18 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 )
                 return f"@{{{key}}}"
 
-            logger.warning(f"Constant '@{{{key}}}' not found in configuration.")
+            self.reporter.report_warning(
+                title="LookML constant not found",
+                message="The constant is missing. Either add it under 'lookml_constants' in the config or define it in `manifest.lkml`.",
+                context=f"view-name: {view_name}, constant: {key}",
+            )
             return "NULL"
 
         # Resolve @{} (constant)
         return re.sub(self.CONSTANT_PATTERN, replace_constants, text)
 
     def _apply_transformation(self, value: str, view: dict) -> str:
-        return self.resolve_lookml_constant(text=value)
+        return self.resolve_lookml_constant(text=value, view_name=view.get("name"))
 
 
 class TransformedLookMlView:
