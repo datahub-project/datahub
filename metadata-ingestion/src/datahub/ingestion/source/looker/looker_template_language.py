@@ -87,7 +87,10 @@ class SpecialVariable:
 
 
 def resolve_liquid_variable(
-    text: str, liquid_variable: Dict[Any, Any], report: LookMLSourceReport
+    text: str,
+    view_name: str,
+    liquid_variable: Dict[Any, Any],
+    report: LookMLSourceReport,
 ) -> str:
     # Set variable value to NULL if not present in liquid_variable dictionary
     Undefined.__str__ = lambda instance: "NULL"  # type: ignore
@@ -102,9 +105,10 @@ def resolve_liquid_variable(
         # Resolve liquid template
         return create_template(text).render(liquid_variable)
     except LiquidSyntaxError as e:
-        report.report_warning(
-            message="Unsupported liquid template",
-            context=f"text {text} liquid_variable {liquid_variable}",
+        report.info(
+            title="Unsupported liquid template",
+            message="There are some tag specific to looker and python-liquid library does not understand them. Currently we are not parsing such liquid template.",
+            context=f"view-name: {view_name}, text: {text}, liquid_variable: {liquid_variable}",
             exc=e,
         )
         # TODO: There are some tag specific to looker and python-liquid library does not understand them. currently
@@ -113,12 +117,12 @@ def resolve_liquid_variable(
         # See doc: https://cloud.google.com/looker/docs/templated-filters and look for { % condition region %}
         # order.region { % endcondition %}
     except CustomTagException as e:
-        report.warning(
-            message="Unsupported liquid template",
-            context=f"text {text} liquid_variable {liquid_variable}",
+        report.info(
+            title="Unsupported liquid template",
+            message="Rendering the Liquid template failed due to an issue with the provided variables or template syntax",
+            context=f"view-name: {view_name}, text: {text}, liquid_variable: {liquid_variable}",
             exc=e,
         )
-
     return text
 
 
@@ -273,6 +277,7 @@ class LiquidVariableTransformer(LookMLViewTransformer):
         return resolve_liquid_variable(
             text=value,
             liquid_variable=self.source_config.liquid_variables,
+            view_name=view["name"],
             report=self.reporter,
         )
 

@@ -504,29 +504,32 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
-        if manifest_file.exists():
-            manifest_dict = load_and_preprocess_file(
-                path=manifest_file,
-                source_config=self.source_config,
-                reporter=self.reporter,
-            )
 
-            manifest = LookerManifest(
-                project_name=manifest_dict.get("project_name"),
-                constants=manifest_dict.get("constants", []),
-                local_dependencies=[
-                    x["project"] for x in manifest_dict.get("local_dependencys", [])
-                ],
-                remote_dependencies=[
-                    LookerRemoteDependency(
-                        name=x["name"], url=x["url"], ref=x.get("ref")
-                    )
-                    for x in manifest_dict.get("remote_dependencys", [])
-                ],
+        if not manifest_file.exists():
+            self.reporter.info(
+                message="manifest.lkml file missing from project",
+                context=str(manifest_file),
             )
-            return manifest
-        else:
             return None
+
+        manifest_dict = load_and_preprocess_file(
+            path=manifest_file,
+            source_config=self.source_config,
+            reporter=self.reporter,
+        )
+
+        manifest = LookerManifest(
+            project_name=manifest_dict.get("project_name"),
+            constants=manifest_dict.get("constants", []),
+            local_dependencies=[
+                x["project"] for x in manifest_dict.get("local_dependencys", [])
+            ],
+            remote_dependencies=[
+                LookerRemoteDependency(name=x["name"], url=x["url"], ref=x.get("ref"))
+                for x in manifest_dict.get("remote_dependencys", [])
+            ],
+        )
+        return manifest
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
