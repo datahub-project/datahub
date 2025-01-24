@@ -23,6 +23,9 @@ class BedrockModel(enum.Enum):
     CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
     CLAUDE_35_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 
+    CLAUDE_35_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
+    CLAUDE_35_SONNET_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
 
 @serialized
 @functools.cache
@@ -101,3 +104,11 @@ def call_bedrock_llm(
 
     logger.info(f"LLM call took {time.time() - start_time} seconds")
     return outputText
+
+
+if __name__ == "__main__":
+    # Simple testing code.
+    import sys
+
+    prompt = sys.argv[1]
+    logger.info(call_bedrock_llm(prompt, 100, BedrockModel.CLAUDE_35_HAIKU))
