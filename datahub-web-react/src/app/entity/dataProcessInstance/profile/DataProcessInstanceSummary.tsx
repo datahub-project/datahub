@@ -41,8 +41,6 @@ export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
 
-    console.log('dpi', dpi);
-
     const formatDate = (timestamp?: number) => {
         if (!timestamp) return '-';
         const milliseconds = timestamp < 10000000000 ? timestamp * 1000 : timestamp;

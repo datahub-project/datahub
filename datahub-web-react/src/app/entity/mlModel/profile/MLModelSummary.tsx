@@ -49,8 +49,6 @@ export default function MLModelSummary() {
     const model = baseEntity?.mlModel;
     const entityRegistry = useEntityRegistry();
 
-    console.log('model', model);
-
     const propertyTableColumns = [
         {
             title: 'Name',

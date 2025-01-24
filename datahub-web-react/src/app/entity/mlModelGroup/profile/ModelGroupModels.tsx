@@ -100,9 +100,6 @@ export default function MLGroupModels() {
         return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
     };
 
-    console.log('modelGroup', modelGroup);
-    console.log('models', models);
-
     const columns = [
         {
             title: 'Name',
