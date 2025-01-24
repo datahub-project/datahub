@@ -53,7 +53,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
-    DatasetPropertiesClass,
     DatasetSnapshotClass,
     UpstreamClass,
 )
@@ -418,40 +417,10 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 dataset_snapshot: DatasetSnapshotClass = wu.metadata.proposedSnapshot
                 assert dataset_snapshot
 
-                lineage_mcp, lineage_properties_aspect = self.get_lineage_mcp(
-                    wu.metadata.proposedSnapshot.urn
-                )
+                lineage_mcp = self.get_lineage_mcp(wu.metadata.proposedSnapshot.urn)
 
                 if lineage_mcp is not None:
                     yield lineage_mcp.as_workunit()
-
-                if lineage_properties_aspect:
-                    aspects = dataset_snapshot.aspects
-                    if aspects is None:
-                        aspects = []
-
-                    dataset_properties_aspect: Optional[DatasetPropertiesClass] = None
-
-                    for aspect in aspects:
-                        if isinstance(aspect, DatasetPropertiesClass):
-                            dataset_properties_aspect = aspect
-
-                    if dataset_properties_aspect is None:
-                        dataset_properties_aspect = DatasetPropertiesClass()
-                        aspects.append(dataset_properties_aspect)
-
-                    custom_properties = (
-                        {
-                            **dataset_properties_aspect.customProperties,
-                            **lineage_properties_aspect.customProperties,
-                        }
-                        if dataset_properties_aspect.customProperties
-                        else lineage_properties_aspect.customProperties
-                    )
-                    dataset_properties_aspect.customProperties = custom_properties
-                    dataset_snapshot.aspects = aspects
-
-                    dataset_snapshot.aspects.append(dataset_properties_aspect)
 
             # Emit the work unit from super.
             yield wu
@@ -656,19 +625,16 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
     def get_lineage_mcp(
         self, dataset_urn: str
-    ) -> Tuple[
-        Optional[MetadataChangeProposalWrapper], Optional[DatasetPropertiesClass]
-    ]:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         dataset_key = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
-            return None, None
+            return None
 
         if not self._lineage_map:
             self._populate_lineage()
         assert self._lineage_map is not None
 
         upstream_lineage: List[UpstreamClass] = []
-        custom_properties: Dict[str, str] = {}
 
         if dataset_key.name in self._lineage_map:
             item = self._lineage_map[dataset_key.name]
@@ -684,16 +650,12 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 )
                 upstream_lineage.append(upstream_table)
 
-        properties = None
-        if custom_properties:
-            properties = DatasetPropertiesClass(customProperties=custom_properties)
-
         if not upstream_lineage:
-            return None, properties
+            return None
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(upstreams=upstream_lineage),
         )
 
-        return mcp, properties
+        return mcp
