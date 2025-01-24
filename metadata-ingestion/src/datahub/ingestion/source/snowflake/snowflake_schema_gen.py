@@ -526,7 +526,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_view(view, snowflake_schema, db_name)
 
     def _process_streams(
-        self, streams: list, snowflake_schema: SnowflakeSchema, db_name: str
+        self, streams: List[SnowflakeStream], snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         for stream in streams:
             yield from self._process_stream(stream, snowflake_schema, db_name)
