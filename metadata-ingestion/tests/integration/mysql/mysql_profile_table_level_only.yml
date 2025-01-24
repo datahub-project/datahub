@@ -5,6 +5,8 @@ source:
     password: example
     host_port: localhost:53307
     database: northwind
+    include_stored_procedures: false
+    include_stored_procedures_code: false
     profiling:
       enabled: True
       profile_table_level_only: true

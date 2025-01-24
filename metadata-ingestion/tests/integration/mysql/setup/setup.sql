@@ -275,3 +275,62 @@ CREATE TABLE IF NOT EXISTS `test_cases`.`myset` (col SET('a', 'b', 'c', 'd'));
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+-- Create new table for stored procedure output
+CREATE TABLE IF NOT EXISTS `northwind`.`customer_stats` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `company` VARCHAR(50) NULL DEFAULT NULL,
+  `total_orders` INT NULL DEFAULT NULL,
+  `last_order_date` DATETIME NULL DEFAULT NULL,
+  `creation_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `company` (`company` ASC)
+) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8;
+
+-- Create a stored procedure that reads from customers/orders and writes to customer_stats
+DELIMITER //
+
+CREATE PROCEDURE `northwind`.`calculate_customer_stats`()
+BEGIN
+    TRUNCATE TABLE customer_stats;
+
+    INSERT INTO customer_stats (company, total_orders, last_order_date)
+    SELECT
+        c.company,
+        COUNT(o.id) as total_orders,
+        MAX(o.order_date) as last_order_date
+    FROM customers c
+    LEFT JOIN orders o ON c.id = o.customer_id
+    GROUP BY c.company;
+END //
+
+-- Create a stored procedure with multiple statements and temp tables
+CREATE PROCEDURE `northwind`.`analyze_customer_priority`(IN min_priority FLOAT)
+BEGIN
+    CREATE TEMPORARY TABLE IF NOT EXISTS temp_priority_customers
+    SELECT
+        c.company,
+        c.priority
+    FROM customers c
+    WHERE c.priority >= min_priority;
+
+    INSERT INTO customer_stats (company, total_orders)
+    SELECT
+        t.company,
+        COUNT(o.id) as total_orders
+    FROM temp_priority_customers t
+    LEFT JOIN customers c ON c.company = t.company
+    LEFT JOIN orders o ON c.id = o.customer_id
+    GROUP BY t.company;
+
+    DROP TEMPORARY TABLE IF EXISTS temp_priority_customers;
+END //
+
+DELIMITER ;
+
+-- Add a new field to orders table for testing
+ALTER TABLE `northwind`.`orders`
+ADD COLUMN `order_date` DATETIME NULL DEFAULT NULL AFTER `customer_id`;
+
+-- Add some sample order dates
+UPDATE `northwind`.`orders` SET order_date = NOW() - INTERVAL FLOOR(RAND() * 365) DAY;

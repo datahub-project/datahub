@@ -20,17 +20,16 @@ from datahub.ingestion.source.sql.mysql.job_models import (
     MySQLProcedureContainer,
     MySQLStoredProcedure,
 )
-from datahub.ingestion.source.sql.mysql.source import MySQLConnectionConfig
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class MariaDBConnectionConfig(MySQLConnectionConfig):
+class MariaDBConfig(MySQLConfig):
     host_port: str = Field(default="localhost:3306", description="MariaDB host URL.")
 
 
 @platform_name("MariaDB")
-@config_class(MariaDBConnectionConfig)
+@config_class(MariaDBConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

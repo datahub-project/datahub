@@ -1,0 +1,1366 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "mariadb",
+                "env": "PROD",
+                "database": "test_db"
+            },
+            "name": "test_db",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mariadb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "customer_order_summary",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_db.customer_order_summary",
+                        "platform": "urn:li:dataPlatform:mariadb",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_orders",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_spent",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "DECIMAL(10, 2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "last_order_date",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "processed_at",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "foreignKeys": [
+                            {
+                                "name": "customer_order_summary_ibfk_1",
+                                "foreignFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                                ],
+                                "sourceFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),customer_id)"
+                                ],
+                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+                    "urn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "processed_customers",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_db.processed_customers",
+                        "platform": "urn:li:dataPlatform:mariadb",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "full_name",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(100)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "email_domain",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(100)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "processed_at",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "foreignKeys": [
+                            {
+                                "name": "processed_customers_ibfk_1",
+                                "foreignFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                                ],
+                                "sourceFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),customer_id)"
+                                ],
+                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+                    "urn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "raw_customer_data",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_db.raw_customer_data",
+                        "platform": "urn:li:dataPlatform:mariadb",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "name",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(100)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "email",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(255)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "created_at",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+                    "urn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "raw_order_data",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_db.raw_order_data",
+                        "platform": "urn:li:dataPlatform:mariadb",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER(11)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_total",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "DECIMAL(10, 2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "created_at",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "foreignKeys": [
+                            {
+                                "name": "raw_order_data_ibfk_1",
+                                "foreignFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                                ],
+                                "sourceFields": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),customer_id)"
+                                ],
+                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a",
+                    "urn": "urn:li:container:f9edc529121d2bf7a032dc8c7525010a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "",
+            "name": "test_db.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "security_type": "DEFINER",
+                "sql_data_access": "CONTAINS SQL",
+                "created": "2025-01-24 22:43:42",
+                "last_altered": "2025-01-24 22:43:42",
+                "definer": "root@localhost",
+                "parameters": "IN min_order_total decimal",
+                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `generate_order_summaries`(IN min_order_total DECIMAL(10,2))\nBEGIN\n    \n    DELETE FROM customer_order_summary;\n\n    \n    INSERT INTO customer_order_summary (\n        customer_id,\n        total_orders,\n        total_spent,\n        last_order_date\n    )\n    SELECT\n        rc.id as customer_id,\n        COUNT(ro.id) as total_orders,\n        SUM(ro.order_total) as total_spent,\n        MAX(ro.created_at) as last_order_date\n    FROM raw_customer_data rc\n    LEFT JOIN raw_order_data ro ON rc.id = ro.customer_id\n    GROUP BY rc.id\n    HAVING SUM(ro.order_total) >= min_order_total;\nEND"
+            },
+            "externalUrl": "",
+            "name": "test_db.generate_order_summaries",
+            "type": {
+                "string": "MARIADB_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "security_type": "DEFINER",
+                "sql_data_access": "CONTAINS SQL",
+                "created": "2025-01-24 22:43:42",
+                "last_altered": "2025-01-24 22:43:42",
+                "definer": "root@localhost",
+                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `process_customer_data`()\nBEGIN\n    \n    DELETE FROM processed_customers;\n\n    \n    INSERT INTO processed_customers (customer_id, full_name, email_domain)\n    SELECT\n        id as customer_id,\n        name as full_name,\n        SUBSTRING_INDEX(email, '@', -1) as email_domain\n    FROM raw_customer_data;\nEND"
+            },
+            "externalUrl": "",
+            "name": "test_db.process_customer_data",
+            "type": {
+                "string": "MARIADB_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),refresh_customer_analytics)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "security_type": "DEFINER",
+                "sql_data_access": "CONTAINS SQL",
+                "created": "2025-01-24 22:43:42",
+                "last_altered": "2025-01-24 22:43:42",
+                "definer": "root@localhost",
+                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `refresh_customer_analytics`()\nBEGIN\n    \n    CALL process_customer_data();\n\n    \n    CALL generate_order_summaries(100.00);\nEND"
+            },
+            "externalUrl": "",
+            "name": "test_db.refresh_customer_analytics",
+            "type": {
+                "string": "MARIADB_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1713078000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "total_orders",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "total_spent",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "last_order_date",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "processed_at",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1713078000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "full_name",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "email_domain",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "processed_at",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1713078000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 3,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "1.0",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "John Doe",
+                        "Jane Smith",
+                        "Bob Wilson"
+                    ]
+                },
+                {
+                    "fieldPath": "email",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "john@example.com",
+                        "jane@test.com",
+                        "bob@domain.com"
+                    ]
+                },
+                {
+                    "fieldPath": "created_at",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.3333333333333333,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2025-01-24T22:43:42",
+                    "max": "2025-01-24T22:43:42",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "2025-01-24 22:43:42",
+                            "frequency": 3
+                        }
+                    ],
+                    "sampleValues": [
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1713078000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 5,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "5",
+                    "mean": "3.0",
+                    "median": "3",
+                    "stdev": "1.5811",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3",
+                        "5",
+                        "4"
+                    ]
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.6,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "1.8",
+                    "median": "2",
+                    "stdev": "0.8367",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "1",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "3",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "1",
+                        "1",
+                        "2",
+                        "2",
+                        "3"
+                    ]
+                },
+                {
+                    "fieldPath": "order_total",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "100.5",
+                    "max": "300.0",
+                    "mean": "185.4",
+                    "median": "175.5",
+                    "stdev": "74.010683",
+                    "sampleValues": [
+                        "100.50",
+                        "200.75",
+                        "150.25",
+                        "300.00",
+                        "175.50"
+                    ]
+                },
+                {
+                    "fieldPath": "created_at",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.2,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2025-01-24T22:43:42",
+                    "max": "2025-01-24T22:43:42",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "2025-01-24 22:43:42",
+                            "frequency": 5
+                        }
+                    ],
+                    "sampleValues": [
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42",
+                        "2025-01-24 22:43:42"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_orders)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),order_total)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_spent)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),created_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),last_order_date)"
+                    ],
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),full_name)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),email_domain)"
+                    ],
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),refresh_customer_analytics)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
