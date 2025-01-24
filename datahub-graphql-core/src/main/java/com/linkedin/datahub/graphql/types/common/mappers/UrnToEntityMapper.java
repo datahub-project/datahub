@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.metadata.AcrylConstants;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -244,6 +245,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataProcessInstance();
       ((DataProcessInstance) partialEntity).setUrn(input.toString());
       ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
+    }
+    if (input.getEntityType().equals(AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)) {
+      partialEntity = new RemoteExecutor();
+      ((RemoteExecutor) partialEntity).setUrn(input.toString());
+      ((RemoteExecutor) partialEntity).setType(EntityType.REMOTE_EXECUTOR);
+    }
+    if (input.getEntityType().equals(AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME)) {
+      partialEntity = new RemoteExecutorPool();
+      ((RemoteExecutorPool) partialEntity).setUrn(input.toString());
+      ((RemoteExecutorPool) partialEntity).setType(EntityType.REMOTE_EXECUTOR_POOL);
     }
     if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
       partialEntity = new VersionSet();

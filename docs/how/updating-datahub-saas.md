@@ -33,6 +33,32 @@ This is over and above updating-datahub.md file
 
 ### Environment Variables
 
+## v0.3.8
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment Variables
+
+- [datahub-gms] `SHOW_NAV_BAR_REDESIGN`: Whether to enable the new Nav Bar redesign. Some customers have explicitly requested this already, but should aim to evangelize and drive up adoption as we will continue to improve this experience as the primary going forward.
+- [datahub-executor-coordinator] `FRESHNESS_ASSERTION_EVALUATION_BUFFER_SECONDS`: The tail buffer to add to freshness assertion boundaries. This defaults to 5 minutes, but can be extended if the customer has a lot of queued queries coming into their data warehouse.
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_INTERVAL`: Remote executor discovery ping interval in seconds. Default: 30
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD`: Time in seconds after which stale discovery status records are flagged as expired. Default: 3600 (1 hour)
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD` Time in seconds after which stale discovery status records are deleted from the database. Default: 24 * 3600 (1 month)
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER`: How often sweeper discovery purge task is executed in seconds. Default: 24 * 3600 (1 day)
+- [datahub-executor-coordinator] `DATAHUB_EXECUTOR_SWEEPER_RESTART_MAX_ATTEMPTS`: Maximum number of automated restarts of ABORTED tasks. Default: 3
+- [datahub-executor-coordinator] `EXECUTOR_TASK_MEMORY_LIMIT`: See [Remote Executor Troubleshooting](https://www.notion.so/acryldata/Remote-Executor-Troubleshooting-120fc6a6427780e48a6bc900f6e2a358?pvs=4#168fc6a642778060a2a1d135ee61e559)
+- [datahub-executor-coordinator] `EXECUTOR_TASK_WEIGHT`: See [Remote Executor Troubleshooting](https://www.notion.so/acryldata/Remote-Executor-Troubleshooting-120fc6a6427780e48a6bc900f6e2a358?pvs=4#154fc6a64277800a855df67d6e11705f)
+- [datahub-mae-consumer] `KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED`: Configuration for the MCL consumer enabling more fine-grained logging and metrics for debugging purposes. Gives aspect and change type level timings for consumer processing.
+- [datahub-mae-consumer] `KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP`: A "break glass" option for skipping processing of specified entities and aspects. Map style configuration taking a Json string. Support wildcard for common aspects.
+- [datahub-gms,datahub-mce-consumer,datahub-mae-consumer] `ENTITY_VERSIONING_ENABLED`: Enables entity versioning related resolvers, validators, sideeffects, etc. to support versioned entities. Initial feature implementation which will likely see limited rollout to specific customers.
+- [datahub-gms] `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_ENABLE`: Whether to run a bootstrap step for post entities to allow filtering posts by type. Default true
+
 ## v0.3.7
 
 ### Breaking Changes
