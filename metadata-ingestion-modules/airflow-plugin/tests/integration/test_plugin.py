@@ -179,6 +179,7 @@ def _run_airflow(
     tmp_path: pathlib.Path,
     dags_folder: pathlib.Path,
     is_v1: bool,
+    multiple_connections: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -190,6 +191,7 @@ def _run_airflow(
     print(f"Using airflow port: {airflow_port}")
 
     datahub_connection_name = "datahub_file_default"
+    datahub_connection_name_2 = "datahub_file_default_2"
     meta_file = tmp_path / "datahub_metadata.json"
     meta_file2 = tmp_path / "datahub_metadata_2.json"
 
@@ -206,14 +208,16 @@ def _run_airflow(
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
-        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name}_2",
+        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
+        if multiple_connections and not is_v1
+        else datahub_connection_name,
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
             host=str(meta_file),
         ).get_uri(),
-        f"AIRFLOW_CONN_{datahub_connection_name.upper()}_2": Connection(
+        f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}": Connection(
             conn_id="datahub_file_default2",
             conn_type="datahub-file",
             host=str(meta_file2),
@@ -450,7 +454,10 @@ def test_airflow_plugin(
     dag_id = test_case.dag_id
 
     with _run_airflow(
-        tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
+        tmp_path,
+        dags_folder=DAGS_FOLDER,
+        is_v1=is_v1,
+        multiple_connections=test_case.multiple_connections,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -558,6 +565,7 @@ if __name__ == "__main__":
         tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
         dags_folder=DAGS_FOLDER,
         is_v1=not HAS_AIRFLOW_LISTENER_API,
+        multiple_connections=False,
     ) as airflow_instance:
         # input("Press enter to exit...")
         breakpoint()

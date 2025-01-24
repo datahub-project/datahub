@@ -1,18 +1,9 @@
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
 
+from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -315,31 +306,7 @@ class DatahubGenericHook(BaseHook):
     emit_mces = emit
 
 
-class CompositeEmitter(Emitter):
-    def __init__(self, emitters: Sequence[Emitter]) -> None:
-        self.emitters = emitters
-
-    def emit(
-        self,
-        item: Union[
-            MetadataChangeEvent,
-            MetadataChangeProposal,
-            MetadataChangeProposalWrapper,
-        ],
-        # NOTE: This signature should have the exception be optional rather than
-        #      required. However, this would be a breaking change that may need
-        #      more careful consideration.
-        callback: Optional[Callable[[Exception, str], None]] = None,
-    ) -> None:
-        for emitter in self.emitters:
-            emitter.emit(item, callback)
-
-    def flush(self) -> None:
-        for emitter in self.emitters:
-            emitter.flush()
-
-
-class CompositeHook(BaseHook):
+class DatahubCompositeHook(BaseHook):
     """
     A hook that can emit metadata to multiple DataHub instances.
 
@@ -355,7 +322,7 @@ class CompositeHook(BaseHook):
     def make_emitter(self) -> CompositeEmitter:
         return CompositeEmitter(
             [
-                self.get_underlying_hook(conn_id).make_emitter()
+                self._get_underlying_hook(conn_id).make_emitter()
                 for conn_id in self.datahub_conn_ids
             ]
         )
@@ -375,5 +342,5 @@ class CompositeHook(BaseHook):
         for item in items:
             emitter.emit(item)
 
-    def get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:
+    def _get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:
         return DatahubGenericHook(conn_id)

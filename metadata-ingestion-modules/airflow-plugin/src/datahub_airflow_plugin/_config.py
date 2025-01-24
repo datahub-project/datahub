@@ -8,7 +8,10 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 if TYPE_CHECKING:
-    from datahub_airflow_plugin.hooks.datahub import CompositeHook, DatahubGenericHook
+    from datahub_airflow_plugin.hooks.datahub import (
+        DatahubCompositeHook,
+        DatahubGenericHook,
+    )
 
 
 class DatajobUrl(Enum):
@@ -68,10 +71,10 @@ class DatahubLineageConfig(ConfigModel):
 
     disable_openlineage_plugin: bool = True
 
-    def make_emitter_hook(self) -> Union["DatahubGenericHook", "CompositeHook"]:
+    def make_emitter_hook(self) -> Union["DatahubGenericHook", "DatahubCompositeHook"]:
         # This is necessary to avoid issues with circular imports.
         from datahub_airflow_plugin.hooks.datahub import (
-            CompositeHook,
+            DatahubCompositeHook,
             DatahubGenericHook,
         )
 
@@ -80,7 +83,7 @@ class DatahubLineageConfig(ConfigModel):
         if len(conn_ids) == 1:
             return DatahubGenericHook(conn_ids[0])
         else:
-            return CompositeHook(conn_ids)
+            return DatahubCompositeHook(conn_ids)
 
 
 def get_lineage_config() -> DatahubLineageConfig:
