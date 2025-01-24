@@ -60,7 +60,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/operations/elasticSearch")
+@RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
 @Tag(
     name = "ElasticSearchOperations",

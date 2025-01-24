@@ -312,7 +312,7 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {"slack-sdk==3.18.1"}
+slack = {"slack-sdk==3.18.1", "tenacity>=8.0.1",}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
