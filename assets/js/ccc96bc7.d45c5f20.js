@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[66011],{40287:a=>{a.exports=JSON.parse('{"label":"For Data Architects","permalink":"/learn/tags/for-data-architects","allTagsPath":"/learn/tags","count":1}')}}]);
