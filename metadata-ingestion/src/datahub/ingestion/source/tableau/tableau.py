@@ -2091,9 +2091,8 @@ class TableauSiteSource:
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],
             )
-            logger.info(f"Processing custom sql {csql_id} = {csql}")
             logger.info(
-                f"Processing custom sql {csql_id}.database = {csql.get(c.DATABASE)}"
+                f"Processing custom sql {csql_id} .connectionType={csql.get(c.CONNECTION_TYPE)} .database={csql.get(c.DATABASE)} .={csql}"
             )
 
             datasource_name = None
@@ -2433,8 +2432,9 @@ class TableauSiteSource:
     ) -> Optional["SqlParsingResult"]:
         database_info = {
             c.NAME: datasource.get(c.DATABASE, {}).get(c.NAME) or c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE) or "snowflake",
         }
+        logger.info(f"database_info={database_info}")
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
