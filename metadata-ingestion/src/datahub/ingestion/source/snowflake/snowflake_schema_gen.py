@@ -526,12 +526,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_view(view, snowflake_schema, db_name)
 
     def _process_streams(
-        self, streams: List[SnowflakeStream], snowflake_schema: SnowflakeSchema, db_name: str
+        self,
+        streams: List[SnowflakeStream],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         for stream in streams:
             yield from self._process_stream(stream, snowflake_schema, db_name)
 
-    def _process_tags_in_schema(self, snowflake_schema:SnowflakeSchema) -> Iterable[MetadataWorkUnit]:
+    def _process_tags_in_schema(
+        self, snowflake_schema: SnowflakeSchema
+    ) -> Iterable[MetadataWorkUnit]:
         for tag in snowflake_schema.tags:
             yield from self._process_tag(tag)
 
@@ -1359,10 +1364,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             stream.columns = self.get_columns_for_stream(stream.table_name)
 
-            if self.config.extract_tags != TagOption.skip:
-                stream.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    stream.name, schema_name, db_name
-                )
             if self.config.include_column_lineage:
                 with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
                     self.populate_stream_upstreams(stream, db_name, schema_name)
@@ -1481,7 +1482,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if column_lineage:
                 self.aggregator.add_known_query_lineage(
                     known_query_lineage=KnownQueryLineageInfo(
-                        query_id=f"stream_lineage_{stream.name}",
+                        query_id=f"stream_lineage_{DatasetUrn.url_encode(downstream_urn)}",
                         query_text="",
                         upstreams=[upstream_urn],
                         downstream=downstream_urn,
