@@ -17,6 +17,7 @@ import athenaLogo from '../../../../images/awsathenalogo.png';
 import mssqlLogo from '../../../../images/mssqllogo.png';
 import clickhouseLogo from '../../../../images/clickhouselogo.png';
 import cockroachdbLogo from '../../../../images/cockroachdblogo.png';
+import couchbaseLogo from '../../../../images/couchbaselogo.png';
 import trinoLogo from '../../../../images/trinologo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
 import dremioLogo from '../../../../images/dremiologo.png';
@@ -53,6 +54,8 @@ export const CLICKHOUSE_USAGE = 'clickhouse-usage';
 export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
 export const COCKROACHDB = 'cockroachdb';
 export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
+export const COUCHBASE = 'couchbase';
+export const COUCHBASE_URN = `urn:li:dataPlatform:${COUCHBASE}`;
 export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 export const DREMIO = 'dremio';
@@ -147,6 +150,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
+    [COUCHBASE_URN]: couchbaseLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
