@@ -1,13 +1,14 @@
 #!/bin/bash
 set -euxo pipefail
 
-if [[ ! ${RELEASE_SKIP_TEST:-} ]] && [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
-	../gradlew build  # also runs tests
-elif [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
-	../gradlew install
-fi
-
+ROOT=..
 MODULE=datahub
+
+if [[ ! ${RELEASE_SKIP_TEST:-} ]] && [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
+    ${ROOT}/gradlew build  # also runs tests
+elif [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
+    ${ROOT}/gradlew install
+fi
 
 # Check packaging constraint.
 python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
