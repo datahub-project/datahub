@@ -42,6 +42,7 @@ class HubSpotSource(StatefulIngestionSourceBase):
     PLATFORM = "hubspot"
 
     def __init__(self, ctx: PipelineContext, config: HubSpotConfig):
+        super().__init__(config=config, ctx=ctx)
         self.ctx = ctx
         self.config = config
         self.report = HubSpotReport()
