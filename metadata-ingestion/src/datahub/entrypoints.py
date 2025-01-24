@@ -112,7 +112,7 @@ def datahub(
 def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
-    click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
+    click.echo(f"DataHub CLI version: {datahub_version.nice_version_name()}")
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
     if include_server:
@@ -223,7 +223,7 @@ def main(**kwargs):
             logger.exception(f"Command failed: {exc}")
 
         logger.debug(
-            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+            f"DataHub CLI version: {datahub_version.__version__} at {__file__}"
         )
         logger.debug(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"

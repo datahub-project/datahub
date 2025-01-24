@@ -10,7 +10,7 @@ import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
 
-from datahub import __version__
+from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.perf_timer import PerfTimer
