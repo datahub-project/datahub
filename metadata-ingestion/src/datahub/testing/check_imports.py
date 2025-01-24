@@ -37,6 +37,9 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
 
 def ban_direct_datahub_imports(dirs: List[pathlib.Path]) -> None:
     # We also want to ban all direct imports of datahub.
+    # The base `datahub` package is used to export public-facing classes.
+    # If we import it directly, we'll likely end up with circular imports.
+
     banned_strings = [
         r"^import datahub[\s$]",
         r"^from datahub import",
