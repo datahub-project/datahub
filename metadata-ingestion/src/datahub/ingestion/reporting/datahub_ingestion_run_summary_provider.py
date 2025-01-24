@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from datahub import nice_version_name
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
