@@ -62,7 +62,8 @@ public class MetadataChangeEventsProcessor {
           "${METADATA_CHANGE_EVENT_NAME:${KAFKA_MCE_TOPIC_NAME:"
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
-      containerFactory = DEFAULT_EVENT_CONSUMER_NAME)
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
+      autoStartup = "false")
   @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
