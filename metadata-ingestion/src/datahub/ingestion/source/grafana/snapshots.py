@@ -80,7 +80,7 @@ def build_chart_mce(
         input_datasets.append(ds_urn)
 
     chart_info = ChartInfoClass(
-        type=CHART_TYPE_MAPPINGS.get(panel.type),
+        type=CHART_TYPE_MAPPINGS.get(panel.type) if panel.type else None,
         description=panel.description,
         title=title,
         lastModified=ChangeAuditStampsClass(),
@@ -193,11 +193,16 @@ def _build_custom_properties(panel: Panel) -> Dict[str, str]:
 
 def _build_dashboard_properties(dashboard: Dashboard) -> Dict[str, str]:
     """Build custom properties for dashboard"""
-    props = {
-        "version": dashboard.version,
-        "schemaVersion": dashboard.schema_version,
-        "timezone": dashboard.timezone,
-    }
+    props = {}
+
+    if dashboard.timezone:
+        props["timezone"] = dashboard.timezone
+
+    if dashboard.schema_version:
+        props["schema_version"] = dashboard.schema_version
+
+    if dashboard.version:
+        props["version"] = dashboard.version
 
     if dashboard.refresh:
         props["refresh"] = dashboard.refresh

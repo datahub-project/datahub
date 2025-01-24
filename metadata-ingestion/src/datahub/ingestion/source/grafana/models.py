@@ -11,7 +11,7 @@ class Panel(BaseModel):
     id: str
     title: str
     description: str = ""
-    type: str = ""
+    type: Optional[str]
     targets: List[Dict[str, Any]] = Field(default_factory=list)
     datasource: Optional[Dict[str, Any]] = None
     field_config: Dict[str, Any] = Field(default_factory=dict, alias="fieldConfig")
@@ -23,13 +23,13 @@ class Dashboard(BaseModel):
 
     uid: str
     title: str
-    description: str
-    version: str
+    description: str = ""
+    version: Optional[str]
     panels: List[Panel]
     tags: List[str]
-    timezone: str = ""
+    timezone: Optional[str]
     refresh: Optional[str] = None
-    schema_version: str = Field(default="", alias="schemaVersion")
+    schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
     folder_id: Optional[str] = Field(default=None, alias="meta.folderId")
     created_by: Optional[str] = None
 
@@ -71,7 +71,7 @@ class Folder(BaseModel):
 
     id: str
     title: str
-    description: str = ""
+    description: Optional[str] = ""
 
 
 class FolderKey(ContainerKey):
