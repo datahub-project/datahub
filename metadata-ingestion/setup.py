@@ -522,6 +522,7 @@ plugins: Dict[str, Set[str]] = {
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
+    "hubspot": {"hubspot-api-client==11.1.0"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -787,6 +788,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "hubspot = datahub.ingestion.source.hubspot.hubspot_source:HubSpotSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
