@@ -1,10 +1,11 @@
-from typing import TYPE_CHECKING, Union, overload
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import ItemNotFoundError, SdkUsageError
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
@@ -15,29 +16,63 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._shared import Entity, UrnOrStr
+from datahub.sdk.lineage_client import LineageClient
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
     from datahub.sdk.dataset import Dataset
 
 
-class SDKGraph:
-    def __init__(self, graph: DataHubGraph):
+class DataHubClient:
+    @overload
+    def __init__(self, *, server: str, token: Optional[str] = None): ...
+    @overload
+    def __init__(self, *, config: DatahubClientConfig): ...
+    @overload
+    def __init__(self, *, graph: DataHubGraph): ...
+    def __init__(
+        self,
+        *,
+        server: Optional[str] = None,
+        token: Optional[str] = None,
+        graph: Optional[DataHubGraph] = None,
+        config: Optional[DatahubClientConfig] = None,
+    ):
+        if server is not None:
+            if config is not None:
+                raise SdkUsageError("Cannot specify both server and config")
+            if graph is not None:
+                raise SdkUsageError("Cannot specify both server and graph")
+            graph = DataHubGraph(config=DatahubClientConfig(server=server, token=token))
+        elif config is not None:
+            if graph is not None:
+                raise SdkUsageError("Cannot specify both config and graph")
+            graph = DataHubGraph(config=config)
+        elif graph is None:
+            raise SdkUsageError("Must specify either server, config, or graph")
+
         self._graph = graph
+
+    @classmethod
+    def from_env(cls) -> "DataHubClient":
+        # Inspired by the DockerClient.from_env() method.
+        graph = get_default_graph()
+        return cls(graph=graph)
+
+    @property
+    def lineage(self) -> LineageClient:
+        return LineageClient(self)
 
     # TODO: Make things more generic across entity types.
 
     # TODO: Make all of these methods sync by default.
 
     @overload
-    def get(self, urn: "ContainerUrn") -> "Container": ...
-
+    def get(self, urn: ContainerUrn) -> "Container": ...
     @overload
-    def get(self, urn: "DatasetUrn") -> "Dataset": ...
-
+    def get(self, urn: DatasetUrn) -> "Dataset": ...
     @overload
-    def get(self, urn: str) -> Entity: ...
-
+    def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
         from datahub.sdk._all_entities import ENTITY_CLASSES
 
