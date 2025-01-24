@@ -26,10 +26,10 @@ COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /metadata-inges
 
 ARG RELEASE_VERSION
 WORKDIR /metadata-ingestion
-RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
-    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
-    cat src/datahub/__init__.py | grep __version__ && \
-    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
+RUN sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/_version.py && \
+    sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/_version.py && \
+    cat src/datahub/_version.py | grep __version__ && \
+    cat airflow-plugin/src/datahub_airflow_plugin/_version.py | grep __version__
 
 FROM base AS slim-install
 

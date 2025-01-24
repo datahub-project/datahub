@@ -26,7 +26,7 @@ from databricks.sdk.service.sql import (
 )
 from databricks.sdk.service.workspace import ObjectType
 
-import datahub
+from datahub._version import nice_version_name
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -103,7 +103,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             host=workspace_url,
             token=personal_access_token,
             product="datahub",
-            product_version=datahub.nice_version_name(),
+            product_version=nice_version_name(),
         )
         self.warehouse_id = warehouse_id or ""
         self.report = report
