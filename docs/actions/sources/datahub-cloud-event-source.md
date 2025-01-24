@@ -38,7 +38,7 @@ If you've configured your Action pipeline `failure_mode` to be `THROW`, then eve
 
 The DataHub Cloud Event Source produces
 
-- [Entity Change Event V1](../events/entity-change-event.md)
+- [Entity Change Event V1](../../managed-datahub/datahub-api/entity-events-api.md)
 
 Note that the DataHub Cloud Event Source does _not_ yet support the full [Metadata Change Log V1](../events/metadata-change-log-event.md) event stream.
 
