@@ -2431,6 +2431,7 @@ class TableauSiteSource:
         ],
     ) -> Optional["SqlParsingResult"]:
         database_info = {
+            c.ID: datasource.get(c.DATABASE, {}).get(c.ID),
             c.NAME: datasource.get(c.DATABASE, {}).get(c.NAME) or c.UNKNOWN.lower(),
             c.CONNECTION_TYPE: datasource.get(c.DATABASE, {}).get(c.NAME)
             or datasource.get(c.CONNECTION_TYPE),
@@ -2452,10 +2453,6 @@ class TableauSiteSource:
                 f"database information is missing from datasource {datasource_urn}"
             )
             return None
-        # mypy
-        assert (database_info[c.CONNECTION_TYPE] is not None) and isinstance(
-            database_info[c.CONNECTION_TYPE], str
-        )
 
         query = datasource.get(c.QUERY)
         if query is None:
@@ -2473,7 +2470,7 @@ class TableauSiteSource:
             # Override the information as per configuration
 
             upstream_db, platform_instance, platform, _ = func_overridden_info(
-                str(database_info[c.CONNECTION_TYPE]),
+                database_info[c.CONNECTION_TYPE],
                 database_info.get(c.NAME),
                 database_info.get(c.ID),
                 self.config.platform_instance_map,
