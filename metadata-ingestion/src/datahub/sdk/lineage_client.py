@@ -1,18 +1,20 @@
-from typing import Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.errors import SdkUsageError
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk.dataset import ColumnLineageMapping, _parse_cll_mapping
-from datahub.sdk.sdk_graph import SDKGraph
+from datahub.sdk.main_client import DataHubClient
 from datahub.specific.dataset import DatasetPatchBuilder
+
+if TYPE_CHECKING:
+    from datahub.sdk.main_client import DataHubClient
 
 
 class LineageClient:
-    def __init__(self, graph: DataHubGraph):
-        self._graph = graph
+    def __init__(self, client: DataHubClient):
+        self._client = client
 
     def add_dataset_copy_lineage(
         self,
@@ -58,7 +60,7 @@ class LineageClient:
             updater.add_fine_grained_upstream_lineage(cl)
 
         # Will throw if the dataset does not exist.
-        SDKGraph(self._graph).update(updater)
+        self._client.update(updater)
 
     def add_datajob_lineage(
         self,
