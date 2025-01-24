@@ -9,6 +9,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -73,6 +74,16 @@ class PluginRegistry(Generic[T]):
         self._aliases = {}
         self._extra_cls_check = extra_cls_check
 
+    def _get_unimplemented_methods(self, cls: Type) -> Set[str]:
+        """
+        Returns a set of method names that are abstract
+        """
+        return {
+            name
+            for name, value in inspect.getmembers(cls)
+            if getattr(value, "__isabstractmethod__", False)
+        }
+
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
         tp = typing_inspect.get_args(cls)[0]
@@ -81,8 +92,9 @@ class PluginRegistry(Generic[T]):
 
     def _check_cls(self, cls: Type[T]) -> None:
         if inspect.isabstract(cls):
+            _abstract_methods = self._get_unimplemented_methods(cls)
             raise ValueError(
-                f"cannot register an abstract type in the registry; got {cls}"
+                f"cannot register an abstract type in the registry; got {cls} - {_abstract_methods} method needs to be implemented"
             )
         super_cls = self._get_registered_type()
         if not issubclass(cls, super_cls):

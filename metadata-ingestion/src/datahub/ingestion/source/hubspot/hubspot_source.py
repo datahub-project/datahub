@@ -3,7 +3,6 @@ from typing import Iterable, List, Optional
 
 from pydantic import Field, SecretStr
 
-from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -24,7 +23,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class HubSpotConfig(EnvConfigMixin, StatefulIngestionConfigBase):
+class HubSpotConfig(StatefulIngestionConfigBase):
     access_token: SecretStr = Field(
         description="Access token for HubSpot API",
     )
@@ -53,7 +52,7 @@ class HubSpotSource(StatefulIngestionSourceBase):
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
+        yield from []
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -62,3 +61,6 @@ class HubSpotSource(StatefulIngestionSourceBase):
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
+
+    def get_report(self) -> HubSpotReport:
+        return self.report
