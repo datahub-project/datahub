@@ -537,8 +537,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def _process_tags_in_schema(
         self, snowflake_schema: SnowflakeSchema
     ) -> Iterable[MetadataWorkUnit]:
-        for tag in snowflake_schema.tags:
-            yield from self._process_tag(tag)
+        if snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
 
     def fetch_secure_view_definition(
         self, table_name: str, schema_name: str, db_name: str
