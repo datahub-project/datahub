@@ -60,21 +60,12 @@ public abstract class NotificationRecipientBuilder {
 
   /** Builds a list of recipients based on subscriber information. */
   public List<NotificationRecipient> buildSubscriberRecipients(
-      @Nonnull OperationContext opContext,
-      @Nonnull Map<Urn, SubscriptionInfo> subscriptions,
-      @Nullable Urn actorUrn) {
+      @Nonnull OperationContext opContext, @Nonnull Map<Urn, SubscriptionInfo> subscriptions) {
     final Map<Urn, SubscriptionInfo> userToSubscriptionMap = new HashMap<>();
     final Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
     for (Map.Entry<Urn, SubscriptionInfo> entry : subscriptions.entrySet()) {
       final SubscriptionInfo subscriptionInfo = entry.getValue();
       final com.linkedin.common.urn.Urn recipientActorUrn = subscriptionInfo.getActorUrn();
-
-      if (actorUrn != null && actorUrn.equals(recipientActorUrn)) {
-        log.debug(
-            "Skipping notification for actor {} as it is the same as the actor that triggered the event",
-            actorUrn);
-        continue;
-      }
 
       switch (subscriptionInfo.getActorType()) {
         case CORP_USER_ENTITY_NAME:

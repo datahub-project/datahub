@@ -169,8 +169,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
     if (entityChangeType != null && isEligibleForSubscriberRecipients()) {
       recipients.addAll(
-          buildSubscriberRecipients(
-              opContext, entityUrn, entityChangeType, actorUrn, extraContext));
+          buildSubscriberRecipients(opContext, entityUrn, entityChangeType, extraContext));
     }
 
     return recipients;
@@ -199,7 +198,6 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final EntityChangeType changeType,
-      @Nullable Urn actorUrn,
       @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
     final Set<Urn> downstreamEntityUrns = new HashSet<>();
 
@@ -230,7 +228,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       final List<NotificationRecipient> sinkRecipients =
           _recipientBuilders
               .getBuilder(sinkType)
-              .buildSubscriberRecipients(opContext, sinkSubscriptions, actorUrn);
+              .buildSubscriberRecipients(opContext, sinkSubscriptions);
       recipients.addAll(sinkRecipients);
     }
 

@@ -19,10 +19,8 @@ import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
-import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
-import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -238,30 +236,5 @@ public class EmailNotificationRecipientBuilderTest {
     Assert.assertEquals(recipients.size(), 1);
     Assert.assertEquals(recipients.get(0).getId(), "group@example.com");
     Assert.assertEquals(recipients.get(0).getActor(), testUrn);
-  }
-
-  @Test
-  public void testBuildSubscriberRecipientsIgnoreSelfActor() throws Exception {
-    Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
-    Map<Urn, NotificationSettings> groupToNotificationSettings = new HashMap<>();
-    Urn testUrn = Urn.createFromString("urn:li:corpGroup:test");
-    SubscriptionInfo subscriptionInfo =
-        new SubscriptionInfo()
-            .setActorType("corpuser")
-            .setActorUrn(testUrn)
-            .setEntityChangeTypes(new EntityChangeDetailsArray())
-            .setTypes(new SubscriptionTypeArray());
-
-    // Unused because we should not send notification to self about action we took.
-    NotificationSettings settings = mock(NotificationSettings.class);
-
-    groupToSubscriptionMap.put(testUrn, subscriptionInfo);
-    groupToNotificationSettings.put(testUrn, settings);
-
-    List<NotificationRecipient> recipients =
-        builder.buildSubscriberRecipients(opContext, groupToSubscriptionMap, testUrn);
-
-    // No recipients because current actor is a recipient.
-    Assert.assertEquals(recipients.size(), 0);
   }
 }
