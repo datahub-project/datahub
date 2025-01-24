@@ -242,7 +242,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         queries: FileBackedList[
-            Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
         ]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
@@ -253,7 +259,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            entry: Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
@@ -330,7 +342,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self, users: UsersMapping
-    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
+    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,

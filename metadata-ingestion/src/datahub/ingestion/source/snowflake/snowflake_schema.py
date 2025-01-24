@@ -442,7 +442,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Single prefix table case (for streams)
         if len(all_objects) == 1:
             object_batches = [
-                PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)
+                [PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)]
             ]
         else:
             # Build batches for full schema scan
@@ -457,9 +457,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}"
                 )
             query = SnowflakeQuery.columns_for_schema(
-                schema_name,
-                db_name,
-                object_batch if isinstance(object_batch, list) else [object_batch],
+                schema_name, db_name, object_batch
             )
 
             cur = self.connection.query(query)
