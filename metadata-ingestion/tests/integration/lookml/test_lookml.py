@@ -983,7 +983,10 @@ def test_special_liquid_variables():
 
     # Match template after resolution of liquid variables
     actual_text = resolve_liquid_variable(
-        text=text, liquid_variable=input_liquid_variable, report=LookMLSourceReport()
+        text=text,
+        liquid_variable=input_liquid_variable,
+        report=LookMLSourceReport(),
+        view_name="test",
     )
 
     expected_text: str = (
