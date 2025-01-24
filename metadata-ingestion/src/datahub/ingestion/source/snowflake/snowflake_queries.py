@@ -363,7 +363,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
+    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -415,20 +415,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         # If a stream is used, default to query parsing.
         if has_stream_objects:
             logger.debug("Found matching stream object")
-            self.aggregator.add_observed_query(
-                observed=ObservedQuery(
-                    query=res["query_text"],
-                    session_id=res["session_id"],
-                    timestamp=res["query_start_time"].astimezone(timezone.utc),
-                    user=user,
-                    default_db=res["default_db"],
-                    default_schema=res["default_schema"],
-                    query_hash=get_query_fingerprint(
-                        res["query_text"], self.identifiers.platform, fast=True
-                    ),
+            return ObservedQuery(
+                query=res["query_text"],
+                session_id=res["session_id"],
+                timestamp=res["query_start_time"].astimezone(timezone.utc),
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
+                query_hash=get_query_fingerprint(
+                    res["query_text"], self.identifiers.platform, fast=True
                 ),
             )
-            return None
 
         upstreams = []
         column_usage = {}

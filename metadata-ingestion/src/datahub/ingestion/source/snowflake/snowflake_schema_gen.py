@@ -1347,9 +1347,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name = snowflake_schema.name
 
         try:
-            stream.columns = self.get_columns_for_stream(
-                stream.name, snowflake_schema, db_name, stream.table_name
-            )
+            stream.columns = self.get_columns_for_stream(stream.table_name)
+
             if self.config.extract_tags != TagOption.skip:
                 stream.column_tags = self.tag_extractor.get_column_tags_for_table(
                     stream.name, schema_name, db_name
@@ -1367,9 +1366,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def get_columns_for_stream(
         self,
-        stream_name: str,
-        snowflake_schema: SnowflakeSchema,
-        db_name: str,
         source_object: str,  # Qualified name of source table/view
     ) -> List[SnowflakeColumn]:
         """
@@ -1386,13 +1382,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         source_db, source_schema, source_name = source_parts
 
         # Get columns from source object
-        source_columns = self.get_columns_for_table(
-            source_name,
-            SnowflakeSchema(
-                name=source_schema, created=None, last_altered=None, comment=None
-            ),
-            source_db,
-        )
+        source_columns = self.data_dictionary.get_columns_for_schema(
+            source_schema, source_db, itertools.chain([source_name])
+        ).get(source_name, [])
 
         # Add all source columns
         columns.extend(source_columns)

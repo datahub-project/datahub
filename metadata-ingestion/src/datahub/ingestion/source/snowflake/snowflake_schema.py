@@ -14,7 +14,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.prefix_batch_builder import build_prefix_batches
+from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -439,9 +439,18 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # For massive schemas, use a FileBackedDict to avoid memory issues.
             columns = FileBackedDict()
 
-        object_batches = build_prefix_batches(
-            all_objects, max_batch_size=10000, max_groups_in_batch=5
-        )
+        # Single prefix table case (for streams)
+        if len(all_objects) == 1:
+            object_batches = [
+                PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)
+            ]
+        else:
+            # Build batches for full schema scan
+            object_batches = build_prefix_batches(
+                all_objects, max_batch_size=10000, max_groups_in_batch=5
+            )
+
+        # Process batches
         for batch_index, object_batch in enumerate(object_batches):
             if batch_index > 0:
                 logger.info(
@@ -450,7 +459,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             query = SnowflakeQuery.columns_for_schema(
                 schema_name,
                 db_name,
-                object_batch,
+                object_batch if isinstance(object_batch, list) else [object_batch],
             )
 
             cur = self.connection.query(query)

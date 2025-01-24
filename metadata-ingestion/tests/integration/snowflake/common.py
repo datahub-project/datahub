@@ -7,6 +7,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
@@ -273,6 +274,27 @@ def default_query_results(  # noqa: C901
             }
             for view_idx in range(1, num_views + 1)
             if is_secure(view_idx)
+        ]
+    elif query == SnowflakeQuery.columns_for_schema(
+        "TEST_SCHEMA",
+        "TEST_DB",
+        [PrefixGroup(prefix="TABLE_1", names=[], exact_match=True)],
+    ):
+        return [
+            {
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": "TABLE_1",
+                "COLUMN_NAME": f"COL_{col_idx}",
+                "ORDINAL_POSITION": col_idx,
+                "IS_NULLABLE": "NO",
+                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
+                "COMMENT": "Comment for column",
+                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
+                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
+                "NUMERIC_SCALE": None if col_idx > 1 else 0,
+            }
+            for col_idx in range(1, num_cols + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
