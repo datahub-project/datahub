@@ -66,7 +66,7 @@ def test_build_custom_properties():
 def test_build_dashboard_properties(mock_dashboard):
     props = _build_dashboard_properties(mock_dashboard)
     assert props["version"] == "1"
-    assert props["schemaVersion"] == "1.0"
+    assert props["schema_version"] == "1.0"
     assert props["timezone"] == "UTC"
 
 

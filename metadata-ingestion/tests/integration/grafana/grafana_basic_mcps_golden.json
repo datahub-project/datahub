@@ -1321,9 +1321,9 @@
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {
-                            "version": "1",
-                            "schemaVersion": "36",
                             "timezone": "browser",
+                            "schema_version": "36",
+                            "version": "1",
                             "refresh": "5s"
                         },
                         "title": "Test Integration Dashboard",
