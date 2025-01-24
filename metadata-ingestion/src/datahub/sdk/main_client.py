@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union, overload
+from typing import Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -17,12 +17,11 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
+from datahub.sdk._all_entities import ENTITY_CLASSES
 from datahub.sdk._shared import Entity, UrnOrStr
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
-
-if TYPE_CHECKING:
-    from datahub.sdk.container import Container
-    from datahub.sdk.dataset import Dataset
 
 
 class DataHubClient:
@@ -76,8 +75,6 @@ class DataHubClient:
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
-        from datahub.sdk._all_entities import ENTITY_CLASSES
-
         if not isinstance(urn, Urn):
             urn = Urn.from_string(urn)
 
