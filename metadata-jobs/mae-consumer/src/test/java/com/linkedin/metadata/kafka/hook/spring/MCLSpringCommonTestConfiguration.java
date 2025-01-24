@@ -96,6 +96,7 @@ public class MCLSpringCommonTestConfiguration {
         indexConvention,
         TestOperationContexts.emptyActiveUsersRetrieverContext(() -> entityRegistry),
         mock(ValidationContext.class),
+        null,
         true);
   }
 

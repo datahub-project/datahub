@@ -1,3 +1,6 @@
+# Name of the data hub component or container (used for tracing)
+spring.application.name: ${APPLICATION_NAME:datahub-gms}
+
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
