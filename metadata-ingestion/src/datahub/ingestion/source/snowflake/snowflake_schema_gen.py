@@ -531,7 +531,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         for stream in streams:
             yield from self._process_stream(stream, snowflake_schema, db_name)
 
-    def _process_tags_in_schema(self, snowflake_schema):
+    def _process_tags_in_schema(self, snowflake_schema:SnowflakeSchema) -> Iterable[MetadataWorkUnit]:
         for tag in snowflake_schema.tags:
             yield from self._process_tag(tag)
 
