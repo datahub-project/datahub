@@ -139,7 +139,10 @@ class LookMLSourceConfig(
     )
     emit_reachable_views_only: bool = Field(
         True,
-        description="When enabled, only views that are reachable from explores defined in the model files are emitted",
+        description=(
+            "When enabled, only views that are reachable from explores defined in the model files are emitted. "
+            "If set to False, all views imported in model files are emitted. Views that are unreachable i.e. not explicitly defined in the model files are currently not emitted however reported as warning for debugging purposes."
+        ),
     )
     populate_sql_logic_for_missing_descriptions: bool = Field(
         False,
