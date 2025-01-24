@@ -1,10 +1,12 @@
+from typing import Callable, Optional, Sequence, Union
+
 from datahub.emitter.generic_emitter import Emitter
-from typing import Sequence, Union, Optional, Callable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+
 
 class CompositeEmitter(Emitter):
     def __init__(self, emitters: Sequence[Emitter]) -> None:
