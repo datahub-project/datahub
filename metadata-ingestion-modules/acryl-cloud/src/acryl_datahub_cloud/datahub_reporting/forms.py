@@ -93,7 +93,7 @@ class DataHubReportingFormsSource(Source):
         form_analytics_config = self.get_reporting_config()
 
         if form_analytics_config and not form_analytics_config.enabled:
-            logger.error("Form analytics is not enabled. Skipping reporting.")
+            logger.info("Form analytics is not enabled. Skipping reporting.")
             self.report.feature_enabled = False
             return
 

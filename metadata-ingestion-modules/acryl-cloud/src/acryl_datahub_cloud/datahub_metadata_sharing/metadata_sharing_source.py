@@ -104,9 +104,8 @@ class DataHubMetadataSharingSource(Source):
                     self._process_single_entity(result)
 
                 self.report.batches_processed = current_batch_number
-                self.report.info(
-                    message="Completed sharing batch of entities.",
-                    context=f"{current_batch_number} of size {self.config.batch_size}!",
+                logger.info(
+                    f"Completed sharing batch of entities {current_batch_number} of size {self.config.batch_size}!"
                 )
                 current_batch_number += 1
 
@@ -126,10 +125,8 @@ class DataHubMetadataSharingSource(Source):
             )
             return
 
-        self.report.info(
-            message="Completed sharing all entities.",
-            context=f"Successfully shared {self.report.entities_shared} entities, "
-            f"failed to share {self.report.entities_failed} entities.",
+        logger.info(
+            f"Successfully shared {self.report.entities_shared} entities, failed to share {self.report.entities_failed} entities.",
         )
 
     # Rest of the methods remain the same...
@@ -168,9 +165,9 @@ class DataHubMetadataSharingSource(Source):
                     continue
 
                 if previous_status != "SUCCESS":
-                    self.report.report_warning(
-                        message="Attempting to share a previously unsuccessful shared entity!",
-                        context=f"entity urn: {entity_urn}, destination urn: {destination_urn}",
+                    logger.info(
+                        "Attempting to share a previously unsuccessful shared entity! "
+                        + f"entity urn: {entity_urn}, destination urn: {destination_urn}"
                     )
 
                 lineage_direction = self._determine_lineage_direction(share_config)
