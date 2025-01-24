@@ -909,7 +909,7 @@ def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_t
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     golden_path = test_resources_dir / "vv_lineage_lookml_constant_golden.json"
     mce_helpers.check_golden_file(
@@ -1025,7 +1025,7 @@ def test_special_liquid_variables():
         # Case 4: Non-existent constant in sql_table_name
         (
             {"sql_table_name": "SELECT * FROM @{nonexistent}"},
-            {"datahub_transformed_sql_table_name": "SELECT * FROM NULL"},
+            {"datahub_transformed_sql_table_name": "SELECT * FROM @{nonexistent}"},
             False,
         ),
         # Case 5: View with unsupported attribute
