@@ -58,7 +58,17 @@ class LineageExtractor:
 
         # Handle platform-specific lineage
         if ds_uid in self.connection_map:
-            return self._process_platform_lineage(ds_uid, raw_sql, ds_urn)
+            if raw_sql:
+                parsed_sql = self._parse_sql(raw_sql, self.connection_map[ds_uid])
+                if parsed_sql:
+                    lineage = self._create_column_lineage(ds_urn, parsed_sql)
+                    if lineage:
+                        return lineage
+
+            # Fall back to basic lineage if SQL parsing fails or no column lineage created
+            return self._create_basic_lineage(
+                ds_uid, self.connection_map[ds_uid], ds_urn
+            )
 
         return None
 
@@ -106,6 +116,7 @@ class LineageExtractor:
             if platform_config.database
             else ds_uid
         )
+
         upstream_urn = make_dataset_urn_with_platform_instance(
             platform=platform_config.platform,
             name=name,

@@ -218,9 +218,10 @@ def _build_ownership(dashboard: Dashboard) -> Optional[OwnershipClass]:
         )
 
     if dashboard.created_by:
+        owner_id = dashboard.created_by.split("@")[0]
         owners.append(
             OwnerClass(
-                owner=make_user_urn(dashboard.created_by),
+                owner=make_user_urn(owner_id),
                 type=OwnershipTypeClass.DATAOWNER,
             )
         )

@@ -2,8 +2,11 @@ from typing import Dict, Optional
 
 from pydantic import Field, SecretStr, validator
 
-from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -13,18 +16,20 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.utilities import config_clean
 
 
-class PlatformConnectionConfig(ConfigModel):
-    platform: str = Field(description="Platform to connect to")
+class PlatformConnectionConfig(
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+):
+    platform: str = Field(description="Upstream platform code (e.g. postgres, ms-sql)")
     database: Optional[str] = Field(default=None, description="Database name")
     database_schema: Optional[str] = Field(default=None, description="Schema name")
-    platform_instance: Optional[str] = Field(
-        default=None, description="Platform instance"
-    )
-    env: str = Field(default="PROD", description="Environment")
 
 
 class GrafanaSourceConfig(
-    StatefulIngestionConfigBase, DatasetLineageProviderConfigBase
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 ):
     platform: str = Field(default="grafana", hidden_from_docs=True)
     url: str = Field(
@@ -43,15 +48,12 @@ class GrafanaSourceConfig(
         default=True,
         description="Whether to ingest owners from Grafana dashboards and charts",
     )
-    platform_instance: Optional[str] = Field(
-        default=None, description="Platform instance for DataHub"
-    )
     connection_to_platform_map: Dict[str, PlatformConnectionConfig] = Field(
         default={},
         description="Map of Grafana connection names to their upstream platform details",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("url")
+    @validator("url", allow_reuse=True)
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)

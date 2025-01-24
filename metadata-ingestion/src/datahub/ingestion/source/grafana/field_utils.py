@@ -1,6 +1,5 @@
+import logging
 from typing import Any, Dict, List, Union
-
-import sqlparse
 
 from datahub.ingestion.source.grafana.models import Panel
 from datahub.metadata.schema_classes import (
@@ -10,6 +9,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _deduplicate_fields(fields: List[SchemaFieldClass]) -> List[SchemaFieldClass]:
@@ -63,17 +64,17 @@ def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
         return []
 
     try:
-        parsed = sqlparse.parse(raw_sql)[0]  # Parse the SQL query
-        select_token = next(
-            token
-            for token in parsed.tokens
-            if token.ttype is None and token.value.lower().startswith("select")
-        )
-        columns = [col.strip() for col in select_token.value.split(",")]
+        sql = raw_sql.lower()
+        select_start = sql.index("select") + 6  # len("select")
+        from_start = sql.index("from")
+        select_part = sql[select_start:from_start].strip()
+
+        columns = [col.strip().split()[-1].strip() for col in select_part.split(",")]
 
         return [
             (
                 SchemaFieldClass(
+                    # Capture the alias of the column if present or the name of the field
                     fieldPath=col.split(" as ")[-1].strip('"').strip("'"),
                     type=SchemaFieldDataTypeClass(type=StringTypeClass()),
                     nativeDataType="sql_column",
@@ -82,6 +83,7 @@ def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
             for col in columns
         ]
     except (IndexError, ValueError, StopIteration):
+        logger.warning(f"Failed to parse SQL {target.get('rawSql')}")
         return []
 
 

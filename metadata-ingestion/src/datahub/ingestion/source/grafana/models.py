@@ -53,7 +53,17 @@ class Dashboard(BaseModel):
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
         panels = cls.extract_panels(dashboard_data.get("panels", []))
-        return super().parse_obj({**dashboard_data, "panels": panels})
+
+        # Extract meta.folderId from nested structure
+        meta = dashboard_data.get("meta", {})
+        folder_id = meta.get("folderId")
+
+        # Create dashboard data without meta to avoid conflicts
+        dashboard_dict = {**dashboard_data, "panels": panels, "folder_id": folder_id}
+        if "meta" in dashboard_dict:
+            del dashboard_dict["meta"]
+
+        return super().parse_obj(dashboard_dict)
 
 
 class Folder(BaseModel):

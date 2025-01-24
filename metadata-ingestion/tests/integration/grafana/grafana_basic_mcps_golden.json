@@ -223,7 +223,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "value",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -236,6 +236,18 @@
                                     }
                                 },
                                 "nativeDataType": "timestamp",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "dimension",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -372,7 +384,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "value",
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -388,6 +400,21 @@
                             }
                         },
                         "nativeDataType": "timestamp",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -508,7 +535,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "string",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -532,7 +559,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "string",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -669,7 +696,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "string",
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -699,7 +726,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "string",
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -817,10 +844,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "number",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -954,10 +981,10 @@
                         "nullable": false,
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NumberType": {}
+                                "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "number",
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
