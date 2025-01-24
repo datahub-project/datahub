@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import datahub.metadata.schema_classes as models
@@ -5,7 +7,6 @@ from datahub.errors import SdkUsageError
 from datahub.metadata.urns import DatasetUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk.dataset import ColumnLineageMapping, _parse_cll_mapping
-from datahub.sdk.main_client import DataHubClient
 from datahub.specific.dataset import DatasetPatchBuilder
 
 if TYPE_CHECKING:
