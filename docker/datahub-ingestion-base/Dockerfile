@@ -64,6 +64,8 @@ RUN addgroup --gid 1000 datahub && \
 
 USER datahub
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+# Workaround for https://github.com/astral-sh/uv/issues/1474
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
