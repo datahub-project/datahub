@@ -66,6 +66,8 @@ jobs:
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
+      integrations_service_change: "false"
+      datahub_executor_change: "false"
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
