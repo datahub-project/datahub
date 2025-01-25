@@ -10,6 +10,7 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.metadata.urns import (
     ContainerUrn,
+    CorpUserUrn,
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
@@ -114,6 +115,9 @@ class DataHubClient:
         # TODO respect If-Unmodified-Since?
         # -> probably add a "mode" parameter that can be "upsert" or "update" (e.g. if not modified) or "update_force"
 
+        # TODO: require that upsert is used with new entities, not read-modify-write flows?
+        # TODO: alternatively, require that all aspects associated with the entity are set?
+
         self._graph.emit_mcps(mcps)
 
     def update(
@@ -128,17 +132,24 @@ class DataHubClient:
         mcps = entity.build()
         self._graph.emit_mcps(mcps)
 
-    def get_domain_urn_by_name(self, domain_name: str, /) -> DomainUrn:
-        # TODO: add caching to this method?
-        urn_str = self._graph.get_domain_urn_by_name(domain_name)
+    def auto_domain(self, *, name: str) -> DomainUrn:
+        # TODO: add caching to this method
+        urn_str = self._graph.get_domain_urn_by_name(name)
         if urn_str is None:
-            raise ItemNotFoundError(f"Domain with name {domain_name} not found")
+            raise ItemNotFoundError(f"Domain with name {name} not found")
         return DomainUrn.from_string(urn_str)
 
-    def get_tag_urn_by_name(self, tag_name: str, /) -> TagUrn:
+    @overload
+    def auto_user(self, *, name: str) -> CorpUserUrn: ...
+    @overload
+    def auto_user(self, *, email: str) -> CorpUserUrn: ...
+    def auto_user(
+        self, *, name: Optional[str] = None, email: Optional[str] = None
+    ) -> CorpUserUrn:
+        # TODO allows lookup by name or email
         raise NotImplementedError("TODO: need to implement this")
 
-    def get_term_urn_by_name(self, term_name: str, /) -> GlossaryTermUrn:
+    def auto_term(self, *, name: str) -> GlossaryTermUrn:
         raise NotImplementedError("TODO: need to implement this")
 
     def propose(
