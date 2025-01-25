@@ -867,7 +867,7 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+          # temp test disable: depot-project: ${{ vars.DEPOT_PROJECT_ID }}
       - name: Compute Tag
         id: tag
         run: echo "tag=${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
@@ -966,7 +966,7 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          # test disable: depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+          # temp test disable: depot-project: ${{ vars.DEPOT_PROJECT_ID }}
       - name: Compute Tag (Full)
         id: tag
         run: echo "tag=${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> "$GITHUB_OUTPUT"
