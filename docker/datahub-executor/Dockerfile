@@ -99,7 +99,7 @@ RUN if [ $(arch) = "x86_64" ]; then \
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 
 USER datahub
-RUN uv pip install --no-cache -e .
+RUN uv pip install -r requirements.txt
 
 ## Production Image Built From Build Image
 FROM build AS prod-install

@@ -1577,8 +1577,8 @@ jobs:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Update versions
         run: |
-          sed -i 's/__version__ = "0.0.0.dev0"/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/src/datahub_integrations/__init__.py
-          sed -i 's/version = "0.0.0.dev0"/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/pyproject.toml
+          sed -i 's/__version__ = .*$/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/src/datahub_integrations/__init__.py
+          sed -i 's/version = .*$/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/pyproject.toml
           cat ./datahub-integrations-service/src/datahub_integrations/__init__.py
           cat ./datahub-integrations-service/pyproject.toml
       - name: Build and push
@@ -1707,8 +1707,8 @@ jobs:
         run: ./gradlew :metadata-ingestion-modules:acryl-cloud:codegen
       - name: Update versions
         run: |
-          sed -i 's/__version__ = "0.0.0.dev0"/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/src/datahub_executor/__init__.py
-          sed -i 's/version = "0.0.0.dev0"/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/pyproject.toml
+          sed -i.bak 's/__version__ = .*$/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/src/datahub_executor/__init__.py
+          sed -i.bak 's/version = .*$/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/pyproject.toml
           cat ./datahub-executor/src/datahub_executor/__init__.py
           cat ./datahub-executor/pyproject.toml
       - name: Build and push
