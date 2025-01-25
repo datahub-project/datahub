@@ -44,6 +44,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
+      short_sha: ${{ steps.tag.outputs.short_sha }} # needed for auto-deploy
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
