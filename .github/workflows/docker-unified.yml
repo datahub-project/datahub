@@ -963,7 +963,7 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+          # test disable: depot-project: ${{ vars.DEPOT_PROJECT_ID }}
       - name: Compute Tag (Full)
         id: tag
         run: echo "tag=${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> "$GITHUB_OUTPUT"
