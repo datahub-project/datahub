@@ -1,4 +1,5 @@
 import subprocess
+from typing import List
 
 import pytest
 from freezegun import freeze_time
@@ -71,9 +72,20 @@ def test_mysql_ingest_no_db(
     config_file = (test_resources_dir / config_file).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
+    # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
+    ignore_paths: List[str] = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_altered'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['distinctValueFrequencies'\]\[\d+\]\['value'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]\[\d+\]",
+    ]
+
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        ignore_paths=ignore_paths,
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
     )
