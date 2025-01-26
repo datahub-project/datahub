@@ -5,7 +5,6 @@ from sqlalchemy.engine import Connection, Inspector
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mariadb import MariaDBConfig, MariaDBSource
-from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.mysql.job_models import (
     MySQLDataJob,
     MySQLProcedureContainer,
@@ -16,7 +15,7 @@ from datahub.ingestion.source.sql.mysql.job_models import (
 def test_platform_correctly_set_mariadb():
     source = MariaDBSource(
         ctx=PipelineContext(run_id="mariadb-source-test"),
-        config=MySQLConfig(),
+        config=MariaDBConfig(),
     )
     assert source.platform == "mariadb"
 
