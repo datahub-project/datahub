@@ -436,7 +436,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   private void testFilterQuery(BoolQueryBuilder testQuery) {
-    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition =
+    Optional<TermQueryBuilder> mustNotHaveRemovedCondition =
         testQuery.filter().stream()
             .filter(or -> or instanceof BoolQueryBuilder)
             .map(or -> (BoolQueryBuilder) or)
@@ -445,8 +445,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   System.out.println("processing: " + or.mustNot());
                   return or.mustNot().stream();
                 })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
+            .filter(and -> and instanceof TermQueryBuilder)
+            .map(and -> (TermQueryBuilder) and)
             .filter(match -> match.fieldName().equals("removed"))
             .findAny();
 

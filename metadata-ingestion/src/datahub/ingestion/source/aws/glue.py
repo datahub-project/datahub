@@ -738,11 +738,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
     ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
         all_databases = [*self.get_all_databases()]
-        all_tables = [
-            tables
-            for database in all_databases
-            for tables in self.get_tables_from_database(database)
-        ]
+        all_tables = []
+        for database in all_databases:
+            try:
+                for tables in self.get_tables_from_database(database):
+                    all_tables.append(tables)
+            except Exception as e:
+                self.report.failure(
+                    message="Failed to get tables from database",
+                    context=database["Name"],
+                    exc=e,
+                )
         return all_databases, all_tables
 
     def get_lineage_if_enabled(

@@ -97,6 +97,7 @@ def datahub_delete(auth_session, params: List[str]) -> None:
     args: List[str] = ["delete"]
     args.extend(params)
     args.append("--hard")
+    logger.info(f"Running delete command with args: {args}")
     delete_result: Result = runner.invoke(
         datahub,
         args,
