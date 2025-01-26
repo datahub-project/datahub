@@ -231,7 +231,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {
@@ -338,7 +341,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {
