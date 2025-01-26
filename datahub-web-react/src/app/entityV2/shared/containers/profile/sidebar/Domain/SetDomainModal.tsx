@@ -1,6 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
+import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import analytics, { EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -30,6 +34,8 @@ type SelectedDomain = {
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { refetch: entityRefetch } = useEntityContext();
+    const mutationUrn = useMutationUrn();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -45,6 +51,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const domainSearchResults: Entity[] = domainSearchData?.autoComplete?.entities || [];
 
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
+    const [proposeDomainMutation] = useProposeDomainMutation();
     const inputEl = useRef(null);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
 
@@ -84,6 +91,49 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 urn: newUrn,
             });
         }
+    };
+
+    const proposeDomain = () => {
+        message.loading('Proposing...');
+
+        if (!selectedDomain) {
+            return;
+        }
+
+        // TODO: Add description to the proposal
+        proposeDomainMutation({
+            variables: {
+                input: {
+                    resourceUrn: mutationUrn,
+                    domainUrn: selectedDomain.urn,
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.ProposeDomainMutation,
+                    resourceUrn: mutationUrn,
+                    domainUrn: selectedDomain.urn,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                message.destroy();
+                message.success('Successfully proposed domain. It is pending approval.');
+                onModalClose();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Unable to propose domain. Something went wrong.',
+                    badRequestMessage: 'Failed to propose domain. Domain is already proposed or applied.',
+                    permissionMessage:
+                        'Unauthorized to propose domain. The "Manage Domain Proposals" privilege is required for this asset.',
+                });
+                onModalClose();
+            });
     };
 
     function selectDomainFromBrowser(domain: Domain) {
@@ -162,6 +212,14 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 <>
                     <Button onClick={onModalClose} type="text">
                         Cancel
+                    </Button>
+                    <Button
+                        type="default"
+                        onClick={proposeDomain}
+                        disabled={!selectedDomain}
+                        data-testid="propose-domain-on-entity-button"
+                    >
+                        Propose
                     </Button>
                     <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
                         Save

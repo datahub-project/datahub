@@ -249,7 +249,7 @@ export const CreatedByContainer = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 6px 3px 4px;
+    padding: 2px 6px 2px 4px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
 

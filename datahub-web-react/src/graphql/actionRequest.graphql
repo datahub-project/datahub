@@ -209,6 +209,28 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         ...structuredPropertiesFields
                     }
                 }
+                domainProposal {
+                    domain {
+                        ... on Domain {
+                            urn
+                            properties {
+                                name
+                                description
+                            }
+                        }
+                    }
+                }
+                ownerProposal {
+                    owners {
+                        ...owner
+                        ownershipType {
+                            urn
+                            info {
+                                name
+                            }
+                        }
+                    }
+                }
             }
             created {
                 time

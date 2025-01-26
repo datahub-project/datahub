@@ -134,7 +134,7 @@ export default function MetadataAssociationRequestItem({
      * Build the date column view.
      */
     const createdDate = new Date(actionRequest.created.time).toLocaleDateString('en-US'); // Todo format this correctly.
-    const createdDateView = <Typography.Text>{createdDate}</Typography.Text>;
+    const createdDateView = <Typography.Text style={{ wordBreak: 'normal' }}>{createdDate}</Typography.Text>;
 
     const requestTypeView = <RequestTypeContainer>{requestTypeDisplayName}</RequestTypeContainer>;
 

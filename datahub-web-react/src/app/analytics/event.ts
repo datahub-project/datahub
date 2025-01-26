@@ -8,6 +8,7 @@ import {
     LineageDirection,
     NotificationSinkType,
     OidcSettings,
+    OwnerInput,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
@@ -156,6 +157,8 @@ export enum EventType {
     EditQuestionEvent,
     SSOConfigurationEvent,
     ProposeStructuredPropertiesMutation,
+    ProposeDomainMutation,
+    ProposeOwnersMutation,
 }
 
 /**
@@ -1111,6 +1114,23 @@ export interface ProposeStructuredPropertyEvent extends StructuredPropertyOnAsse
     values: PropertyValueInput[];
 }
 
+export interface ProposeDomainEvent extends BaseEvent {
+    type: EventType.ProposeDomainMutation;
+    // The target entity urn for the proposal
+    resourceUrn: string;
+    // The domain urn which is being proposed
+    domainUrn: string;
+    description?: string;
+}
+
+export interface ProposeOwnersEvent extends BaseEvent {
+    type: EventType.ProposeOwnersMutation;
+    // The target entity urn for the proposal
+    resourceUrn: string;
+    owners: OwnerInput[];
+    description?: string;
+}
+
 export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.RemoveStructuredPropertyEvent;
 }
@@ -1269,4 +1289,6 @@ export type Event =
     | UpdateStructuredPropertyOnAssetEvent
     | RemoveStructuredPropertyEvent
     | SSOConfigurationEvent
-    | ProposeStructuredPropertyEvent;
+    | ProposeStructuredPropertyEvent
+    | ProposeDomainEvent
+    | ProposeOwnersEvent;

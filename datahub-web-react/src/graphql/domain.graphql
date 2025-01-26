@@ -126,3 +126,7 @@ query getDomainEntitySummary($urn: String!) {
         }
     }
 }
+
+mutation proposeDomain($input: ProposeDomainInput!) {
+    proposeDomain(input: $input)
+}

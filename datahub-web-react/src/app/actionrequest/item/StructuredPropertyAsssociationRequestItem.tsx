@@ -33,9 +33,9 @@ const ValueContainer = styled.div`
     overflow: hidden;
     display: flex;
     max-width: 200px;
-    background-color: ${colors.gray[100]};
-    border-radius: 4px;
-    padding: 0px 4px;
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 200px;
+    padding: 0px 8px;
 `;
 
 const AndOthersText = styled.div`
@@ -48,10 +48,6 @@ const AndOthersText = styled.div`
     :hover {
         color: ${colors.violet[200]};
     }
-`;
-
-const LightText = styled.span`
-    color: ${colors.gray[500]};
 `;
 
 const BoldText = styled.span`
@@ -111,9 +107,9 @@ export default function StructuredPropertyAsssociationRequestItem({
             ) : (
                 <CreatedByView actionRequest={actionRequest} />
             )}
-            <LightText> requests to update property </LightText>
+            <Typography.Text> requests to update property </Typography.Text>
             <BoldText>{`${propertyName}`}</BoldText>
-            <LightText>{` to `}</LightText>
+            <Typography.Text>{` to `}</Typography.Text>
             {/* add the value of the property */}
             <ValuesContainer>
                 <ValuesContainerFlex>

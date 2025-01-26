@@ -15,6 +15,7 @@ const OwnerTag = styled(Tag)`
     padding: 1px;
     padding-right: 6px;
     margin-bottom: 8px;
+    margin-right: 0px;
     display: inline-flex;
     align-items: center;
     font-weight: 600;

@@ -9,6 +9,8 @@ import StructuredPropertyAsssociationRequestItem from './StructuredPropertyAssso
 import TagAssociationRequestItem from './TagAssociationRequestItem';
 import TermAssociationRequestItem from './TermAssociationRequestItem';
 import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
+import DomainAssociationRequestItem from './DomainAssociationRequestItem';
+import OwnerAssociationRequestItem from './OwnerAssociationRequestItem';
 
 const ActionRequestItemContainer = styled.div`
     display: flex;
@@ -98,6 +100,22 @@ export default function ActionRequestListItem({
             case ActionRequestType.StructuredPropertyAssociation:
                 return (
                     <StructuredPropertyAsssociationRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.DomainAssociation:
+                return (
+                    <DomainAssociationRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.OwnerAssociation:
+                return (
+                    <OwnerAssociationRequestItem
                         actionRequest={request}
                         onUpdate={onUpdate}
                         showActionsButtons={showActionsButtons}

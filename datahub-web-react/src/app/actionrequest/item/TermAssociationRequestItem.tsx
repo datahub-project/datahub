@@ -32,7 +32,7 @@ export default function TermAssociationRequestItem({ actionRequest, showActionsB
         </Link>
     );
 
-    const contentView = <AddContentView requestMetadataView={termView} actionRequest={actionRequest} />;
+    const contentView = <AddContentView requestMetadataViews={[{ primary: termView }]} actionRequest={actionRequest} />;
 
     return (
         <MetadataAssociationRequestItem

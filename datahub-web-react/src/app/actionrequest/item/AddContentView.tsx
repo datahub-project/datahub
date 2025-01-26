@@ -11,12 +11,33 @@ const ContentWrapper = styled.span`
 `;
 
 interface Props {
-    requestMetadataView: React.ReactNode;
+    requestMetadataViews: {
+        primary: React.ReactNode;
+        additional?: React.ReactNode;
+    }[];
     actionRequest: ActionRequest;
 }
 
-function AddContentView({ requestMetadataView, actionRequest }: Props) {
+function AddContentView({ requestMetadataViews, actionRequest }: Props) {
     const { origin } = actionRequest;
+
+    const renderMetadataViews = () => {
+        if (!requestMetadataViews.length) return null;
+
+        return requestMetadataViews.map((view, idx, array) => {
+            const isLast = idx === array.length - 1;
+            const isSecondToLast = idx === array.length - 2;
+
+            return (
+                <React.Fragment key={view.toString()}>
+                    {view.primary}
+                    {view.additional && <> of type {view.additional}</>}
+                    {!isLast && (isSecondToLast ? ', and ' : ', ')}
+                </React.Fragment>
+            );
+        });
+    };
+
     return (
         <ContentWrapper>
             {origin === ActionRequestOrigin.Inferred ? (
@@ -25,7 +46,7 @@ function AddContentView({ requestMetadataView, actionRequest }: Props) {
                 <CreatedByView actionRequest={actionRequest} />
             )}
             <Typography.Text> requests to add </Typography.Text>
-            {requestMetadataView}
+            {renderMetadataViews()}
             <Typography.Text>{` to `}</Typography.Text>
             <RequestTargetEntityView actionRequest={actionRequest} />
         </ContentWrapper>

@@ -4,6 +4,8 @@ import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -15,7 +17,7 @@ import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
-import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
+import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '../../../../../../../graphql/ownership.generated';
 import OwnershipTypesSelect from './OwnershipTypesSelect';
 
 const SelectInput = styled(Select)`
@@ -75,6 +77,8 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const mutationUrn = useMutationUrn();
+    const { refetch: entityRefetch } = useEntityContext();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -110,6 +114,7 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
+    const [proposeOwnersMutation] = useProposeOwnersMutation();
     const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
         variables: {
             input: {},
@@ -309,6 +314,58 @@ export const EditOwnersModal = ({
         }
     };
 
+    const proposeOwners = () => {
+        message.loading('Proposing...');
+
+        // Get the formatted inputs
+        const inputs = selectedOwners.map((selectedActor) => {
+            return {
+                ownerUrn: selectedActor.value.ownerUrn,
+                // Convert EntityType to OwnerEntityType
+                ownerEntityType:
+                    selectedActor.value.ownerEntityType === EntityType.CorpUser
+                        ? OwnerEntityType.CorpUser
+                        : OwnerEntityType.CorpGroup,
+                ownershipTypeUrn: selectedOwnerType,
+            };
+        });
+
+        proposeOwnersMutation({
+            variables: {
+                input: {
+                    resourceUrn: mutationUrn,
+                    owners: inputs,
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.ProposeOwnersMutation,
+                    resourceUrn: mutationUrn,
+                    owners: inputs,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                message.destroy();
+                message.success('Successfully proposed owners. It is pending approval.');
+                onModalClose();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Unable to propose owners. Something went wrong.',
+                    badRequestMessage:
+                        'Failed to propose owners. Owners with these values are already proposed or applied.',
+                    permissionMessage:
+                        'Unauthorized to propose owners. The "Manage Owner Proposals" privilege is required for this asset.',
+                });
+                onModalClose();
+            });
+    };
+
     // Function to handle the modal action's
     const onOk = () => {
         if (selectedOwners.length === 0) {
@@ -350,6 +407,14 @@ export const EditOwnersModal = ({
                 <>
                     <Button onClick={onModalClose} type="text">
                         Cancel
+                    </Button>
+                    <Button
+                        type="default"
+                        onClick={proposeOwners}
+                        disabled={!selectedOwners?.length}
+                        data-testid="propose-owners-on-entity-button"
+                    >
+                        Propose
                     </Button>
                     <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
                         Add
