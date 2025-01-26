@@ -3,7 +3,8 @@ import re
 from pydantic import SecretStr
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.mysql.job_models import (
     MySQLDataJob,
     MySQLProcedureContainer,
@@ -126,3 +127,154 @@ def test_procedure_metadata_handling():
         "description": "Test procedure",
         "created_by": "test_user",
     }
+
+
+def test_mysql_data_job_empty_properties():
+    """Test MySQL data job with empty properties"""
+    procedure = MySQLStoredProcedure(
+        routine_schema="test_db",
+        routine_name="test_proc",
+        flow=MySQLProcedureContainer(
+            name="test_db.stored_procedures",
+            env="PROD",
+            db="test_db",
+            platform_instance=None,
+        ),
+    )
+
+    data_job = MySQLDataJob(entity=procedure)
+
+    # Test initial empty properties
+    assert data_job.valued_properties == {}
+    assert len(data_job.job_properties) == 0
+
+    # Test empty string property - should be included since it's not None
+    data_job.add_property("test", "")
+    assert "test" in data_job.valued_properties
+    assert data_job.valued_properties["test"] == ""
+
+    # Test string "None" property - should be included since it's not None
+    data_job.add_property("test2", "None")
+    assert "test2" in data_job.valued_properties
+    assert data_job.valued_properties["test2"] == "None"
+
+
+def test_mysql_procedure_platform_instance():
+    """Test MySQL procedure with platform instance"""
+    container = MySQLProcedureContainer(
+        name="test_db.stored_procedures",
+        env="PROD",
+        db="test_db",
+        platform_instance="custom-instance",
+    )
+
+    procedure = MySQLStoredProcedure(
+        routine_schema="test_db", routine_name="test_proc", flow=container
+    )
+
+    data_job = MySQLDataJob(entity=procedure)
+    platform_instance = data_job.as_maybe_platform_instance_aspect
+
+    assert platform_instance is not None
+    # Check both platform and instance URNs
+    assert platform_instance.platform == "urn:li:dataPlatform:mysql"
+    assert (
+        platform_instance.instance
+        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,custom-instance)"
+    )
+
+
+def test_mysql_data_job_aspects():
+    """Test MySQL data job input/output aspects"""
+    procedure = MySQLStoredProcedure(
+        routine_schema="test_db",
+        routine_name="test_proc",
+        flow=MySQLProcedureContainer(
+            name="test_db.stored_procedures",
+            env="PROD",
+            db="test_db",
+            platform_instance=None,
+        ),
+    )
+
+    data_job = MySQLDataJob(entity=procedure)
+
+    # Add some test data
+    data_job.incoming = ["dataset1", "dataset2"]
+    data_job.outgoing = ["dataset3"]
+    data_job.input_jobs = ["job1"]
+
+    io_aspect = data_job.as_datajob_input_output_aspect
+    assert sorted(io_aspect.inputDatasets) == ["dataset1", "dataset2"]
+    assert io_aspect.outputDatasets == ["dataset3"]
+    assert io_aspect.inputDatajobs == ["job1"]
+
+
+def test_mysql_flow_container_formatting():
+    """Test MySQL flow container name formatting"""
+    container = MySQLProcedureContainer(
+        name="test,db.stored,procedures",  # Contains commas
+        env="PROD",
+        db="test_db",
+        platform_instance=None,
+    )
+
+    assert container.formatted_name == "test-db.stored-procedures"
+
+
+def test_stored_procedure_properties():
+    """Test stored procedure additional properties"""
+    procedure = MySQLStoredProcedure(
+        routine_schema="test_db",
+        routine_name="test_proc",
+        flow=MySQLProcedureContainer(
+            name="test_db.stored_procedures",
+            env="PROD",
+            db="test_db",
+            platform_instance=None,
+        ),
+        code="CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+    )
+
+    data_job = MySQLDataJob(entity=procedure)
+
+    # Test adding various properties
+    data_job.add_property("CREATED", "2024-01-01")
+    data_job.add_property("LAST_ALTERED", "2024-01-02")
+    data_job.add_property("SQL_DATA_ACCESS", "MODIFIES")
+    data_job.add_property("SECURITY_TYPE", "DEFINER")
+    data_job.add_property("parameters", "IN param1 INT, OUT param2 VARCHAR")
+
+    assert len(data_job.valued_properties) == 5
+    assert all(value is not None for value in data_job.valued_properties.values())
+
+
+def test_temp_table_patterns():
+    """Test comprehensive temp table pattern matching"""
+    config = MySQLConfig(
+        schema_pattern=AllowDenyPattern(allow=["test_schema"]),
+        table_pattern=AllowDenyPattern(allow=["test_schema.*"]),
+    )
+    source = MySQLSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    # Mock the discovered_datasets property to include all our "permanent" tables
+    source.discovered_datasets = {
+        "test_schema.permanent_table",
+        "test_schema.regular_table",
+        "test_schema.table",
+    }
+
+    test_cases = [
+        ("test_schema.#temp", True),  # Starts with #
+        ("test_schema._tmp", True),  # Starts with _tmp
+        ("test_schema.regular_table", False),  # In discovered_datasets
+        ("test_schema.table", False),  # In discovered_datasets
+        ("test_schema.temp_123", True),  # Not in discovered_datasets
+        ("other_schema.temp", False),  # Schema not allowed
+    ]
+
+    for table_name, expected in test_cases:
+        actual = source.is_temp_table(table_name)
+        assert actual == expected, (
+            f"Failed for {table_name}. Expected {expected}, got {actual}"
+        )

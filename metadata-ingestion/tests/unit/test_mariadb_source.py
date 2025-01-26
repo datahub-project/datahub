@@ -202,3 +202,86 @@ def test_mariadb_config():
     assert not config.procedure_pattern.allowed("test_db.my_proc_temp")
     assert not config.procedure_pattern.allowed("other_db.proc")
     assert config.host_port == "localhost:3306"
+
+
+def test_mariadb_error_handling():
+    """Test error handling in MariaDB stored procedure fetching"""
+    mock_conn = MagicMock(spec=Connection)
+
+    # Create mock result for ROUTINES query
+    routines_result = MagicMock()
+    routines_result.__iter__.return_value = [
+        {
+            "ROUTINE_SCHEMA": "test_db",
+            "ROUTINE_NAME": "test_proc",
+            "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+            "ROUTINE_COMMENT": "Test procedure",
+            "CREATED": "2024-01-01",
+            "LAST_ALTERED": "2024-01-02",
+            "SQL_DATA_ACCESS": "MODIFIES",
+            "SECURITY_TYPE": "DEFINER",
+            "DEFINER": "root@localhost",
+        }
+    ].__iter__()
+
+    # Mock execution behavior
+    def mock_execute(query):
+        if "SHOW CREATE PROCEDURE" in str(query):
+            raise Exception("Failed to get procedure")
+        if "FROM information_schema.ROUTINES" in str(query):
+            return routines_result
+        return MagicMock()
+
+    mock_conn.execute.side_effect = mock_execute
+
+    source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=MariaDBConfig())
+    procedures = source._get_stored_procedures(
+        conn=mock_conn, db_name="test_db", schema="test_db"
+    )
+
+    # Verify the results
+    assert len(procedures) == 1
+    assert procedures[0]["routine_schema"] == "test_db"
+    assert procedures[0]["routine_name"] == "test_proc"
+    # Should fall back to ROUTINE_DEFINITION when SHOW CREATE PROCEDURE fails
+    assert procedures[0]["code"] == "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END"
+    assert "code" in procedures[0]
+
+
+def test_mariadb_procedure_pattern_filtering():
+    """Test procedure pattern filtering in MariaDB source"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
+    mock_conn = MagicMock(spec=Connection)
+    mock_cm = MagicMock()
+    mock_cm.__enter__.return_value = mock_conn
+    mock_engine.connect.return_value = mock_cm
+    mock_inspector.engine = mock_engine
+    mock_inspector.engine.url.database = "test_db"
+
+    config = MariaDBConfig(
+        host_port="localhost:3306",
+        include_stored_procedures=True,
+        procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
+    )
+
+    source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    with patch.object(source, "_get_stored_procedures") as mock_get_procs:
+        mock_get_procs.return_value = [
+            {
+                "routine_schema": "test_db",
+                "routine_name": "test_proc_temp",
+                "code": "CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
+            }
+        ]
+
+        # Convert generator to list to execute it
+        workunits = list(
+            source.loop_stored_procedures(
+                inspector=mock_inspector, schema="test_db", sql_config=config
+            )
+        )
+
+        # Should be filtered out by pattern
+        assert len(workunits) == 0
