@@ -14,8 +14,10 @@ from datahub.emitter.mcp_builder import (
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
 from datahub.sdk._shared import (
+    DomainInputType,
     Entity,
     HasContainer,
+    HasDomain,
     HasOwnership,
     HasSubtype,
     HasTags,
@@ -26,7 +28,7 @@ from datahub.sdk._shared import (
 )
 
 
-class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
+class Container(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity):
     __slots__ = ()
 
     @classmethod
@@ -52,7 +54,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         subtype: Optional[str] = None,
         tags: Optional[TagsInputType] = None,
         owners: Optional[OwnersInputType] = None,
-        domain_urn: Optional[str] = None,
+        domain: Optional[DomainInputType] = None,
     ):
         if isinstance(container_key, ContainerUrn):
             urn = container_key
@@ -105,9 +107,8 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
             self.set_owners(owners)
         if tags is not None:
             self.set_tags(tags)
-        # TODO: handle domain
-        # if domain_urn is not None:
-        #     self.set_domain_urn(domain_urn)
+        if domain is not None:
+            self.set_domain(domain)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
