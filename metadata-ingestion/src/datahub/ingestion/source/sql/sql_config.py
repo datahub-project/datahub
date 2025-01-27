@@ -2,7 +2,7 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict, Optional
 
-import cachetools
+
 import cachetools.keys
 import pydantic
 from pydantic import Field
@@ -29,7 +29,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-from datahub.utilities.cachetools_keys import self_methodkey
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -117,14 +117,7 @@ class SQLCommonConfig(
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    # TRICKY: The operation_config is time-dependent. Because we don't want to change
-    # whether or not we're running profiling mid-ingestion, we cache the result of this method.
-    # TODO: This decorator should be moved to the is_profiling_enabled(operation_config) method.
-    @cachetools.cached(
-        cache=cachetools.LRUCache(maxsize=1),
-        key=self_methodkey,
-    )
+    
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
