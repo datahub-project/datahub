@@ -19,7 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata._urns.urn_defs import (
+from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
     DataTypeUrn,
