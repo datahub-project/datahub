@@ -10,6 +10,8 @@ from deepdiff import DeepDiff
 from freezegun import freeze_time
 from looker_sdk.sdk.api40.models import DBConnection
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
@@ -20,6 +22,7 @@ from datahub.ingestion.source.looker.looker_template_language import (
 )
 from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
+from datahub.ingestion.source.looker.lookml_source import LookMLSource
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -78,7 +81,8 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -112,7 +116,8 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     golden_path = test_resources_dir / "refinements_ingestion_golden.json"
     mce_helpers.check_golden_file(
@@ -142,7 +147,8 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     golden_path = test_resources_dir / "refinement_include_order_golden.json"
     mce_helpers.check_golden_file(
@@ -332,7 +338,8 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -377,7 +384,8 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -424,7 +432,8 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -507,7 +516,8 @@ def ingestion_test(
         )
         pipeline.run()
         pipeline.pretty_print_summary()
-        pipeline.raise_from_status(raise_warnings=True)
+        pipeline.raise_from_status(raise_warnings=False)
+        assert pipeline.source.get_report().warnings.total_elements == 1
 
         mce_helpers.check_golden_file(
             pytestconfig,
@@ -553,7 +563,8 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -668,7 +679,8 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     events = read_metadata_file(tmp_path / mce_out)
     for mce in events:
@@ -1050,4 +1062,38 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_unreachable_views(pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+
+    config = {
+        "base_folder": f"{test_resources_dir}/lkml_unreachable_views",
+        "connection_to_platform_map": {"my_connection": "postgres"},
+        "parse_table_names_from_sql": True,
+        "tag_measures_and_dimensions": False,
+        "project_name": "lkml_samples",
+        "model_pattern": {"deny": ["data2"]},
+        "emit_reachable_views_only": False,
+        "liquid_variable": {
+            "order_region": "ap-south-1",
+            "source_region": "ap-south-1",
+            "dw_eff_dt_date": {
+                "_is_selected": True,
+            },
+        },
+    }
+
+    source = LookMLSource(
+        LookMLSourceConfig.parse_obj(config),
+        ctx=PipelineContext(run_id="lookml-source-test"),
+    )
+    wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+    assert len(wu) == 15
+    assert source.reporter.warnings.total_elements == 1
+    assert (
+        "The Looker view file was skipped because it may not be referenced by any models."
+        in [failure.message for failure in source.get_report().warnings]
     )
