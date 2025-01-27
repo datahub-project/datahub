@@ -412,7 +412,7 @@ plugins: Dict[str, Set[str]] = {
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
-        cachetools_lib,
+        *cachetools_lib,
     },
     "feast": {
         "feast>=0.34.0,<1",
