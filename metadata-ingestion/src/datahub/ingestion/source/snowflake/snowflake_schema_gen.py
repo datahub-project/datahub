@@ -696,15 +696,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        if self.config.extract_tags_as_structured_properties:
-            return
+        use_sp = self.config.extract_tags_as_structured_properties
 
-        identifier = tag.tag_identifier()
+        identifier = (
+            self.snowflake_identifier(tag.structured_property_identifier())
+            if use_sp
+            else tag.tag_identifier()
+        )
 
         if self.report.is_tag_processed(identifier):
             return
 
         self.report.report_tag_processed(identifier)
+
+        if use_sp:
+            return
+
         yield from self.gen_tag_workunits(tag)
 
     def _format_tags_as_structured_properties(
