@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.MLModelLineageInfo;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.TimeStampToAuditStampMapper;
@@ -87,6 +88,20 @@ public class MLModelPropertiesMapper
               .collect(Collectors.toList()));
     }
     result.setTags(mlModelProperties.getTags());
+    final MLModelLineageInfo lineageInfo = new MLModelLineageInfo();
+    if (mlModelProperties.hasTrainingJobs()) {
+      lineageInfo.setTrainingJobs(
+          mlModelProperties.getTrainingJobs().stream()
+              .map(urn -> urn.toString())
+              .collect(Collectors.toList()));
+    }
+    if (mlModelProperties.hasDownstreamJobs()) {
+      lineageInfo.setDownstreamJobs(
+          mlModelProperties.getDownstreamJobs().stream()
+              .map(urn -> urn.toString())
+              .collect(Collectors.toList()));
+    }
+    result.setMlModelLineageInfo(lineageInfo);
 
     return result;
   }
