@@ -19,14 +19,17 @@ jobs:
     runs-on: depot-ubuntu-22.04
     outputs:
       publish: ${{ steps.publish.outputs.publish }}
+      s3_publish: ${{ steps.publish.outputs.s3_publish }}
     steps:
       - name: Check whether upload to datahub is enabled
         id: publish
         env:
           ENABLE_PUBLISH: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
+          ENABLE_S3_UPLOAD: "${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}"
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "s3_publish=${{ env.ENABLE_S3_UPLOAD != '' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
     runs-on: depot-ubuntu-22.04
     needs: setup
@@ -57,7 +60,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}
           aws-region: us-west-2
       - name: Upload metadata to S3
-        if: ${{ needs.setup.outputs.publish == 'true' && secrets.ACRYL_CI_ARTIFACTS_BUCKET != '' }}
+        if: ${{ needs.setup.outputs.s3_publish == 'true' }}
         run: aws s3 cp ./metadata-ingestion/generated/docs/metadata_model_mces.json s3://${{ secrets.ACRYL_CI_ARTIFACTS_BUCKET }}/datahub/demo/metadata/
       - name: Upload metadata to DataHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
