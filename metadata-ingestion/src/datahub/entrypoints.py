@@ -6,7 +6,7 @@ from typing import ContextManager, Optional
 
 import click
 
-import datahub as datahub_package
+import datahub._version as datahub_version
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     fixup_gms_url,
@@ -74,8 +74,8 @@ if sys.version_info >= (3, 12):
     help="Write debug-level logs to a file.",
 )
 @click.version_option(
-    version=datahub_package.nice_version_name(),
-    prog_name=datahub_package.__package_name__,
+    version=datahub_version.nice_version_name(),
+    prog_name=datahub_version.__package_name__,
 )
 def datahub(
     debug: bool,
@@ -112,7 +112,7 @@ def datahub(
 def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
-    click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
+    click.echo(f"DataHub CLI version: {datahub_version.nice_version_name()}")
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
     if include_server:
@@ -223,7 +223,7 @@ def main(**kwargs):
             logger.exception(f"Command failed: {exc}")
 
         logger.debug(
-            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+            f"DataHub CLI version: {datahub_version.__version__} at {__file__}"
         )
         logger.debug(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
