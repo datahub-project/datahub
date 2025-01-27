@@ -82,10 +82,11 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         for tag in self.data_dictionary.get_all_tags():
             if not self.config.tag_pattern.allowed(tag.tag_identifier()):
                 continue
-            if not self.config.database_pattern.allowed(tag.database):
-                continue
-            if not self.config.schema_pattern.allowed(f"{tag.database}.{tag.schema}"):
-                continue
+            # Do we need to filter based on database and schema or is it enough if we filter based on tag pattern?
+            # if not self.config.database_pattern.allowed(tag.database):
+            #    continue
+            # if not self.config.schema_pattern.allowed(f"{tag.database}.{tag.schema}"):
+            #    continue
 
             if self.config.extract_tags_as_structured_properties:
                 self.report.num_structured_property_templates_created += 1
