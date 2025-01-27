@@ -6,6 +6,7 @@ from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
 from sortedcontainers import SortedList
+
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -123,7 +124,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             )
 
         return value
-    
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config

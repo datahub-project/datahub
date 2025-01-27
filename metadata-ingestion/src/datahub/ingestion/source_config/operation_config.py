@@ -1,11 +1,13 @@
 import datetime
 import logging
 from typing import Any, Dict, Optional
+
 import cachetools
 import pydantic
 from pydantic.fields import Field
-from datahub.utilities.cachetools_keys import self_methodkey
+
 from datahub.configuration.common import ConfigModel
+from datahub.utilities.cachetools_keys import self_methodkey
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +63,11 @@ class OperationConfig(ConfigModel):
             )
         return profile_date_of_month
 
+
 @cachetools.cached(
-        cache=cachetools.LRUCache(maxsize=1),
-        key=self_methodkey,
-    )
+    cache=cachetools.LRUCache(maxsize=1),
+    key=self_methodkey,
+)
 def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     if operation_config.lower_freq_profile_enabled is False:
         return True

@@ -2,8 +2,6 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict, Optional
 
-
-import cachetools.keys
 import pydantic
 from pydantic import Field
 from sqlalchemy.engine import URL
@@ -29,7 +27,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -117,7 +114,7 @@ class SQLCommonConfig(
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-    
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
