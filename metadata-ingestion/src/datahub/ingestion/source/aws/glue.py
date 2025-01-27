@@ -218,6 +218,7 @@ class GlueSourceConfig(
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
+    catalog_id: Optional[str] = None
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
@@ -315,6 +316,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
+        self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
@@ -738,11 +740,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
     ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
         all_databases = [*self.get_all_databases()]
-        all_tables = [
-            tables
-            for database in all_databases
-            for tables in self.get_tables_from_database(database)
-        ]
+        all_tables = []
+        for database in all_databases:
+            try:
+                for tables in self.get_tables_from_database(database):
+                    all_tables.append(tables)
+            except Exception as e:
+                self.report.failure(
+                    message="Failed to get tables from database",
+                    context=database["Name"],
+                    exc=e,
+                )
         return all_databases, all_tables
 
     def get_lineage_if_enabled(

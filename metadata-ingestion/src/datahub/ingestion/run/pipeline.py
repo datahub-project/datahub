@@ -15,7 +15,7 @@ import click
 import humanfriendly
 import psutil
 
-import datahub
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     IgnorableError,
@@ -144,8 +144,8 @@ def _add_init_error_context(step: str) -> Iterator[None]:
 
 @dataclass
 class CliReport(Report):
-    cli_version: str = datahub.nice_version_name()
-    cli_entry_location: str = datahub.__file__
+    cli_version: str = nice_version_name()
+    cli_entry_location: str = __file__
     models_version: str = model_version_name()
     py_version: str = sys.version
     py_exec_path: str = sys.executable

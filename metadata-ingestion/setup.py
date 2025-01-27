@@ -3,7 +3,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub/__init__.py") as fp:
+with open("./src/datahub/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 _version: str = package_metadata["__version__"]
@@ -312,7 +312,10 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {"slack-sdk==3.18.1"}
+slack = {
+    "slack-sdk==3.18.1",
+    "tenacity>=8.0.1",
+}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -505,12 +508,10 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": (
-        (
-            microsoft_common
-            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
-            | sqlglot_lib
-            | threading_timeout_common
-        )
+        microsoft_common
+        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | sqlglot_lib
+        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
