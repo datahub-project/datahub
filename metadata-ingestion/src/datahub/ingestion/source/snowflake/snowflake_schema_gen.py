@@ -213,7 +213,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             logger.info("Creating structured property templates for tags")
             yield from self.tag_extractor.create_structured_property_templates()
             # We have to wait until cache invalidates to make sure the structured property template is available
-            self.logger.info(
+            logger.info(
                 f"Waiting for {self.config.structured_properties_template_cache_invalidation_interval} seconds for structured properties cache to invalidate"
             )
             time.sleep(
