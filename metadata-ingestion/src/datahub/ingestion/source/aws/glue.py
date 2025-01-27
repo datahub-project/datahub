@@ -316,6 +316,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
+        self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
@@ -687,7 +688,6 @@ class GlueSource(StatefulIngestionSourceBase):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
-        self.report.catalog_id = self.source_config.catalog_id
         if self.source_config.catalog_id:
             paginator_response = paginator.paginate(
                 CatalogId=self.source_config.catalog_id
