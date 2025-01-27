@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver;
 
 @Slf4j
@@ -87,5 +88,14 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     log.error("Unhandled exception occurred for request: " + request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  @ExceptionHandler(NoHandlerFoundException.class)
+  public static ResponseEntity<Map<String, String>> handleNoHandlerFoundException(
+      NoHandlerFoundException ex, HttpServletRequest request) {
+    String message = String.format("No endpoint %s %s.", ex.getHttpMethod(), ex.getRequestURL());
+
+    log.error("No handler found for request: " + request.getRequestURI());
+    return new ResponseEntity<>(Map.of("error", message), HttpStatus.NOT_FOUND);
   }
 }

@@ -73,7 +73,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v2/entity")
+@RequestMapping("/openapi/v2/entity")
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
