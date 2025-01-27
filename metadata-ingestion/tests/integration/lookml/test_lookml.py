@@ -81,7 +81,8 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -115,7 +116,8 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     golden_path = test_resources_dir / "refinements_ingestion_golden.json"
     mce_helpers.check_golden_file(
@@ -145,7 +147,8 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     golden_path = test_resources_dir / "refinement_include_order_golden.json"
     mce_helpers.check_golden_file(
@@ -335,7 +338,8 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -380,7 +384,8 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -427,7 +432,8 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -510,7 +516,8 @@ def ingestion_test(
         )
         pipeline.run()
         pipeline.pretty_print_summary()
-        pipeline.raise_from_status(raise_warnings=True)
+        pipeline.raise_from_status(raise_warnings=False)
+        assert pipeline.source.get_report().warnings.total_elements == 1
 
         mce_helpers.check_golden_file(
             pytestconfig,
@@ -556,7 +563,8 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -671,7 +679,8 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     )
     pipeline.run()
     pipeline.pretty_print_summary()
-    pipeline.raise_from_status(raise_warnings=True)
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 1
 
     events = read_metadata_file(tmp_path / mce_out)
     for mce in events:
