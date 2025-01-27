@@ -1092,7 +1092,7 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
     result = transformer.transform(view)
     assert result == expected_result
     if warning_expected:
-        report.report_warning.assert_called_once_with(
+        report.warning.assert_called_once_with(
             title="Misplaced lookml constant",
             message="Use 'lookml_constants' instead of 'liquid_variables'.",
             context="Key constant4",
