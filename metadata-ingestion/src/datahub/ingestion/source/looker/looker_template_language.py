@@ -409,7 +409,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 )
                 return f"@{{{key}}}"
 
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="LookML constant not found",
                 message="The constant is missing. Either add it under 'lookml_constants' in the config or define it in `manifest.lkml`.",
                 context=f"view-name: {view_name}, constant: {key}",
