@@ -178,7 +178,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // test ASCENDING
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/v3/entity/dataset")
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset")
                 .param("sortOrder", "ASCENDING")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
@@ -192,7 +192,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // test DESCENDING
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/v3/entity/dataset")
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset")
                 .accept(MediaType.APPLICATION_JSON)
                 .param("sortOrder", "DESCENDING"))
         .andExpect(status().is2xxSuccessful())
@@ -211,14 +211,14 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // test delete entity
     mockMvc
         .perform(
-            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+            MockMvcRequestBuilders.delete(String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
     // test delete entity by aspect key
     mockMvc
         .perform(
-            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+            MockMvcRequestBuilders.delete(String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
                 .param("aspects", "datasetKey")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
@@ -229,7 +229,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     reset(mockEntityService);
     mockMvc
         .perform(
-            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+            MockMvcRequestBuilders.delete(String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
                 .param("aspects", "status")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
@@ -240,7 +240,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     reset(mockEntityService);
     mockMvc
         .perform(
-            MockMvcRequestBuilders.delete(String.format("/v3/entity/dataset/%s", TEST_URN))
+            MockMvcRequestBuilders.delete(String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
                 .param("clear", "true")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
@@ -374,7 +374,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // test timeseries latest aspect
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/v3/entity/dataset/{urn}/datasetprofile", TEST_URN)
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset/{urn}/datasetprofile", TEST_URN)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(MockMvcResultMatchers.jsonPath("$.value.rowCount").value(10))
@@ -384,7 +384,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // test oldd aspect
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/v3/entity/dataset/{urn}/datasetprofile", TEST_URN)
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset/{urn}/datasetprofile", TEST_URN)
                 .param("version", "150")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
@@ -471,7 +471,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/v3/entity/dataset/batchGet")
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset/batchGet")
                 .content(requestBody)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
@@ -486,7 +486,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/v3/entity/dataset/batchGet")
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset/batchGet")
                 .content(requestBody)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
@@ -531,7 +531,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/v3/entity/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
                 .content("{\"entities\":[\"dataset\"]}")
                 .param("sortCriteria", "name", "urn")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -575,7 +575,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/v3/entity/scroll")
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
                 .content("{\"entities\":[\"dataset\"]}")
                 .param("pitKeepAlive", "10m")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -598,7 +598,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .perform(
             MockMvcRequestBuilders.post(
                     String.format(
-                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        "/openapi/v3/entity/versioning/%s/relationship/versionOf/%s",
                         VERSION_SET_URN, TEST_URN))
                 .content("{}")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -610,7 +610,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .perform(
             MockMvcRequestBuilders.delete(
                     String.format(
-                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        "/openapi/v3/entity/versioning/%s/relationship/versionOf/%s",
                         VERSION_SET_URN, TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
@@ -630,7 +630,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .perform(
             MockMvcRequestBuilders.post(
                     String.format(
-                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        "/openapi/v3/entity/versioning/%s/relationship/versionOf/%s",
                         INVALID_VERSION_SET_URN, TEST_URN))
                 .content("{}")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -642,7 +642,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .perform(
             MockMvcRequestBuilders.delete(
                     String.format(
-                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        "/openapi/v3/entity/versioning/%s/relationship/versionOf/%s",
                         INVALID_VERSION_SET_URN, TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
