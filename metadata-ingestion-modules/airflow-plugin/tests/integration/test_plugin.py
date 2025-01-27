@@ -217,11 +217,6 @@ def _run_airflow(
             conn_type="datahub-file",
             host=str(meta_file),
         ).get_uri(),
-        f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}": Connection(
-            conn_id="datahub_file_default2",
-            conn_type="datahub-file",
-            host=str(meta_file2),
-        ).get_uri(),
         # Configure fake credentials for the Snowflake connection.
         "AIRFLOW_CONN_MY_SNOWFLAKE": Connection(
             conn_id="my_snowflake",
@@ -261,6 +256,13 @@ def _run_airflow(
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
+
+    if multiple_connections and not is_v1:
+        environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
+            conn_id="datahub_file_default2",
+            conn_type="datahub-file",
+            host=str(meta_file2)
+        ).get_uri()
 
     if not HAS_AIRFLOW_STANDALONE_CMD:
         raise pytest.skip("Airflow standalone command is not available")
