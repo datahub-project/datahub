@@ -979,12 +979,14 @@ class LookMLSource(StatefulIngestionSourceBase):
         processed_view_map: Dict[str, Set[str]] = {},
     ) -> None:
         view_files: Dict[str, List[pathlib.Path]] = {}
-        # Collect view files from each project
         for project, folder_path in self.base_projects_folder.items():
             folder = pathlib.Path(folder_path)
             view_files[project] = list(folder.glob(f"**/*{VIEW_FILE_EXTENSION}"))
 
+        skipped_view_paths: Dict[str, List[str]] = {}
         for project, views in view_files.items():
+            skipped_paths: Set[str] = set()
+
             for view_path in views:
                 # Check if the view is already in processed_view_map
                 if not any(
@@ -997,25 +999,30 @@ class LookMLSource(StatefulIngestionSourceBase):
                         connection=None,
                         reporter=self.reporter,
                     )
-                    raw_view_name = ""
+
                     if looker_viewfile is not None:
                         for raw_view in looker_viewfile.views:
-                            raw_view_name = raw_view["name"]
-                            break
+                            raw_view_name = raw_view.get("name", "")
 
-                    if not raw_view_name:
-                        continue
+                            if (
+                                raw_view_name
+                                and self.source_config.view_pattern.allowed(
+                                    raw_view_name
+                                )
+                            ):
+                                skipped_paths.add(str(view_path))
 
-                    if self.source_config.view_pattern.allowed(raw_view_name):
-                        self.reporter.report_warning(
-                            title="Skipped View File",
-                            message=(
-                                "The Looker view file was skipped because it may not be referenced by any models."
-                            ),
-                            context=(
-                                f"Project: {project}, View File Path: {view_path}, "
-                            ),
-                        )
+            skipped_view_paths[project] = list(skipped_paths)
+
+        for project, view_paths in skipped_view_paths.items():
+            for path in view_paths:
+                self.reporter.report_warning(
+                    title="Skipped View File",
+                    message=(
+                        "The Looker view file was skipped because it may not be referenced by any models."
+                    ),
+                    context=(f"Project: {project}, View File Path: {path}"),
+                )
 
     def get_report(self):
         return self.reporter
