@@ -2091,9 +2091,7 @@ class TableauSiteSource:
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],
             )
-            logger.info(
-                f"Processing custom sql {csql_id} .connectionType={csql.get(c.CONNECTION_TYPE)} .database={csql.get(c.DATABASE)} .={csql}"
-            )
+            logger.debug(f"Processing custom sql = {csql}")
 
             datasource_name = None
             project = None
@@ -2156,7 +2154,7 @@ class TableauSiteSource:
                 # less accurate. This option allows us to ignore Tableau's parser and
                 # only use our own.
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
-                    logger.info("Extracting TLL & CLL from custom sql (forced)")
+                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql, columns
                     )
@@ -2436,7 +2434,7 @@ class TableauSiteSource:
             c.CONNECTION_TYPE: datasource.get(c.DATABASE, {}).get(c.NAME)
             or datasource.get(c.CONNECTION_TYPE),
         }
-        logger.info(f"database_info={database_info}")
+        logger.debug(f"database_info={database_info}")
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
@@ -2445,11 +2443,8 @@ class TableauSiteSource:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if (
-            # database_info.get(c.NAME) is None or
-            database_info.get(c.CONNECTION_TYPE) is None
-        ):
-            logger.info(
+        if database_info.get(c.CONNECTION_TYPE) is None:
+            logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
             return None
@@ -2462,13 +2457,12 @@ class TableauSiteSource:
             return None
         query = self._clean_tableau_query_parameters(query)
 
-        logger.info(f"Parsing sql={query}")
+        logger.debug(f"Parsing sql={query}")
 
         upstream_db = database_info.get(c.NAME)
 
         if func_overridden_info is not None:
             # Override the information as per configuration
-
             upstream_db, platform_instance, platform, _ = func_overridden_info(
                 database_info[c.CONNECTION_TYPE],
                 database_info.get(c.NAME),
@@ -2479,7 +2473,7 @@ class TableauSiteSource:
                 self.database_server_hostname_map,
             )
 
-        logger.info(
+        logger.debug(
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
@@ -2540,7 +2534,7 @@ class TableauSiteSource:
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
         )
-        logger.info(
+        logger.debug(
             f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
         )
 
