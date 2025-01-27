@@ -23,8 +23,10 @@ from datahub.sdk._shared import (
     HasOwnership,
     HasSubtype,
     HasTags,
+    HasTerms,
     OwnersInputType,
     TagsInputType,
+    TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
@@ -280,8 +282,68 @@ class SchemaField:
                 tags=parsed_tags
             )
 
+    @property
+    def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
+        # TODO: Basically the same implementation as tags - can we share code?
+        terms = None
 
-class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity):
+        if (base_terms := self._base_schema_field().glossaryTerms) is not None:
+            terms = terms or []
+            terms.extend(base_terms.terms)
+
+        if editable_field := self._get_editable_schema_field():
+            if (editable_terms := editable_field.glossaryTerms) is not None:
+                terms = terms or []
+                terms.extend(editable_terms.terms)
+
+        return terms
+
+    def set_terms(self, terms: List[models.GlossaryTermAssociationClass]) -> None:
+        parsed_terms = [
+            self._parent._parse_glossary_term_association_class(term) for term in terms
+        ]
+
+        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+            editable_field = self._get_editable_schema_field()
+            if editable_field and editable_field.glossaryTerms:
+                warnings.warn(
+                    "Some terms were added via UI-based edits, and will not be removed. "
+                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
+                )
+
+            self._base_schema_field().glossaryTerms = models.GlossaryTermsClass(
+                terms=parsed_terms,
+                auditStamp=self._parent._terms_audit_stamp(),
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.glossaryTerms:
+                warnings.warn(
+                    "Some terms were added by ingestion, and will not be removed. "
+                    "Change the edit mode to DEFER_TO_UI to override this behavior.",
+                    category=HiddenEditWarning,
+                    stacklevel=2,
+                )
+
+            self._ensure_editable_schema_field().glossaryTerms = (
+                models.GlossaryTermsClass(
+                    terms=parsed_terms,
+                    auditStamp=self._parent._terms_audit_stamp(),
+                )
+            )
+
+
+class Dataset(
+    HasSubtype,
+    HasContainer,
+    HasOwnership,
+    HasTags,
+    HasTerms,
+    HasDomain,
+    Entity,
+):
     __slots__ = ("_edit_mode",)
 
     @classmethod
@@ -311,8 +373,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity
         container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
         # TODO: do we need to support edit_mode for tags / other aspects?
-        # TODO terms
         # TODO structured_properties
         domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
@@ -368,6 +430,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity
             self.set_owners(owners)
         if tags is not None:
             self.set_tags(tags)
+        if terms is not None:
+            self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
 
