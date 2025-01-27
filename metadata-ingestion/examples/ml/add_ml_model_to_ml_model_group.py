@@ -1,21 +1,15 @@
+import argparse
+
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-import argparse
-import time
-
+from typing import Optional
 
 def add_model_version_to_model(
-        model_urn,
-        model_group_urn,
-        token: str,
-        server_url: str = "http://localhost:8080"
+    model_urn: str, model_group_urn: str, token: Optional[str], server_url: str = "http://localhost:8080"
 ) -> None:
-
     # Create model properties
-    model_properties = models.MLModelPropertiesClass(
-        groups=[model_group_urn]
-    )
+    model_properties = models.MLModelPropertiesClass(groups=[model_group_urn])
 
     # Generate metadata change proposals
     mcps = [
@@ -24,16 +18,18 @@ def add_model_version_to_model(
             entityType="mlModel",
             aspectName="mlModelProperties",
             aspect=model_properties,
-            changeType=models.ChangeTypeClass.UPSERT,
+            changeType=models.ChangeTypeClass.UPSERT,  # TODO: this overwrites the existing model properties.
         ),
     ]
 
     # Connect to DataHub and emit the changes
-    graph = DataHubGraph(DatahubClientConfig(
-        server=server_url,
-        token=token,
-        extra_headers={"Authorization": f"Bearer {token}"},
-    ))
+    graph = DataHubGraph(
+        DatahubClientConfig(
+            server=server_url,
+            token=token,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
+    )
 
     with graph:
         for mcp in mcps:
@@ -46,7 +42,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     add_model_version_to_model(
-        model_urn="urn:li:mlModel:(urn:li:dataPlatform:local,my_model)",
-        model_group_urn="urn:li:mlModelGroup:(urn:li:dataPlatform:local,my_model_group)",
-        token=args.token
+        model_urn="urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model_2,PROD)",
+        model_group_urn="urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models,PROD)",
+        token=args.token,
     )

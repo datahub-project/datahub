@@ -1,20 +1,23 @@
+import argparse
+
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-import argparse
+from datahub.metadata.urns import ContainerUrn, DataPlatformUrn
+from typing import Optional
 
 def create_experiment(
-        experiment_id: str,
-        name: str,
-        description: str,
-        platform: str,
-        custom_properties: dict,
-        token: str = None,
-        server_url: str = "http://localhost:8080"
+    experiment_id: str,
+    name: str,
+    description: str,
+    platform: str,
+    custom_properties: dict,
+    token: Optional[str],
+    server_url: str = "http://localhost:8080",
 ) -> None:
     # Create basic experiment properties
-    platform_urn = f"urn:li:dataPlatform:{platform}"
-    container_urn = f"urn:li:container:({platform_urn},{experiment_id},PROD)"
+    container_urn = ContainerUrn(guid=experiment_id)
+    platform_urn = DataPlatformUrn(platform_name=platform)
     container_subtype = models.SubTypesClass(typeNames=["ML Experiment"])
     container_info = models.ContainerPropertiesClass(
         name=name,
@@ -23,22 +26,23 @@ def create_experiment(
     )
     browse_path = models.BrowsePathsV2Class(path=[])
     platform_instance = models.DataPlatformInstanceClass(
-        platform=platform_urn,
-        instance="PROD",
+        platform=str(platform_urn),
     )
 
     # Generate metadata change proposal
     mcps = MetadataChangeProposalWrapper.construct_many(
-        entityUrn=container_urn,
+        entityUrn=str(container_urn),
         aspects=[container_subtype, container_info, browse_path, platform_instance],
     )
 
     # Connect to DataHub and emit the changes
-    graph = DataHubGraph(DatahubClientConfig(
-        server=server_url,
-        token=token,
-        extra_headers={"Authorization": f"Bearer {token}"},
-    ))
+    graph = DataHubGraph(
+        DatahubClientConfig(
+            server=server_url,
+            token=token,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
+    )
 
     with graph:
         for mcp in mcps:
@@ -57,5 +61,5 @@ if __name__ == "__main__":
         description="Experiment for forecasting airline passengers",
         platform="mlflow",
         custom_properties={"experiment_type": "forecasting"},
-        token=args.token
+        token=args.token,
     )

@@ -1,43 +1,73 @@
-import datahub.metadata.schema_classes as models
+import argparse
+
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-import argparse
-import time
+from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
+    DataProcessInstanceInput,
+)
+from datahub.metadata.schema_classes import ChangeTypeClass
+from typing import Optional
 
+def create_dataset(
+    platform: str,
+    name: str,
+    token: str,
+    description: Optional[str] = "",
+    server_url: str = "http://localhost:8080",
+) -> Optional[str]:
+    """
+    Create a dataset in DataHub and return its URN
+    """
+    dataset = Dataset(id=name, platform=platform, name=name, description=description)
 
-def add_input_dataset_to_run(
-        run_urn: str,
-        dataset_urn: str,
-        token: str,
-        server_url: str = "http://localhost:8080"
-) -> None:
-
-    # Create model propegp rties
-    model_properties = models.MLModelPropertiesClass(
-        groups=[model_group_urn]
+    graph = DataHubGraph(
+        DatahubClientConfig(
+            server=server_url,
+            token=token,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
     )
 
-    # Generate metadata change proposals
-    mcps = [
-        MetadataChangeProposalWrapper(
-            entityUrn=model_urn,
-            entityType="mlModel",
-            aspectName="mlModelProperties",
-            aspect=model_properties,
-            changeType=models.ChangeTypeClass.UPSERT,
-        ),
-    ]
+    with graph:
+        for mcp in dataset.generate_mcp():
+            graph.emit(mcp)
 
-    # Connect to DataHub and emit the changes
-    graph = DataHubGraph(DatahubClientConfig(
-        server=server_url,
-        token=token,
-        extra_headers={"Authorization": f"Bearer {token}"},
-    ))
+    return dataset.urn
+
+
+def add_input_datasets_to_run(
+    run_urn: str,
+    dataset_urns: list,
+    token: str,
+    server_url: str = "http://localhost:8080",
+) -> None:
+    """
+    Add input datasets to a data process instance run
+    """
+    # Create the input aspect
+    inputs_aspect = DataProcessInstanceInput(inputs=dataset_urns)
+
+    # Generate metadata change proposal
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=run_urn,
+        entityType="dataProcessInstance",
+        aspectName="dataProcessInstanceInput",
+        aspect=inputs_aspect,
+        changeType=ChangeTypeClass.UPSERT,
+    )
+
+    # Connect to DataHub and emit the change
+    graph = DataHubGraph(
+        DatahubClientConfig(
+            server=server_url,
+            token=token,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        )
+    )
 
     with graph:
-        for mcp in mcps:
-            graph.emit(mcp)
+        graph.emit(mcp)
 
 
 if __name__ == "__main__":
@@ -45,8 +75,35 @@ if __name__ == "__main__":
     parser.add_argument("--token", required=True, help="DataHub access token")
     args = parser.parse_args()
 
-    add_input_dataset_to_run(
-        run_urn="urn:li",
-        dataset_urn="unr:li"
-        token=args.token
+    # Example: Create two datasets
+    datasets = [
+        {
+            "platform": "hdfs",
+            "name": "training_data",
+            "description": "Training dataset for model",
+        },
+        {
+            "platform": "s3",
+            "name": "validation_data",
+            "description": "Validation dataset for model",
+        },
+    ]
+
+    # Create datasets and collect their URNs
+    # if the dataset already exists, comment out the create_dataset function
+    dataset_urns = []
+    for dataset_info in datasets:
+        dataset_urn = create_dataset(
+            platform=dataset_info["platform"],
+            name=dataset_info["name"],
+            description=dataset_info["description"],
+            token=args.token,
+        )
+        dataset_urns.append(dataset_urn)
+
+    # Link datasets to the run
+    add_input_datasets_to_run(
+        run_urn="urn:li:dataProcessInstance:c29762bd7cc66e35414d95350454e542",
+        dataset_urns=dataset_urns,
+        token=args.token,
     )
