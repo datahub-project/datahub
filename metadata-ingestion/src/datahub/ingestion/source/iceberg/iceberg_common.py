@@ -6,7 +6,7 @@ from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
 from sortedcontainers import SortedList
-
+from functools import lru_cache
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -85,10 +85,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
-    def __init__(self):
-        self.profiling_enabled = self.profiling.enabled and is_profiling_enabled(
-            self.profiling.operation_config
-        )
 
     @validator("catalog", pre=True, always=True)
     def handle_deprecated_catalog_format(cls, value):
@@ -128,9 +124,12 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             )
 
         return value
-
+    
+    @lru_cache()
     def is_profiling_enabled(self) -> bool:
-        return self.profiling_enabled
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
