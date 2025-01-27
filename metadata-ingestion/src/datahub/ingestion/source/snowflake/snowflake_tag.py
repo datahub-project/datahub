@@ -19,6 +19,10 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
@@ -26,10 +30,6 @@ from datahub.metadata.urns import (
     EntityTypeUrn,
     SchemaFieldUrn,
     StructuredPropertyUrn,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
