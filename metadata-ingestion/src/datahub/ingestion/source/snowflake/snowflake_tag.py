@@ -1,6 +1,9 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
+from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
@@ -12,7 +15,22 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     _SnowflakeTagCache,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeCommonMixin,
+    SnowflakeIdentifierBuilder,
+)
+from datahub.metadata._urns.urn_defs import (
+    ContainerUrn,
+    DatasetUrn,
+    DataTypeUrn,
+    EntityTypeUrn,
+    SchemaFieldUrn,
+    StructuredPropertyUrn,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -23,11 +41,12 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         config: SnowflakeV2Config,
         data_dictionary: SnowflakeDataDictionary,
         report: SnowflakeV2Report,
+        snowflake_identifiers: SnowflakeIdentifierBuilder,
     ) -> None:
         self.config = config
         self.data_dictionary = data_dictionary
         self.report = report
-
+        self.snowflake_identifiers = snowflake_identifiers
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
     def _get_tags_on_object_without_propagation(
@@ -58,6 +77,45 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         else:
             raise ValueError(f"Unknown domain {domain}")
         return tags
+
+    def create_structured_property_templates(self) -> Iterable[MetadataWorkUnit]:
+        for tag in self.data_dictionary.get_all_tags():
+            if not self.config.tag_pattern.allowed(tag.tag_identifier()):
+                continue
+            if not self.config.database_pattern.allowed(tag.database):
+                continue
+            if not self.config.schema_pattern.allowed(f"{tag.database}.{tag.schema}"):
+                continue
+
+            if self.config.extract_tags_as_structured_properties:
+                self.report.num_structured_property_templates_created += 1
+                for workunit in self.gen_tag_as_structured_property_workunits(tag):
+                    yield workunit
+
+    def gen_tag_as_structured_property_workunits(
+        self, tag: SnowflakeTag
+    ) -> Iterable[MetadataWorkUnit]:
+        identifier = self.snowflake_identifiers.snowflake_identifier(
+            tag.structured_property_identifier()
+        )
+        urn = StructuredPropertyUrn(identifier).urn()
+        aspect = StructuredPropertyDefinition(
+            qualifiedName=identifier,
+            displayName=tag.name,
+            valueType=DataTypeUrn("datahub.string").urn(),
+            entityTypes=[
+                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
+                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
+                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+            ],
+            lastModified=AuditStamp(
+                time=get_sys_time(), actor="urn:li:corpuser:datahub"
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=aspect,
+        ).as_workunit()
 
     def _get_tags_on_object_with_propagation(
         self,

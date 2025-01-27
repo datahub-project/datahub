@@ -1,5 +1,6 @@
 import itertools
 import logging
+import time
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -191,12 +192,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report
+            config, self.data_dictionary, self.report, identifiers
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
-            snowsight_url_builder
-        )
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -217,6 +218,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return self.identifiers.snowflake_identifier(identifier)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.extract_tags_as_structured_properties:
+            logger.info("Creating structured property templates for tags")
+            yield from self.tag_extractor.create_structured_property_templates()
+            # We have to wait until cache invalidates to make sure the structured property template is available
+            time.sleep(
+                self.config.structured_properties_template_cache_invalidation_interval
+            )
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
@@ -267,9 +275,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
-            ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
-            )
+            ischema_databases: List[
+                SnowflakeDatabase
+            ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
                 self.structured_reporter.failure(
@@ -732,6 +740,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if table.tags:
             for tag in table.tags:
                 yield from self._process_tag(tag)
+
         for column_name in table.column_tags:
             for tag in table.column_tags[column_name]:
                 yield from self._process_tag(tag)
