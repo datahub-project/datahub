@@ -21,14 +21,18 @@ from datahub.sdk._shared import (
     HasOwnership,
     HasSubtype,
     HasTags,
+    HasTerms,
     OwnersInputType,
     TagsInputType,
+    TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
 
 
-class Container(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity):
+class Container(
+    HasSubtype, HasContainer, HasOwnership, HasTags, HasTerms, HasDomain, Entity
+):
     __slots__ = ()
 
     @classmethod
@@ -52,8 +56,9 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Enti
         last_modified: Optional[datetime] = None,
         # Standard aspects.
         subtype: Optional[str] = None,
-        tags: Optional[TagsInputType] = None,
         owners: Optional[OwnersInputType] = None,
+        tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
     ):
         if isinstance(container_key, ContainerUrn):
@@ -107,6 +112,8 @@ class Container(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Enti
             self.set_owners(owners)
         if tags is not None:
             self.set_tags(tags)
+        if terms is not None:
+            self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
 

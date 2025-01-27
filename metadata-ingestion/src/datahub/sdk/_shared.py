@@ -30,6 +30,7 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DatasetUrn,
     DomainUrn,
+    GlossaryTermUrn,
     OwnershipTypeUrn,
     TagUrn,
     Urn,
@@ -324,15 +325,49 @@ class HasTags(Entity):
     # TODO: Add add_tag and remove_tag methods.
 
 
-class HasGlossaryTerms(Entity):
+TermInputType: TypeAlias = Union[
+    str, GlossaryTermUrn, models.GlossaryTermAssociationClass
+]
+TermsInputType: TypeAlias = List[TermInputType]
+
+
+class HasTerms(Entity):
     # TODO implement this
     __slots__ = ()
 
     @property
-    def glossary_terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
+    def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
         if glossary_terms := self._get_aspect(models.GlossaryTermsClass):
             return glossary_terms.terms
         return None
+
+    @classmethod
+    def _parse_glossary_term_association_class(
+        cls, term: TermInputType
+    ) -> models.GlossaryTermAssociationClass:
+        if isinstance(term, models.GlossaryTermAssociationClass):
+            return term
+        elif isinstance(term, str):
+            assert GlossaryTermUrn.from_string(term)
+        return models.GlossaryTermAssociationClass(urn=str(term))
+
+    @classmethod
+    def _terms_audit_stamp(self) -> models.AuditStampClass:
+        return models.AuditStampClass(
+            time=0,
+            # TODO figure out what to put here
+            actor=CorpUserUrn("__ingestion").urn(),
+        )
+
+    def set_terms(self, terms: TermsInputType) -> None:
+        self._set_aspect(
+            models.GlossaryTermsClass(
+                terms=[
+                    self._parse_glossary_term_association_class(term) for term in terms
+                ],
+                auditStamp=self._terms_audit_stamp(),
+            )
+        )
 
 
 DomainInputType: TypeAlias = Union[str, DomainUrn]
