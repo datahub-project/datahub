@@ -16,8 +16,10 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ContainerInputType,
     DatasetUrnOrStr,
+    DomainInputType,
     Entity,
     HasContainer,
+    HasDomain,
     HasOwnership,
     HasSubtype,
     HasTags,
@@ -279,7 +281,7 @@ class SchemaField:
             )
 
 
-class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
+class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, HasDomain, Entity):
     __slots__ = ("_edit_mode",)
 
     @classmethod
@@ -312,6 +314,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         # TODO: do we need to support edit_mode for tags / other aspects?
         # TODO terms
         # TODO structured_properties
+        domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
@@ -365,7 +368,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
             self.set_owners(owners)
         if tags is not None:
             self.set_tags(tags)
-        # TODO: add support for field-level tags, terms, etc
+        if domain is not None:
+            self.set_domain(domain)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:

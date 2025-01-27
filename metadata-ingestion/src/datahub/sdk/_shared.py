@@ -29,6 +29,7 @@ from datahub.metadata.urns import (
     CorpUserUrn,
     DataJobUrn,
     DatasetUrn,
+    DomainUrn,
     OwnershipTypeUrn,
     TagUrn,
     Urn,
@@ -321,3 +322,38 @@ class HasTags(Entity):
         )
 
     # TODO: Add add_tag and remove_tag methods.
+
+
+class HasGlossaryTerms(Entity):
+    # TODO implement this
+    __slots__ = ()
+
+    @property
+    def glossary_terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
+        if glossary_terms := self._get_aspect(models.GlossaryTermsClass):
+            return glossary_terms.terms
+        return None
+
+
+DomainInputType: TypeAlias = Union[str, DomainUrn]
+
+
+class HasDomain(Entity):
+    __slots__ = ()
+
+    @property
+    def domain(self) -> Optional[DomainUrn]:
+        if domains := self._get_aspect(models.DomainsClass):
+            if len(domains.domains) > 1:
+                raise SdkUsageError(
+                    f"The entity has multiple domains set, but only one is supported: {domains.domains}"
+                )
+            elif domains.domains:
+                domain_str = domains.domains[0]
+                return DomainUrn.from_string(domain_str)
+
+        return None
+
+    def set_domain(self, domain: DomainInputType) -> None:
+        domain_urn = DomainUrn.from_string(domain)  # basically a type assertion
+        self._set_aspect(models.DomainsClass(domains=[str(domain_urn)]))
