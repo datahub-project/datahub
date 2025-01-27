@@ -1083,10 +1083,10 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
     transformer = LookmlConstantTransformer(
         source_config=config,
         reporter=report,
-        manifest_constants=[
-            LookerConstant(name="constant1", value="manifest_value1"),
-            LookerConstant(name="constant3", value="manifest_value3"),
-        ],
+        manifest_constants={
+            "constant1": LookerConstant(name="constant1", value="manifest_value1"),
+            "constant3": LookerConstant(name="constant3", value="manifest_value3"),
+        },
     )
 
     result = transformer.transform(view)

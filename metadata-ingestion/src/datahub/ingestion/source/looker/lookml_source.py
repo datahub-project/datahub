@@ -311,7 +311,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
-        self.manifest_constants: List[LookerConstant] = []
+        self.manifest_constants: Dict[str, "LookerConstant"] = {}
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
@@ -605,7 +605,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         tmp_dir: str,
         project_name: str,
         project_visited: Set[str],
-        manifest_constants: List[LookerConstant],
+        manifest_constants: Dict[str, "LookerConstant"],
     ) -> None:
         if project_name in project_visited:
             return
@@ -623,14 +623,13 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         if manifest.constants:
-            manifest_constants.extend(
-                LookerConstant(
-                    name=constant["name"],
-                    value=constant["value"],
-                )
-                for constant in manifest.constants
-                if constant.get("name") and constant.get("value")
-            )
+            for constant in manifest.constants:
+                if constant.get("name") and constant.get("value"):
+                    manifest_constants[constant["name"]] = LookerConstant(
+                        name=constant["name"],
+                        value=constant["value"],
+                    )
+
         # Special case handling if the root project has a name in the manifest file.
         if project_name == BASE_PROJECT_NAME and manifest.project_name:
             if (
@@ -710,6 +709,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config,
             self.manifest_constants,
         )
+        logger.debug(f"LookML Constants : {', '.join(self.manifest_constants.keys())}")
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
 

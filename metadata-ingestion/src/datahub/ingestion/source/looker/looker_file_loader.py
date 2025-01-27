@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from dataclasses import replace
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import (
@@ -33,7 +33,7 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
-        manifest_constants: List[LookerConstant] = [],
+        manifest_constants: Dict[str, LookerConstant] = {},
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name

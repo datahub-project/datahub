@@ -105,24 +105,18 @@ def resolve_liquid_variable(
         # Resolve liquid template
         return create_template(text).render(liquid_variable)
     except LiquidSyntaxError as e:
-        report.info(
-            title="Unsupported liquid template",
-            message="There are some tag specific to looker and python-liquid library does not understand them. Currently we are not parsing such liquid template.",
-            context=f"view-name: {view_name}, text: {text}, liquid_variable: {liquid_variable}",
-            exc=e,
-        )
+        # TODO: Will add warning once we get rid of duplcate warning message for same view
+        logger.warning(f"Unsupported liquid template encountered. error [{e.message}]")
         # TODO: There are some tag specific to looker and python-liquid library does not understand them. currently
         #  we are not parsing such liquid template.
         #
         # See doc: https://cloud.google.com/looker/docs/templated-filters and look for { % condition region %}
         # order.region { % endcondition %}
     except CustomTagException as e:
-        report.info(
-            title="Unsupported liquid template",
-            message="Rendering the Liquid template failed due to an issue with the provided variables or template syntax",
-            context=f"view-name: {view_name}, text: {text}, liquid_variable: {liquid_variable}",
-            exc=e,
-        )
+        # TODO: Will add warning once we get rid of duplcate warning message for same view
+        logger.warning(e)
+        logger.debug(e, exc_info=e)
+
     return text
 
 
@@ -370,7 +364,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
         self,
         source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
-        manifest_constants: List["LookerConstant"],
+        manifest_constants: Dict[str, "LookerConstant"],
     ):
         super().__init__(source_config=source_config, reporter=reporter)
         self.manifest_constants = manifest_constants
@@ -388,17 +382,8 @@ class LookmlConstantTransformer(LookMLViewTransformer):
                 return str(self.source_config.lookml_constants.get(key))
 
             # Resolve constant from manifest
-            if self.manifest_constants:
-                value = next(
-                    (
-                        constant.value
-                        for constant in self.manifest_constants
-                        if constant.name == key
-                    ),
-                    None,
-                )
-                if value:
-                    return value
+            if key in self.manifest_constants:
+                return self.manifest_constants[key].value
 
             # Check if it's a misplaced lookml constant
             if key in self.source_config.liquid_variables:
@@ -479,7 +464,7 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
     reporter: LookMLSourceReport,
-    manifest_constants: List["LookerConstant"] = [],
+    manifest_constants: Dict[str, "LookerConstant"] = {},
     resolve_constants: bool = False,
 ) -> None:
     if "views" not in view_lkml_file_dict:
@@ -522,7 +507,7 @@ def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
     reporter: LookMLSourceReport,
-    manifest_constants: List["LookerConstant"] = [],
+    manifest_constants: Dict[str, "LookerConstant"] = {},
     resolve_constants: bool = False,
 ) -> dict:
     parsed = load_lkml(path)
