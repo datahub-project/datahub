@@ -186,9 +186,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             config, self.data_dictionary, self.report, identifiers
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
-            snowsight_url_builder
-        )
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -213,6 +213,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             logger.info("Creating structured property templates for tags")
             yield from self.tag_extractor.create_structured_property_templates()
             # We have to wait until cache invalidates to make sure the structured property template is available
+            self.logger.info(
+                f"Waiting for {self.config.structured_properties_template_cache_invalidation_interval} seconds for structured properties cache to invalidate"
+            )
             time.sleep(
                 self.config.structured_properties_template_cache_invalidation_interval
             )
@@ -266,9 +269,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
-            ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
-            )
+            ischema_databases: List[
+                SnowflakeDatabase
+            ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
                 self.structured_reporter.failure(
