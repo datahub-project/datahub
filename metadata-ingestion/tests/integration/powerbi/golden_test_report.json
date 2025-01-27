@@ -1995,6 +1995,13 @@
             },
             {
                 "op": "add",
+                "path": "/dashboards/urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+                "value": {
+                    "destinationUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)"
+                }
+            },
+            {
+                "op": "add",
                 "path": "/lastModified",
                 "value": {
                     "created": {
