@@ -402,7 +402,7 @@ class LookmlConstantTransformer(LookMLViewTransformer):
 
             # Check if it's a misplaced lookml constant
             if key in self.source_config.liquid_variables:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Misplaced lookml constant",
                     message="Use 'lookml_constants' instead of 'liquid_variables'.",
                     context=f"Key {key}",
