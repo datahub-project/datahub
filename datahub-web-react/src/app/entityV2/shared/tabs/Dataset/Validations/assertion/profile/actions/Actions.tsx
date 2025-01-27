@@ -48,14 +48,8 @@ export const Actions = ({
             <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             <SubscribeAction assertion={assertion} refetch={refetch} />
             {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
-            {(!isSiblingsView && (
-                <ContractAction
-                    assertion={assertion}
-                    monitor={monitor}
-                    contract={contract}
-                    canEdit={canEditContract}
-                    refetch={refetch}
-                />
+            {(isSiblingsView && (
+                <ContractAction assertion={assertion} contract={contract} canEdit={canEditContract} refetch={refetch} />
             )) ||
                 null}
             <CopyLinkAction assertion={assertion} />

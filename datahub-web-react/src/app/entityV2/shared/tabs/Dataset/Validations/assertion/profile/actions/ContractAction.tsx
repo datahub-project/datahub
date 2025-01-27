@@ -5,7 +5,7 @@ import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 
 import { ActionItem } from './ActionItem';
-import { Assertion, DataContract, Monitor } from '../../../../../../../../../types.generated';
+import { Assertion, DataContract } from '../../../../../../../../../types.generated';
 import { useUpsertDataContractMutation } from '../../../../../../../../../graphql/contract.generated';
 import {
     buildAddAssertionToContractMutationVariables,
@@ -31,7 +31,6 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 
 type Props = {
     assertion: Assertion;
-    monitor?: Monitor;
     contract?: DataContract;
     canEdit: boolean;
     // Should be defined if canEdit
@@ -39,12 +38,12 @@ type Props = {
     isExpandedView?: boolean;
 };
 
-export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch, isExpandedView = false }: Props) => {
+export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
 
-    if (!monitor || !entityUrn || !contractsEnabled) {
+    if (!entityUrn || !contractsEnabled) {
         return null;
     }
 

@@ -70,7 +70,6 @@ export const AssertionListItemActions = ({
                 <Menu.Item key="1">
                     <ContractAction
                         assertion={assertion}
-                        monitor={monitor}
                         contract={contract}
                         canEdit={canEditContract}
                         refetch={refetch}
