@@ -261,7 +261,7 @@ def _run_airflow(
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
             conn_id="datahub_file_default2",
             conn_type="datahub-file",
-            host=str(meta_file2)
+            host=str(meta_file2),
         ).get_uri()
 
     if not HAS_AIRFLOW_STANDALONE_CMD:
