@@ -218,6 +218,7 @@ class GlueSourceConfig(
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
+    catalog_id: Optional[str] = None
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
@@ -686,6 +687,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
+        self.report.catalog_id = self.source_config.catalog_id
         if self.source_config.catalog_id:
             paginator_response = paginator.paginate(
                 CatalogId=self.source_config.catalog_id
