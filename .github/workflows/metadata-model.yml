@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - acryl-main
     paths:
       - "metadata-models/**"
   release:
