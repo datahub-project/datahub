@@ -190,9 +190,10 @@ def _add_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
 def _remove_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
     # Poor man's patch implementation.
     # TODO: We require K to be hashable, but we actually need it to be comparable.
+    item_key = key(item)
     removed = False
     for i, existing in enumerate(lst):
-        if key(existing) == key(item):
+        if key(existing) == item_key:
             lst.pop(i)
             removed = True
             # Tricky: no break. In case there's already duplicates, we want to remove all of them.
@@ -244,6 +245,10 @@ class HasOwnership(Entity):
                 f"Invalid owner {owner}: {type(owner)} is not a valid owner type"
             )
 
+    def _ensure_owners(self) -> List[models.OwnerClass]:
+        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
+        return owners
+
     @property
     def owners(self) -> Optional[List[models.OwnerClass]]:
         # TODO: Ideally we'd use first-class ownership type urns here, not strings.
@@ -270,8 +275,7 @@ class HasOwnership(Entity):
     def add_owner(self, owner: OwnerInputType) -> None:
         # TODO: If the owner is already present, ignore it.
         parsed_owner = self._parse_owner_class(owner)
-        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
-        _add_list_unique(owners, self._typed_owner_key, parsed_owner)
+        _add_list_unique(self._ensure_owners(), self._typed_owner_key, parsed_owner)
 
     def remove_owner(
         self,
@@ -287,8 +291,7 @@ class HasOwnership(Entity):
             parsed_owner = self._parse_owner_class((owner, owner_type))
             key = self._typed_owner_key
 
-        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
-        _remove_list_unique(owners, key, parsed_owner)
+        _remove_list_unique(self._ensure_owners(), key, parsed_owner)
 
 
 ContainerInputType: TypeAlias = Union["Container", ContainerKey]
@@ -358,6 +361,10 @@ TagsInputType: TypeAlias = List[TagInputType]
 class HasTags(Entity):
     __slots__ = ()
 
+    def _ensure_tags(self) -> List[models.TagAssociationClass]:
+        tags = self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
+        return tags
+
     @property
     def tags(self) -> Optional[List[models.TagAssociationClass]]:
         if tags := self._get_aspect(models.GlobalTagsClass):
@@ -381,7 +388,20 @@ class HasTags(Entity):
             )
         )
 
-    # TODO: Add add_tag and remove_tag methods.
+    @classmethod
+    def _tag_key(cls, tag: models.TagAssociationClass) -> Hashable:
+        return (tag.tag, tag.attribution)
+
+    def add_tag(self, tag: TagInputType) -> None:
+        _add_list_unique(
+            self._ensure_tags(), self._tag_key, self._parse_tag_association_class(tag)
+        )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        # TODO: Similar to owners - it's unclear whether or not we should respect attribution.
+        _remove_list_unique(
+            self._ensure_tags(), self._tag_key, self._parse_tag_association_class(tag)
+        )
 
 
 TermInputType: TypeAlias = Union[
