@@ -2,6 +2,7 @@ import { DatabaseOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import styled from 'styled-components';
+import { useHoverEntityTooltipContext } from '@src/app/recommendations/HoverEntityTooltipContext';
 import { SearchResultFields_Domain_Fragment } from '../../../../graphql/search.generated';
 import { ANTD_GRAY_V2 } from '../../shared/constants';
 import DomainIcon from '../../../domain/DomainIcon';
@@ -12,6 +13,7 @@ const Wrapper = styled.div`
     font-size: 12px;
     display: flex;
     align-items: center;
+    line-height: 20px;
 
     svg {
         margin-right: 4px;
@@ -29,14 +31,18 @@ interface Props {
 }
 
 export default function DomainEntitiesSnippet({ domain }: Props) {
-    const entityCount = domain.entities?.total || 0;
+    const { entityCount } = useHoverEntityTooltipContext();
     const subDomainCount = domain.children?.total || 0;
     const dataProductCount = domain.dataProducts?.total || 0;
 
     return (
         <Wrapper>
-            <DatabaseOutlined /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
-            <StyledDivider />
+            {!!entityCount && (
+                <>
+                    <DatabaseOutlined /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
+                    <StyledDivider />
+                </>
+            )}
             <DomainIcon /> {subDomainCount} {pluralize(subDomainCount, 'sub-domain')}
             <StyledDivider />
             <FileDoneOutlined /> {dataProductCount} {pluralize(dataProductCount, 'data product')}

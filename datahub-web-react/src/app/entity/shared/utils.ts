@@ -114,9 +114,9 @@ export function getFineGrainedLineageWithSiblings(
     const fineGrainedLineages = [
         ...(entityData?.fineGrainedLineages || entityData?.inputOutput?.fineGrainedLineages || []),
     ];
-    entityData?.siblings?.siblings?.forEach((sibling) => {
-        if (sibling) {
-            const genericSiblingProps = getGenericEntityProperties(sibling.type, sibling);
+    entityData?.siblingsSearch?.searchResults?.forEach((sibling) => {
+        if (sibling.entity) {
+            const genericSiblingProps = getGenericEntityProperties(sibling.entity.type, sibling.entity);
             if (genericSiblingProps && genericSiblingProps.fineGrainedLineages) {
                 fineGrainedLineages.push(...genericSiblingProps.fineGrainedLineages);
             }

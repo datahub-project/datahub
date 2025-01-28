@@ -375,5 +375,21 @@ public class AuthorizationUtils {
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
   }
 
+  public static boolean isViewDatasetProfileAuthorized(
+      final QueryContext context, final Urn resourceUrn) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(),
+        PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean isViewDatasetOperationsAuthorized(
+      final QueryContext context, final Urn resourceUrn) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(),
+        PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
   private AuthorizationUtils() {}
 }

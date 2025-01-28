@@ -1,24 +1,29 @@
-import { borders, colors, radius, spacing, typography } from '@components/theme';
+import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => ({
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    padding: spacing.xsm,
-    borderRadius: radius.md,
-    lineHeight: typography.lineHeights.normal,
-    backgroundColor: isSelected && !isMultiSelect ? colors.violet[100] : 'transparent',
-    color: isSelected ? colors.violet[700] : colors.gray[500],
-    fontWeight: typography.fontWeights.medium,
-    fontSize: typography.fontSizes.md,
-    display: 'flex',
-    alignItems: 'center',
+export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => {
+    const color = isSelected ? colors.gray[600] : colors.gray[500];
+    const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? colors.gray[1000] : 'transparent';
 
-    '&:hover': {
-        backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
-    },
-});
+    return {
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        padding: spacing.xsm,
+        borderRadius: radius.md,
+        lineHeight: typography.lineHeights.normal,
+        backgroundColor,
+        color,
+        fontWeight: typography.fontWeights.medium,
+        fontSize: typography.fontSizes.md,
+        display: 'flex',
+        alignItems: 'center',
+
+        '&:hover': {
+            backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
+        },
+    };
+};
 
 export const getFooterButtonSize = (size) => {
     return size === 'sm' ? 'sm' : 'md';
@@ -50,13 +55,13 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.sm} ${spacing.xsm}`,
+            padding: `${spacing.xxsm} ${spacing.xxsm}`,
         },
         md: {
-            padding: `${spacing.sm} ${spacing.md}`,
+            padding: `${spacing.xsm} ${spacing.xsm}`,
         },
         lg: {
-            padding: `${spacing.md} ${spacing.sm}`,
+            padding: `${spacing.sm} ${spacing.sm}`,
         },
     };
 
@@ -84,22 +89,23 @@ export const getSelectStyle = (props: SelectStyleProps) => {
 
     const baseStyle = {
         borderRadius: radius.md,
-        border: `1px solid ${colors.gray[200]}`,
+        border: `1px solid ${isDisabled ? colors.gray[1800] : colors.gray[100]}`,
         fontFamily: typography.fonts.body,
-        color: isDisabled ? colors.gray[300] : colors.black,
+        color: isDisabled ? colors.gray[300] : colors.gray[600],
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
-        backgroundColor: isDisabled ? colors.gray[100] : 'initial',
+        backgroundColor: isDisabled ? colors.gray[1500] : 'initial',
+        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        textWrap: 'nowrap',
 
         '&::placeholder': {
-            color: colors.gray[400],
+            color: colors.gray[1900],
         },
 
         // Open Styles
         ...(isOpen
             ? {
-                  borderColor: colors.violet[300],
-                  boxShadow: `0px 0px 4px 0px rgba(83, 63, 209, 0.5)`,
-                  outline: 'none',
+                  borderColor: colors.gray[1800],
+                  outline: `2px solid ${colors.violet[300]}`,
               }
             : {}),
 
@@ -108,8 +114,7 @@ export const getSelectStyle = (props: SelectStyleProps) => {
             ? {}
             : {
                   '&:hover': {
-                      borderColor: colors.violet[200],
-                      outline: `${borders['1px']} ${colors.violet[200]}`,
+                      boxShadow: '0px 1px 2px 1px rgba(33, 23, 95, 0.07)',
                   },
               }),
     };

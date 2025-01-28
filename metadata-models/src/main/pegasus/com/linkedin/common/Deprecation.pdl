@@ -31,4 +31,7 @@ record Deprecation {
    * The user URN which will be credited for modifying this deprecation content.
    */
   actor: Urn
+
+  replacement: optional Urn
+  
 }

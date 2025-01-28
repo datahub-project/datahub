@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-
-import { Icon, Pill } from '@components';
+import { Icon, Pill, colors } from '@components';
 
 import {
     ActionButtonsContainer,
     Container,
+    CountBadge,
     Dropdown,
     OptionList,
     Placeholder,
@@ -30,17 +30,35 @@ const LabelDisplayWrapper = styled.div`
     max-height: 125px;
     min-height: 16px;
 `;
+const StyledCountBadgeContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: ${colors.gray[1800]};
+`;
 
 interface SelectLabelDisplayProps {
     selectedOptions: SelectOption[];
     placeholder: string;
     handleOptionChange: (node: SelectOption) => void;
+    showCount?: boolean;
 }
 
-const SelectLabelDisplay = ({ selectedOptions, placeholder, handleOptionChange }: SelectLabelDisplayProps) => {
+const SelectLabelDisplay = ({
+    selectedOptions,
+    placeholder,
+    handleOptionChange,
+    showCount,
+}: SelectLabelDisplayProps) => {
     return (
         <LabelDisplayWrapper>
-            {!!selectedOptions.length &&
+            {showCount && selectedOptions.length > 0 ? (
+                <StyledCountBadgeContainer>
+                    {placeholder}
+                    <CountBadge>{selectedOptions.length}</CountBadge>
+                </StyledCountBadgeContainer>
+            ) : (
+                !!selectedOptions.length &&
                 selectedOptions.map((o) => (
                     <Pill
                         label={o.label}
@@ -51,7 +69,8 @@ const SelectLabelDisplay = ({ selectedOptions, placeholder, handleOptionChange }
                             handleOptionChange(o);
                         }}
                     />
-                ))}
+                ))
+            )}
             {!selectedOptions.length && <Placeholder>{placeholder}</Placeholder>}
         </LabelDisplayWrapper>
     );
@@ -64,6 +83,7 @@ export interface ActionButtonsProps {
     isDisabled: boolean;
     isReadOnly: boolean;
     handleClearSelection: () => void;
+    showCount?: boolean;
 }
 
 const SelectActionButtons = ({
@@ -73,10 +93,11 @@ const SelectActionButtons = ({
     isReadOnly,
     handleClearSelection,
     fontSize = 'md',
+    showCount = false,
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
-            {!!selectedOptions.length && !isDisabled && !isReadOnly && (
+            {!showCount && !!selectedOptions.length && !isDisabled && !isReadOnly && (
                 <StyledClearButton
                     icon="Close"
                     isCircle
@@ -111,6 +132,9 @@ export interface SelectProps {
     placeholder?: string;
     searchPlaceholder?: string;
     isLoadingParentChildList?: boolean;
+    showCount?: boolean;
+    shouldAlwaysSyncParentValues?: boolean;
+    hideParentCheckbox?: boolean;
 }
 
 export const selectDefaults: SelectProps = {
@@ -144,12 +168,27 @@ export const NestedSelect = ({
     searchPlaceholder,
     height = selectDefaults.height,
     isLoadingParentChildList = false,
+    showCount = false,
+    shouldAlwaysSyncParentValues = false,
+    hideParentCheckbox = false,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [selectedOptions, setSelectedOptions] = useState<SelectOption[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (initialValues && shouldAlwaysSyncParentValues) {
+            const filteredOptions = selectedOptions.filter((option) =>
+                initialValues.some((initial) => initial.value === option.value),
+            );
+            if (filteredOptions.length !== selectedOptions.length) {
+                setSelectedOptions(filteredOptions);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialValues]);
 
     // TODO: handle searching inside of a nested component on the FE only
 
@@ -257,12 +296,14 @@ export const NestedSelect = ({
                 onClick={handleSelectClick}
                 fontSize={size}
                 data-testid="nested-options-dropdown-container"
+                width={props.width}
                 {...props}
             >
                 <SelectLabelDisplay
                     selectedOptions={selectedOptions}
                     placeholder={placeholder || 'Select an option'}
                     handleOptionChange={handleOptionChange}
+                    showCount={showCount}
                 />
                 <SelectActionButtons
                     selectedOptions={selectedOptions}
@@ -271,6 +312,7 @@ export const NestedSelect = ({
                     isReadOnly={!!isReadOnly}
                     handleClearSelection={handleClearSelection}
                     fontSize={size}
+                    showCount={showCount}
                 />
             </SelectBase>
             {isOpen && (
@@ -302,6 +344,7 @@ export const NestedSelect = ({
                                 setSelectedOptions={setSelectedOptions}
                                 areParentsSelectable={areParentsSelectable}
                                 isLoadingParentChildList={isLoadingParentChildList}
+                                hideParentCheckbox={hideParentCheckbox}
                             />
                         ))}
                     </OptionList>

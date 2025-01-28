@@ -5,6 +5,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
@@ -36,9 +37,19 @@ const SourcePaginationContainer = styled.div`
     justify-content: center;
 `;
 
+const StyledTableWithNavBarRedesign = styled(StyledTable)`
+    overflow: hidden;
+
+    &&& .ant-table-body {
+        overflow-y: auto;
+        height: calc(100vh - 450px);
+    }
+` as typeof StyledTable;
+
 const DEFAULT_PAGE_SIZE = 25;
 
 export const SecretsList = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -236,6 +247,8 @@ export const SecretsList = () => {
         description: secret.description,
     }));
 
+    const FinalStyledTable = isShowNavBarRedesign ? StyledTableWithNavBarRedesign : StyledTable;
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading secrets..." />}
@@ -272,9 +285,10 @@ export const SecretsList = () => {
                         hideRecommendations
                     />
                 </TabToolbar>
-                <StyledTable
+                <FinalStyledTable
                     columns={tableColumns}
                     dataSource={tableData}
+                    scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
                     rowKey="urn"
                     locale={{
                         emptyText: <Empty description="No Secrets found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,

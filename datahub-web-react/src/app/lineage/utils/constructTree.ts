@@ -83,7 +83,7 @@ export default function constructTree(
     });
 
     const fetchedEntity = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
-    const sibling = fetchedEntity?.siblings?.siblings?.[0];
+    const sibling = fetchedEntity?.siblingsSearch?.searchResults?.[0]?.entity;
     const fetchedSiblingEntity = sibling ? entityRegistry.getLineageVizConfig(sibling.type, sibling) : null;
 
     const root: NodeData = {

@@ -49,5 +49,6 @@ query getMLModelGroup($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

@@ -98,6 +98,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

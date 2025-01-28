@@ -86,7 +86,19 @@ public enum DataHubUsageEventType {
   VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
   APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
   UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
-  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent");
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent"),
+  CLICK_DOC_REQUEST_CTA("ClickDocRequestCTA"),
+  SHOW_THEME_V2_EVENT("ShowV2ThemeEvent"),
+  REVERT_THEME_V2_EVENT("RevertV2ThemeEvent"),
+  INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent"),
+  INTRODUCE_YOURSELF_SUBMIT_EVENT("IntroduceYourselfSubmitEvent"),
+  INTRODUCE_YOURSELF_SKIP_EVENT("IntroduceYourselfSkipEvent"),
+  EXPAND_LINEAGE_EVENT("ExpandLineageEvent"),
+  CONTRACT_LINEAGE_EVENT("ContractLineageEvent"),
+  SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
+  SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
+  FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent");
 
   private final String type;
 

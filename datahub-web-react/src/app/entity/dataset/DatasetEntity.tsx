@@ -240,7 +240,7 @@ export class DatasetEntity implements Entity<Dataset> {
         {
             component: SidebarSiblingsSection,
             display: {
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblingsSearch?.total || 0) > 0,
             },
         },
         {

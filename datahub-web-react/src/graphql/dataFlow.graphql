@@ -84,6 +84,7 @@ query getDataFlow($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

@@ -1,3 +1,5 @@
+#import "./assertion_monitor_shared.graphql"
+
 fragment assertionInfo on AssertionInfo {
     type
     description
@@ -159,6 +161,15 @@ fragment assertionInfo on AssertionInfo {
             }
         }
     }
+    customAssertion {
+        type
+        entityUrn
+        field {
+            urn
+            path
+        }
+        logic
+    }
     source {
         type
         created {
@@ -166,6 +177,7 @@ fragment assertionInfo on AssertionInfo {
             actor
         }
     }
+    externalUrl
 }
 
 fragment assertionDetails on Assertion {
@@ -173,6 +185,7 @@ fragment assertionDetails on Assertion {
     type
     platform {
         urn
+        name
         properties {
             displayName
             logoUrl
@@ -187,6 +200,14 @@ fragment assertionDetails on Assertion {
     }
     info {
         ...assertionInfo
+    }
+    actions {
+        onSuccess {
+            type
+        }
+        onFailure {
+            type
+        }
     }
     tags {
         ...globalTagsFields
@@ -220,6 +241,65 @@ fragment assertionStdParametersDetails on AssertionStdParameters {
     }
 }
 
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+}
+
+fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
+    field {
+        path
+        type
+        nativeType
+    }
+    transformer {
+        type
+        nativeType
+    }
+}
+
+fragment assertionStdParametersDetails on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
+    }
+}
+
+fragment assertionResultDetails on AssertionResult {
+    type
+    actualAggValue
+    rowCount
+    missingCount
+    unexpectedCount
+    externalUrl
+    nativeResults {
+        key
+        value
+    }
+    error {
+        type
+        properties {
+            key
+            value
+        }
+    }
+}
+
 fragment assertionRunEventDetails on AssertionRunEvent {
     timestampMillis
     lastObservedMillis
@@ -231,16 +311,7 @@ fragment assertionRunEventDetails on AssertionRunEvent {
         value
     }
     result {
-        type
-        actualAggValue
-        rowCount
-        missingCount
-        unexpectedCount
-        externalUrl
-        nativeResults {
-            key
-            value
-        }
+        ...assertionResultDetails
     }
 }
 
@@ -272,5 +343,12 @@ fragment assertionDetailsWithRunEvents on Assertion {
         runEvents {
             ...assertionRunEventDetails
         }
+    }
+}
+
+query getAssertionWithRunEvents($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithRunEvents
     }
 }

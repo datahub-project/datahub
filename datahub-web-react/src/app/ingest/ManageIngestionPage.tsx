@@ -10,9 +10,21 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div`
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
+    background-color: white;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow: hidden;
+        margin: 5px;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        height: 100%;
+    `}
 `;
 
 const PageHeaderContainer = styled.div`
@@ -56,6 +68,7 @@ export const ManageIngestionPage = () => {
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -69,7 +82,7 @@ export const ManageIngestionPage = () => {
     };
 
     return (
-        <PageContainer>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Data Sources</PageTitle>

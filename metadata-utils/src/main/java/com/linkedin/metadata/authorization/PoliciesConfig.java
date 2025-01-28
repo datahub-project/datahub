@@ -388,6 +388,12 @@ public class PoliciesConfig {
           "View Dataset Profile",
           "The ability to access dataset profile (snapshot statistics)");
 
+  public static final Privilege VIEW_DATASET_OPERATIONS_PRIVILEGE =
+      Privilege.of(
+          "VIEW_DATASET_OPERATIONS",
+          "View Dataset Operations",
+          "The ability to access dataset operations (changes to dataset)");
+
   public static final Privilege EDIT_QUERIES_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_QUERIES",
@@ -526,6 +532,7 @@ public class PoliciesConfig {
                   ImmutableList.of(
                       VIEW_DATASET_USAGE_PRIVILEGE,
                       VIEW_DATASET_PROFILE_PRIVILEGE,
+                      VIEW_DATASET_OPERATIONS_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,

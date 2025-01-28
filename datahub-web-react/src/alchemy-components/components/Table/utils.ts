@@ -1,10 +1,4 @@
-import { Column } from './types';
-
-export enum SortingState {
-    ASCENDING = 'ascending',
-    DESCENDING = 'descending',
-    ORIGINAL = 'original',
-}
+import { Column, SortingState } from './types';
 
 export const handleActiveSort = (
     key: string,

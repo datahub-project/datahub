@@ -85,6 +85,7 @@ interface OptionProps {
     isMultiSelect?: boolean;
     isLoadingParentChildList?: boolean;
     setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
+    hideParentCheckbox?: boolean;
 }
 
 export const NestedOption = ({
@@ -99,6 +100,7 @@ export const NestedOption = ({
     areParentsSelectable,
     isLoadingParentChildList,
     setSelectedOptions,
+    hideParentCheckbox,
 }: OptionProps) => {
     const [autoSelectChildren, setAutoSelectChildren] = useState(false);
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -240,7 +242,12 @@ export const NestedOption = ({
                     }}
                     isSelected={!isMultiSelect && isSelected}
                     // added hack to show cursor in wait untill we get the inline spinner
-                    style={{ width: '100%', cursor: loadingParentUrns.includes(option.value) ? 'wait' : 'pointer' }}
+                    style={{
+                        width: '100%',
+                        cursor: loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
+                        display: 'flex',
+                        justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
+                    }}
                 >
                     {option.isParent && <strong>{option.label}</strong>}
                     {!option.isParent && <>{option.label}</>}
@@ -262,27 +269,29 @@ export const NestedOption = ({
                             style={{ cursor: 'pointer', marginLeft: '4px' }}
                         />
                     )}
-                    <StyledCheckbox
-                        checked={isImplicitlySelected || isSelected}
-                        indeterminate={
-                            areParentsSelectable && option.isParent ? areAnyChildrenSelected : isPartialSelected
-                        }
-                        onClick={(e) => {
-                            e.preventDefault();
-                            if (isImplicitlySelected) {
-                                return;
+                    {!(hideParentCheckbox && option.isParent) && (
+                        <StyledCheckbox
+                            checked={isImplicitlySelected || isSelected}
+                            indeterminate={
+                                areParentsSelectable && option.isParent ? areAnyChildrenSelected : isPartialSelected
                             }
-                            e.stopPropagation();
-                            if (isParentMissingChildren) {
-                                loadData?.(option);
-                                if (!areParentsSelectable) {
-                                    setAutoSelectChildren(true);
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (isImplicitlySelected) {
+                                    return;
                                 }
-                            }
-                            selectOption();
-                        }}
-                        disabled={isImplicitlySelected}
-                    />
+                                e.stopPropagation();
+                                if (isParentMissingChildren) {
+                                    loadData?.(option);
+                                    if (!areParentsSelectable) {
+                                        setAutoSelectChildren(true);
+                                    }
+                                }
+                                selectOption();
+                            }}
+                            disabled={isImplicitlySelected}
+                        />
+                    )}
                 </OptionLabel>
             </ParentOption>
             {isOpen && (

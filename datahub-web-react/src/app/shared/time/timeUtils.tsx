@@ -129,12 +129,18 @@ export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
-export const toRelativeTimeString = (timeMs: number) => {
+export const toRelativeTimeString = (timeMs: number | undefined) => {
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
+    if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();
 
     const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);
+
+    if (Math.abs(diffInSeconds) === 0) {
+        return 'just now';
+    }
+
     if (Math.abs(diffInSeconds) > 0 && Math.abs(diffInSeconds) <= 60) {
         return rtf.format(diffInSeconds, 'second');
     }

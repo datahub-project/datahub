@@ -23,7 +23,7 @@ import { ANTD_GRAY } from '../../constants';
 import { EntityHeader } from './header/EntityHeader';
 import { EntityTabs } from './header/EntityTabs';
 import { EntitySidebar } from './sidebar/EntitySidebar';
-import EntityContext from '../../EntityContext';
+import { EntityContext } from '../../EntityContext';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';

@@ -1,0 +1,57 @@
+@import 'antd/dist/antd.less';
+@import './conf/theme/global-variables.less';
+@import './conf/theme/global-variables-v2.less';
+@import './conf/theme/global-overrides.less';
+@import './conf/theme/global-overrides-v2.less';
+
+@font-face {
+    font-family: 'Manrope';
+    font-style: normal;
+    src: local('Manrope'), url('./fonts/manrope.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 400; // Regular weight
+    src: url('./fonts/Mulish-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 500; // Medium weight
+    src: url('./fonts/Mulish-Medium.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 600; // Semi-bold weight
+    src: url('./fonts/Mulish-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 700; // Bold weight
+    src: url('./fonts/Mulish-Bold.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: italic;
+    font-weight: 400; // Regular Italic
+    src: url('./fonts/Mulish-Italic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: italic;
+    font-weight: 700; // Bold Italic
+    src: url('./fonts/Mulish-BoldItalic.ttf') format('truetype');
+}
+
+.themeV2 * {
+    font-family: @font-family-v2;
+}

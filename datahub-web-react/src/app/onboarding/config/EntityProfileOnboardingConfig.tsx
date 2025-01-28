@@ -14,6 +14,7 @@ export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';
 export const ENTITY_PROFILE_TAGS_ID = 'entity-profile-tags';
 export const ENTITY_PROFILE_GLOSSARY_TERMS_ID = 'entity-profile-glossary-terms';
 export const ENTITY_PROFILE_DOMAINS_ID = 'entity-profile-domains';
+export const ENTITY_PROFILE_V2_SIDEBAR_ID = 'entity-profile-v2-sidebar';
 
 export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
@@ -181,6 +182,20 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                         {' '}
                         here.
                     </a>
+                </p>
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: ENTITY_PROFILE_V2_SIDEBAR_ID,
+        selector: `#${ENTITY_PROFILE_V2_SIDEBAR_ID}`,
+        title: 'Introducing the Asset Sidebar',
+        content: (
+            <Typography.Paragraph>
+                <p>
+                    The asset sidebar is a vertically organized set of important information about an asset. It shows up
+                    on the right side of the screen when you view an asset, a search result, a lineage entry and a host
+                    of other places.
                 </p>
             </Typography.Paragraph>
         ),
