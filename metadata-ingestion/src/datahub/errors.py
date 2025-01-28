@@ -1,6 +1,6 @@
 from datahub.configuration.common import MetaError
 
-# TODO: Move all error types to this file.
+# TODO: Move all other error types to this file.
 
 
 class SdkUsageError(MetaError):
