@@ -954,6 +954,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             ...versionProperties
         }
     }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 fragment searchResultFields on Entity {
