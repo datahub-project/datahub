@@ -95,6 +95,7 @@ def apply_association_to_container(
 class DomainApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
+        description="List of assets to apply domain hierarchichaly. Currently only containers and datasets are supported",
     )
     domain_urn: str = Field(default="")
 
@@ -102,6 +103,7 @@ class DomainApplyConfig(ConfigModel):
 class TagApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
+        description="List of assets to apply tag hierarchichaly. Currently only containers and datasets are supported",
     )
     tag_urn: str = Field(default="")
 
@@ -109,6 +111,7 @@ class TagApplyConfig(ConfigModel):
 class TermApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
+        description="List of assets to apply term hierarchichaly. Currently only containers and datasets are supported",
     )
     term_urn: str = Field(default="")
 
@@ -116,6 +119,7 @@ class TermApplyConfig(ConfigModel):
 class OwnerApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
+        description="List of assets to apply owner hierarchichaly. Currently only containers and datasets are supported",
     )
     owner_urn: str = Field(default="")
 
@@ -123,15 +127,19 @@ class OwnerApplyConfig(ConfigModel):
 class DataHubApplyConfig(ConfigModel):
     domain_apply: Optional[List[DomainApplyConfig]] = Field(
         default=None,
+        description="List to apply domains to assets",
     )
     tag_apply: Optional[List[TagApplyConfig]] = Field(
         default=None,
+        description="List to apply tags to assets",
     )
     term_apply: Optional[List[TermApplyConfig]] = Field(
         default=None,
+        description="List to apply terms to assets",
     )
     owner_apply: Optional[List[OwnerApplyConfig]] = Field(
         default=None,
+        description="List to apply owners to assets",
     )
 
 
