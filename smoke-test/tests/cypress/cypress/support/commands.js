@@ -22,6 +22,8 @@ export function getTimestampMillisNumDaysAgo(numDays) {
   return dayjs().subtract(numDays, "day").valueOf();
 }
 
+const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
+
 Cypress.Commands.add("login", () => {
   cy.request({
     method: "POST",
@@ -31,7 +33,7 @@ Cypress.Commands.add("login", () => {
       password: Cypress.env("ADMIN_PASSWORD"),
     },
     retryOnStatusCodeFailure: true,
-  });
+  }).then(() => localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true"));
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
@@ -45,6 +47,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
   }
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
