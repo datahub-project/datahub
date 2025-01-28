@@ -2,8 +2,12 @@ import time
 import unittest
 from unittest.mock import Mock
 
+import datahub.metadata.schema_classes as models
 from datahub.api.entities.datajob import DataFlow, DataJob
-from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
 from datahub.metadata.schema_classes import (
@@ -125,6 +129,7 @@ class TestDataProcessInstance(unittest.TestCase):
 
         self.assertEqual(len(mcps), 1)
         start_event = mcps[0]
+        assert isinstance(start_event.aspect, models.DataProcessInstanceRunEventClass)
         self.assertEqual(start_event.aspect.status, DataProcessRunStatusClass.STARTED)
         self.assertEqual(start_event.aspect.timestampMillis, start_time)
         self.assertEqual(start_event.aspect.attempt, 1)
@@ -138,13 +143,17 @@ class TestDataProcessInstance(unittest.TestCase):
 
         end_time = int(time.time() * 1000)
         mcps = list(
-            instance.end_event_mcp(end_time, result=RunResultType.SUCCESS, attempt=1)
+            instance.end_event_mcp(
+                end_time, result=InstanceRunResult.SUCCESS, attempt=1
+            )
         )
 
         self.assertEqual(len(mcps), 1)
         end_event = mcps[0]
+        assert isinstance(end_event.aspect, models.DataProcessInstanceRunEventClass)
         self.assertEqual(end_event.aspect.status, DataProcessRunStatusClass.COMPLETE)
         self.assertEqual(end_event.aspect.timestampMillis, end_time)
+        assert end_event.aspect.result is not None
         self.assertEqual(end_event.aspect.result.type, RunResultType.SUCCESS)
 
     def test_emit_process_with_emitter(self):
@@ -166,7 +175,9 @@ class TestDataProcessInstance(unittest.TestCase):
 
         # Test emit_process_end
         end_time = int(time.time() * 1000)
-        instance.emit_process_end(mock_emitter, end_time, result=RunResultType.SUCCESS)
+        instance.emit_process_end(
+            mock_emitter, end_time, result=InstanceRunResult.SUCCESS
+        )
         self.assertTrue(mock_emitter.emit.called)
 
     def test_generate_mcp(self):
@@ -190,6 +201,9 @@ class TestDataProcessInstance(unittest.TestCase):
         # Verify the properties MCP
         properties_mcp = next(
             mcp for mcp in mcps if hasattr(mcp.aspect, "customProperties")
+        )
+        assert isinstance(
+            properties_mcp.aspect, models.DataProcessInstancePropertiesClass
         )
         self.assertEqual(properties_mcp.aspect.name, self.test_id)
         self.assertEqual(properties_mcp.aspect.customProperties["env"], "prod")

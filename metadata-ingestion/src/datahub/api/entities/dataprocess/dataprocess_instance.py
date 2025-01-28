@@ -78,7 +78,7 @@ class DataProcessInstance:
     data_platform_instance: Optional[str] = None
     subtype: Optional[str] = None
     container_urn: Optional[str] = None
-    _platform: str = field(init=False, repr=False, default=None)
+    _platform: Optional[str] = field(init=False, repr=False, default=None)
 
     def __post_init__(self):
         self.urn = DataProcessInstanceUrn(
