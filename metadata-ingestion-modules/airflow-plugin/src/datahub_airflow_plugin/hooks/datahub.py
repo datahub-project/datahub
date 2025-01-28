@@ -320,6 +320,7 @@ class DatahubCompositeHook(BaseHook):
         self.datahub_conn_ids = datahub_conn_ids
 
     def make_emitter(self) -> CompositeEmitter:
+        print(f"Create emitters for {self.datahub_conn_ids}")
         return CompositeEmitter(
             [
                 self._get_underlying_hook(conn_id).make_emitter()
@@ -340,6 +341,7 @@ class DatahubCompositeHook(BaseHook):
         emitter = self.make_emitter()
 
         for item in items:
+            print(f"emitting item {item}")
             emitter.emit(item)
 
     def _get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:

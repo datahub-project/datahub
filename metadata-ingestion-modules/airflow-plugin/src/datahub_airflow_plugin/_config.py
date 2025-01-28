@@ -31,7 +31,7 @@ class DatahubLineageConfig(ConfigModel):
     # DataHub hook connection ID.
     datahub_conn_id: str
 
-    _datahub_connection_ids: List[str] = []
+    _datahub_connection_ids: List[str]
 
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
     cluster: str = builder.DEFAULT_FLOW_CLUSTER
@@ -88,8 +88,10 @@ class DatahubLineageConfig(ConfigModel):
 
     @root_validator(skip_on_failure=True)
     def split_conn_ids(cls, values: Dict) -> Dict:
+        if not values.get("datahub_conn_id"):
+            raise ValueError("datahub_conn_id is required")
         conn_ids = values.get("datahub_conn_id", "").split(",")
-        values["_datahub_connection_ids"] = [conn_id.strip() for conn_id in conn_ids]
+        cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
         return values
 
 
