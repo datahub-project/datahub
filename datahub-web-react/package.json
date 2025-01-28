@@ -153,7 +153,7 @@
         "prettier": "^2.8.8",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.1.11",
-        "vite": "^4.5.5",
+        "vite": "^4.5.6",
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^0.17.0",
         "vite-plugin-svgr": "^4.1.0",

@@ -349,9 +349,9 @@ class OperationProcessor:
                         elements=[institutional_memory_element]
                     )
 
-                    aspect_map[
-                        Constants.ADD_DOC_LINK_OPERATION
-                    ] = institutional_memory_aspect
+                    aspect_map[Constants.ADD_DOC_LINK_OPERATION] = (
+                        institutional_memory_aspect
+                    )
                 else:
                     raise Exception(
                         f"Expected 1 item of type list for the documentation_link meta_mapping config,"

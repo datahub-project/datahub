@@ -177,11 +177,10 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ## Code style
 
-We use black, ruff, and mypy to ensure consistent code style and quality.
+We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: pip install -e '.[dev]' and venv is activated
-black src/ tests/
 ruff check src/ tests/
 mypy src/ tests/
 ```

@@ -945,9 +945,9 @@ class Mapper:
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
         # Lets convert dashboard to datahub dashboard
-        dashboard_mcps: List[
-            MetadataChangeProposalWrapper
-        ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
+        dashboard_mcps: List[MetadataChangeProposalWrapper] = (
+            self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
+        )
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -1322,14 +1322,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     context=",".join(
                         [
                             dataset.name
-                            for dataset in workspace.independent_datasets
+                            for dataset in workspace.independent_datasets.values()
                             if dataset.name
                         ]
                     ),
                 )
             return
 
-        for dataset in workspace.independent_datasets:
+        for dataset in workspace.independent_datasets.values():
             yield from auto_workunit(
                 stream=self.mapper.to_datahub_dataset(
                     dataset=dataset,
@@ -1440,7 +1440,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from auto_workunit(self.emit_app(workspace=workspace))
 
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             try:
                 # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -1459,7 +1459,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 if wu is not None:
                     yield wu
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace
             ):
@@ -1472,9 +1472,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit
     ) -> Optional[MetadataWorkUnit]:
-        dashboard_info_aspect: Optional[
-            DashboardInfoClass
-        ] = work_unit.get_aspect_of_type(DashboardInfoClass)
+        dashboard_info_aspect: Optional[DashboardInfoClass] = (
+            work_unit.get_aspect_of_type(DashboardInfoClass)
+        )
 
         if dashboard_info_aspect and self.source_config.patch_metadata:
             return convert_dashboard_info_to_patch(
