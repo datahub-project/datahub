@@ -1,4 +1,3 @@
-import { countries } from 'country-data-list';
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
@@ -27,6 +26,7 @@ import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
 import { useUserContext } from '../../context/useUserContext';
 import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
+import { getCountryName } from '@src/app/shared/sidebar/components';
 
 const { Paragraph } = Typography;
 
@@ -135,16 +135,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
 
-    let countryName;
-    const findCountryName = (code) => {
-        try {
-            countryName = countries[code].name;
-        } catch (error) {
-            countryName = '';
-        }
-        return countryName;
-    };
-
+    const maybeCountryName = getCountryName(countryCode ?? '');
     return (
         <>
             <SideBar>
@@ -175,13 +166,13 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
-                    {countryCode ? (
+                    {maybeCountryName != null ? (
                         <LocationSection>
                             Location
                             <br />
                             <LocationSectionText>
                                 <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
-                                {findCountryName(countryCode)}
+                                {maybeCountryName}
                             </LocationSectionText>
                             <Divider className="divider-aboutSection" />
                         </LocationSection>
