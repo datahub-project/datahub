@@ -12,6 +12,7 @@ from acryl.executor.execution.task import TaskConfig
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.request.signal_request import SignalRequest
 from acryl.executor.secret.datahub_secret_store import DataHubSecretStoreConfig
+from acryl.executor.secret.file_secret_store import FileSecretStoreConfig
 from acryl.executor.secret.secret_store import SecretStoreConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
@@ -40,6 +41,8 @@ from datahub_executor.common.monitoring.metrics import (
     STATS_MCP_EMIT_EVENTS,
 )
 from datahub_executor.config import (
+    DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
+    DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
     DATAHUB_EXECUTOR_POOL_NAME,
     DATAHUB_GMS_TOKEN,
     DATAHUB_GMS_URL,
@@ -69,6 +72,13 @@ def setup_ingestion_executor(
         task_configs=[ingest_task_config, test_connection_task_config],
         secret_stores=[
             SecretStoreConfig(type="env", config=dict({})),
+            SecretStoreConfig(
+                type="file",
+                config=FileSecretStoreConfig(
+                    basedir=DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
+                    max_length=DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
+                ),
+            ),
             SecretStoreConfig(
                 type="datahub",
                 config=DataHubSecretStoreConfig(

@@ -125,6 +125,31 @@ The Helm chart [datahub-executor-worker](https://github.com/acryldata/datahub-ex
     --set image.tag=v0.3.1 \
     acryl datahub-executor-worker
   ```
+9. It is possible to pass secrets to ingestion recipes using Kubernetes Secret CRDs as shown below. This allows to update secrets at runtime without restarting Remote Executor process.
+  ```
+    # 1. Create K8s Secret object in remote executor namespace, e.g.
+
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: datahub-secret-store
+    data:
+      REDSHIFT_PASSWORD: cmVkc2hpZnQtc2VjcmV0Cg==
+      SNOWFLAKE_PASSWORD: c25vd2ZsYWtlLXNlY3JldAo=
+
+    # 2. Add secret into your Remote Executor deployment:
+
+    extraVolumes:
+      - name: datahub-secret-store
+        secret:
+          secretName: datahub-secret-store
+
+    # 3. Mount it under /mnt/secrets directory
+
+    extraVolumeMounts:
+    - mountPath: /mnt/secrets
+      name: datahub-secret-store
+  ```
 
 ## FAQ
 

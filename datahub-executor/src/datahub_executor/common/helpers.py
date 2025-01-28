@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 from datahub.secret.environment_secret_store import EnvironmentSecretStore
+from datahub.secret.file_secret_store import FileSecretStore
 
 from datahub_executor.common.assertion.engine.engine import AssertionEngine
 from datahub_executor.common.assertion.engine.evaluator.field_evaluator import (
@@ -39,7 +40,12 @@ from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
 )
-from datahub_executor.config import DATAHUB_GMS_TOKEN, DATAHUB_GMS_URL
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
+    DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
+    DATAHUB_GMS_TOKEN,
+    DATAHUB_GMS_URL,
+)
 
 
 def create_datahub_graph() -> DataHubGraph:
@@ -96,6 +102,12 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
     # Create secret store for resolving recipe credentials
     datahub_secret_store = DataHubSecretStore.create({"graph_client": graph})
     env_secret_store = EnvironmentSecretStore.create({})
+    file_secret_store = FileSecretStore.create(
+        {
+            "basedir": DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
+            "max_length": DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
+        }
+    )
 
     # setup state provider
     state_provider = DataHubMonitorStateProvider(graph)
@@ -104,35 +116,35 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
     evaluators = [
         FreshnessAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
-                graph, [env_secret_store, datahub_secret_store]
+                graph, [env_secret_store, file_secret_store, datahub_secret_store]
             ),
             state_provider,
             SourceProvider(),
         ),
         VolumeAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
-                graph, [env_secret_store, datahub_secret_store]
+                graph, [env_secret_store, file_secret_store, datahub_secret_store]
             ),
             state_provider,
             SourceProvider(),
         ),
         SQLAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
-                graph, [env_secret_store, datahub_secret_store]
+                graph, [env_secret_store, file_secret_store, datahub_secret_store]
             ),
             state_provider,
             SourceProvider(),
         ),
         FieldAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
-                graph, [env_secret_store, datahub_secret_store]
+                graph, [env_secret_store, file_secret_store, datahub_secret_store]
             ),
             state_provider,
             SourceProvider(),
         ),
         SchemaAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(
-                graph, [env_secret_store, datahub_secret_store]
+                graph, [env_secret_store, file_secret_store, datahub_secret_store]
             ),
             state_provider,
             SourceProvider(),
