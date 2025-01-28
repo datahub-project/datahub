@@ -10,7 +10,7 @@ from typing_extensions import Self, TypeAlias, assert_never
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.errors import HiddenEditWarning, SchemaFieldKeyError
+from datahub.errors import HiddenEditWarning, ItemNotFoundError, SchemaFieldKeyError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
@@ -164,10 +164,8 @@ class SchemaField:
 
     def _base_schema_field(self) -> models.SchemaFieldClass:
         # This must exist - if it doesn't, we've got a larger bug.
-        # TODO make this throw a SchemaFieldKeyError?
-        schema = self._parent.schema
-        assert schema is not None
-        return schema[self._field_path]
+        schema_dict = self._parent._schema_dict()
+        return schema_dict[self._field_path]
 
     def _get_editable_schema_field(
         self,
@@ -536,15 +534,17 @@ class Dataset(
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
 
-    @property
-    def schema(self) -> Optional[Dict[str, models.SchemaFieldClass]]:
+    def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)
         if schema_metadata is None:
-            # TODO throw instead?
-            return None
-        # TODO: Field path v2 is pretty annoying - ideally users don't need to deal with that.
-        # TODO should this just directly return SchemaField types?
+            raise ItemNotFoundError(f"Schema is not set for dataset {self.urn}")
         return {field.fieldPath: field for field in schema_metadata.fields}
+
+    @property
+    def schema(self) -> List[SchemaField]:
+        # TODO: Add some caching here to avoid iterating over the schema every time.
+        schema_dict = self._schema_dict()
+        return [SchemaField(self, field_path) for field_path in schema_dict]
 
     def _parse_schema_field_input(
         self, schema_field_input: SchemaFieldInputType
@@ -606,9 +606,8 @@ class Dataset(
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
-        if self.schema is None:
-            raise SchemaFieldKeyError(f"Schema is not set for dataset {self.urn}")
-        if field_path not in self.schema:
+        schema_dict = self._schema_dict()
+        if field_path not in schema_dict:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")
         return SchemaField(self, field_path)
 
