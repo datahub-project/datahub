@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.resolvers.ingest.CachingEntityIngestionSourceFetcher;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -15,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolver responsible for fetching the ingestion source responsible for ingesting a particular
- * entity.
+ * entity. This is currently used to determine which source will execute an assertion.
  *
  * <p>Ideally, in the future we leverage a pipeline_name which is placed in the system metadata to
  * do this. For now, we rely on fetching the "last run id" for an entity and backtracing to the
@@ -26,8 +27,11 @@ public class IngestionSourceForEntityResolver
     implements DataFetcher<CompletableFuture<IngestionSource>> {
   private final CachingEntityIngestionSourceFetcher _ingestionSourceFetcher;
 
-  public IngestionSourceForEntityResolver(@Nonnull final EntityClient entityClient) {
-    _ingestionSourceFetcher = new CachingEntityIngestionSourceFetcher(entityClient);
+  public IngestionSourceForEntityResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final AssertionMonitorsConfiguration assertionMonitorsConfiguration) {
+    _ingestionSourceFetcher =
+        new CachingEntityIngestionSourceFetcher(entityClient, assertionMonitorsConfiguration);
   }
 
   @Override

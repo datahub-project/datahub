@@ -20,10 +20,12 @@ import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -33,6 +35,7 @@ public class IngestionSourceForEntityResolverTest {
   private static final String INGESTION_SOURCE_URN_STRING = "urn:li:dataHubIngestionSource:test";
   private static final String EXECUTION_REQUEST_URN_STRING = "urn:li:dataHubExecutionRequest:test";
   private EntityClient _entityClient;
+  private AssertionMonitorsConfiguration _assertionMonitorsConfiguration;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private IngestionSourceForEntityResolver _resolver;
   private Urn _entityUrn;
@@ -44,8 +47,10 @@ public class IngestionSourceForEntityResolverTest {
   @BeforeMethod
   public void setupTest() {
     _entityClient = mock(EntityClient.class);
+    _assertionMonitorsConfiguration = mock(AssertionMonitorsConfiguration.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
-    _resolver = new IngestionSourceForEntityResolver(_entityClient);
+    _resolver =
+        new IngestionSourceForEntityResolver(_entityClient, _assertionMonitorsConfiguration);
     _mockContext = getMockAllowContext();
 
     try {
@@ -111,8 +116,14 @@ public class IngestionSourceForEntityResolverTest {
 
   @Test
   public void testSuccess() throws Exception {
+    when(_assertionMonitorsConfiguration.getResolveIngestionSourceForAspects())
+        .thenReturn(
+            String.format("%s,%s", SCHEMA_METADATA_ASPECT_NAME, DATASET_PROFILE_ASPECT_NAME));
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
+            any(OperationContext.class),
+            eq(_entityUrn.getEntityType()),
+            eq(_entityUrn),
+            eq(Set.of(SCHEMA_METADATA_ASPECT_NAME, DATASET_PROFILE_ASPECT_NAME))))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(

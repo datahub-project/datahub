@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -208,13 +209,14 @@ public class IngestionResolverUtils {
   @Nullable
   public static IngestionSource getIngestionSourceForEntity(
       @Nonnull final EntityClient entityClient,
+      @Nonnull final QueryContext context,
       @Nonnull final Urn entityUrn,
-      @Nonnull final QueryContext context)
+      @Nullable final Set<String> aspectNames)
       throws Exception {
     // Fetch the aspects for the entity.
     final EntityResponse entityResponse =
         entityClient.getV2(
-            context.getOperationContext(), entityUrn.getEntityType(), entityUrn, null);
+            context.getOperationContext(), entityUrn.getEntityType(), entityUrn, aspectNames);
 
     // Entity does not exist! Return no source.
     if (entityResponse == null) {

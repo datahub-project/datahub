@@ -80,6 +80,9 @@ public class DataHubAppConfiguration {
   /** Configuration related to classifications and automations */
   private ClassificationConfiguration classificationConfig;
 
+  /** Configuration for the execution of assertions */
+  private AssertionMonitorsConfiguration assertionMonitors;
+
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 

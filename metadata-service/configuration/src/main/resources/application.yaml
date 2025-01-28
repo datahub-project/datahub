@@ -752,6 +752,9 @@ monitorService:
   port: ${DATAHUB_EXECUTOR_PORT:9004}
   useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
 
+assertionMonitors:
+  resolveIngestionSourceForAspects: ${DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS:datasetProperties}
+
 connections:
   testExecutionRequestHook:
     enabled: ${CONNECTION_TEST_EXECUTION_REQUEST_HOOK_ENABLED:true} # Enables processing of DataHubConnection test execution requests

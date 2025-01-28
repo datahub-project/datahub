@@ -14,6 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
@@ -119,4 +120,5 @@ public class GmsGraphQLEngineArgs {
   ExecutorConfiguration executorConfiguration;
   DataContractService dataContractService;
   MetadataTestClient metadataTestClient;
+  AssertionMonitorsConfiguration assertionMonitorsConfiguration;
 }

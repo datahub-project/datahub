@@ -267,7 +267,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.domainType = new DomainType(args.getEntityClient());
 
     this.actionPipelineType = new ActionPipelineType(args.getEntityClient()); // SaaS only
-    this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
+    this.monitorType =
+        new MonitorType(
+            args.getEntityClient(), args.getAssertionMonitorsConfiguration()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
     this.dataContractType = new DataContractType(entityClient); // SaaS only
     this.remoteExecutorType = new RemoteExecutorType(args.getEntityClient()); // SaaS only

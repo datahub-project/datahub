@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.CachingEntityIngestionSourc
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -36,9 +37,12 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
   private final EntityClient _entityClient;
   private final CachingEntityIngestionSourceFetcher _ingestionSourceFetcher;
 
-  public MonitorType(final EntityClient entityClient) {
+  public MonitorType(
+      final EntityClient entityClient,
+      final AssertionMonitorsConfiguration assertionMonitorsConfiguration) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient cannot be null");
-    _ingestionSourceFetcher = new CachingEntityIngestionSourceFetcher(entityClient);
+    _ingestionSourceFetcher =
+        new CachingEntityIngestionSourceFetcher(entityClient, assertionMonitorsConfiguration);
   }
 
   @Override

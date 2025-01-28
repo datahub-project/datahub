@@ -384,6 +384,7 @@ import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
@@ -501,6 +502,7 @@ public class GmsGraphQLEngine {
   private final ViewsConfiguration viewsConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final ClassificationConfiguration classificationConfiguration;
+  private final AssertionMonitorsConfiguration assertionMonitorsConfiguration;
 
   private final DatasetType datasetType;
 
@@ -625,6 +627,7 @@ public class GmsGraphQLEngine {
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
     this.classificationConfiguration = args.classificationConfiguration;
+    this.assertionMonitorsConfiguration = args.assertionMonitorsConfiguration;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -1155,7 +1158,8 @@ public class GmsGraphQLEngine {
                     "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
                 .dataFetcher(
                     "ingestionSourceForEntity",
-                    new IngestionSourceForEntityResolver(this.entityClient)));
+                    new IngestionSourceForEntityResolver(
+                        this.entityClient, this.assertionMonitorsConfiguration)));
   }
 
   private DataFetcher getEntitiesResolver() {

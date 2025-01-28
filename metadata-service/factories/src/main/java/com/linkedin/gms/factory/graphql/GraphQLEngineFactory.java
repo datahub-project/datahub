@@ -332,6 +332,7 @@ public class GraphQLEngineFactory {
     args.setSubscriptionService(_subscriptionService);
     args.setShareService(_shareService);
     args.setExecutorConfiguration(configProvider.getExecutors());
+    args.setAssertionMonitorsConfiguration(configProvider.getAssertionMonitors());
     args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
     args.setMetadataTestClient(metadataTestClient);
