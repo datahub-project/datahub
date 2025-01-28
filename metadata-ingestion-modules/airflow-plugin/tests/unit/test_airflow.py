@@ -274,8 +274,9 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
             dag_run = DagRun(
-                state="success", run_id=f"scheduled_{DEFAULT_DATE.isoformat()}"
-            )  # type: ignore
+                state="success",  # type: ignore[arg-type]
+                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
+            )
         else:
             from airflow.utils.state import DagRunState
 
