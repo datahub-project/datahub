@@ -14,6 +14,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
             fullName
             email
             departmentName
+            countryCode
         }
         editableProperties {
             slack
