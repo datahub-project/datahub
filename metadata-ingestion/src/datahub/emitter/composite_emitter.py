@@ -7,7 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 
-
+# Experimental composite emitter that allows multiple emitters to be used in a single ingestion job
 class CompositeEmitter(Emitter):
     def __init__(self, emitters: List[Emitter]) -> None:
         self.emitters = emitters
@@ -24,6 +24,7 @@ class CompositeEmitter(Emitter):
         callback_called = False
         for emitter in self.emitters:
             if not callback_called:
+                # We want to ensure that the callback is only called once and we tie it to the first emitter that
                 emitter.emit(item, callback)
                 callback_called = True
             else:
