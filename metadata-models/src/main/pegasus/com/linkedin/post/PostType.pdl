@@ -8,4 +8,8 @@ enum PostType {
    * The Post is an Home Page announcement.
    */
   HOME_PAGE_ANNOUNCEMENT
+  /**
+   * The Post is an Entity level announcement.
+   */
+  ENTITY_ANNOUNCEMENT,
 }

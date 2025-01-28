@@ -1,0 +1,1 @@
+export const SCREEN_WIDTH_BREAK_POINT = 1300;

@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -87,6 +88,7 @@ public class GmsGraphQLEngineArgs {
   int graphQLQueryDepthLimit;
   boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
+  ChromeExtensionConfiguration chromeExtensionConfiguration;
   ConnectionService connectionService;
   AssertionService assertionService;
   EntityVersioningService entityVersioningService;

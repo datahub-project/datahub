@@ -12,8 +12,17 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -112,7 +121,18 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    // Schema Field Edits are a bit of a hack.
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
+    result.setCanEditSchemaFieldTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, "ignored"));
+    result.setCanEditSchemaFieldGlossaryTerms(
+        LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
+    result.setCanEditSchemaFieldDescription(
+        DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
+    result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
+    result.setCanViewDatasetProfile(
+        AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
+    result.setCanViewDatasetOperations(
+        AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn));
     addCommonPrivileges(result, urn, context);
     return result;
   }
@@ -141,5 +161,19 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditAssertions(
+        AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
+    result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
+    result.setCanEditDomains(
+        DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn, _entityClient));
+    result.setCanEditDataProducts(
+        DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn));
+    result.setCanEditDeprecation(
+        DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn));
+    result.setCanEditGlossaryTerms(LabelUtils.isAuthorizedToUpdateTerms(context, urn, null));
+    result.setCanEditTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, null));
+    result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
+    result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
+    result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
   }
 }

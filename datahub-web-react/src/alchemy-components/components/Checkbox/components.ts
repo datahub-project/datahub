@@ -57,7 +57,7 @@ export const Checkmark = styled.div<{ intermediate?: boolean; error: string; che
             content: '""',
             position: 'absolute',
             display: 'none',
-            left: !intermediate ? '6px' : '8px',
+            left: !intermediate ? '5px' : '8px',
             top: !intermediate ? '1px' : '3px',
             width: !intermediate ? '5px' : '0px',
             height: '10px',

@@ -43,6 +43,21 @@ fragment datasetSiblingIncidents on Dataset {
             }
         }
     }
+    siblingsSearch(input: { query: "*", count: 5 }) {
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    incidents(start: $start, count: $count, state: $state) {
+                        ...incidentsFields
+                    }
+                }
+            }
+        }
+    }
 }
 
 query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {

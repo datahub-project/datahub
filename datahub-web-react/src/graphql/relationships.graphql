@@ -35,11 +35,32 @@ fragment relationshipFields on EntityWithRelationships {
                 ...lineageNodeProperties
             }
         }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...lineageNodeProperties
+                }
+            }
+        }
     }
     upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
         ...leafLineageResults
     }
     downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
         ...leafLineageResults
+    }
+}
+
+query getEntitiesNotes($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on EntityWithRelationships {
+            urn
+            type
+            ...notes
+        }
     }
 }

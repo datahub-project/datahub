@@ -22,6 +22,10 @@ query getDataJob($urn: String!) {
         forms {
             ...formsFields
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        ...notes
     }
 }
 

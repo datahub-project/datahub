@@ -17,7 +17,10 @@ global.matchMedia =
         };
     });
 
-window.location = { ...window.location, replace: () => {} };
+window.location = {
+    ...window.location,
+    replace: () => {},
+};
 
 // Suppress `Error: Not implemented: window.computedStyle(elt, pseudoElt)`.
 // From https://github.com/vitest-dev/vitest/issues/2061
@@ -31,3 +34,12 @@ vi.mock('js-cookie', () => ({
     },
 }));
 vi.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');
+
+vi.stubGlobal(
+    'ResizeObserver',
+    vi.fn(() => ({
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+    })),
+);

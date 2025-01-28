@@ -48,6 +48,11 @@ public class PostMapper implements ModelMapper<EntityResponse, Post> {
     post.setContent(mapPostContent(postInfo.getContent()));
     AuditStamp lastModified = new AuditStamp();
     lastModified.setTime(postInfo.getLastModified());
+    if (postInfo.hasAuditStamp()
+        && postInfo.getAuditStamp() != null
+        && postInfo.getAuditStamp().hasActor()) {
+      lastModified.setActor(postInfo.getAuditStamp().getActor().toString());
+    }
     post.setLastModified(lastModified);
   }
 

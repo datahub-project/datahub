@@ -7,7 +7,8 @@ export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
             const date = dayjs()
                 .startOf('day')
                 .add(index - length, 'days')
-                .toDate();
+                .toDate()
+                .getTime();
             const value = Math.max(Math.random() * maxValue, minValue);
 
             return {

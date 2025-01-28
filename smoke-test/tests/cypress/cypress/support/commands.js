@@ -12,6 +12,7 @@
 // -- This is a parent command --
 
 import dayjs from "dayjs";
+import { aliasQuery, hasOperationName } from "../e2e/utils";
 
 function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
@@ -43,7 +44,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   }
   cy.contains("Sign In").click();
-  cy.contains("Welcome back");
+  cy.get(".ant-avatar-circle").should("be.visible");
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -81,7 +82,6 @@ Cypress.Commands.add("goToBusinessAttributeList", () => {
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
-  cy.waitTextVisible("New Domain");
 });
 
 Cypress.Commands.add("goToViewsSettings", () => {
@@ -94,9 +94,9 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.waitTextVisible("Manage Ownership");
 });
 
-Cypress.Commands.add("goToHomePagePostSettings", () => {
+Cypress.Commands.add("goToHomePagePostSettingsV2", () => {
   cy.visit("/settings/posts");
-  cy.waitTextVisible("Home Page Posts");
+  cy.waitTestIdVisible("managePostsV2");
 });
 
 Cypress.Commands.add("goToAccessTokenSettings", () => {
@@ -107,11 +107,11 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
 
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
-  cy.waitTextVisible("Manage Data Sources");
+  cy.waitTextVisible("Sources");
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${urn}`);
+  cy.visit(`/dataset/${urn}/`);
   cy.wait(5000);
   cy.waitTextVisible(dataset_name);
 });
@@ -137,6 +137,19 @@ Cypress.Commands.add(
   (entity_type, urn, start_time_millis, end_time_millis) => {
     cy.visit(
       `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
+    );
+  },
+);
+
+Cypress.Commands.add("goToEntityLineageGraphV2", (entity_type, urn) => {
+  cy.visit(`/${entity_type}/${urn}/Lineage`);
+});
+
+Cypress.Commands.add(
+  "goToEntityLineageGraphV2",
+  (entity_type, urn, start_time_millis, end_time_millis) => {
+    cy.visit(
+      `/${entity_type}/${urn}/Lineage?start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
     );
   },
 );
@@ -247,6 +260,10 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
 
+Cypress.Commands.add("ensureElementPresent", (element) => {
+  cy.get(element).should("be.visible");
+});
+
 Cypress.Commands.add("waitTextPresent", (text) => {
   cy.contains(text).should("exist");
   cy.contains(text).should("have.length.above", 0);
@@ -258,6 +275,10 @@ Cypress.Commands.add("waitTextVisible", (text) => {
   cy.contains(text).should("be.visible");
   cy.contains(text).should("have.length.above", 0);
   return cy.contains(text);
+});
+
+Cypress.Commands.add("waitTestIdVisible", (testId) => {
+  cy.get(`[data-testid="${testId}"]`).should("exist");
 });
 
 Cypress.Commands.add("openMultiSelect", (data_id) => {
@@ -321,7 +342,7 @@ Cypress.Commands.add("clearView", (viewName) => {
   cy.clickOptionWithTestId("view-select");
   cy.clickOptionWithTestId("view-select-clear");
   cy.get("input[data-testid='search-input']").click();
-  cy.contains(viewName).should("not.be.visible");
+  cy.get("[data-testid='view-select']").should("not.include.text", viewName);
 });
 
 Cypress.Commands.add("addTermToDataset", (urn, dataset_name, term) => {
@@ -400,6 +421,10 @@ Cypress.Commands.add("mouseover", (selector) =>
   cy.get(selector).trigger("mouseover", { force: true }),
 );
 
+Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
+  cy.get(selector).first().trigger("mouseover", { force: true }),
+);
+
 Cypress.Commands.add("createUser", (name, password, email) => {
   cy.visit("/settings/identities/users");
   cy.clickOptionWithText("Invite Users");
@@ -463,6 +488,26 @@ Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
     .contains(term_group_name)
     .should("be.visible");
   cy.waitTextVisible(`Created Term Group!`);
+});
+
+const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
+
+Cypress.Commands.add("skipIntroducePage", () => {
+  localStorage.setItem(SKIP_INTRODUCE_PAGE_KEY, "true");
+});
+
+Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
+  // set the theme V2 enabled flag on/off to show the V2 UI or not
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
+        res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
+        res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
+      });
+    }
+  });
 });
 
 //

@@ -60,9 +60,12 @@ export function getDataForEntityType<T>({
         };
     }
 
-    if (anyEntityData?.siblings?.siblings?.filter((sibling) => sibling.exists).length > 0 && !isHideSiblingMode) {
-        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblings?.siblings?.map((sibling) =>
-            getDataForEntityType({ data: sibling, getOverrideProperties: () => ({}) }),
+    if (
+        anyEntityData?.siblingsSearch?.searchResults?.filter((sibling) => sibling.entity.exists).length > 0 &&
+        !isHideSiblingMode
+    ) {
+        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblingsSearch?.searchResults?.map(
+            (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
         const allPlatforms = anyEntityData.siblings.isPrimary
