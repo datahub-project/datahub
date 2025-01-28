@@ -168,13 +168,13 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: SidebarGlossaryTermsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

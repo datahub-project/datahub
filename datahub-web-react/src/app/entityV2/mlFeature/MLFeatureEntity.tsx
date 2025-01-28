@@ -153,13 +153,13 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             component: SidebarGlossaryTermsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

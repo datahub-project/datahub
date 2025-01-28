@@ -132,13 +132,13 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarOwnerSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

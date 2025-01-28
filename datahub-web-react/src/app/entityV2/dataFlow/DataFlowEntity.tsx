@@ -156,13 +156,13 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: SidebarTagsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

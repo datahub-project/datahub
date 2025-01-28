@@ -130,13 +130,13 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarGlossaryTermsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

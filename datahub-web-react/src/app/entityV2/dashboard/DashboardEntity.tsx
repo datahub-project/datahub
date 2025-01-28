@@ -233,13 +233,13 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: SidebarTagsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

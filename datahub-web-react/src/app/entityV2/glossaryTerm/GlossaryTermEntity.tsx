@@ -173,13 +173,13 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             },
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
     ];
 

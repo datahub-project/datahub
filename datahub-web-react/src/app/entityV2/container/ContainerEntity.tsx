@@ -155,13 +155,13 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarGlossaryTermsSection,
         },
         {
+            component: SidebarStructuredProperties,
+        },
+        {
             component: StatusSection,
         },
         {
             component: SharingAssetSection,
-        },
-        {
-            component: SidebarStructuredProperties,
         },
         // TODO: Add back once entity-level recommendations are complete.
         // {
