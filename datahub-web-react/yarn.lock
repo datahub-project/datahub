@@ -17,6 +17,25 @@
   resolved "https://registry.yarnpkg.com/@alloc/quick-lru/-/quick-lru-5.2.0.tgz#7bf68b20c0a350f936915fcae06f58e32007ce30"
   integrity sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==
 
+"@alwaysmeticulous/api@^2.194.1":
+  version "2.194.1"
+  resolved "https://registry.yarnpkg.com/@alwaysmeticulous/api/-/api-2.194.1.tgz#c0975aab77058296d8b12fd45ac040782b3105c0"
+  integrity sha512-qvryd9h92LW+bzFFoeLU72piysoVqSPS/MoJyufGxN2vcxi2/XbM+MsLxqZScegwUBNy44mwvkWeeESwTsiPTQ==
+
+"@alwaysmeticulous/recorder-loader@^2.196.0":
+  version "2.196.0"
+  resolved "https://registry.yarnpkg.com/@alwaysmeticulous/recorder-loader/-/recorder-loader-2.196.0.tgz#d066af758dacf1c61f3f3ba868d79d7a5988a691"
+  integrity sha512-RtPHG+clMXCNIr8SDIOdaW6Nd1r8S2ruSQtjgPPcrZeFR8WzZx+E8fRNXvYB/dRMqur2GSXo7ONpjAXMN5jjuw==
+  dependencies:
+    "@alwaysmeticulous/sdk-bundles-api" "^2.196.0"
+
+"@alwaysmeticulous/sdk-bundles-api@^2.196.0":
+  version "2.196.0"
+  resolved "https://registry.yarnpkg.com/@alwaysmeticulous/sdk-bundles-api/-/sdk-bundles-api-2.196.0.tgz#1f920b8dbad582fffcfedf9184a98789a0c0e49f"
+  integrity sha512-m8UOS/1pZcZxEEf78oL5LhND40Skhr96FsZo4OR+4B3YVvkmbsGvfGWOxICOL/cgqXw4/cMqOLZsmcKmM3RkYg==
+  dependencies:
+    "@alwaysmeticulous/api" "^2.194.1"
+
 "@ampproject/remapping@^2.2.0":
   version "2.2.1"
   resolved "https://registry.yarnpkg.com/@ampproject/remapping/-/remapping-2.2.1.tgz#99e8e11851128b8702cd57c33684f1d0f260b630"

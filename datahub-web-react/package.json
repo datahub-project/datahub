@@ -3,6 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "dependencies": {
+        "@alwaysmeticulous/recorder-loader": "^2.196.0",
         "@analytics/amplitude": "0.0.3",
         "@analytics/google-analytics": "^1.0.7",
         "@analytics/mixpanel": "^0.3.1",
