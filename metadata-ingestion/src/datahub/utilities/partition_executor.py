@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 import collections
 import functools
 import logging
@@ -220,10 +219,10 @@ def _shutdown_executors() -> None:
 # This entire shutdown hook is largely a backstop mechanism to protect against
 # improper usage of the BatchPartitionExecutor. In proper usage that uses
 # a context manager or calls shutdown() explicitly, this will be a no-op.
-if hasattr(threading, "_register_atexit"):
-    threading._register_atexit(_shutdown_executors)
-else:
-    atexit.register(_shutdown_executors)
+# if hasattr(threading, "_register_atexit"):
+#     threading._register_atexit(_shutdown_executors)
+# else:
+#     atexit.register(_shutdown_executors)
 
 
 class BatchPartitionExecutor(Closeable):
