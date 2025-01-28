@@ -219,6 +219,73 @@ This event is emitted when an existing owner has been removed from an entity on 
 }
 ```
 
+### Add Structured Property Event
+
+This event is emitted when a Structured Property has been added to an entity on DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "ADD",
+  "modifier": "urn:li:structuredProperty:prop1",
+  "parameters": {
+    "propertyUrn": "urn:li:structuredProperty:prop1",
+    "propertyValues": "[\"value1\"]"
+  },
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653   
+  }
+}
+```
+
+### Remove Structured Property Event
+
+This event is emitted when a Structured Property has been removed from an entity on DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "REMOVE",
+  "modifier": "urn:li:structuredProperty:prop1",
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653   
+  }
+}
+```
+
+### Modify Structured Property Event
+
+This event is emitted when a Structured Property's values have been modified on an entity in DataHub.
+
+#### Sample Event
+```json
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "STRUCTURED_PROPERTY",
+  "operation": "MODIFY",
+  "modifier": "urn:li:structuredProperty:prop1",
+  "parameters": {
+    "propertyUrn": "urn:li:structuredProperty:prop1",
+    "propertyValues": "[\"value1\",\"value2\"]"
+  },
+  "version": 0,
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653   
+  }
+}
+```
 
 ### Modify Deprecation Event
 
