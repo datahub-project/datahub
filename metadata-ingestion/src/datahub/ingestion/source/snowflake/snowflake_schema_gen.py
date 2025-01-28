@@ -85,6 +85,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageTypeClass,
     DatasetProperties,
     ViewProperties,
 )
@@ -118,13 +119,7 @@ from datahub.metadata.urns import (
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
-    KnownQueryLineageInfo,
     SqlParsingAggregator,
-)
-from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    ColumnRef,
-    DownstreamColumnRef,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -1363,7 +1358,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name = snowflake_schema.name
 
         try:
+            # Retrieve and register the schema without metadata to prevent columns from mapping upstream
             stream.columns = self.get_columns_for_stream(stream.table_name)
+            yield from self.gen_dataset_workunits(stream, schema_name, db_name)
 
             if self.config.include_column_lineage:
                 with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
@@ -1443,51 +1440,29 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, stream: SnowflakeStream, db_name: str, schema_name: str
     ) -> None:
         """
-        Populate Streams upstream tables excluding the metadata columns
+        Populate Streams upstream tables
         """
         self.report.num_streams_with_known_upstreams += 1
         if self.aggregator:
             source_parts = split_qualified_name(stream.table_name)
             source_db, source_schema, source_name = source_parts
 
-            downstream_identifier = self.identifiers.get_dataset_identifier(
+            dataset_identifier = self.identifiers.get_dataset_identifier(
                 stream.name, schema_name, db_name
             )
-            downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
+            dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
             upstream_identifier = self.identifiers.get_dataset_identifier(
                 source_name, source_schema, source_db
             )
             upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
 
-            column_lineage = []
-            for col in stream.columns:
-                if not col.name.startswith("METADATA$"):
-                    column_lineage.append(
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                dataset=downstream_urn,
-                                column=self.identifiers.snowflake_identifier(col.name),
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table=upstream_urn,
-                                    column=self.identifiers.snowflake_identifier(
-                                        col.name
-                                    ),
-                                )
-                            ],
-                        )
-                    )
+            logger.info(
+                f"""upstream_urn: {upstream_urn}, downstream_urn: {dataset_urn}"""
+            )
 
-            if column_lineage:
-                self.aggregator.add_known_query_lineage(
-                    known_query_lineage=KnownQueryLineageInfo(
-                        query_id=f"stream_lineage_{DatasetUrn.url_encode(downstream_urn)}",
-                        query_text="",
-                        upstreams=[upstream_urn],
-                        downstream=downstream_urn,
-                        column_lineage=column_lineage,
-                        timestamp=stream.created if stream.created else None,
-                    )
-                )
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=upstream_urn,
+                downstream_urn=dataset_urn,
+                lineage_type=DatasetLineageTypeClass.COPY,
+            )
