@@ -9,23 +9,25 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { capitalize } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { DataProcessInstanceRunResultType } from '../../types.generated';
 
 const StatContainer = styled.div`
     display: flex;
     margin-top: 40px;
     height: 25px;
     padding-left: 20px;
-    color: #5f6685;
+    color: ${colors.gray[500]};
     width: 150px;
 `;
 
 const PopoverContent = styled.div`
-    color: #5f6685;
+    color: ${colors.gray[500]};
     font-size: 0.8rem;
 `;
 
 const Title = styled.div`
-    color: #5f6685;
+    color: ${colors.gray[500]};
     border-bottom: none;
     font-size: 0.8rem;
     font-weight: 600;
@@ -47,7 +49,7 @@ interface Props {
 }
 
 export default function DataProcessInstanceRightColumn({ startTime, duration, status }: Props) {
-    const statusPillColor = status === 'SUCCESS' ? 'green' : 'red';
+    const statusPillColor = status === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
 
     return (
         <>
@@ -76,7 +78,7 @@ export default function DataProcessInstanceRightColumn({ startTime, duration, st
             {status && (
                 <>
                     <StatContainer>
-                        <Pill label={capitalize(status)} colorScheme={statusPillColor} />
+                        <Pill label={capitalize(status)} colorScheme={statusPillColor} clickable={false} />
                     </StatContainer>
                 </>
             )}

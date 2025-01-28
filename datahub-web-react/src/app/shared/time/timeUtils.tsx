@@ -208,9 +208,10 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
 }
 
 export function formatDuration(durationMs: number): string {
-    const seconds = Math.floor((durationMs / 1000) % 60);
-    const minutes = Math.floor((durationMs / 1000 / 60) % 60);
-    const hours = Math.floor(durationMs / 1000 / 3600);
+    const duration = moment.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
         return `${seconds}secs`;
@@ -225,9 +226,10 @@ export function formatDuration(durationMs: number): string {
 }
 
 export function formatDetailedDuration(durationMs: number): string {
-    const seconds = Math.floor((durationMs / 1000) % 60);
-    const minutes = Math.floor((durationMs / 1000 / 60) % 60);
-    const hours = Math.floor(durationMs / 1000 / 3600);
+    const duration = moment.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
 
     const parts: string[] = [];
 

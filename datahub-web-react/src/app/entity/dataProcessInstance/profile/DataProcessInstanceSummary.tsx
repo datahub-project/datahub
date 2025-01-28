@@ -3,7 +3,8 @@ import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
 import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
 import { capitalize } from 'lodash';
-import { MlHyperParam, MlMetric } from '../../../../types.generated';
+import moment from 'moment';
+import { MlHyperParam, MlMetric, DataProcessInstanceRunResultType } from '../../../../types.generated';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
 import { GetDataProcessInstanceQuery } from '../../../../graphql/dataProcessInstance.generated';
@@ -41,17 +42,11 @@ export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
 
-    const formatDate = (timestamp?: number) => {
-        if (!timestamp) return '-';
-        const milliseconds = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-        return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
-    };
-
     const formatStatus = (state) => {
         if (!state || state.length === 0) return '-';
         const result = state[0]?.result?.resultType;
-        const statusColor = result === 'SUCCESS' ? 'green' : 'red';
-        return <Pill label={capitalize(result)} colorScheme={statusColor} />;
+        const statusColor = result === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
+        return <Pill label={capitalize(result)} colorScheme={statusColor} clickable={false} />;
     };
 
     const formatDuration = (state) => {
@@ -65,7 +60,11 @@ export default function MLModelSummary() {
                 <Typography.Title level={3}>Details</Typography.Title>
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title="Created At">
-                        <InfoItemContent>{formatDate(dpi?.properties?.created?.time)}</InfoItemContent>
+                        <InfoItemContent>
+                            {dpi?.properties?.created?.time
+                                ? moment(dpi.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
+                                : '-'}
+                        </InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Status">
                         <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>
