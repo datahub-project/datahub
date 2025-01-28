@@ -64,6 +64,9 @@ class OperationConfig(ConfigModel):
         return profile_date_of_month
 
 
+# TRICKY: The operation_config is time-dependent. Because we don't want to change
+# whether or not we're running profiling mid-ingestion, we cache the result of this method.
+# An additional benefit is that we only print the log lines on the first call.
 @cachetools.cached(
     cache=cachetools.LRUCache(maxsize=1),
     key=self_methodkey,
