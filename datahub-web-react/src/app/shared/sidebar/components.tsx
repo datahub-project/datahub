@@ -36,7 +36,7 @@ export function getCountryName(countryCode: string) {
         }
     };
 
-    if (countryCode == '' || countryCode == undefined || countryCode == null) {
+    if (countryCode === '' || countryCode === undefined || countryCode == null) {
         return null;
     }
 
