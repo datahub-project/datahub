@@ -8,6 +8,7 @@ import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
+import useShouldSkipOnboardingTour from './useShouldSkipOnboardingTour';
 
 type Props = {
     stepIds: string[];
@@ -56,7 +57,9 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
-    if (!filteredSteps.length) return null;
+    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
+
+    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
 
     return (
         <Tour
