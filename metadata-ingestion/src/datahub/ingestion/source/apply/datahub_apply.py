@@ -87,6 +87,7 @@ def apply_association_to_container(
         mcps_iter = progressbar.progressbar(all_patches, redirect_stdout=True)
         for mcp in mcps_iter:
             graph.emit(mcp)
+        return None
     else:
         return all_patches
 
@@ -172,6 +173,7 @@ class DataHubApplySource(Source):
             change_proposals = apply_association_to_container(
                 asset, apply_urn, apply_type, emit=False, graph=self.graph
             )
+            assert change_proposals is not None
             yield from self._yield_workunits(change_proposals)
 
     def _yield_domain(self) -> Iterable[MetadataWorkUnit]:
