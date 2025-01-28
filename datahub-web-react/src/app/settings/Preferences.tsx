@@ -113,12 +113,12 @@ export const Preferences = () => {
                         <Card style={{ marginTop: 20 }}>
                             <UserSettingRow>
                                 <span>
-                                    <SettingText>Try DataHub 2.0 (beta)</SettingText>
+                                    <SettingText>Try New User Experience</SettingText>
                                     <div>
                                         <DescriptionText>
-                                            Enable an early preview of DataHub 2.0 - a complete makeover for your app
-                                            with a sleek new design and advanced features. Flip the switch and refresh
-                                            your browser to try it out!
+                                            Enable an early preview of the new DataHub UX - a complete makeover for your
+                                            app with a sleek new design and advanced features. Flip the switch and
+                                            refresh your browser to try it out!
                                         </DescriptionText>
                                     </div>
                                 </span>
