@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { tryLoadAndStartRecorder } from '@alwaysmeticulous/recorder-loader';
 import { App } from './App';
+import reportWebVitals from './reportWebVitals';
 
 async function startApp() {
     // Record all sessions on Dev01
@@ -14,6 +15,11 @@ async function startApp() {
         });
     }
 
+    // If you want to start measuring performance in your app, pass a function
+    // to log results (for example: reportWebVitals(console.log))
+    // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+    reportWebVitals();
+
     // Initalise app after the Meticulous recorder is ready, e.g.
     ReactDOM.render(
         <React.StrictMode>
@@ -24,7 +30,7 @@ async function startApp() {
 }
 
 function isDev01() {
-    return window.location.hostname.indexOf('dev01.acryl.io') > -1;
+    return window.location.hostname.includes('dev01.acryl.io');
 }
 
 startApp();
