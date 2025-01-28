@@ -80,9 +80,9 @@ export default function MLGroupModels() {
             dataIndex: 'name',
             key: 'name',
             width: 300,
-            render: (name, record) => (
+            render: (_: any, record) => (
                 <NameContainer>
-                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>{name}</NameLink>
+                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>{record?.properties?.propertiesName || record?.name }</NameLink>
                 </NameContainer>
             ),
         },

@@ -147,9 +147,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
               dataProcessInstanceProperties.getCustomProperties(), entityUrn));
     }
     if (dataProcessInstanceProperties.hasCreated()) {
-      com.linkedin.datahub.graphql.generated.AuditStamp created =
-          AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated());
-      properties.setCreated(created);
+      dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
     }
     dpi.setProperties(properties);
   }

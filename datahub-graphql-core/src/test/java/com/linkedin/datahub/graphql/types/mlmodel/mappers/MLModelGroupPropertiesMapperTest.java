@@ -19,6 +19,9 @@ public class MLModelGroupPropertiesMapperTest {
     // Set description
     input.setDescription("a ml trust model group");
 
+    // Set Name
+    input.setName("ML trust model group");
+
     // Create URN
     Urn groupUrn =
         Urn.createFromString(
@@ -31,6 +34,7 @@ public class MLModelGroupPropertiesMapperTest {
     // Verify mapped properties
     assertNotNull(result);
     assertEquals(result.getDescription(), "a ml trust model group");
+    assertEquals(result.getName(), "ML trust model group");
 
     // Verify lineage info is null as in the mock data
     assertNotNull(result.getMlModelLineageInfo());

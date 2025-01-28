@@ -214,7 +214,7 @@ export function formatDuration(durationMs: number): string {
     const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
-        return `${seconds}secs`;
+        return `${seconds} secs`;
     }
 
     if (hours === 0) {

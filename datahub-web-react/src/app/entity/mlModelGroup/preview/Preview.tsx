@@ -19,7 +19,7 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, group.urn)}
-            name={group?.name || ''}
+            name={group?.properties?.['propertiesName'] || group?.name || ''}
             urn={group.urn}
             platformInstanceId={group.dataPlatformInstance?.instanceId}
             description={group?.description || ''}
