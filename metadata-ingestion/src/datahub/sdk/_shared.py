@@ -2,11 +2,14 @@ import abc
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Callable,
+    Hashable,
     List,
     Optional,
     Protocol,
     Tuple,
     Type,
+    TypeVar,
     Union,
     runtime_checkable,
 )
@@ -23,7 +26,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
-from datahub.errors import SdkUsageError
+from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
@@ -172,6 +175,31 @@ OwnerInputType: TypeAlias = Union[
 OwnersInputType: TypeAlias = List[OwnerInputType]
 
 
+T = TypeVar("T")
+K = TypeVar("K", bound=Hashable)
+
+
+def _add_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
+    for i, existing in enumerate(lst):
+        if key(existing) == key(item):
+            lst[i] = item
+            return
+    lst.append(item)
+
+
+def _remove_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
+    # Poor man's patch implementation.
+    # TODO: We require K to be hashable, but we actually need it to be comparable.
+    removed = False
+    for i, existing in enumerate(lst):
+        if key(existing) == key(item):
+            lst.pop(i)
+            removed = True
+            # Tricky: no break. In case there's already duplicates, we want to remove all of them.
+    if not removed:
+        raise ItemNotFoundError(f"Item {item} not found in list")
+
+
 class HasOwnership(Entity):
     __slots__ = ()
 
@@ -230,6 +258,37 @@ class HasOwnership(Entity):
         # TODO: add docs on the default parsing + default ownership type
         parsed_owners = [self._parse_owner_class(owner) for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
+
+    @classmethod
+    def _typed_owner_key(cls, owner: models.OwnerClass) -> Hashable:
+        return (owner.owner, owner.typeUrn or owner.type)
+
+    @classmethod
+    def _simple_owner_key(cls, owner: models.OwnerClass) -> Hashable:
+        return owner.owner
+
+    def add_owner(self, owner: OwnerInputType) -> None:
+        # TODO: If the owner is already present, ignore it.
+        parsed_owner = self._parse_owner_class(owner)
+        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
+        _add_list_unique(owners, self._typed_owner_key, parsed_owner)
+
+    def remove_owner(
+        self,
+        owner: Union[ActorUrn, str],
+        owner_type: Optional[OwnershipTypeType] = None,
+    ) -> None:
+        # TODO: I'm not super happy with the interface here - ideally it'd be consistent
+        # with OwnersInputType.
+        if owner_type is None:
+            parsed_owner = self._parse_owner_class(owner)
+            key = self._simple_owner_key
+        else:
+            parsed_owner = self._parse_owner_class((owner, owner_type))
+            key = self._typed_owner_key
+
+        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
+        _remove_list_unique(owners, key, parsed_owner)
 
 
 ContainerInputType: TypeAlias = Union["Container", ContainerKey]
