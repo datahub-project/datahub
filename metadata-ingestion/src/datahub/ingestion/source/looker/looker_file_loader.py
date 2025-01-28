@@ -4,7 +4,10 @@ from dataclasses import replace
 from typing import Dict, Optional
 
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
-from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerConstant,
+    LookerViewFile,
+)
 from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
 )
@@ -30,12 +33,14 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
+        manifest_constants: Dict[str, LookerConstant] = {},
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
         self.source_config = source_config
+        self.manifest_constants = manifest_constants
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
@@ -71,9 +76,15 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
 
+            # load_and preprocess_file is called multiple times for loading view file from multiple flows.
+            # Flag resolve_constants is a hack to avoid passing around manifest_constants from all of the flows.
+            # This is fine as rest of flows do not need resolution of constants.
             parsed = load_and_preprocess_file(
                 path=path,
+                reporter=self.reporter,
                 source_config=self.source_config,
+                resolve_constants=True,
+                manifest_constants=self.manifest_constants,
             )
 
             looker_viewfile = LookerViewFile.from_looker_dict(
