@@ -4,7 +4,6 @@ from typing import Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -14,8 +13,6 @@ from datahub.metadata.urns import (
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
-    SchemaFieldUrn,
-    TagUrn,
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
@@ -58,6 +55,8 @@ class DataHubClient:
     @classmethod
     def from_env(cls) -> "DataHubClient":
         # Inspired by the DockerClient.from_env() method.
+        # This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
+        # The file is part of the "environment", but is not a traditional "env variable".
         graph = get_default_graph()
         return cls(graph=graph)
 
@@ -83,11 +82,15 @@ class DataHubClient:
         EntityClass = ENTITY_CLASSES[urn.entity_type]
 
         aspects = self._graph.get_entity_semityped(str(urn))
+        # TODO throw an error if the entity doesn't exist
+        # raise ItemNotFoundError(f"Entity {urn} not found")
 
         # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
         return EntityClass._new_from_graph(urn, aspects)
 
     def create(self, entity: Entity) -> None:
+        # TODO: add a "replace" parameter? how do we make it more clear that metadata could be overwritten?
+        # When doing a replace, should we fail if there's aspects on the entity that we aren't about to overwrite?
         mcps = []
 
         if self._graph.exists(str(entity.urn)):
@@ -109,7 +112,14 @@ class DataHubClient:
 
         self._graph.emit_mcps(mcps)
 
-    def upsert(self, entity: Entity) -> None:
+    def put(self, entity: Entity) -> None:
+        # TODO: this is a bit of a weird name. the purpose of this method is to declare
+        # metadata for the entity. If it doesn't exist, it will be created.
+        # If it does exist, it will be updated using a best effort, aspect-oriented update.
+        # That per-aspect upsert may behave unexpectedly for users if edits were also
+        # made via the UI.
+        # alternative name candidates: upsert, save
+
         mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
 
         # TODO respect If-Unmodified-Since?
@@ -120,6 +130,7 @@ class DataHubClient:
 
         self._graph.emit_mcps(mcps)
 
+    """
     def update(
         self, entity: MetadataPatchProposal, *, check_exists: bool = True
     ) -> None:
@@ -131,6 +142,7 @@ class DataHubClient:
 
         mcps = entity.build()
         self._graph.emit_mcps(mcps)
+    """
 
     def resolve_domain(self, *, name: str) -> DomainUrn:
         # TODO: add caching to this method
@@ -207,6 +219,7 @@ class DataHubClient:
         else:
             return GlossaryTermUrn.from_string(terms[0])
 
+    """
     def propose(
         self,
         entity: Union[DatasetUrn, ContainerUrn, SchemaFieldUrn],
@@ -215,3 +228,4 @@ class DataHubClient:
         # TODO: Also need to evaluate if this is the right interface?
         # e.g. a single unified "propose" interface vs multiple individual methods
         raise NotImplementedError("TODO: need to implement this")
+    """
