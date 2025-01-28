@@ -2,6 +2,7 @@ describe("auto-complete", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
+    cy.hideOnboardingTour();
     cy.login();
     // look for a dataset
     cy.visit("/");

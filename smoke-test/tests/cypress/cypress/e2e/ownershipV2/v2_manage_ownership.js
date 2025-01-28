@@ -7,7 +7,7 @@ describe("manage ownership", () => {
     const viewName = "Test View";
     cy.login();
     cy.goToOwnershipTypesSettings();
-    cy.waitTextVisible("Platform");
+    cy.waitTextVisible("Manage Ownership");
     cy.clickOptionWithTestId("create-owner-type");
     cy.get('[data-testid="ownership-type-name-input"]').clear("T");
     cy.get('[data-testid="ownership-type-name-input"]').type(
