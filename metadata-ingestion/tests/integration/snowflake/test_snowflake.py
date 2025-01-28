@@ -219,6 +219,7 @@ def test_snowflake_tags_as_structured_properties(
                         include_column_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,
+                        structured_properties_template_cache_invalidation_interval=1,
                     ),
                 ),
                 sink=DynamicTypedConfig(
