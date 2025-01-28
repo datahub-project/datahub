@@ -81,7 +81,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
 
 task pytest(type: Exec, dependsOn: [installDev]) {
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pytest -vv  ${get_coverage_args()} --continue-on-collection-errors --junit-xml=junit.full.xml"
+        "${venv_name}/bin/pytest -vv --durations=20  ${get_coverage_args()} --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 test.finalizedBy(pytest)
 

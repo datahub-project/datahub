@@ -63,11 +63,12 @@ target-version = ['py310']
 [tool.isort]
 profile = 'black'
 
-[tool.ruff]
-lint.ignore = [
+[tool.ruff.lint]
+ignore = [
   'E501', # Ignore line length, since black handles that.
   'D203', # Ignore 1 blank line required before class docstring.
 ]
+extend-select = ["INP001"]
 
 [tool.pyright]
 extraPaths = ['tests']

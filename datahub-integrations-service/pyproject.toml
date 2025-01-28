@@ -89,7 +89,7 @@ target-version = ['py310']
 profile = 'black'
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "ASYNC"]
+extend-select = ["E", "F", "B", "ASYNC", "INP001"]
 ignore = [
 	'E501', # Ignore line length, since black handles that.
 	'D203', # Ignore 1 blank line required before class docstring.
