@@ -104,7 +104,7 @@ def datahub_task_status_callback(context, status):
     task_inlets = get_task_inlets_advanced(task, context)
     task_outlets = get_task_outlets(task)
 
-    emitter = config.make_emitter_hook()
+    emitter = config.make_emitter_hook().make_emitter()
 
     dataflow = AirflowGenerator.generate_dataflow(
         config=config,
