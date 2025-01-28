@@ -500,18 +500,6 @@
     }
 },
 {
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:5d666eaf9015a31b3e305e8bc2dba078",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:airflow",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,prod)"
-        }
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
     "changeType": "UPSERT",

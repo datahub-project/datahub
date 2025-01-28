@@ -254,18 +254,6 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:airflow",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,prod)"
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:c3af9aae54b864f2542b99a50e0402e3",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {

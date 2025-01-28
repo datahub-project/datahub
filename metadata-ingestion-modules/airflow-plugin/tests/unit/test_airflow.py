@@ -8,12 +8,12 @@ from unittest.mock import Mock
 
 import airflow.configuration
 import airflow.version
+import datahub.emitter.mce_builder as builder
 import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
 
-import datahub.emitter.mce_builder as builder
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin._airflow_shims import (
     AIRFLOW_PATCHED,
@@ -242,7 +242,9 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         },
     ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
         "airflow.models.BaseOperator.xcom_push"
-    ), patch_airflow_connection(datahub_rest_connection_config):
+    ), patch_airflow_connection(
+        datahub_rest_connection_config
+    ):
         func = mock.Mock()
         func.__name__ = "foo"
 
@@ -273,10 +275,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(
-                state="success",  # type: ignore[arg-type]
-                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
-            )
+            dag_run = DagRun(state="success", run_id=f"scheduled_{DEFAULT_DATE.isoformat()}")  # type: ignore
         else:
             from airflow.utils.state import DagRunState
 
@@ -317,7 +316,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         assert all(map(lambda let: isinstance(let, Dataset), op2.outlets))
 
         # Check that the right things were emitted.
-        assert mock_emitter.emit.call_count == 20 if capture_executions else 11
+        assert mock_emitter.emit.call_count == 19 if capture_executions else 11
 
         # TODO: Replace this with a golden file-based comparison.
         assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
@@ -422,33 +421,37 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             )
             assert (
                 mock_emitter.method_calls[13].args[0].aspectName
-                == "dataPlatformInstance"
+                == "dataProcessInstanceInput"
+            )
+            assert (
+                mock_emitter.method_calls[13].args[0].entityUrn
+                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
             assert (
                 mock_emitter.method_calls[14].args[0].aspectName
-                == "dataProcessInstanceInput"
+                == "dataProcessInstanceOutput"
             )
             assert (
                 mock_emitter.method_calls[14].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
-            assert (
-                mock_emitter.method_calls[15].args[0].aspectName
-                == "dataProcessInstanceOutput"
-            )
+            assert mock_emitter.method_calls[15].args[0].aspectName == "datasetKey"
             assert (
                 mock_emitter.method_calls[15].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
             )
             assert mock_emitter.method_calls[16].args[0].aspectName == "datasetKey"
             assert (
                 mock_emitter.method_calls[16].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
             )
-            assert mock_emitter.method_calls[17].args[0].aspectName == "datasetKey"
+            assert (
+                mock_emitter.method_calls[17].args[0].aspectName
+                == "dataProcessInstanceRunEvent"
+            )
             assert (
                 mock_emitter.method_calls[17].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
+                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
             assert (
                 mock_emitter.method_calls[18].args[0].aspectName
@@ -456,13 +459,5 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             )
             assert (
                 mock_emitter.method_calls[18].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert (
-                mock_emitter.method_calls[19].args[0].aspectName
-                == "dataProcessInstanceRunEvent"
-            )
-            assert (
-                mock_emitter.method_calls[19].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
