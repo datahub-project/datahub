@@ -1,8 +1,8 @@
+import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
 import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { capitalize } from 'lodash';
 import {
     GlobalTags,
     Owner,
@@ -39,14 +39,6 @@ import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
 import { usePreviewData } from '../entity/shared/PreviewContext';
-import {
-    toRelativeTimeString,
-    formatDetailedDuration,
-    toLocalDateTimeString,
-    formatDuration,
-} from '../shared/time/timeUtils';
-import { Pill } from '../../alchemy-components/components/Pills';
-import { Popover } from '../../alchemy-components/components/Popover';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -167,34 +159,6 @@ const UserListTitle = styled(Typography.Text)`
     padding-right: 12px;
 `;
 
-const StatContainer = styled.div`
-    display: flex;
-    margin-top: 40px;
-    height: 25px;
-    padding-left: 20px;
-    color: #5f6685;
-    width: 150px;
-`;
-
-const popoverStyles = {
-    overlayInnerStyle: {
-        borderRadius: '10px',
-    },
-    overlayStyle: {
-        margin: '5px',
-    },
-    contentStyle: {
-        color: '#5F6685',
-        fontSize: '0.8rem',
-    },
-    titleStyle: {
-        color: '#5F6685',
-        borderBottom: 'none',
-        fontSize: '0.8rem',
-        fontWeight: '600',
-    },
-};
-
 interface Props {
     name: string;
     urn: string;
@@ -312,7 +276,6 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
-    const statusPillColor = status === 'SUCCESS' ? 'green' : 'red';
     const shouldShowRightColumn =
         (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
@@ -424,35 +387,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                    {startTime && (
-                        <Popover
-                            content={<div style={popoverStyles.contentStyle}>{toLocalDateTimeString(startTime)}</div>}
-                            title={<div style={popoverStyles.titleStyle}>Start Time</div>}
-                            trigger="hover"
-                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
-                            overlayStyle={popoverStyles.overlayStyle}
-                        >
-                            <StatContainer>{toRelativeTimeString(startTime)}</StatContainer>
-                        </Popover>
-                    )}
-                    {duration && (
-                        <Popover
-                            content={<div style={popoverStyles.contentStyle}>{formatDetailedDuration(duration)}</div>}
-                            title={<div style={popoverStyles.titleStyle}>Duration</div>}
-                            trigger="hover"
-                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
-                            overlayStyle={popoverStyles.overlayStyle}
-                        >
-                            <StatContainer>{formatDuration(duration)}</StatContainer>
-                        </Popover>
-                    )}
-                    {status && (
-                        <>
-                            <StatContainer>
-                                <Pill label={capitalize(status)} colorScheme={statusPillColor} />
-                            </StatContainer>
-                        </>
-                    )}
+                    <DataProcessInstanceRightColumn startTime={startTime} duration={duration} status={status} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

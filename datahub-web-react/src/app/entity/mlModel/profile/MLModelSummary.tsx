@@ -39,6 +39,7 @@ const VersionTagContainer = styled.span`
 
 const JobLink = styled(Link)`
     color: #1890ff;
+
     &:hover {
         text-decoration: underline;
     }
@@ -75,19 +76,17 @@ export default function MLModelSummary() {
 
         return (
             <div>
-                {trainingJobs.map((job, index) => (
-                    <span key={(job as { urn: string }).urn}>
-                        <JobLink
-                            to={entityRegistry.getEntityUrl(
-                                EntityType.DataProcessInstance,
-                                (job as { urn: string }).urn,
-                            )}
-                        >
-                            {(job as { name?: string })?.name || (job as { urn: string }).urn}
-                        </JobLink>
-                        {index < trainingJobs.length - 1 && ', '}
-                    </span>
-                ))}
+                {trainingJobs.map((job, index) => {
+                    const { urn, name } = job as { urn: string; name?: string };
+                    return (
+                        <span key={urn}>
+                            <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, urn)}>
+                                {name || urn}
+                            </JobLink>
+                            {index < trainingJobs.length - 1 && ', '}
+                        </span>
+                    );
+                })}
             </div>
         );
     };
