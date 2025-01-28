@@ -357,6 +357,10 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
+    skip_database_name: bool = Field(
+        default=False,
+        description="Whether to skip database name for engines like AWS Athena where it's not required.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
