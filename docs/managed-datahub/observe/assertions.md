@@ -46,3 +46,21 @@ With Acryl Observe, you can get the Assertion Change event by getting API events
 ## Cost
 
 We provide a plethora of ways to run your assertions, aiming to allow you to use the cheapest possible means to do so and/or the most accurate means to do so, depending on your use case. For example, for Freshness (SLA) assertions, it is relatively cheap to use either their Audit Log or Information Schema as a means to run freshness checks, and we support both of those as well as Last Modified Column, High Watermark Column, and DataHub Operation ([see the docs for more details](/docs/managed-datahub/observe/freshness-assertions.md#3-change-source)).
+
+## Execution details - Where and How
+
+There's a few ways DataHub Cloud assertions can be executed:
+1. Directly query the source system:
+  a. `Information Schema` tables can be used for cheap, fast checks for a table's freshness, row count, etc.
+  b. `Audit log` tables can be used to granularly monitor table operations
+  c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targetting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
+2. Reference DataHub profiling information
+  a. `Operation`s that are reported via ingestion or our SDKs can power monitoring table freshness.
+  b. `DatasetProfile` and `SchemaFieldProfile` ingested or reported via SDKs can power monitoring table metrics and column metrics.
+
+### Privacy: Execute In-Network, avoid exposing data externally
+As a part of DataHub Cloud, we offer a [Remote Executor](/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md) deployment model. If this model is used, assertions will execute within your network, and only the results will be sent back to DataHub Cloud. Neither your actual credentials, nor your source data will leave your network.
+
+### Source system selection
+Assertions will use the same source system to execute their queries, as the system that was used to initially ingest the table.
+There are some scenarios where customers may have multiple ingestion sources for, i.e. a BigQuery table. In this case, by default the executor will take the ingestion source that was used to ingest the table's `DatasetProfile` or `SchemaMetadata`. This behavior can be modified by your customer success rep.
