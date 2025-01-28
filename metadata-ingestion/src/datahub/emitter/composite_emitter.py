@@ -7,6 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 
+
 # Experimental composite emitter that allows multiple emitters to be used in a single ingestion job
 class CompositeEmitter(Emitter):
     def __init__(self, emitters: List[Emitter]) -> None:
