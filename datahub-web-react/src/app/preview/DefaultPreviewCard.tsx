@@ -1,8 +1,8 @@
+import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
 import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
 import {
     GlobalTags,
     Owner,
@@ -200,6 +200,9 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     parentDataset?: Dataset;
+    startTime?: number | null;
+    duration?: number | null;
+    status?: string | null;
 }
 
 export default function DefaultPreviewCard({
@@ -243,6 +246,9 @@ export default function DefaultPreviewCard({
     paths,
     health,
     parentDataset,
+    startTime,
+    duration,
+    status,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -270,7 +276,8 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
-    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const shouldShowRightColumn =
+        (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
 
     return (
@@ -380,6 +387,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
+                    <DataProcessInstanceRightColumn startTime={startTime} duration={duration} status={status} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>
