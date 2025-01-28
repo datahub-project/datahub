@@ -209,7 +209,7 @@ def _run_airflow(
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
-        if multiple_connections and not is_v1
+        if multiple_connections
         else datahub_connection_name,
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
@@ -257,7 +257,7 @@ def _run_airflow(
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
     }
 
-    if multiple_connections and not is_v1:
+    if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
             conn_id="datahub_file_default2",
             conn_type="datahub-file",
@@ -509,7 +509,7 @@ def test_airflow_plugin(
             ],
         )
 
-        if test_case.multiple_connections and not is_v1:
+        if test_case.multiple_connections:
             _sanitize_output_file(airflow_instance.metadata_file2)
             check_golden_file(
                 pytestconfig=pytestconfig,

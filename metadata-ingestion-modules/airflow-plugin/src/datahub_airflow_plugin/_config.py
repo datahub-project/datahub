@@ -1,7 +1,8 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from airflow.configuration import conf
+from pydantic import root_validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -29,6 +30,8 @@ class DatahubLineageConfig(ConfigModel):
 
     # DataHub hook connection ID.
     datahub_conn_id: str
+
+    _datahub_connection_ids: List[str] = []
 
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
     cluster: str = builder.DEFAULT_FLOW_CLUSTER
@@ -78,12 +81,16 @@ class DatahubLineageConfig(ConfigModel):
             DatahubGenericHook,
         )
 
-        conn_ids = self.datahub_conn_id.split(",")
-        conn_ids = [conn_id.strip() for conn_id in conn_ids]
-        if len(conn_ids) == 1:
-            return DatahubGenericHook(conn_ids[0])
+        if len(self._datahub_connection_ids) == 1:
+            return DatahubGenericHook(self._datahub_connection_ids[0])
         else:
-            return DatahubCompositeHook(conn_ids)
+            return DatahubCompositeHook(self._datahub_connection_ids)
+
+    @root_validator(skip_on_failure=True)
+    def split_conn_ids(cls, values: Dict) -> Dict:
+        conn_ids = values.get("datahub_conn_id").split(",")
+        values["_datahub_connection_ids"] = [conn_id.strip() for conn_id in conn_ids]
+        return values
 
 
 def get_lineage_config() -> DatahubLineageConfig:

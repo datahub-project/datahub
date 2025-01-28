@@ -31,8 +31,6 @@ TASK_ON_RETRY_CALLBACK = "on_retry_callback"
 
 def load_config_v22():
     plugin_config = get_lineage_config()
-    # On the old pluigin we don't support multiple conn_ids, so we just get the first one
-    plugin_config.datahub_conn_id = plugin_config.datahub_conn_id.split()[0].strip()
     return plugin_config
 
 
@@ -106,9 +104,7 @@ def datahub_task_status_callback(context, status):
     task_inlets = get_task_inlets_advanced(task, context)
     task_outlets = get_task_outlets(task)
 
-    emitter = (
-        DatahubGenericHook(config.datahub_conn_id).get_underlying_hook().make_emitter()
-    )
+    emitter = config.make_emitter_hook()
 
     dataflow = AirflowGenerator.generate_dataflow(
         config=config,
@@ -372,8 +368,6 @@ def _patch_datahub_policy():
     _patch_policy(settings)
 
     plugin_config = load_config_v22()
-    # On the old pluigin we don't support multiple conn_ids, so we just get the first one
-    plugin_config.datahub_conn_id = plugin_config.datahub_conn_id.split()[0].strip()
     telemetry.telemetry_instance.ping(
         "airflow-plugin-init",
         {

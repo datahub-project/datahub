@@ -316,7 +316,7 @@ class DatahubCompositeHook(BaseHook):
 
     hooks: List[DatahubGenericHook] = []
 
-    def __init__(self, datahub_conn_ids: Sequence[str]) -> None:
+    def __init__(self, datahub_conn_ids: List[str]) -> None:
         self.datahub_conn_ids = datahub_conn_ids
 
     def make_emitter(self) -> CompositeEmitter:
