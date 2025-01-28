@@ -17,7 +17,7 @@ from typing import (
 
 import typing_inspect
 
-from datahub import __package_name__
+from datahub._version import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 if sys.version_info < (3, 10):
