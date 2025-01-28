@@ -7,7 +7,12 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    SchemaKey,
+)
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -222,6 +227,28 @@ class MSSQLDataJob:
             )
         return None
 
+    @property
+    def as_container_aspect(self) -> ContainerClass:
+        key_args = dict(
+            platform=self.entity.flow.orchestrator,
+            instance=self.entity.flow.platform_instance
+            if self.entity.flow.platform_instance
+            else None,
+            env=self.entity.flow.env,
+            database=self.entity.flow.db,
+        )
+        container_key = (
+            SchemaKey(
+                schema=self.entity.schema,
+                **key_args,
+            )
+            if hasattr(self.entity, "schema")  # StoredProcedure does
+            else DatabaseKey(
+                **key_args,
+            )
+        )
+        return ContainerClass(container=container_key.as_urn())
+
 
 @dataclass
 class MSSQLDataFlow:
@@ -267,3 +294,15 @@ class MSSQLDataFlow:
                 ),
             )
         return None
+
+    @property
+    def as_container_aspect(self) -> ContainerClass:
+        databaseKey = DatabaseKey(
+            platform=self.entity.orchestrator,
+            instance=self.entity.platform_instance
+            if self.entity.platform_instance
+            else None,
+            env=self.entity.env,
+            database=self.entity.db,
+        )
+        return ContainerClass(container=databaseKey.as_urn())

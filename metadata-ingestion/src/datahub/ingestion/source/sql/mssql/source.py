@@ -641,6 +641,11 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_job.urn,
+            aspect=data_job.as_container_aspect,
+        ).as_workunit()
+
         if include_lineage:
             yield MetadataChangeProposalWrapper(
                 entityUrn=data_job.urn,
@@ -683,6 +688,12 @@ class SQLServerSource(SQLAlchemySource):
                 entityUrn=data_flow.urn,
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_flow.urn,
+            aspect=data_flow.as_container_aspect,
+        ).as_workunit()
+
         # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:
