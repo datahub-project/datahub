@@ -3,11 +3,6 @@ package com.linkedin.metadata.entity;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.FormAssociation;
-import com.linkedin.common.FormAssociationArray;
-import com.linkedin.common.FormVerificationAssociation;
-import com.linkedin.common.FormVerificationAssociationArray;
-import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
@@ -21,6 +16,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
+import com.linkedin.metadata.aspect.patch.builder.FormsPatchBuilder;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -259,35 +255,9 @@ public class DeleteEntityUtils {
 
   @Nullable
   public static MetadataChangeProposal removeFormFromFormsAspect(
-      @Nonnull Forms formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
-    final AtomicReference<Forms> updatedAspect;
-    try {
-      updatedAspect = new AtomicReference<>(formsAspect.copy());
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to copy the forms aspect for updating", e);
-    }
-
-    List<FormAssociation> incompleteForms =
-        formsAspect.getIncompleteForms().stream()
-            .filter(incompleteForm -> !incompleteForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    List<FormAssociation> completedForms =
-        formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    final List<FormVerificationAssociation> verifications =
-        formsAspect.getVerifications().stream()
-            .filter(verification -> !verification.getForm().equals(deletedUrn))
-            .collect(Collectors.toList());
-
-    updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
-    updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
-    updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
-
-    if (!formsAspect.equals(updatedAspect.get())) {
-      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
-    }
-    return null;
+      @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    FormsPatchBuilder formsPatchBuilder = new FormsPatchBuilder().urn(assetUrn);
+    return formsPatchBuilder.removeForm(deletedUrn).removeFormVerification(deletedUrn).build();
   }
 
   // all assets that could have a form associated with them

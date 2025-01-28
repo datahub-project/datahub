@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangeProposal;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.applyAppSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,7 +62,6 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -148,8 +146,7 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn) {
     verifyEntityExists(opContext, formUrn);
     verifyEntitiesExist(opContext, entityUrns, false);
-    final List<MetadataChangeProposal> changes =
-        buildUnassignFormChanges(opContext, entityUrns, formUrn);
+    final List<MetadataChangeProposal> changes = buildUnassignFormChanges(entityUrns, formUrn);
     if (_appSource != null) {
       applyAppSource(changes, _appSource);
     }
@@ -1179,30 +1176,7 @@ public class FormService extends BaseService {
       @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn)
       throws Exception {
 
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(FORMS_ASPECT_NAME));
-
-    Forms formsAspect = new Forms();
-    formsAspect.setIncompleteForms(new FormAssociationArray());
-    formsAspect.setCompletedForms(new FormAssociationArray());
-    if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
-      formsAspect = new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data());
-    }
-
-    // if this form is already assigned to this entity, leave it and move on
-    Optional<FormAssociation> formAssociation =
-        Stream.concat(
-                formsAspect.getCompletedForms().stream(), formsAspect.getIncompleteForms().stream())
-            .filter(form -> form.getUrn().equals(formUrn))
-            .findAny();
-
-    if (formAssociation.isPresent()) {
-      return null;
-    }
-
     // add this form to the entity's incomplete form associations.
-    FormAssociationArray incompleteForms = formsAspect.getIncompleteForms();
     FormAssociation newAssociation = new FormAssociation();
     newAssociation.setUrn(formUrn);
 
@@ -1222,22 +1196,19 @@ public class FormService extends BaseService {
     newAssociation.setCompletedPrompts(new FormPromptAssociationArray());
     newAssociation.setCreated(opContext.getAuditStamp());
     newAssociation.setLastModified(opContext.getAuditStamp());
-    incompleteForms.add(newAssociation);
-    formsAspect.setIncompleteForms(incompleteForms);
-    return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, formsAspect);
+    FormsPatchBuilder formsPatchBuilder =
+        new FormsPatchBuilder().urn(entityUrn).setFormIncomplete(newAssociation);
+    return formsPatchBuilder.build();
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildUnassignFormChanges(
-      @Nonnull OperationContext opContext,
-      @Nonnull final List<Urn> entityUrns,
-      @Nonnull final Urn formUrn) {
+      @Nonnull final List<Urn> entityUrns, @Nonnull final Urn formUrn) {
     final List<MetadataChangeProposal> results = new ArrayList<>();
     entityUrns.forEach(
         entityUrn -> {
           try {
-            MetadataChangeProposal maybeChange =
-                buildUnassignFormChange(opContext, entityUrn, formUrn);
+            MetadataChangeProposal maybeChange = buildUnassignFormChange(entityUrn, formUrn);
             if (maybeChange != null) {
               results.add(maybeChange);
             }
@@ -1254,41 +1225,9 @@ public class FormService extends BaseService {
 
   @Nullable
   private MetadataChangeProposal buildUnassignFormChange(
-      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn)
-      throws Exception {
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(FORMS_ASPECT_NAME));
-    Forms formsAspect = new Forms();
-    formsAspect.setCompletedForms(new FormAssociationArray());
-    formsAspect.setIncompleteForms(new FormAssociationArray());
-    if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
-      formsAspect = new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data());
-    }
-
-    List<FormAssociation> newCompleted =
-        new ArrayList<>(
-            new FormAssociationArray(
-                formsAspect.getCompletedForms().stream()
-                    .filter(form -> !form.getUrn().equals(formUrn))
-                    .collect(Collectors.toList())));
-    List<FormAssociation> newIncomplete =
-        new ArrayList<>(
-            new FormAssociationArray(
-                formsAspect.getIncompleteForms().stream()
-                    .filter(form -> !form.getUrn().equals(formUrn))
-                    .collect(Collectors.toList())));
-
-    if (newCompleted.size() == formsAspect.getCompletedForms().size()
-        && newIncomplete.size() == formsAspect.getIncompleteForms().size()) {
-      // No metadata to change. Skip ingestion.
-      return null;
-    }
-
-    formsAspect.setCompletedForms(new FormAssociationArray(newCompleted));
-    formsAspect.setIncompleteForms(new FormAssociationArray(newIncomplete));
-
-    return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, formsAspect);
+      @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn) {
+    FormsPatchBuilder formsPatchBuilder = new FormsPatchBuilder().urn(entityUrn);
+    return formsPatchBuilder.removeForm(formUrn).build();
   }
 
   private List<MetadataChangeProposal> buildUnsetFormPromptChanges(
@@ -1334,14 +1273,14 @@ public class FormService extends BaseService {
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
 
     if (formAssociation != null) {
-      // 1. Find and mark the provided form prompt as incomplete.
-      updatePromptToIncomplete(opContext, formAssociation, entityUrn, formUrn, formPromptId);
-
-      // 2. Update the form's completion status given the incomplete prompt.
-      updateFormCompletion(forms, formAssociation, formDefinition);
-
-      // 3. Update the form status aspect for the entity.
-      return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms);
+      FormPromptAssociation newPromptAssociation =
+          new FormPromptAssociation()
+              .setId(formPromptId)
+              .setLastModified(opContext.getAuditStamp());
+      FormsPatchBuilder patchBuilder = new FormsPatchBuilder().urn(entityUrn);
+      // Rely on Form Completion hook to set completion status since this always comes from Metadata
+      // Tests
+      return patchBuilder.markPromptIncomplete(formUrn, newPromptAssociation).build();
     } else {
       // Form not assigned to the entity! Let's warn and do nothing.
       log.warn(

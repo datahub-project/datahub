@@ -6,7 +6,6 @@ import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
@@ -690,8 +689,7 @@ public class DeleteEntityService {
     RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "forms");
     if (record == null) return null;
 
-    return DeleteEntityUtils.removeFormFromFormsAspect(
-        new Forms(record.data()), assetUrn, deletedUrn);
+    return DeleteEntityUtils.removeFormFromFormsAspect(assetUrn, deletedUrn);
   }
 
   @Nullable

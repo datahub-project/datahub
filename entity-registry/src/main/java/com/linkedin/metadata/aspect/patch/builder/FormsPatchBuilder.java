@@ -49,6 +49,31 @@ public class FormsPatchBuilder extends AbstractMultiFieldPatchBuilder<FormsPatch
     }
   }
 
+  public FormsPatchBuilder markPromptIncomplete(
+      @Nonnull Urn formUrn, @Nonnull FormPromptAssociation promptAssociation) {
+    try {
+      ObjectNode promptNode =
+          (ObjectNode) new ObjectMapper().readTree(RecordUtils.toJsonString(promptAssociation));
+      promptNode.set(IS_COMPLETE_FIELD, instance.booleanNode(false));
+      pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              "/"
+                  + FORMS_FIELD
+                  + "/"
+                  + formUrn
+                  + "/"
+                  + PROMPTS_FIELD
+                  + "/"
+                  + promptAssociation.getId(),
+              promptNode));
+      return this;
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(
+          "Failed to mark form prompt as complete, failed to parse provided aspect json.", e);
+    }
+  }
+
   public FormsPatchBuilder completeForm(@Nonnull FormAssociation formAssociation) {
     try {
       ObjectNode formNode =
@@ -78,7 +103,7 @@ public class FormsPatchBuilder extends AbstractMultiFieldPatchBuilder<FormsPatch
       pathValues.add(
           ImmutableTriple.of(
               PatchOperationType.ADD.getValue(),
-              "/" + FORMS_FIELD + "/" + formAssociation.getUrn(),
+              "/" + FORMS_FIELD + "/" + encodeValueUrn(formAssociation.getUrn()),
               formNode));
       return this;
     } catch (JsonProcessingException e) {
@@ -96,13 +121,31 @@ public class FormsPatchBuilder extends AbstractMultiFieldPatchBuilder<FormsPatch
       pathValues.add(
           ImmutableTriple.of(
               PatchOperationType.ADD.getValue(),
-              "/" + VERIFICATIONS_FIELD + "/" + verificationAssociation.getForm(),
+              "/" + VERIFICATIONS_FIELD + "/" + encodeValueUrn(verificationAssociation.getForm()),
               formNode));
       return this;
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(
           "Failed to verify form, failed to parse provided aspect json.", e);
     }
+  }
+
+  public FormsPatchBuilder removeForm(Urn formUrn) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            "/" + FORMS_FIELD + "/" + encodeValueUrn(formUrn),
+            null));
+    return this;
+  }
+
+  public FormsPatchBuilder removeFormVerification(Urn formUrn) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            "/" + VERIFICATIONS_FIELD + "/" + encodeValueUrn(formUrn),
+            null));
+    return this;
   }
 
   @Override

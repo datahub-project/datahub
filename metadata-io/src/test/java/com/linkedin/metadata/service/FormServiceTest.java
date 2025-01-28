@@ -221,7 +221,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -277,7 +279,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    null)),
             anyBoolean());
   }
 
@@ -440,7 +444,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -501,7 +507,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -624,7 +632,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms)),
+                    opContext,
+                    existingForms)),
             Mockito.eq(false));
   }
 
@@ -675,8 +685,10 @@ public class FormServiceTest {
         opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Forms expectedForms = new Forms();
-    expectedForms.setCompletedForms(new FormAssociationArray());
-    expectedForms.setIncompleteForms(
+    expectedForms.setIncompleteForms(new FormAssociationArray());
+    // Form is incomplete now, but have transitioned to relying on hook to update form completion
+    // status
+    expectedForms.setCompletedForms(
         new FormAssociationArray(
             ImmutableList.of(
                 new FormAssociation()
@@ -700,7 +712,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -789,8 +803,10 @@ public class FormServiceTest {
         mockOperationContext(), ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Forms expectedForms = new Forms();
-    expectedForms.setCompletedForms(new FormAssociationArray());
-    expectedForms.setIncompleteForms(
+    expectedForms.setIncompleteForms(new FormAssociationArray());
+    // Form is incomplete now, but have transitioned to relying on hook to update form completion
+    // status
+    expectedForms.setCompletedForms(
         new FormAssociationArray(
             ImmutableList.of(
                 new FormAssociation()
@@ -815,7 +831,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -898,7 +916,9 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     Collections.singletonList(
                         AspectUtils.buildMetadataChangeProposal(
-                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)))),
+                            TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms)),
+                    opContext,
+                    existingForms)),
             anyBoolean());
   }
 
@@ -1874,7 +1894,9 @@ public class FormServiceTest {
                         AspectUtils.buildMetadataChangeProposal(
                             TEST_ENTITY_URN,
                             FORMS_ASPECT_NAME,
-                            formsAspectMap.get(FORMS_ASPECT_NAME))))),
+                            formsAspectMap.get(FORMS_ASPECT_NAME))),
+                    opContext,
+                    null)),
             eq(false));
   }
 

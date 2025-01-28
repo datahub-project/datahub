@@ -5,14 +5,14 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.FormAssociationArray;
-import com.linkedin.common.Forms;
+import com.linkedin.common.FormAssociation;
+import com.linkedin.common.FormPromptAssociationArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-public class FormAssociationTemplate extends CompoundKeyTemplate<Forms> {
+public class FormAssociationTemplate extends CompoundKeyTemplate<FormAssociation> {
 
   private static final String INCOMPLETE_PROMPTS_FIELD_NAME = "incompletePrompts";
   private static final String COMPLETED_PROMPTS_FIELD_NAME = "completedPrompts";
@@ -21,24 +21,24 @@ public class FormAssociationTemplate extends CompoundKeyTemplate<Forms> {
   private static final String IS_COMPLETE_FIELD_NAME = "isComplete";
 
   @Override
-  public Forms getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
-    if (recordTemplate instanceof Forms) {
-      return (Forms) recordTemplate;
+  public FormAssociation getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
+    if (recordTemplate instanceof FormAssociation) {
+      return (FormAssociation) recordTemplate;
     }
-    throw new ClassCastException("Unable to cast RecordTemplate to Forms");
+    throw new ClassCastException("Unable to cast RecordTemplate to FormAssociation");
   }
 
   @Override
-  public Class<Forms> getTemplateType() {
-    return Forms.class;
+  public Class<FormAssociation> getTemplateType() {
+    return FormAssociation.class;
   }
 
   @Nonnull
   @Override
-  public Forms getDefault() {
-    return new Forms()
-        .setIncompleteForms(new FormAssociationArray())
-        .setCompletedForms(new FormAssociationArray());
+  public FormAssociation getDefault() {
+    return new FormAssociation()
+        .setIncompletePrompts(new FormPromptAssociationArray())
+        .setCompletedPrompts(new FormPromptAssociationArray());
   }
 
   @Nonnull

@@ -4,23 +4,45 @@ import com.linkedin.common.FormAssociation;
 import com.linkedin.common.FormPromptAssociation;
 import com.linkedin.common.FormVerificationAssociation;
 import com.linkedin.common.Forms;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentMatcher;
 
 public class EntityFormsArgumentMatcher implements ArgumentMatcher<List<MetadataChangeProposal>> {
 
   private List<MetadataChangeProposal> leftList;
+  private OperationContext opContext;
+  private Forms existingForms;
 
-  public EntityFormsArgumentMatcher(List<MetadataChangeProposal> leftList) {
+  public EntityFormsArgumentMatcher(
+      List<MetadataChangeProposal> leftList, OperationContext opContext, Forms existingForms) {
     this.leftList = leftList;
+    this.opContext = opContext;
+    this.existingForms = existingForms;
   }
 
   @Override
   public boolean matches(List<MetadataChangeProposal> rightList) {
-    return rightList.stream()
+    List<MetadataChangeProposal> convertedList =
+        rightList.stream()
+            .filter(mcp -> mcp.getChangeType().equals(ChangeType.PATCH))
+            .map(
+                mcp ->
+                    PatchItemImpl.PatchItemImplBuilder.build(
+                            mcp, opContext.getAuditStamp(), opContext.getEntityRegistry())
+                        .applyPatch(existingForms, opContext.getAspectRetriever()))
+            .map(this::getPatchedMcp)
+            .collect(Collectors.toList());
+    return convertedList.stream()
         .allMatch(
             right ->
                 leftList.stream()
@@ -120,5 +142,23 @@ public class EntityFormsArgumentMatcher implements ArgumentMatcher<List<Metadata
   private boolean verificationMatch(
       FormVerificationAssociation left, FormVerificationAssociation right) {
     return left.getForm().equals(right.getForm());
+  }
+
+  private MetadataChangeProposal getPatchedMcp(ChangeItemImpl changeItem) {
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(changeItem.getUrn());
+    mcp.setChangeType(changeItem.getChangeType());
+    mcp.setEntityType(changeItem.getEntitySpec().getName());
+    mcp.setAspectName(changeItem.getAspectName());
+    mcp.setAspect(GenericRecordUtils.serializeAspect(changeItem.getRecordTemplate()));
+    mcp.setSystemMetadata(changeItem.getSystemMetadata());
+    mcp.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                changeItem.getUrn(), changeItem.getEntitySpec().getKeyAspectSpec())));
+    if (!changeItem.getHeaders().isEmpty()) {
+      mcp.setHeaders(new StringMap(changeItem.getHeaders()));
+    }
+    return mcp;
   }
 }
