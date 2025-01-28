@@ -2,6 +2,7 @@
 
 This example demonstrates how to emit lineage to DataHub within an Airflow DAG.
 """
+
 from datetime import timedelta
 
 from airflow import DAG

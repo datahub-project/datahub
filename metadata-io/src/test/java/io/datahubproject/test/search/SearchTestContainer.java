@@ -5,7 +5,7 @@ import org.testcontainers.containers.GenericContainer;
 
 public interface SearchTestContainer {
 
-  String SEARCH_JAVA_OPTS = "-Xms446m -Xmx446m -XX:MaxDirectMemorySize=368435456";
+  String SEARCH_JAVA_OPTS = "-Xms512m -Xmx512m -XX:MaxDirectMemorySize=368435456";
 
   Duration STARTUP_TIMEOUT = Duration.ofMinutes(5); // usually < 1min
 

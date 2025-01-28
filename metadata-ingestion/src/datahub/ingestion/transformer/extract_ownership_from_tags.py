@@ -141,9 +141,9 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                 else:
                     owner_type = get_owner_type(self.config.owner_type)
                     if owner_type == OwnershipTypeClass.CUSTOM:
-                        assert (
-                            self.config.owner_type_urn is not None
-                        ), "owner_type_urn must be set if owner_type is CUSTOM"
+                        assert self.config.owner_type_urn is not None, (
+                            "owner_type_urn must be set if owner_type is CUSTOM"
+                        )
 
                     owners.append(
                         OwnerClass(

@@ -13030,11 +13030,6 @@ extend type DataProcessInstance {
     container: Container
 
     """
-    Standardized platform urn where the data process instance is defined
-    """
-    platform: DataPlatform!
-
-    """
     Recursively get the lineage of containers for this entity
     """
     parentContainers: ParentContainersResult

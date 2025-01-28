@@ -5,7 +5,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_airflow_plugin/__init__.py") as fp:
+with open("./src/datahub_airflow_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -71,7 +71,6 @@ mypy_stubs = {
 dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
     "ruff==0.9.2",
     "mypy==1.10.1",

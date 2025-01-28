@@ -50,7 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Deprecated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/relationships/v1")
+@RequestMapping("/openapi/relationships/v1")
 @Slf4j
 @Tag(name = "Relationships", description = "APIs for accessing relationships of entities")
 public class RelationshipsController {
