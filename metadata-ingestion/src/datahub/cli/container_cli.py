@@ -1,19 +1,8 @@
 import logging
-from typing import Any, List
 
 import click
-import progressbar
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
-from datahub.metadata.schema_classes import (
-    DomainsClass,
-    GlossaryTermAssociationClass,
-    OwnerClass,
-    OwnershipTypeClass,
-    TagAssociationClass,
-)
-from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.ingestion.source.apply.datahub_apply import apply_association_to_container
 
 logger = logging.getLogger(__name__)
 
@@ -22,58 +11,6 @@ logger = logging.getLogger(__name__)
 def container() -> None:
     """A group of commands to interact with containers in DataHub."""
     pass
-
-
-def apply_association_to_container(
-    container_urn: str,
-    association_urn: str,
-    association_type: str,
-) -> None:
-    """
-    Common function to add either tags, terms, domains, or owners to child datasets (for now).
-
-    Args:
-        container_urn: The URN of the container
-        association_urn: The URN of the tag, term, or user to apply
-        association_type: One of 'tag', 'term', 'domain' or 'owner'
-    """
-    urns: List[str] = []
-    graph = get_default_graph()
-    logger.info(f"Using {graph}")
-    urns.extend(
-        graph.get_urns_by_filter(
-            container=container_urn, batch_size=1000, entity_types=["dataset"]
-        )
-    )
-
-    all_patches: List[Any] = []
-    for urn in urns:
-        builder = DatasetPatchBuilder(urn)
-        patches: List[Any] = []
-        if association_type == "tag":
-            patches = builder.add_tag(TagAssociationClass(association_urn)).build()
-        elif association_type == "term":
-            patches = builder.add_term(
-                GlossaryTermAssociationClass(association_urn)
-            ).build()
-        elif association_type == "owner":
-            patches = builder.add_owner(
-                OwnerClass(
-                    owner=association_urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-            ).build()
-        elif association_type == "domain":
-            patches = [
-                MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=DomainsClass(domains=[association_urn]),
-                )
-            ]
-        all_patches.extend(patches)
-    mcps_iter = progressbar.progressbar(all_patches, redirect_stdout=True)
-    for mcp in mcps_iter:
-        graph.emit(mcp)
 
 
 @container.command()
