@@ -1,4 +1,5 @@
 import argparse
+from typing import Optional
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -7,7 +8,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
-from typing import Optional
+
 
 def create_dataset(
     platform: str,

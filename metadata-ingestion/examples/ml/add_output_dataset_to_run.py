@@ -1,5 +1,5 @@
 import argparse
-from typing import Optional, List
+from typing import List
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -11,11 +11,11 @@ from datahub.metadata.schema_classes import ChangeTypeClass
 
 
 def create_dataset(
-        platform: str,
-        name: str,
-        token: str,
-        description: str = "",
-        server_url: str = "http://localhost:8080",
+    platform: str,
+    name: str,
+    token: str,
+    description: str = "",
+    server_url: str = "http://localhost:8080",
 ) -> str:
     """Create a dataset in DataHub and return its URN.
 
@@ -50,10 +50,10 @@ def create_dataset(
 
 
 def add_output_datasets_to_run(
-        run_urn: str,
-        dataset_urns: List[str],
-        token: str,
-        server_url: str = "http://localhost:8080",
+    run_urn: str,
+    dataset_urns: List[str],
+    token: str,
+    server_url: str = "http://localhost:8080",
 ) -> None:
     """Add output datasets to a data process instance run.
 

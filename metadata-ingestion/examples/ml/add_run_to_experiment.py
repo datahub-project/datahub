@@ -1,9 +1,10 @@
 import argparse
+from typing import Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from typing import Optional
+
 
 def add_run_to_experiment(
     run_urn: str,

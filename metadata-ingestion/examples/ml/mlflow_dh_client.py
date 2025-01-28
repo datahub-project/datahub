@@ -1,6 +1,5 @@
 import logging
 import time
-from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 import datahub.metadata.schema_classes as models
@@ -13,9 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
-    DataProcessRunStatusClass,
     DataProcessInstanceRunResultClass,
-    AuditStampClass,
+    DataProcessRunStatusClass,
 )
 from datahub.metadata.urns import (
     ContainerUrn,
@@ -24,6 +22,10 @@ from datahub.metadata.urns import (
     MlModelUrn,
     VersionSetUrn,
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 class MLflowDatahubClient:
     """Client for creating and managing MLflow metadata in DataHub."""
@@ -55,9 +57,8 @@ class MLflowDatahubClient:
         )
 
     def _emit_mcps(
-            self,
-            mcps: Union[
-                List[MetadataChangeProposalWrapper], MetadataChangeProposalWrapper],
+        self,
+        mcps: Union[List[MetadataChangeProposalWrapper], MetadataChangeProposalWrapper],
     ) -> None:
         """Helper to emit MCPs with proper connection handling"""
         if not isinstance(mcps, list):
@@ -73,7 +74,7 @@ class MLflowDatahubClient:
         try:
             return self.graph.get_aspect(entity_urn=entity_urn, aspect_type=aspect_type)
         except Exception as e:
-            logging.warning(f"Could not fetch aspect for {entity_urn}: {e}")
+            logger.warning(f"Could not fetch aspect for {entity_urn}: {e}")
             return default_constructor() if default_constructor else None
 
     def _create_properties_class(
@@ -194,8 +195,7 @@ class MLflowDatahubClient:
 
         if result:
             event_args["result"] = DataProcessInstanceRunResultClass(
-                type=result,
-                nativeResultType=str(result)
+                type=result, nativeResultType=str(result)
             )
         if duration_millis:
             event_args["durationMillis"] = duration_millis
@@ -220,6 +220,7 @@ class MLflowDatahubClient:
             str(model_group_urn), properties, "mlModelGroup", "mlModelGroupProperties"
         )
         self._emit_mcps(mcp)
+        logger.info(f"Created model group: {model_group_urn}")
         return str(model_group_urn)
 
     def create_model(
@@ -269,7 +270,9 @@ class MLflowDatahubClient:
         )
 
         mcps = [
-            self._create_mcp(str(model_urn), properties, "mlModel", "mlModelProperties"),
+            self._create_mcp(
+                str(model_urn), properties, "mlModel", "mlModelProperties"
+            ),
             self._create_mcp(
                 str(version_set_urn),
                 version_set_properties,
@@ -281,6 +284,7 @@ class MLflowDatahubClient:
             ),
         ]
         self._emit_mcps(mcps)
+        logger.info(f"Created model: {model_urn}")
         return str(model_urn)
 
     def create_experiment(
@@ -307,6 +311,7 @@ class MLflowDatahubClient:
             aspects=[container_subtype, properties, browse_path, platform_instance],
         )
         self._emit_mcps(mcps)
+        logger.info(f"Created experiment: {container_urn}")
         return str(container_urn)
 
     def create_training_run(
@@ -345,8 +350,7 @@ class MLflowDatahubClient:
         # Create events
         aspects.append(
             self._create_run_event(
-                status=DataProcessRunStatusClass.STARTED,
-                timestamp=start_ts
+                status=DataProcessRunStatusClass.STARTED, timestamp=start_ts
             )
         )
 
@@ -363,6 +367,7 @@ class MLflowDatahubClient:
         # Create and emit MCPs
         mcps = [self._create_mcp(dpi_urn, aspect) for aspect in aspects]
         self._emit_mcps(mcps)
+        logger.info(f"Created training run: {dpi_urn}")
         return dpi_urn
 
     def create_dataset(self, name: str, platform: str, **kwargs: Any) -> str:
@@ -379,20 +384,22 @@ class MLflowDatahubClient:
         self._update_entity_properties(
             entity_urn=model_urn,
             aspect_type=models.MLModelPropertiesClass,
-            updates={"trainingJobs": run_urn, "downstreamJobs": run_urn},
+            updates={"trainingJobs": run_urn},
             entity_type="mlModel",
-            skip_properties=["trainingJobs", "downstreamJobs"],
+            skip_properties=["trainingJobs"],
         )
+        logger.info(f"Added run {run_urn} to model {model_urn}")
 
     def add_run_to_model_group(self, model_group_urn: str, run_urn: str) -> None:
         """Add a run to a model group while preserving existing properties."""
         self._update_entity_properties(
             entity_urn=model_group_urn,
             aspect_type=models.MLModelGroupPropertiesClass,
-            updates={"trainingJobs": run_urn, "downstreamJobs": run_urn},
+            updates={"trainingJobs": run_urn},
             entity_type="mlModelGroup",
-            skip_properties=["trainingJobs", "downstreamJobs"],
+            skip_properties=["trainingJobs"],
         )
+        logger.info(f"Added run {run_urn} to model group {model_group_urn}")
 
     def add_model_to_model_group(self, model_urn: str, group_urn: str) -> None:
         """Add a model to a group while preserving existing properties"""
@@ -403,6 +410,7 @@ class MLflowDatahubClient:
             entity_type="mlModel",
             skip_properties=["groups"],
         )
+        logger.info(f"Added model {model_urn} to group {group_urn}")
 
     def add_run_to_experiment(self, run_urn: str, experiment_urn: str) -> None:
         """Add a run to an experiment"""
@@ -410,6 +418,7 @@ class MLflowDatahubClient:
             entity_urn=run_urn, aspect=models.ContainerClass(container=experiment_urn)
         )
         self._emit_mcps(mcp)
+        logger.info(f"Added run {run_urn} to experiment {experiment_urn}")
 
     def add_input_datasets_to_run(self, run_urn: str, dataset_urns: List[str]) -> None:
         """Add input datasets to a run"""
@@ -420,6 +429,7 @@ class MLflowDatahubClient:
             aspect=DataProcessInstanceInput(inputs=dataset_urns),
         )
         self._emit_mcps(mcp)
+        logger.info(f"Added input datasets to run {run_urn}")
 
     def add_output_datasets_to_run(self, run_urn: str, dataset_urns: List[str]) -> None:
         """Add output datasets to a run"""
@@ -430,3 +440,4 @@ class MLflowDatahubClient:
             aspect=DataProcessInstanceOutput(outputs=dataset_urns),
         )
         self._emit_mcps(mcp)
+        logger.info(f"Added output datasets to run {run_urn}")

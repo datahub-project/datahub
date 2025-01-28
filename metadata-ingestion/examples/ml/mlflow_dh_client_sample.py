@@ -1,5 +1,7 @@
 import argparse
+
 from mlflow_dh_client import MLflowDatahubClient
+
 import datahub.metadata.schema_classes as models
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
 
@@ -68,16 +70,16 @@ if __name__ == "__main__":
     )
 
     run_urn = client.create_training_run(
-        run_id="simple_training_run_4",
+        run_id="simple_training_run",
         properties=models.DataProcessInstancePropertiesClass(
-            name="Simple Training Run 4",
+            name="Simple Training Run",
             created=models.AuditStampClass(
                 time=1628580000000, actor="urn:li:corpuser:datahub"
             ),
             customProperties={"team": "forecasting"},
         ),
         training_run_properties=models.MLTrainingRunPropertiesClass(
-            id="simple_training_run_4",
+            id="simple_training_run",
             outputUrls=["s3://my-bucket/output"],
             trainingMetrics=[models.MLMetricClass(name="accuracy", value="0.9")],
             hyperParams=[models.MLHyperParamClass(name="learning_rate", value="0.01")],

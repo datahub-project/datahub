@@ -1,13 +1,16 @@
 import argparse
+from typing import Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from typing import Optional
 
 
 def add_run_to_model(
-    model_urn: str, run_urn: str, token: Optional[str], server_url: str = "http://localhost:8080"
+    model_urn: str,
+    run_urn: str,
+    token: Optional[str],
+    server_url: str = "http://localhost:8080",
 ) -> None:
     # Create model properties
     model_properties = models.MLModelPropertiesClass(

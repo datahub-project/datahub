@@ -1,5 +1,6 @@
 import argparse
 import time
+from typing import Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
@@ -9,7 +10,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataProcessInstancePropertiesClass,
 )
-from typing import Optional
+
 
 def create_minimal_training_run(
     run_id: str,
