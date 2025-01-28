@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 import collections
 import functools
 import logging
@@ -220,10 +219,10 @@ def _shutdown_executors() -> None:
 # This entire shutdown hook is largely a backstop mechanism to protect against
 # improper usage of the BatchPartitionExecutor. In proper usage that uses
 # a context manager or calls shutdown() explicitly, this will be a no-op.
-if hasattr(threading, "_register_atexit"):
-    threading._register_atexit(_shutdown_executors)
-else:
-    atexit.register(_shutdown_executors)
+# if hasattr(threading, "_register_atexit"):
+#     threading._register_atexit(_shutdown_executors)
+# else:
+#     atexit.register(_shutdown_executors)
 
 
 class BatchPartitionExecutor(Closeable):
@@ -491,7 +490,9 @@ class BatchPartitionExecutor(Closeable):
 
         # By acquiring all the permits, we ensure that no more tasks will be scheduled
         # and automatically wait until all existing tasks have completed.
-        for _ in range(self.max_pending):
+        # logger.debug(f"Trying to acquire all the tasks before shutdown, max_pending: {self.max_pending}")
+        for i in range(self.max_pending):
+            # logger.debug(f"Acquiring _pending_count no {i}")
             self._pending_count.acquire()
 
         # We must wait for the clearinghouse worker to exit before calling shutdown
