@@ -88,7 +88,7 @@ class DatahubLineageConfig(ConfigModel):
 
     @root_validator(skip_on_failure=True)
     def split_conn_ids(cls, values: Dict) -> Dict:
-        conn_ids = values.get("datahub_conn_id","").split(",")
+        conn_ids = values.get("datahub_conn_id", "").split(",")
         values["_datahub_connection_ids"] = [conn_id.strip() for conn_id in conn_ids]
         return values
 
