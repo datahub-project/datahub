@@ -63,4 +63,4 @@ As a part of DataHub Cloud, we offer a [Remote Executor](/docs/managed-datahub/o
 
 ### Source system selection
 Assertions will execute queries using the same source system that was used to initially ingest the table.
-There are some scenarios where customers may have multiple ingestion sources for, i.e. a BigQuery table. In this case, by default the executor will take the ingestion source that was used to ingest the table's `SchemaMetadata`. This behavior can be modified by your customer success rep.
+There are some scenarios where customers may have multiple ingestion sources for, i.e. a BigQuery table. In this case, by default the executor will take the ingestion source that was used to ingest the table's `DatasetProperties`. This behavior can be modified by your customer success rep.
