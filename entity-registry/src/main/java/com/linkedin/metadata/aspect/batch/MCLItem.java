@@ -37,6 +37,11 @@ public interface MCLItem extends BatchItem {
     return getMetadataChangeLog().getSystemMetadata();
   }
 
+  @Override
+  default void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    getMetadataChangeLog().setSystemMetadata(systemMetadata);
+  }
+
   default SystemMetadata getPreviousSystemMetadata() {
     return getMetadataChangeLog().getPreviousSystemMetadata();
   }

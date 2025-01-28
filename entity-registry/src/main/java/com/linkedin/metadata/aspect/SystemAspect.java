@@ -6,6 +6,7 @@ import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.apache.commons.lang3.NotImplementedException;
 
 /**
  * An aspect along with system metadata and creation timestamp. Represents an aspect as stored in
@@ -35,5 +36,10 @@ public interface SystemAspect extends ReadItem {
         .filter(SystemMetadata::hasVersion)
         .map(SystemMetadata::getVersion)
         .map(Long::parseLong);
+  }
+
+  @Override
+  default void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    throw new NotImplementedException();
   }
 }
