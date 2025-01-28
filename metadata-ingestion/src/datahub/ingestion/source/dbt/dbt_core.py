@@ -488,7 +488,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     ) -> Dict:
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
-        elif re.match("^s3://", uri) or re.match("^s3a://", uri):
+        elif is_s3_uri(uri):
             u = urlparse(uri)
             assert aws_connection
             response = aws_connection.get_s3_client().get_object(
