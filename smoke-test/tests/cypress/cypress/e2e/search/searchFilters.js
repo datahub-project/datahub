@@ -41,22 +41,12 @@ describe("search", () => {
   it("should add and remove multiple filters with no issues", () => {
     setSearchFiltersFeatureFlag(true);
     cy.login();
-    cy.hideOnboardingTour();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
-    cy.hideOnboardingTour();
 
-    // Sometimes the tag filter is in the more section and sometimes it is at the top level - this checks for both
-    cy.get("body").then(($body) => {
-      if ($body.find("[data-testid=filter-dropdown-Tag]").length > 0) {
-        // Tag filter is visible at top level
-        cy.get("[data-testid=filter-dropdown-Tag]").click({ force: true });
-      } else {
-        // Tag filter is inside More Filters
-        cy.get("[data-testid=more-filters-dropdown]").click({ force: true });
-        cy.get("[data-testid=more-filter-Tag]").click({ force: true });
-      }
-    });
+    // click tag filter dropdown inside of "More Filters"
+    cy.get("[data-testid=more-filters-dropdown").click({ force: true });
+    cy.get("[data-testid=more-filter-Tag").click({ force: true });
 
     // click and search for tag, save that tag
     cy.get("[data-testid=search-bar").eq(1).type("cypress");
@@ -66,13 +56,12 @@ describe("search", () => {
       "include",
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress",
     );
-    // Assert that the button is not visible
-    cy.get("[data-testid=update-filters").should("not.be.visible");
+    cy.get("[data-testid=update-filters").should("not.exist");
 
     // select datasets filter
     cy.get("[data-testid=filter-dropdown-Type").click({ force: true });
     cy.get("[data-testid=filter-option-Datasets").click({ force: true });
-    cy.get("[data-testid=update-filters").eq(1).click({ force: true });
+    cy.get("[data-testid=update-filters").click({ force: true });
     cy.url().should(
       "include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___1=DATASET",
