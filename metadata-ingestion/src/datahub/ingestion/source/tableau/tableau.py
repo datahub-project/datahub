@@ -2428,10 +2428,13 @@ class TableauSiteSource:
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-        database_info = datasource.get(c.DATABASE) or {
-            c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
+        database_info = {
+            c.ID: datasource.get(c.DATABASE, {}).get(c.ID),
+            c.NAME: datasource.get(c.DATABASE, {}).get(c.NAME) or c.UNKNOWN.lower(),
+            c.CONNECTION_TYPE: datasource.get(c.DATABASE, {}).get(c.NAME)
+            or datasource.get(c.CONNECTION_TYPE),
         }
+        logger.debug(f"database_info={database_info}")
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
@@ -2440,10 +2443,7 @@ class TableauSiteSource:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if (
-            database_info.get(c.NAME) is None
-            or database_info.get(c.CONNECTION_TYPE) is None
-        ):
+        if database_info.get(c.CONNECTION_TYPE) is None:
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -2533,6 +2533,9 @@ class TableauSiteSource:
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
+        )
+        logger.debug(
+            f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
         )
 
         if parsed_result is None:
