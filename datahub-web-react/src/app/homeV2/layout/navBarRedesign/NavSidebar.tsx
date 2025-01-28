@@ -246,7 +246,7 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Sign out',
-                icon: <SignOut />,
+                icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
                 href: '/logOut',

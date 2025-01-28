@@ -39,6 +39,7 @@ describe("create and manage group", () => {
   it("create a group", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.clickOptionWithText("Create group");
     cy.waitTextVisible("Create new group");
     cy.get("#name").type(group_name);
@@ -54,6 +55,7 @@ describe("create and manage group", () => {
   it("add test user to a group", () => {
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
     cy.clickOptionWithText(group_name);
     cy.clickTextOptionWithClass(".ant-typography", group_name);
@@ -78,6 +80,7 @@ describe("create and manage group", () => {
   it("update group info", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.clickOptionWithText(group_name);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
     cy.clickOptionWithTestId("EditOutlinedIcon");
@@ -96,6 +99,7 @@ describe("create and manage group", () => {
   it("user verify to edit the discription", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
     cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
     cy.contains("Test group description").should("be.visible").type(" EDITED");
@@ -109,6 +113,7 @@ describe("create and manage group", () => {
   it("user verify to add the owner", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
     cy.get(".anticon.anticon-plus").click();
     cy.get('[aria-label="Close"]').should("be.visible");
@@ -127,6 +132,7 @@ describe("create and manage group", () => {
   it("test User verify group participation", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.hideOnboardingTour();
     cy.clickOptionWithText(`Test group EDITED ${test_id}`);
     cy.get(".ant-tabs-tab").contains("Members").click();
@@ -136,6 +142,7 @@ describe("create and manage group", () => {
   it("remove group", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.get(
       `[href="/group/urn:li:corpGroup:${test_id}"]`,
     ).openThreeDotDropdown();
