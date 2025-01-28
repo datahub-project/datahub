@@ -132,6 +132,7 @@ class Constant:
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
+    REPORT_WEB_URL = "reportWebUrl"
 
 
 @dataclass
