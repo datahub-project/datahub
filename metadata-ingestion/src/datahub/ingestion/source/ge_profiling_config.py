@@ -115,26 +115,30 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
-        description="A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.",
+        description="A positive integer that specifies the maximum number of columns to profile for "
+        "any table. `None` implies all columns. The cost of profiling goes up significantly as the "
+        "number of columns to profile goes up.",
     )
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
         default=None,
-        description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake` and `BigQuery`.",
+        description="Profile table only if it has been updated since these many number of days. "
+        "If set to `null`, no constraint of last modified time for tables to profile. "
+        "Supported only in `snowflake` and `BigQuery`.",
     )
 
     profile_table_size_limit: Optional[int] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
-        "no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`"
-        "Supported for `oracle` based on calculated size from gathered stats.",
+        "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
+        "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=5000000,
-        description="Profile tables only if their row count is less than specified count. If set to `null`, "
-        "no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`"
-        "Supported for `oracle` based on gathered stats.",
+        description="Profile tables only if their row count is less than specified count. "
+        "If set to `null`, no limit on the row count of tables to profile. Supported only in "
+        "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
     )
 
     profile_table_row_count_estimate_only: bool = Field(
