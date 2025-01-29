@@ -96,12 +96,12 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 {previewType === PreviewType.HOVER_CARD ? (
                     <Tooltip title={name}>
                         <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
-                            {name || ''}
+                            {name || urn}
                         </CardEntityTitle>
                     </Tooltip>
                 ) : (
                     <EntityTitle title={name} onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
-                        <SearchTextHighlighter field="name" text={name || ''} />
+                        <SearchTextHighlighter field="name" text={name || urn} />
                     </EntityTitle>
                 )}
             </StyledLink>

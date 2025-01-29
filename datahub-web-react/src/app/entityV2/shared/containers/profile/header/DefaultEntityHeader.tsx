@@ -6,6 +6,7 @@ import {
     DataPlatform,
     DisplayProperties,
     Domain,
+    Entity,
     EntityType,
     Post,
 } from '../../../../../../types.generated';
@@ -148,6 +149,14 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
+    const containerPath =
+        entityData?.parentContainers?.containers ||
+        entityData?.parentDomains?.domains ||
+        entityData?.parentNodes?.nodes ||
+        [];
+    const parentPath: Entity[] = entityData?.parent ? [entityData.parent as Entity] : [];
+    const parentEntities = containerPath.length ? containerPath : parentPath;
+
     return (
         <>
             <Row>
@@ -222,11 +231,7 @@ export const DefaultEntityHeader = ({
                                             type={displayedEntityType}
                                             entityType={entityType}
                                             browsePaths={entityData?.browsePathV2}
-                                            parentEntities={
-                                                entityData?.parentContainers?.containers ||
-                                                entityData?.parentDomains?.domains ||
-                                                entityData?.parentNodes?.nodes
-                                            }
+                                            parentEntities={parentEntities}
                                             contentRef={contentRef}
                                             isContentTruncated={isContentTruncated}
                                         />

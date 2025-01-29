@@ -56,7 +56,8 @@ const ControlsColumn = styled.div``;
 type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
-    const { rootUrn, hideTransformations, showGhostEntities } = useContext(LineageNodesContext);
+    const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
+        useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
     const { fitView } = useReactFlow();
@@ -104,7 +105,10 @@ export default function LineageControls() {
                     >
                         <FilterOutlined
                             style={{
-                                color: hideTransformations || showGhostEntities ? REDESIGN_COLORS.BLUE : undefined,
+                                color:
+                                    hideTransformations || showDataProcessInstances || showGhostEntities
+                                        ? REDESIGN_COLORS.BLUE
+                                        : undefined,
                             }}
                         />
                         {showExpandedText ? 'Filter' : null}
