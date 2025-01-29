@@ -281,6 +281,14 @@ class DBTCommonConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
     )
+    database_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt database names to filter in ingestion.",
+    )
+    schema_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt schema names to filter in ingestion.",
+    )
     meta_mapping: Dict = Field(
         default={},
         description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
