@@ -56,10 +56,7 @@ class MLflowDatahubClient:
             time=timestamp or int(time.time() * 1000), actor="urn:li:corpuser:datahub"
         )
 
-    def _emit_mcps(
-        self,
-        mcps: Union[List[MetadataChangeProposalWrapper], MetadataChangeProposalWrapper],
-    ) -> None:
+    def _emit_mcps(self, mcps: Union[MetadataChangeProposalWrapper, List[Any]]) -> None:
         """Helper to emit MCPs with proper connection handling"""
         if not isinstance(mcps, list):
             mcps = [mcps]
