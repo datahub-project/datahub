@@ -1,4 +1,4 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
 import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
@@ -18,8 +18,6 @@ import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSec
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -110,15 +108,6 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                },
-                {
-                    name: 'Incidents',
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                    getDynamicName: (_, mlFeature, loading) => {
-                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
-                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

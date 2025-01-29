@@ -1,4 +1,4 @@
-import { CodeSandboxOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '../../../types.generated';
@@ -18,8 +18,6 @@ import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSec
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
@@ -115,15 +113,6 @@ export class MLModelEntity implements Entity<MlModel> {
                 {
                     name: 'Features',
                     component: MlModelFeaturesTab,
-                },
-                {
-                    name: 'Incidents',
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                    getDynamicName: (_, mlModel, loading) => {
-                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
-                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
