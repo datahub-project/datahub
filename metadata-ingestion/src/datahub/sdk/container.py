@@ -13,9 +13,9 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
+from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     DomainInputType,
-    Entity,
     HasContainer,
     HasDomain,
     HasOwnership,

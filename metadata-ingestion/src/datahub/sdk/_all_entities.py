@@ -1,6 +1,6 @@
 from typing import Dict, List, Type
 
-from datahub.sdk._shared import Entity
+from datahub.sdk._entity import Entity
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
