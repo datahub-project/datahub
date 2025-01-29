@@ -105,7 +105,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter, filterOptions]);
 
-    //set the filter if there is any url filter object presents
+    // set the filter if there is any url filter object presents
     useSetFilterFromURLParams(filter, setFilters);
 
     return (
