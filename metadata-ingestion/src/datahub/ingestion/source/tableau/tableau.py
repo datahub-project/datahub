@@ -90,6 +90,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.source.tableau.codegen_turms.schema import (
+    GetItems_workbooksConnection,
+)
 from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
@@ -940,6 +943,237 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         if self.server is None or not self.server.is_signed_in():
             return
         try:
+            # TURMS
+
+            # mypy errors
+            #
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:233: error: Incompatible types in assignment (expression has type "str | None", base class "BaseModel" defined the type as "Callable[[type[BaseModel], bool, str], dict[str, Any]]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:405: error: Incompatible types in assignment (expression has type "str | None", base class "BaseModel" defined the type as "Callable[[type[BaseModel], bool, str], dict[str, Any]]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:631: error: Incompatible types in assignment (expression has type "str | None", base class "BaseModel" defined the type as "Callable[[type[BaseModel], bool, str], dict[str, Any]]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:1270: error: Incompatible types in assignment (expression has type "str | None", base class "BaseModel" defined the type as "Callable[[type[BaseModel], bool, str], dict[str, Any]]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:1814: error: Name "uri" already defined (possibly by an import)  [no-redef]
+            # src/datahub/ingestion/source/tableau/codegen_turms/schema.py:1832: error: Name "uri" already defined on line 1824  [no-redef]
+
+            # execution error
+            #
+            # NameError: Field name "schema" shadows a BaseModel attribute; use a different field name with "alias='schema'".
+
+            variables = GetItems_workbooksConnection.Arguments(first=100, after=None)
+            logger.info(
+                f"[[TURMS]] Query: {GetItems_workbooksConnection.Meta.document} Variables: {variables.json()}"
+            )
+            result = self.server.metadata.query(
+                query=GetItems_workbooksConnection.Meta.document,
+                variables=variables.json(),
+            )
+            logger.info(f"[[TURMS]] Tableau Workbooks: {result}")
+
+            # After some manual edits to fix the 'schema' field issue and ignoring mypy errors
+
+            # -[2025-01-29 17:41:24,631] INFO     {datahub.ingestion.source.tableau.tableau:962} - [[TURMS]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
+            #   workbooksConnection(
+            #     first: $first
+            #     after: $after
+            #     filter: {projectNameWithin: ["project_test2"]}
+            #   ) {
+            #     nodes {
+            #       id
+            #       name
+            #       luid
+            #       uri
+            #       projectName
+            #       owner {
+            #         username
+            #         __typename
+            #       }
+            #       description
+            #       uri
+            #       createdAt
+            #       updatedAt
+            #       tags {
+            #         name
+            #         __typename
+            #       }
+            #       sheets {
+            #         id
+            #         __typename
+            #       }
+            #       dashboards {
+            #         id
+            #         __typename
+            #       }
+            #       embeddedDatasources {
+            #         id
+            #         __typename
+            #       }
+            #       __typename
+            #     }
+            #     pageInfo {
+            #       hasNextPage
+            #       endCursor
+            #       __typename
+            #     }
+            #     __typename
+            #   }
+            # } Variables: {"first": 100, "after": null}
+            # [2025-01-29 17:41:25,070] INFO     {datahub.ingestion.source.tableau.tableau:967} - [[TURMS]] Tableau Workbooks: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io', '__typename': 'TableauUser'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4', '__typename': 'Sheet'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86', '__typename': 'EmbeddedDatasource'}], '__typename': 'Workbook'}], 'pageInfo': {'hasNextPage': False, 'endCursor': None, '__typename': 'PageInfo'}, '__typename': 'WorkbooksConnection'}}}
+
+            # SGQLC
+
+            # mypy errors
+            #
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:37553: error: Incompatible types in assignment (expression has type tuple[str, str, str, str], base class "DataField" defined the type as tuple[str, str, ... <34 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:37668: error: Incompatible types in assignment (expression has type tuple[str, str, str, str, str, str], base class "AnalyticsField" defined the type as tuple[str, str, ... <35 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:37799: error: Incompatible types in assignment (expression has type "tuple[str, str, str, str, str]", base class "Certifiable" defined the type as "tuple[str, str, str, str, str, str]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:37830: error: Incompatible types in assignment (expression has type tuple[str, str, ... <60 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:40573: error: Incompatible types in assignment (expression has type tuple[str, str], base class "AnalyticsField" defined the type as tuple[str, str, ... <35 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:40673: error: Incompatible types in assignment (expression has type tuple[()], base class "Field" defined the type as tuple[str, str, ... <84 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:40683: error: Incompatible types in assignment (expression has type tuple[str, str], base class "Field" defined the type as tuple[str, str, ... <84 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:40703: error: Incompatible types in assignment (expression has type tuple[str, str, str, str, str, str], base class "Table" defined the type as tuple[str, str, ... <40 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:40832: error: Incompatible types in assignment (expression has type tuple[str, str, ... <18 more items>], base class "Taggable" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:41803: error: Incompatible types in assignment (expression has type "tuple[()]", base class "CanHaveLabels" defined the type as "tuple[str, str, str, str, str]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:41810: error: Incompatible types in assignment (expression has type tuple[()], base class "Label" defined the type as tuple[str, str, ... <11 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:41817: error: Incompatible types in assignment (expression has type tuple[str, str], base class "Label" defined the type as tuple[str, str, ... <11 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:41835: error: Incompatible types in assignment (expression has type "tuple[str, str, str, str]", base class "CanHaveLabels" defined the type as "tuple[str, str, str, str, str]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:41859: error: Incompatible types in assignment (expression has type tuple[str, str, ... <18 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:42343: error: Incompatible types in assignment (expression has type tuple[str], base class "Field" defined the type as tuple[str, str, ... <84 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:42355: error: Incompatible types in assignment (expression has type tuple[str, str, ... <11 more items>], base class "Datasource" defined the type as tuple[str, str, ... <26 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:42968: error: Incompatible types in assignment (expression has type "tuple[str]", base class "CanHaveLabels" defined the type as "tuple[str, str, str, str, str]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:42979: error: Incompatible types in assignment (expression has type tuple[str, str, ... <67 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45832: error: Incompatible types in assignment (expression has type tuple[str, str], base class "FlowInputField" defined the type as tuple[str, str, ... <11 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45844: error: Incompatible types in assignment (expression has type tuple[str, str], base class "FlowOutputField" defined the type as tuple[str, str, ... <43 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45856: error: Incompatible types in assignment (expression has type tuple[str, str], base class "FlowInputField" defined the type as tuple[str, str, ... <11 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45868: error: Incompatible types in assignment (expression has type tuple[str, str], base class "FlowOutputField" defined the type as tuple[str, str, ... <43 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45882: error: Incompatible types in assignment (expression has type tuple[()], base class "Label" defined the type as tuple[str, str, ... <11 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45892: error: Incompatible types in assignment (expression has type tuple[str], base class "DataField" defined the type as tuple[str, str, ... <34 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45907: error: Incompatible types in assignment (expression has type tuple[()], base class "Field" defined the type as tuple[str, str, ... <84 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:45916: error: Incompatible types in assignment (expression has type tuple[str, str, ... <35 more items>], base class "Taggable" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:47275: error: Incompatible types in assignment (expression has type tuple[str, str, ... <43 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:48964: error: Incompatible types in assignment (expression has type tuple[str, str], base class "Field" defined the type as tuple[str, str, ... <84 more items>])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:49068: error: Incompatible types in assignment (expression has type tuple[str, str, ... <20 more items>], base class "Taggable" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:50163: error: Incompatible types in assignment (expression has type tuple[str, str, ... <47 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:52039: error: Incompatible types in assignment (expression has type tuple[str, str, ... <13 more items>], base class "CanHaveLabels" defined the type as tuple[str, str, str, str, str])  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:52402: error: Incompatible types in assignment (expression has type "tuple[str]", base class "CanHaveLabels" defined the type as "tuple[str, str, str, str, str]")  [assignment]
+            # src/datahub/ingestion/source/tableau/codegen_sgqlc/tableau_schema.py:52414: error: Incompatible types in assignment (expression has type tuple[str, str, ... <43 more items>], base class "Taggable" defined the type as tuple[str, str, str, str, str])  [assignment]
+
+            from datahub.ingestion.source.tableau.codegen_sgqlc.tableau_operations import (
+                Operations,
+            )
+
+            op = Operations.query.get_items_workbooks_connection
+            logger.info(
+                f"[[SGQLC]] Query: {op} Variables: {dict(first=100, after=None)}"
+            )
+            result = self.server.metadata.query(
+                query=str(op), variables=dict(first=100, after=None)
+            )
+            logger.info(f"[[SGQLC]] Result: {result}")
+
+            # [2025-01-29 17:41:25,119] INFO     {datahub.ingestion.source.tableau.tableau:1015} - [[SGQLC]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
+            #   workbooksConnection(first: $first, after: $after, filter: {projectNameWithin: ["project_test2"]}) {
+            #     nodes {
+            #       id
+            #       name
+            #       luid
+            #       uri
+            #       projectName
+            #       owner {
+            #         username
+            #       }
+            #       description
+            #       createdAt
+            #       updatedAt
+            #       tags {
+            #         name
+            #       }
+            #       sheets {
+            #         id
+            #       }
+            #       dashboards {
+            #         id
+            #       }
+            #       embeddedDatasources {
+            #         id
+            #       }
+            #     }
+            #     pageInfo {
+            #       hasNextPage
+            #       endCursor
+            #     }
+            #   }
+            # } Variables: {'first': 100, 'after': None}
+            # [2025-01-29 17:41:25,568] INFO     {datahub.ingestion.source.tableau.tableau:1020} - [[SGQLC]] Result: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86'}]}], 'pageInfo': {'hasNextPage': False, 'endCursor': None}}}}
+
+            # ARIADNE
+
+            # mypy errors
+            #
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/base_model.py:17: error: Extra keys ("populate_by_name", "protected_namespaces") for TypedDict "ConfigDict"  [typeddict-unknown-key]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_workbooks_connection.py:24: error: Name "uri" already defined (possibly by an import)  [no-redef]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_workbooks_connection.py:32: error: Name "uri" already defined on line 28  [no-redef]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_workbooks_connection.py:68: error: "type[GetItemsWorkbooksConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_workbooks_connection.py:69: error: "type[GetItemsWorkbooksConnectionWorkbooksConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_workbooks_connection.py:70: error: "type[GetItemsWorkbooksConnectionWorkbooksConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:283: error: "type[GetItemsSheetsConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:284: error: "type[GetItemsSheetsConnectionSheetsConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:285: error: "type[GetItemsSheetsConnectionSheetsConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:286: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesWorkbook]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:287: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesDatasourceFieldsField]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:288: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesDatasourceFieldsCalculatedField]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:289: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesDatasourceFieldsColumnField]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:290: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesDatasourceFieldsDatasourceField]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_sheets_connection.py:291: error: "type[GetItemsSheetsConnectionSheetsConnectionNodesDatasourceFieldsGroupField]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_published_datasources_connection.py:190: error: "type[GetItemsPublishedDatasourcesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_published_datasources_connection.py:191: error: "type[GetItemsPublishedDatasourcesConnectionPublishedDatasourcesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_published_datasources_connection.py:192: error: "type[GetItemsPublishedDatasourcesConnectionPublishedDatasourcesConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_published_datasources_connection.py:193: error: "type[GetItemsPublishedDatasourcesConnectionPublishedDatasourcesConnectionNodesUpstreamTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_fields_connection.py:89: error: "type[GetItemsFieldsConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_fields_connection.py:90: error: "type[GetItemsFieldsConnectionFieldsConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_fields_connection.py:91: error: "type[GetItemsFieldsConnectionFieldsConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_fields_connection.py:92: error: "type[GetItemsFieldsConnectionFieldsConnectionNodesUpstreamFields]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_fields_connection.py:93: error: "type[GetItemsFieldsConnectionFieldsConnectionNodesUpstreamColumns]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_embedded_datasources_connection.py:207: error: "type[GetItemsEmbeddedDatasourcesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_embedded_datasources_connection.py:208: error: "type[GetItemsEmbeddedDatasourcesConnectionEmbeddedDatasourcesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_embedded_datasources_connection.py:209: error: "type[GetItemsEmbeddedDatasourcesConnectionEmbeddedDatasourcesConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_embedded_datasources_connection.py:210: error: "type[GetItemsEmbeddedDatasourcesConnectionEmbeddedDatasourcesConnectionNodesUpstreamTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_embedded_datasources_connection.py:211: error: "type[GetItemsEmbeddedDatasourcesConnectionEmbeddedDatasourcesConnectionNodesWorkbook]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_database_tables_connection.py:43: error: "type[GetItemsDatabaseTablesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_database_tables_connection.py:44: error: "type[GetItemsDatabaseTablesConnectionDatabaseTablesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_database_tables_connection.py:45: error: "type[GetItemsDatabaseTablesConnectionDatabaseTablesConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:258: error: "type[GetItemsCustomSQLTablesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:259: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnection]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:260: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodes]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:261: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumns]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:262: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFields]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:263: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourceDatasource]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:264: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourceDatasourceUpstreamTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:265: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourceEmbeddedDatasource]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:266: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourceEmbeddedDatasourceUpstreamTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:267: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourcePublishedDatasource]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:268: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesColumnsReferencedByFieldsDatasourcePublishedDatasourceUpstreamTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/get_items_custom_sql_tables_connection.py:269: error: "type[GetItemsCustomSQLTablesConnectionCustomSqlTablesConnectionNodesTables]" has no attribute "model_rebuild"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/async_base_client.py:21: error: Module "websockets.client" has no attribute "WebSocketClientProtocol"; maybe "ClientProtocol"?  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/async_base_client.py:21: note: Error code "attr-defined" not covered by "type: ignore" comment
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/async_base_client.py:21: error: Module "websockets.client" has no attribute "connect"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/async_base_client.py:209: error: "BaseModel" has no attribute "model_dump"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:76: error: "type[GetItemsDatabaseTablesConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:173: error: "type[GetItemsCustomSQLTablesConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:266: error: "type[GetItemsPublishedDatasourcesConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:317: error: "type[GetItemsFieldsConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:417: error: "type[GetItemsEmbeddedDatasourcesConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:525: error: "type[GetItemsSheetsConnection]" has no attribute "model_validate"  [attr-defined]
+            # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:583: error: "type[GetItemsWorkbooksConnection]" has no attribute "model_validate"  [attr-defined]
+
+            from datahub.ingestion.source.tableau.codegen_ariadne.get_items_workbooks_connection import (
+                GetItemsWorkbooksConnection as GetItemsWorkbooksConnectionAriadne,
+            )
+
+            op = GetItemsWorkbooksConnectionAriadne()
+
+            logger.info(
+                f"[[ARIADNE]] Query: {op} Variables: {dict(first=100, after=None)}"
+            )
+
             if self.config.ingest_multiple_sites:
                 for site in list(TSC.Pager(self.server.sites)):
                     if (
