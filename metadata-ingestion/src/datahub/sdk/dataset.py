@@ -13,11 +13,11 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import HiddenEditWarning, ItemNotFoundError, SchemaFieldKeyError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
+from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     ContainerInputType,
     DatasetUrnOrStr,
     DomainInputType,
-    Entity,
     HasContainer,
     HasDomain,
     HasOwnership,
