@@ -22,7 +22,9 @@ class LineageClient:
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-        column_lineage: Union[None, ColumnLineageMapping, Literal["auto"]] = "auto",
+        column_lineage: Union[
+            None, ColumnLineageMapping, Literal["fuzzy_auto", "strict_auto"]
+        ] = "fuzzy_auto",
     ) -> None:
         # TODO: Add support for the auto lineage mapping.
         # This should be a more advanced, fuzzy match based on the column names.

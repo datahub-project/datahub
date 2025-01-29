@@ -4,6 +4,7 @@ from typing import Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -55,8 +56,8 @@ class DataHubClient:
     @classmethod
     def from_env(cls) -> "DataHubClient":
         # Inspired by the DockerClient.from_env() method.
-        # This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
-        # The file is part of the "environment", but is not a traditional "env variable".
+        # TODO: This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
+        # That file is part of the "environment", but is not a traditional "env variable".
         graph = get_default_graph()
         return cls(graph=graph)
 
@@ -112,37 +113,55 @@ class DataHubClient:
 
         self._graph.emit_mcps(mcps)
 
-    def put(self, entity: Entity) -> None:
+    def upsert(self, entity: Entity) -> None:
         # TODO: this is a bit of a weird name. the purpose of this method is to declare
         # metadata for the entity. If it doesn't exist, it will be created.
         # If it does exist, it will be updated using a best effort, aspect-oriented update.
         # That per-aspect upsert may behave unexpectedly for users if edits were also
         # made via the UI.
         # alternative name candidates: upsert, save
+        # TODO: another idea is to have a "with_attribution" parameter here - that can be used to
+        # isolate the updates to just stuff with the same attribution? I'm not sure if it totally
+        # works with read-modify-write entities, but it does work for creates.
+
+        if entity._prev_aspects is not None:
+            raise SdkUsageError(
+                "For entities obtained via client.get(), use client.update() instead"
+            )
 
         mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
-
-        # TODO respect If-Unmodified-Since?
-        # -> probably add a "mode" parameter that can be "upsert" or "update" (e.g. if not modified) or "update_force"
 
         # TODO: require that upsert is used with new entities, not read-modify-write flows?
         # TODO: alternatively, require that all aspects associated with the entity are set?
 
         self._graph.emit_mcps(mcps)
 
-    """
-    def update(
-        self, entity: MetadataPatchProposal, *, check_exists: bool = True
-    ) -> None:
-        if check_exists and not self._graph.exists(entity.urn):
+    def update(self, entity: Union[Entity, MetadataPatchProposal]) -> None:
+        if isinstance(entity, MetadataPatchProposal):
+            return self._update_patch(entity)
+
+        if entity._prev_aspects is None:
             raise SdkUsageError(
-                f"Entity {entity.urn} does not exist, and hence cannot be updated. "
+                f"For entities created via {entity.__class__.__name__}(...), use client.create() or client.upsert() instead"
+            )
+
+        # TODO: respect If-Unmodified-Since?
+        # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
+
+        mcps = entity._as_mcps(models.ChangeTypeClass.UPSERT)
+        self._graph.emit_mcps(mcps)
+
+    def _update_patch(
+        self, updater: MetadataPatchProposal, check_exists: bool = True
+    ) -> None:
+        if check_exists and not self._graph.exists(updater.urn):
+            raise SdkUsageError(
+                f"Entity {updater.urn} does not exist, and hence cannot be updated. "
                 "You can bypass this check by setting check_exists=False."
             )
 
-        mcps = entity.build()
+        mcps = updater.build()
         self._graph.emit_mcps(mcps)
-    """
 
     def resolve_domain(self, *, name: str) -> DomainUrn:
         # TODO: add caching to this method
