@@ -290,15 +290,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
             SnowflakeQuery.get_all_tags(),
         )
 
-        tags = []
-        for tag in cur:
-            snowflake_tag = SnowflakeTag(
+        tags = [
+            SnowflakeTag(
                 database=tag["TAG_DATABASE"],
                 schema=tag["TAG_SCHEMA"],
                 name=tag["TAG_NAME"],
                 value="",
             )
-            tags.append(snowflake_tag)
+            for tag in cur
+        ]
+
         return tags
 
     @serialized_lru_cache(maxsize=1)

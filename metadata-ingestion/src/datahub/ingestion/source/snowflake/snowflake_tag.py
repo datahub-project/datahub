@@ -80,18 +80,13 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
     def create_structured_property_templates(self) -> Iterable[MetadataWorkUnit]:
         for tag in self.data_dictionary.get_all_tags():
-            if not self.config.tag_pattern.allowed(tag.tag_identifier()):
+            if not self.config.structured_property_pattern.allowed(
+                tag.tag_identifier()
+            ):
                 continue
-            # Do we need to filter based on database and schema or is it enough if we filter based on tag pattern?
-            # if not self.config.database_pattern.allowed(tag.database):
-            #    continue
-            # if not self.config.schema_pattern.allowed(f"{tag.database}.{tag.schema}"):
-            #    continue
-
             if self.config.extract_tags_as_structured_properties:
                 self.report.num_structured_property_templates_created += 1
-                for workunit in self.gen_tag_as_structured_property_workunits(tag):
-                    yield workunit
+                yield from self.gen_tag_as_structured_property_workunits(tag)
 
     def gen_tag_as_structured_property_workunits(
         self, tag: SnowflakeTag
