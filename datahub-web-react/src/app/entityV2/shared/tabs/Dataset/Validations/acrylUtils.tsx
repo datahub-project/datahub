@@ -147,8 +147,19 @@ ASSERTION_INFO.forEach((info) => {
     ASSERTION_TYPE_TO_INFO.set(info.type, info);
 });
 
+export const toProperTitleCase = (str: string) => {
+    const exceptions = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) =>
+            index === 0 || !exceptions.includes(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+        )
+        .join(' ');
+};
+
 export const getAssertionGroupName = (type: string): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
 };
 
 export const getAssertionGroupTypeIcon = (type: string) => {
