@@ -393,6 +393,7 @@ class HasTags(Entity):
         return (tag.tag, tag.attribution)
 
     def add_tag(self, tag: TagInputType) -> None:
+        # TODO: mention that this is an idempotent operation e.g. will be a no-op if the tag is already present
         _add_list_unique(
             self._ensure_tags(), self._tag_key, self._parse_tag_association_class(tag)
         )
