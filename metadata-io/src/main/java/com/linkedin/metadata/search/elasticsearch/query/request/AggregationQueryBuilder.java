@@ -104,6 +104,10 @@ public class AggregationQueryBuilder {
             .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
             .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
+    // Entity Type > Sub-Type aggregations.
+    // TODO: Ideally we can avoid the index-virtual-fields aggregation.
+    facets.add(
+        String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames"));
     return facets;
   }
 
