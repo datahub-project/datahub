@@ -5,6 +5,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
+  excludedPaths: /schema-registry/*,/health,/config,/config/search/export
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -331,16 +332,34 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+  jmx:
+    enabled: true
+  web:
+    resources:
+      add-mappings: false # do not serve static files
   mvc:
     servlet:
-      path: /openapi
+      path: /
+    throw-exception-if-no-handler-found: true # throw exception on 404 to be handled
   kafka:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 springdoc:
   cache:
-    disabled: true
+    disabled: false
+  swagger-ui:
+    path: /openapi/swagger-ui/index.html
+  api-docs:
+    path: /openapi/v3/api-docs
+  groups:
+    enabled: true
 
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
@@ -563,8 +582,6 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
-
-springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -11,6 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 
 if TYPE_CHECKING:
     from airflow.models.connection import Connection
+
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DataHubRestEmitter
     from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter

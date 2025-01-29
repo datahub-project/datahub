@@ -6,6 +6,7 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.testing.doctest import assert_doctest
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -335,3 +336,13 @@ def test_logging_name_extraction() -> None:
 
 def test_is_pytest_running() -> None:
     assert is_pytest_running()
+
+
+def test_groupby_unsorted():
+    grouped = groupby_unsorted("ABCAC", key=lambda x: x)
+
+    assert list(grouped) == [
+        ("A", ["A", "A"]),
+        ("B", ["B"]),
+        ("C", ["C", "C"]),
+    ]

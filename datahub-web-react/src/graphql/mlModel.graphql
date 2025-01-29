@@ -20,6 +20,23 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        trainedBy: relationships(input: { types: ["TrainedBy"], direction: OUTGOING, start: 0, count: 100 }) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on DataProcessInstance {
+                        urn
+                        name
+                        type
+                        ...dataProcessInstanceFields
+                    }
+                }
+            }
+        }
         privileges {
             ...entityPrivileges
         }
@@ -34,5 +51,6 @@ query getMLModel($urn: String!) {
         forms {
             ...formsFields
         }
+        ...entityProfileVersionProperties
     }
 }

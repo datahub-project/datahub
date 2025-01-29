@@ -93,7 +93,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController("EntityControllerV3")
 @RequiredArgsConstructor
-@RequestMapping("/v3/entity")
+@RequestMapping("/openapi/v3/entity")
 @Slf4j
 @Hidden
 public class EntityController

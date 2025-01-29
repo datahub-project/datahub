@@ -73,6 +73,7 @@ query appConfig {
             editableDatasetNameEnabled
             showSeparateSiblings
             showManageStructuredProperties
+            entityVersioningEnabled
         }
     }
 }

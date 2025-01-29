@@ -596,9 +596,9 @@ class LookerUtil:
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
-        assert (
-            field.count(".") == 1
-        ), f"Error: A field must be prefixed by a view name, field is: {field}"
+        assert field.count(".") == 1, (
+            f"Error: A field must be prefixed by a view name, field is: {field}"
+        )
         return field.split(".")[0]
 
     @staticmethod
@@ -815,9 +815,9 @@ class LookerExplore:
     project_name: Optional[str] = None
     label: Optional[str] = None
     description: Optional[str] = None
-    upstream_views: Optional[
-        List[ProjectInclude]
-    ] = None  # captures the view name(s) this explore is derived from
+    upstream_views: Optional[List[ProjectInclude]] = (
+        None  # captures the view name(s) this explore is derived from
+    )
     upstream_views_file_path: Dict[str, Optional[str]] = dataclasses_field(
         default_factory=dict
     )  # view_name is key and file_path is value. A single file may contains multiple views
@@ -889,7 +889,7 @@ class LookerExplore:
                     upstream_views.extend(parsed_explore.upstream_views or [])
                 else:
                     logger.warning(
-                        f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
+                        f"Could not find extended explore {extended_explore} for explore {dict['name']} in model {model_name}"
                     )
         else:
             # we only fallback to the view_names list if this is not an extended explore
@@ -903,7 +903,7 @@ class LookerExplore:
                 )
                 if not info:
                     logger.warning(
-                        f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                        f"Could not resolve view {view_name} for explore {dict['name']} in model {model_name}"
                     )
                 else:
                     upstream_views.append(
@@ -935,9 +935,9 @@ class LookerExplore:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
-            lkml_fields: List[
-                LookmlModelExploreField
-            ] = explore_field_set_to_lkml_fields(explore)
+            lkml_fields: List[LookmlModelExploreField] = (
+                explore_field_set_to_lkml_fields(explore)
+            )
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -1034,9 +1034,9 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-                            field_name_vs_raw_explore_field[
-                                measure_field.name
-                            ] = measure_field
+                            field_name_vs_raw_explore_field[measure_field.name] = (
+                                measure_field
+                            )
 
                             view_fields.append(
                                 ViewField(
@@ -1072,11 +1072,11 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
-            upstream_views_file_path: Dict[
-                str, Optional[str]
-            ] = create_upstream_views_file_path_map(
-                lkml_fields=lkml_fields,
-                view_names=views,
+            upstream_views_file_path: Dict[str, Optional[str]] = (
+                create_upstream_views_file_path_map(
+                    lkml_fields=lkml_fields,
+                    view_names=views,
+                )
             )
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
