@@ -2,29 +2,27 @@ import React from 'react';
 import styled from 'styled-components';
 import { Image } from 'antd';
 import dataHubIcon from '../../../images/datahublogo.png';
-import introduceBg from '../../../images/introduceBg.svg';
+import datahubPlatforms from '../../../images/datahub-platforms.svg';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     max-width: 470px;
-    margin: 15px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${introduceBg}) no-repeat bottom right;
-    border-radius: 18px;
+    background: #191d2e url(${datahubPlatforms}) no-repeat bottom left;
 `;
 
 const Title = styled.div`
     max-width: 240px;
     margin-bottom: 30px;
-    color: #fff;
+    color: #374066;
     font: 700 35px/44px Mulish;
 `;
 
 const Subtitle = styled.div`
     width: 371px;
-    color: #fff;
+    color: #5f6685;
     font: 400 16px/24px Mulish;
 `;
 
@@ -41,7 +39,7 @@ export const IntroduceYourselfLeftSidebar = () => {
     return (
         <Container>
             <AcrylTitle>
-                <Image src={dataHubIcon} preview={false} style={{ width: 24 }} />
+                <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
             </AcrylTitle>
             <div>
                 <Title>Start your data journey</Title>

@@ -57,7 +57,7 @@ const Content = styled.div`
 `;
 
 const Title = styled.div`
-    color: #1f202a;
+    color: #374066;
     text-align: center;
     font: 700 35px Mulish;
     line-height: 44px;
@@ -65,12 +65,11 @@ const Title = styled.div`
 `;
 
 const Subtitle = styled.div`
-    color: #1f202a;
+    color: #5f6685;
     width: 268px;
     text-align: center;
     font: 400 13px Mulish;
     line-height: 21px;
-    opacity: 0.6;
     margin-bottom: 28px;
 `;
 
