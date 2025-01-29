@@ -23,10 +23,10 @@ A clear and concise description of what you expected to happen.
 **Screenshots and/or Screen Recordings**
 If applicable, add screenshots and/or screen recordings to help explain the issue.
 
-**Desktop (please complete the following information):**
+**System details (please complete the following information):**
+ - DataHub Version Tag [e.g. v1.0-rc1]
  - OS: [e.g. iOS]
  - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
 
 **Additional context**
 Add any other context about the problem here.
