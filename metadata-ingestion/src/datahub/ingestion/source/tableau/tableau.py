@@ -2428,13 +2428,12 @@ class TableauSiteSource:
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-        database_info = {
-            c.ID: datasource.get(c.DATABASE, {}).get(c.ID),
-            c.NAME: datasource.get(c.DATABASE, {}).get(c.NAME) or c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.DATABASE, {}).get(c.NAME)
-            or datasource.get(c.CONNECTION_TYPE),
-        }
-        logger.debug(f"database_info={database_info}")
+        database_field = datasource.get(c.DATABASE) or {}
+        database_id: Optional[str] = database_field.get(c.ID)
+        database_name: str = database_field.get(c.NAME) or c.UNKNOWN.lower()
+        database_connection_type: Optional[str] = (
+            database_field.get(c.CONNECTION_TYPE) or datasource.get(c.CONNECTION_TYPE),
+        )
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
@@ -2443,7 +2442,7 @@ class TableauSiteSource:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if database_info.get(c.CONNECTION_TYPE) is None:
+        if database_connection_type is None:
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -2459,14 +2458,14 @@ class TableauSiteSource:
 
         logger.debug(f"Parsing sql={query}")
 
-        upstream_db = database_info.get(c.NAME)
+        upstream_db = database_name
 
         if func_overridden_info is not None:
             # Override the information as per configuration
             upstream_db, platform_instance, platform, _ = func_overridden_info(
-                database_info[c.CONNECTION_TYPE],
-                database_info.get(c.NAME),
-                database_info.get(c.ID),
+                database_connection_type,
+                database_name,
+                database_id,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
