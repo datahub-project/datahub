@@ -999,20 +999,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-    def _is_allowed_node(self, key: str) -> bool:
-        return self.config.node_name_pattern.allowed(key)
+    def _is_allowed_node(self, dbt_name: str) -> bool:
+        return self.config.node_name_pattern.allowed(dbt_name)
+        
+    def _is_allowed_database(self, database: Optional[str]) -> bool:
+        return self.config.database_name_pattern.allowed(database or "")
+        
+    def _is_allowed_schema(self, schema: Optional[str]) -> bool:
+        return self.config.schema_name_pattern.allowed(schema or "")
+    
+    def _is_allowed(self, node: DBTNode) -> bool:
+        return self._is_allowed_node(node.dbt_name) and self._is_allowed_database(node.database) and self._is_allowed_schema(node.schema)
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
-            key = node.dbt_name
-
-            if not self._is_allowed_node(key):
-                self.report.nodes_filtered.append(key)
+            if not self._is_allowed(node):
+                self.report.nodes_filtered.append(node.dbt_name)
                 continue
-
             nodes.append(node)
-
         return nodes
 
     @staticmethod
@@ -1043,8 +1048,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             cll_nodes.add(dbt_name)
             schema_nodes.add(dbt_name)
 
-        for dbt_name in all_nodes_map:
-            if self._is_allowed_node(dbt_name):
+        for dbt_name, node in all_nodes_map.items():
+            if self._is_allowed(node):
                 add_node_to_cll_list(dbt_name)
 
         return schema_nodes, cll_nodes
