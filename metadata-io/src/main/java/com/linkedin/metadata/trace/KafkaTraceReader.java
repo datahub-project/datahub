@@ -136,7 +136,7 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
     try {
       List<Map.Entry<Urn, Map<String, TraceStorageStatus>>> results =
-          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]))
               .thenApply(
                   v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()))
               .get(timeoutSeconds, TimeUnit.SECONDS);
