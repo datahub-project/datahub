@@ -54,7 +54,7 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 ### Proposing Glossary Term Description Updates
 
-1. When updating the description of a Glossary Term, click propse after making your change.
+1. When updating the description of a Glossary Term, click propose after making your change.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_glossary_description_change.png"/>
@@ -185,6 +185,10 @@ These map directly to the 4 privileges for doing the proposals.
 
 To be able to approve or deny proposals to the glossary itself, you just need one permission:
 - Manage Glossaries
+
+#### Viewing Proposals
+
+Users who have management privileges but no pre-defined roles (Admin/Editor) will only be able to see proposals created after they received their privileges. Users with Admin or Editor roles can see all historical proposals.
 
 ### Videos
 
