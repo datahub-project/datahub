@@ -5,8 +5,8 @@ import { App } from './App';
 import reportWebVitals from './reportWebVitals';
 
 async function startApp() {
-    // Record all sessions on Dev01
-    if (isDev01()) {
+    // Record all sessions on Dev01 and localhost
+    if (isDev()) {
         // Start the Meticulous recorder before you initialise your app.
         // Note: all errors are caught and logged, so no need to surround with try/catch
         await tryLoadAndStartRecorder({
@@ -29,8 +29,8 @@ async function startApp() {
     );
 }
 
-function isDev01() {
-    return window.location.hostname.includes('dev01.acryl.io');
+function isDev() {
+    return window.location.hostname.includes('dev01.acryl.io') || window.location.hostname.includes('localhost');
 }
 
 startApp();
