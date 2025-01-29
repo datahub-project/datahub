@@ -65,6 +65,13 @@ class LineageClient:
         # Will throw if the dataset does not exist.
         self._client.update(updater)
 
+    def infer_dataset_lineage_from_sql(
+        self,
+        *,
+        query_text: str,
+    ) -> None:
+        raise NotImplementedError("TODO")
+
     def add_datajob_lineage(
         self,
         *,
