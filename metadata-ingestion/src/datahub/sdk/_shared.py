@@ -6,12 +6,10 @@ from typing import (
     Hashable,
     List,
     Optional,
-    Protocol,
     Tuple,
     Type,
     TypeVar,
     Union,
-    runtime_checkable,
 )
 
 from typing_extensions import Self, TypeAlias
@@ -62,16 +60,7 @@ def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
     return parse_ts_millis(ts.time)
 
 
-@runtime_checkable
-class HasUrn(Protocol):
-    # TODO: Not clear if we even need this protocol.
-    __slots__ = ()
-
-    @property
-    def urn(self) -> Urn: ...
-
-
-class Entity(HasUrn):
+class Entity:
     __slots__ = ("_urn", "_prev_aspects", "_aspects")
 
     def __init__(self, /, urn: Urn):
@@ -88,8 +77,9 @@ class Entity(HasUrn):
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
-        # TODO: It's technically possible to bypass the init method using cls.__new__,
-        # but it's a bit hacky and not recommended.
+        # If an init method from a subclass adds required fields, it also needs to override this method.
+        # An alternative approach would call cls.__new__() to bypass the init method, but it's a bit
+        # too hacky for my taste.
         entity = cls(urn=urn)
         return entity._init_from_graph(current_aspects)
 
