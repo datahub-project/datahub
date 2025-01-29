@@ -518,6 +518,15 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
   });
 });
 
+Cypress.Commands.add("ignoreResizeObserverLoop", () => {
+  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
+  cy.on("uncaught:exception", (err) => {
+    if (err.message.includes(resizeObserverLoopErrRe)) {
+      return false;
+    }
+  });
+});
+
 //
 //
 // -- This is a child command --

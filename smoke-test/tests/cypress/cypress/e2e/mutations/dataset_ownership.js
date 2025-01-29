@@ -57,25 +57,25 @@ describe("add, remove ownership for dataset", () => {
     addOwner(
       username,
       "Business Owner",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com"]`,
+      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
     );
     // data steward
     addOwner(
       username,
       "Data Steward",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com"]`,
+      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
     );
     // none
     addOwner(
       username,
       "None",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com"]`,
+      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
     );
     // technical owner
     addOwner(
       username,
       "Technical Owner",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com"]`,
+      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
     );
   });
 
@@ -89,7 +89,7 @@ describe("add, remove ownership for dataset", () => {
     addOwner(
       group_name,
       "Business Owner",
-      `[href="/group/urn:li:corpGroup:${test_id}"]`,
+      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
     );
     // data steward
     addOwner(
@@ -98,12 +98,16 @@ describe("add, remove ownership for dataset", () => {
       `[href="/group/urn:li:corpGroup:${test_id}"]`,
     );
     // none
-    addOwner(group_name, "None", `[href="/group/urn:li:corpGroup:${test_id}"]`);
+    addOwner(
+      group_name,
+      "None",
+      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
+    );
     // technical owner
     addOwner(
       group_name,
       "Technical Owner",
-      `[href="/group/urn:li:corpGroup:${test_id}"]`,
+      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
     );
   });
 });
