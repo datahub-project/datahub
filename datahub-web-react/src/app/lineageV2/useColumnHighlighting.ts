@@ -33,8 +33,17 @@ export default function useColumnHighlighting(
 } {
     const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
-    const { nodes, adjacencyList, edges, rootUrn, rootType, nodeVersion, columnEdgeVersion, hideTransformations } =
-        useContext(LineageNodesContext);
+    const {
+        nodes,
+        adjacencyList,
+        edges,
+        rootUrn,
+        rootType,
+        nodeVersion,
+        columnEdgeVersion,
+        hideTransformations,
+        showDataProcessInstances,
+    } = useContext(LineageNodesContext);
 
     const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
         const displayedNodeIds = new Set(shownUrns);
@@ -73,7 +82,7 @@ export default function useColumnHighlighting(
                 }),
             0,
         );
-    }, [nodeVersion, hideTransformations, columnEdges, setEdges]);
+    }, [nodeVersion, hideTransformations, showDataProcessInstances, columnEdges, setEdges]);
 
     return { cllHighlightedNodes, highlightedColumns };
 }

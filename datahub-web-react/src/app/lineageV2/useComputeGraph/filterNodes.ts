@@ -10,10 +10,11 @@ import {
     parseEdgeId,
     setDefault,
 } from '@app/lineageV2/common';
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 export interface HideNodesConfig {
     hideTransformations: boolean;
+    hideDataProcessInstances: boolean;
     hideGhostEntities: boolean;
     ignoreSchemaFieldStatus: boolean;
 }
@@ -25,7 +26,7 @@ type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>;
  */
 export default function hideNodes(
     rootUrn: string,
-    { hideTransformations, hideGhostEntities, ignoreSchemaFieldStatus }: HideNodesConfig,
+    { hideTransformations, hideDataProcessInstances, hideGhostEntities, ignoreSchemaFieldStatus }: HideNodesConfig,
     { nodes, edges, adjacencyList }: ContextSubset,
 ): ContextSubset {
     let newNodes = nodes;
@@ -51,6 +52,23 @@ export default function hideNodes(
             adjacencyList: newAdjacencyList,
         }));
     }
+    if (hideDataProcessInstances) {
+        newNodes = new Map(
+            Array.from(newNodes).filter(
+                ([urn, node]) => urn === rootUrn || node?.entity?.type !== EntityType.DataProcessInstance,
+            ),
+        );
+        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
+            nodes: newNodes,
+            edges: newEdges,
+            adjacencyList: newAdjacencyList,
+        }));
+    }
+    ({ newEdges, newAdjacencyList } = removeHiddenEdges({
+        nodes: newNodes,
+        adjacencyList: newAdjacencyList,
+        edges: newEdges,
+    }));
 
     return { nodes: newNodes, edges: newEdges, adjacencyList: newAdjacencyList };
 }
@@ -102,21 +120,23 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
             if (nodes.has(neighbor)) {
                 addToAdjacencyList(newAdjacencyList, direction, id, neighbor);
                 const edgeId = getEdgeId(id, neighbor, direction);
-                // isDisplayed always true -- only set to false right now to deduplicate edges through dbt
-                newEdges.set(edgeId, { ...edges.get(edgeId), via: undefined, isDisplayed: true });
+                const existingEdge = newEdges.get(edgeId);
+                newEdges.set(edgeId, mergeEdges(edges.get(edgeId), existingEdge));
                 buildNewAdjacencyList(neighbor, direction);
             } else {
                 buildNewAdjacencyList(neighbor, direction)?.forEach((child) => {
                     addToAdjacencyList(newAdjacencyList, direction, id, child);
                     const edgeId = getEdgeId(id, child, direction);
                     const firstEdge = edges.get(getEdgeId(id, neighbor, direction));
-                    const secondEdge = edges.get(getEdgeId(neighbor, child, direction));
-                    newEdges.set(edgeId, {
+                    const secondEdge = newEdges.get(getEdgeId(neighbor, child, direction));
+                    const existingEdge = newEdges.get(edgeId);
+                    const newEdge = {
                         isManual: (firstEdge?.isManual || secondEdge?.isManual) ?? false,
                         created: getLatestTimestamp(firstEdge?.created, secondEdge?.created),
                         updated: getLatestTimestamp(firstEdge?.updated, secondEdge?.updated),
-                        isDisplayed: true,
-                    });
+                        isDisplayed: (firstEdge?.isDisplayed && secondEdge?.isDisplayed) ?? false,
+                    };
+                    newEdges.set(edgeId, mergeEdges(newEdge, existingEdge));
                 });
             }
         });
@@ -127,6 +147,33 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
     seen.clear();
     buildNewAdjacencyList(rootUrn, LineageDirection.Downstream);
     return { newAdjacencyList, newEdges };
+}
+
+/** Merge two edges, each representing a different path between two nodes. */
+function mergeEdges(edgeA?: LineageEdge, edgeB?: LineageEdge): LineageEdge {
+    return {
+        isManual: edgeA?.isManual && edgeB?.isManual,
+        created: getLatestTimestamp(edgeA?.created, edgeB?.created),
+        updated: getLatestTimestamp(edgeA?.updated, edgeB?.updated),
+        isDisplayed: (edgeA?.isDisplayed || edgeB?.isDisplayed) ?? false,
+    };
+}
+
+function removeHiddenEdges({ edges }: ContextSubset) {
+    const newEdges = new Map<EdgeId, LineageEdge>();
+    const newAdjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    };
+
+    edges.forEach((edge, edgeId) => {
+        const [upstream, downstream] = parseEdgeId(edgeId);
+        if (edge.isDisplayed) {
+            addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, downstream, upstream);
+            newEdges.set(edgeId, edge);
+        }
+    });
+    return { newEdges, newAdjacencyList };
 }
 
 function getLatestTimestamp(
