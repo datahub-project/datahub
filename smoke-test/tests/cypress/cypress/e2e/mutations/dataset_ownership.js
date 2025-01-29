@@ -95,7 +95,7 @@ describe("add, remove ownership for dataset", () => {
     addOwner(
       group_name,
       "Data Steward",
-      `[href="/group/urn:li:corpGroup:${test_id}"]`,
+      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
     );
     // none
     addOwner(

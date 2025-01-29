@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Typography } from 'antd';
 import { OnboardingStep } from '../OnboardingStep';
-import acrylMainDiagram from '../../../images/acryl_hero.svg';
+import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
 import { ANTD_GRAY } from '../../entityV2/shared/constants';
 
 export const V2_SEARCH_BAR_ID = 'v2-search-bar';
@@ -21,7 +21,6 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
             <div>
                 <div
                     style={{
-                        backgroundColor: 'black',
                         width: '540px', // Adjusted width to be wider than the image
                         borderRadius: '10px',
                         display: 'flex',
@@ -30,7 +29,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                         margin: '0 auto 20px auto',
                     }}
                 >
-                    <Image preview={false} height={184} width={500} src={acrylMainDiagram} />
+                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
                 <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
