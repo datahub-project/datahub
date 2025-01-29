@@ -39,6 +39,14 @@ import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
 import { usePreviewData } from '../entity/shared/PreviewContext';
+import {
+    toRelativeTimeString,
+    formatDetailedDuration,
+    toLocalDateTimeString,
+    formatDuration,
+} from '../shared/time/timeUtils';
+import { Pill } from '../../alchemy-components/components/Pills';
+import { Popover } from '../../alchemy-components/components/Popover';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -158,6 +166,34 @@ const UserListTitle = styled(Typography.Text)`
     margin-bottom: 10px;
     padding-right: 12px;
 `;
+
+const StatContainer = styled.div`
+    display: flex;
+    margin-top: 40px;
+    height: 25px;
+    padding-left: 20px;
+    color: #5f6685;
+    width: 150px;
+`;
+
+const popoverStyles = {
+    overlayInnerStyle: {
+        borderRadius: '10px',
+    },
+    overlayStyle: {
+        margin: '5px',
+    },
+    contentStyle: {
+        color: '#5F6685',
+        fontSize: '0.8rem',
+    },
+    titleStyle: {
+        color: '#5F6685',
+        borderBottom: 'none',
+        fontSize: '0.8rem',
+        fontWeight: '600',
+    },
+};
 
 interface Props {
     name: string;

@@ -155,7 +155,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 parentContainers={data.parentContainers}
-                parentEntities={parentEntities}
+                parentEntities={parentEntities as unknown as PreviewEntity[]}
                 container={data.container || undefined}
             />
         );
@@ -188,7 +188,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 parentContainers={data.parentContainers}
-                parentEntities={parentEntities}
+                parentEntities={parentEntities as unknown as PreviewEntity[]}
                 container={data.container || undefined}
                 duration={firstState?.durationMillis}
                 status={firstState?.result?.resultType}
