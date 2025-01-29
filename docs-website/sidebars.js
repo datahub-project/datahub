@@ -933,6 +933,7 @@ module.exports = {
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
         "docs/api/tutorials/ml",
+        "docs/api/tutorials/ml_v2",
         "docs/api/tutorials/owners",
         "docs/api/tutorials/structured-properties",
         "docs/api/tutorials/tags",
