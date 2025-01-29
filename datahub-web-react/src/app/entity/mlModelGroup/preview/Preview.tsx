@@ -19,6 +19,7 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, group.urn)}
+            // eslint-disable-next-line @typescript-eslint/dot-notation
             name={group?.properties?.['propertiesName'] || group?.name || ''}
             urn={group.urn}
             platformInstanceId={group.dataPlatformInstance?.instanceId}
