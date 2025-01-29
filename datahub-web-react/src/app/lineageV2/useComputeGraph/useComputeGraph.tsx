@@ -46,7 +46,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
     const { flowNodes, flowEdges, resetPositions } = useMemo(
         () => {
             const smallContext = { nodes, edges, adjacencyList };
-            console.debug(smallContext);
+            console.debug('OLD CONTEXT', smallContext);
 
             // Computed before nodes are hidden by `hideNodes`, to keep node order consistent.
             // Includes nodes that will be hidden, but they'll be filtered out by `getDisplayedNodes`.
@@ -62,7 +62,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
                 ignoreSchemaFieldStatus,
             };
             const newSmallContext = hideNodes(urn, config, smallContext);
-            console.debug(newSmallContext);
+            console.debug('NEW CONTEXT', newSmallContext);
 
             const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newSmallContext);
             const nodeBuilder = new NodeBuilder(urn, type, displayedNodes, parents);
