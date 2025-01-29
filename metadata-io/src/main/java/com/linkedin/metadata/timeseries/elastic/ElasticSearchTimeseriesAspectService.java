@@ -3,7 +3,6 @@ package com.linkedin.metadata.timeseries.elastic;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -46,7 +45,6 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.SearchContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -404,19 +402,24 @@ public class ElasticSearchTimeseriesAspectService
     searchRequest.indices(indexName);
 
     log.debug("Search request is: " + searchRequest);
-    SearchHits hits;
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "searchAspectValues_search").time()) {
-      final SearchResponse searchResponse =
-          searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      hits = searchResponse.getHits();
-    } catch (Exception e) {
-      log.error("Search query failed:", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
-    return Arrays.stream(hits.getHits())
-        .map(ElasticSearchTimeseriesAspectService::parseDocument)
-        .collect(Collectors.toList());
+    return opContext.withSpan(
+        "searchAspectValues_search",
+        () -> {
+          SearchHits hits;
+          try {
+            final SearchResponse searchResponse =
+                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            hits = searchResponse.getHits();
+          } catch (Exception e) {
+            log.error("Search query failed:", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+          return Arrays.stream(hits.getHits())
+              .map(ElasticSearchTimeseriesAspectService::parseDocument)
+              .collect(Collectors.toList());
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "searchAspectValues_search"));
   }
 
   @Nonnull
@@ -681,13 +684,7 @@ public class ElasticSearchTimeseriesAspectService
 
     SearchResponse response =
         executeScrollSearchQuery(
-            opContext.getSearchContext(),
-            entityName,
-            aspectName,
-            filterQueryBuilder,
-            sortCriteria,
-            scrollId,
-            count);
+            opContext, entityName, aspectName, filterQueryBuilder, sortCriteria, scrollId, count);
     int totalCount = (int) response.getHits().getTotalHits().value;
 
     List<Pair<EnvelopedAspect, GenericTimeseriesDocument>> resultPairs =
@@ -704,7 +701,7 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   private SearchResponse executeScrollSearchQuery(
-      @Nonnull SearchContext searchContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final QueryBuilder query,
@@ -729,14 +726,22 @@ public class ElasticSearchTimeseriesAspectService
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
     searchRequest.indices(
-        searchContext.getIndexConvention().getTimeseriesAspectIndexName(entityName, aspectName));
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName));
 
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "scrollAspects_search").time()) {
-      return searchClient.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "scrollAspects_search",
+        () -> {
+          try {
+            return searchClient.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "scrollAspects_search"));
   }
 }

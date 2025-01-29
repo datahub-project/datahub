@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -16,17 +17,23 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
+import io.datahubproject.metadata.exception.TraceException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * These contexts define a read/write context which allows more flexibility when reading and writing
@@ -41,6 +48,7 @@ import lombok.Getter;
  */
 @Builder(toBuilder = true)
 @Getter
+@Slf4j
 public class OperationContext implements AuthorizationSession {
 
   /**
@@ -153,6 +161,7 @@ public class OperationContext implements AuthorizationSession {
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
+      @Nullable TraceContext traceContext,
       boolean enforceExistenceEnabled) {
     return asSystem(
         config,
@@ -163,6 +172,7 @@ public class OperationContext implements AuthorizationSession {
         retrieverContext,
         validationContext,
         ObjectMapperContext.DEFAULT,
+        traceContext,
         enforceExistenceEnabled);
   }
 
@@ -175,6 +185,7 @@ public class OperationContext implements AuthorizationSession {
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
+      @Nullable TraceContext traceContext,
       boolean enforceExistenceEnabled) {
 
     ActorContext systemActorContext =
@@ -202,6 +213,7 @@ public class OperationContext implements AuthorizationSession {
           .retrieverContext(retrieverContext)
           .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
+          .traceContext(traceContext)
           .build(systemAuthentication, false);
     } catch (OperationContextException e) {
       throw new RuntimeException(e);
@@ -219,6 +231,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
+  @Nullable private final TraceContext traceContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -343,6 +356,84 @@ public class OperationContext implements AuthorizationSession {
     return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
   }
 
+  @Nullable
+  public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata != null && traceContext != null) {
+      return traceContext.withTraceId(systemMetadata);
+    }
+    return systemMetadata;
+  }
+
+  public SystemMetadata withProducerTrace(
+      String operationName, @Nullable SystemMetadata systemMetadata, String topicName) {
+    if (systemMetadata != null && traceContext != null) {
+      return traceContext.withProducerTrace(operationName, systemMetadata, topicName);
+    }
+    return systemMetadata;
+  }
+
+  /**
+   * Generic method to capture spans
+   *
+   * @param name name of the span
+   * @param operation the actual logic
+   * @param attributes additional attributes
+   * @return the output from the logic
+   * @param <T> generic
+   */
+  public <T> T withSpan(String name, Supplier<T> operation, String... attributes) {
+    if (traceContext != null) {
+      return traceContext.withSpan(name, operation, attributes);
+    } else {
+      return operation.get();
+    }
+  }
+
+  public void withSpan(String name, Runnable operation, String... attributes) {
+    if (traceContext != null) {
+      traceContext.withSpan(name, operation, attributes);
+    } else {
+      operation.run();
+    }
+  }
+
+  public void withQueueSpan(
+      String name,
+      SystemMetadata systemMetadata,
+      String topicName,
+      Runnable operation,
+      String... attributes) {
+    if (systemMetadata != null) {
+      withQueueSpan(name, List.of(systemMetadata), topicName, operation, attributes);
+    } else {
+      operation.run();
+    }
+  }
+
+  public void withQueueSpan(
+      String name,
+      List<SystemMetadata> systemMetadata,
+      String topicName,
+      Runnable operation,
+      String... attributes) {
+    if (traceContext != null) {
+      traceContext.withQueueSpan(name, systemMetadata, topicName, operation, attributes);
+    } else {
+      operation.run();
+    }
+  }
+
+  public String traceException(Set<Throwable> throwables) {
+    try {
+      return getObjectMapper()
+          .writeValueAsString(
+              throwables.stream().map(TraceException::new).collect(Collectors.toList()));
+    } catch (JsonProcessingException e) {
+      log.error("Error creating trace.", e);
+    }
+    return throwables.stream().map(Throwable::getMessage).collect(Collectors.joining("\n"));
+  }
+
   /**
    * Return a unique id for this context. Typically useful for building cache keys. We combine the
    * different context components to create a single string representation of the hashcode across
@@ -371,6 +462,7 @@ public class OperationContext implements AuthorizationSession {
             .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
             .add(getRetrieverContext())
             .add(getObjectMapperContext())
+            .add(getTraceContext() == null ? EmptyContext.EMPTY : getTraceContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -513,7 +605,8 @@ public class OperationContext implements AuthorizationSession {
           this.requestContext,
           this.retrieverContext,
           this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
-          this.validationContext);
+          this.validationContext,
+          this.traceContext);
     }
 
     private OperationContext build() {

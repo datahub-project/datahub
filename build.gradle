@@ -38,7 +38,7 @@ buildscript {
   ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
-  ext.openTelemetryVersion = '1.18.0'
+  ext.openTelemetryVersion = '1.45.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
@@ -220,7 +220,10 @@ project.ext.externalDependency = [
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
+    'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
+    'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
