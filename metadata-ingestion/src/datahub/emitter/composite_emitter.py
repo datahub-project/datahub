@@ -25,7 +25,7 @@ class CompositeEmitter(Emitter):
         callback_called = False
         for emitter in self.emitters:
             if not callback_called:
-                # We want to ensure that the callback is only called once and we tie it to the first emitter that
+                # We want to ensure that the callback is only called once and we tie it to the first emitter
                 emitter.emit(item, callback)
                 callback_called = True
             else:
