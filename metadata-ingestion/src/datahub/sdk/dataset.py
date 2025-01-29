@@ -37,7 +37,6 @@ class DatasetEditMode(Enum):
     DEFER_TO_UI = "DEFER_TO_UI"
 
 
-# TODO: Add a way for ingestion to change the default edit mode
 # TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
 SchemaFieldInputType: TypeAlias = Union[
@@ -245,7 +244,6 @@ class SchemaField:
                 tags = tags or []
                 tags.extend(editable_tags.tags)
 
-        # TODO: Do we need to deduplicate the list?
         return tags
 
     def set_tags(self, tags: TagsInputType) -> None:
@@ -372,7 +370,6 @@ class Dataset(
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
-        # TODO: do we need to support edit_mode for tags / other aspects?
         # TODO structured_properties
         domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
