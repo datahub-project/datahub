@@ -206,3 +206,41 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
 
     return 'Unknown time range';
 }
+
+export function formatDuration(durationMs: number): string {
+    const duration = moment.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
+
+    if (hours === 0 && minutes === 0) {
+        return `${seconds} secs`;
+    }
+
+    if (hours === 0) {
+        return minutes === 1 ? `${minutes} min` : `${minutes} mins`;
+    }
+
+    const minuteStr = minutes > 0 ? ` ${minutes} mins` : '';
+    return hours === 1 ? `${hours} hr${minuteStr}` : `${hours} hrs${minuteStr}`;
+}
+
+export function formatDetailedDuration(durationMs: number): string {
+    const duration = moment.duration(durationMs);
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    const seconds = duration.seconds();
+
+    const parts: string[] = [];
+
+    if (hours > 0) {
+        parts.push(hours === 1 ? `${hours} hr` : `${hours} hrs`);
+    }
+    if (minutes > 0) {
+        parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
+    }
+    if (seconds > 0) {
+        parts.push(`${seconds} secs`);
+    }
+    return parts.join(' ');
+}
