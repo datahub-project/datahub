@@ -1,3 +1,4 @@
+import warnings
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -20,7 +21,7 @@ from datahub.emitter.mce_builder import (
     validate_ownership_type,
 )
 from datahub.emitter.mcp_builder import ContainerKey
-from datahub.errors import ItemNotFoundError, SdkUsageError
+from datahub.errors import ItemNotFoundError, MultipleSubtypesWarning, SdkUsageError
 from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
@@ -63,9 +64,14 @@ class HasSubtype(Entity):
     def subtype(self) -> Optional[str]:
         subtypes = self._get_aspect(models.SubTypesClass)
         if subtypes and subtypes.typeNames:
-            # TODO: throw an error if there are multiple subtypes
+            if len(subtypes.typeNames) > 1:
+                warnings.warn(
+                    f"The entity {self.urn} has multiple subtypes: {subtypes.typeNames}. "
+                    "Only the first subtype will be considered.",
+                    MultipleSubtypesWarning,
+                    stacklevel=2,
+                )
             return subtypes.typeNames[0]
-        # TODO: throw an error if there is no subtype? or default to None?
         return None
 
     def set_subtype(self, subtype: str) -> None:
@@ -113,9 +119,6 @@ class HasOwnership(Entity):
 
     @staticmethod
     def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
-        # TODO: better support for custom ownership types?
-        # TODO: add the user auto-resolver here?
-
         if isinstance(owner, models.OwnerClass):
             return owner
 
@@ -180,7 +183,7 @@ class HasOwnership(Entity):
         return owner.owner
 
     def add_owner(self, owner: OwnerInputType) -> None:
-        # TODO: If the owner is already present, ignore it.
+        # TODO: document that if the owner is already present, ignore it.
         parsed_owner = self._parse_owner_class(owner)
         _add_list_unique(self._ensure_owners(), self._typed_owner_key, parsed_owner)
 
@@ -319,7 +322,6 @@ TermsInputType: TypeAlias = List[TermInputType]
 
 
 class HasTerms(Entity):
-    # TODO implement this
     __slots__ = ()
 
     @property

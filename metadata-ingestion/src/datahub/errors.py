@@ -21,3 +21,7 @@ class SchemaFieldKeyError(SdkUsageError, KeyError):
 
 class HiddenEditWarning(Warning):
     pass
+
+
+class MultipleSubtypesWarning(Warning):
+    pass
