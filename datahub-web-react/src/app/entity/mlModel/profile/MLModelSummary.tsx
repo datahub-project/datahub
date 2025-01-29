@@ -2,12 +2,15 @@ import React from 'react';
 import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import { colors } from '@src/alchemy-components/theme';
+import moment from 'moment';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { MlHyperParam, MlMetric, EntityType } from '../../../../types.generated';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 import { InfoItem } from '../../shared/components/styled/InfoItem';
 import { notEmpty } from '../../shared/utils';
+import { Pill } from '../../../../alchemy-components/components/Pills';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -23,22 +26,13 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 const InfoItemContent = styled.div`
     padding-top: 8px;
     width: 100px;
-`;
-
-const VersionTagContainer = styled.span`
-    padding: 2px 8px;
-    display: inline-flex;
-    align-items: center;
-    border-radius: 4px;
-    border: 1px solid #d9d9d9;
-    color: #595959;
-    background: #fafafa;
-    margin-right: 8px;
-    margin-bottom: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
 `;
 
 const JobLink = styled(Link)`
-    color: #1890ff;
+    color: ${colors.blue[700]};
     &:hover {
         text-decoration: underline;
     }
@@ -61,12 +55,6 @@ export default function MLModelSummary() {
         },
     ];
 
-    const formatDate = (timestamp?: number) => {
-        if (!timestamp) return '-';
-        const milliseconds = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-        return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
-    };
-
     const renderTrainingJobs = () => {
         const trainingJobs =
             model?.trainedBy?.relationships?.map((relationship) => relationship.entity).filter(notEmpty) || [];
@@ -75,19 +63,17 @@ export default function MLModelSummary() {
 
         return (
             <div>
-                {trainingJobs.map((job, index) => (
-                    <span key={(job as { urn: string }).urn}>
-                        <JobLink
-                            to={entityRegistry.getEntityUrl(
-                                EntityType.DataProcessInstance,
-                                (job as { urn: string }).urn,
-                            )}
-                        >
-                            {(job as { name?: string })?.name || (job as { urn: string }).urn}
-                        </JobLink>
-                        {index < trainingJobs.length - 1 && ', '}
-                    </span>
-                ))}
+                {trainingJobs.map((job, index) => {
+                    const { urn, name } = job as { urn: string; name?: string };
+                    return (
+                        <span key={urn}>
+                            <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, urn)}>
+                                {name || urn}
+                            </JobLink>
+                            {index < trainingJobs.length - 1 && ', '}
+                        </span>
+                    );
+                })}
             </div>
         );
     };
@@ -101,10 +87,18 @@ export default function MLModelSummary() {
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Registered At">
-                        <InfoItemContent>{formatDate(model?.properties?.created?.time)}</InfoItemContent>
+                        <InfoItemContent>
+                            {model?.properties?.created?.time
+                                ? moment(model.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
+                                : '-'}
+                        </InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Last Modified At">
-                        <InfoItemContent>{formatDate(model?.properties?.lastModified?.time)}</InfoItemContent>
+                        <InfoItemContent>
+                            {model?.properties?.lastModified?.time
+                                ? moment(model.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
+                                : '-'}
+                        </InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Created By">
                         <InfoItemContent>{model?.properties?.created?.actor}</InfoItemContent>
@@ -114,7 +108,12 @@ export default function MLModelSummary() {
                     <InfoItem title="Aliases">
                         <InfoItemContent>
                             {model?.versionProperties?.aliases?.map((alias) => (
-                                <VersionTagContainer key={alias.versionTag}>{alias.versionTag}</VersionTagContainer>
+                                <Pill
+                                    label={alias.versionTag ?? '-'}
+                                    key={alias.versionTag}
+                                    colorScheme="blue"
+                                    clickable={false}
+                                />
                             ))}
                         </InfoItemContent>
                     </InfoItem>

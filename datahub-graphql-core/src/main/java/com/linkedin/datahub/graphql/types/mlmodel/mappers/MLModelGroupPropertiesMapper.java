@@ -40,6 +40,12 @@ public class MLModelGroupPropertiesMapper
       result.setCreated(
           TimeStampToAuditStampMapper.map(context, mlModelGroupProperties.getCreated()));
     }
+    if (mlModelGroupProperties.getName() != null) {
+      result.setName(mlModelGroupProperties.getName());
+    } else {
+      // backfill name from URN for backwards compatibility
+      result.setName(entityUrn.getEntityKey().get(1)); // indexed access is safe here
+    }
 
     if (mlModelGroupProperties.hasLastModified()) {
       result.setLastModified(

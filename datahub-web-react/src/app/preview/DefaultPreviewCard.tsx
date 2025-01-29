@@ -1,8 +1,8 @@
+import DataProcessInstanceRightColumn from '@app/preview/DataProcessInstanceRightColumn';
 import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { capitalize } from 'lodash';
 import {
     GlobalTags,
     Owner,
@@ -312,7 +312,6 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
-    const statusPillColor = status === 'SUCCESS' ? 'green' : 'red';
     const shouldShowRightColumn =
         (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
@@ -424,35 +423,7 @@ export default function DefaultPreviewCard({
             </LeftColumn>
             {shouldShowRightColumn && (
                 <RightColumn key="right-column">
-                    {startTime && (
-                        <Popover
-                            content={<div style={popoverStyles.contentStyle}>{toLocalDateTimeString(startTime)}</div>}
-                            title={<div style={popoverStyles.titleStyle}>Start Time</div>}
-                            trigger="hover"
-                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
-                            overlayStyle={popoverStyles.overlayStyle}
-                        >
-                            <StatContainer>{toRelativeTimeString(startTime)}</StatContainer>
-                        </Popover>
-                    )}
-                    {duration && (
-                        <Popover
-                            content={<div style={popoverStyles.contentStyle}>{formatDetailedDuration(duration)}</div>}
-                            title={<div style={popoverStyles.titleStyle}>Duration</div>}
-                            trigger="hover"
-                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
-                            overlayStyle={popoverStyles.overlayStyle}
-                        >
-                            <StatContainer>{formatDuration(duration)}</StatContainer>
-                        </Popover>
-                    )}
-                    {status && (
-                        <>
-                            <StatContainer>
-                                <Pill label={capitalize(status)} colorScheme={statusPillColor} />
-                            </StatContainer>
-                        </>
-                    )}
+                    <DataProcessInstanceRightColumn startTime={startTime} duration={duration} status={status} />
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

@@ -1,6 +1,9 @@
 import { Typography, Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { colors } from '@src/alchemy-components/theme';
+import { Pill } from '@src/alchemy-components/components/Pills';
+import moment from 'moment';
 import { GetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -31,7 +34,7 @@ const NameLink = styled.a`
     color: inherit;
     font-size: 0.9rem;
     &:hover {
-        color: #1890ff !important;
+        color: ${colors.blue[400]} !important;
     }
 `;
 
@@ -42,6 +45,7 @@ const TagContainer = styled.div`
     flex-wrap: wrap;
     margin-right: 8px;
     backgroundcolor: white;
+    gap: 5px;
 `;
 
 const StyledTable = styled(Table)`
@@ -60,30 +64,6 @@ const VersionContainer = styled.div`
     align-items: center;
 `;
 
-const AliasPill = styled.div`
-    padding: 2px 8px;
-    display: inline-flex;
-    align-items: center;
-    border-radius: 7px;
-    border: 1px solid #d9d9d9;
-    color: #595959;
-    background: #fafafa;
-    margin-right: 8px;
-    margin-bottom: 4px;
-`;
-
-const TagPill = styled.div`
-    padding: 2px 8px;
-    display: inline-flex;
-    align-items: center;
-    border-radius: 7px;
-    border: 1px solid #d9d9d9;
-    color: #595959;
-    background: white;
-    margin-right: 8px;
-    margin-bottom: 4px;
-`;
-
 export default function MLGroupModels() {
     const baseEntity = useBaseEntity<GetMlModelGroupQuery>();
     const entityRegistry = useEntityRegistry();
@@ -94,21 +74,17 @@ export default function MLGroupModels() {
             ?.map((relationship) => relationship.entity)
             .filter(notEmpty) || [];
 
-    const formatDate = (timestamp?: number) => {
-        if (!timestamp) return '-';
-        const milliseconds = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-        return new Date(milliseconds).toISOString().slice(0, 19).replace('T', ' ');
-    };
-
     const columns = [
         {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
             width: 300,
-            render: (name, record) => (
+            render: (_: any, record) => (
                 <NameContainer>
-                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>{name}</NameLink>
+                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
+                        {record?.properties?.propertiesName || record?.name}
+                    </NameLink>
                 </NameContainer>
             ),
         },
@@ -125,7 +101,11 @@ export default function MLGroupModels() {
             key: 'createdAt',
             width: 150,
             render: (_: any, record: any) => (
-                <Typography.Text>{formatDate(record.properties?.createdTS?.time)}</Typography.Text>
+                <Typography.Text>
+                    {record.properties?.createdTS?.time
+                        ? moment(record.properties.createdTS.time).format('YYYY-MM-DD HH:mm:ss')
+                        : '-'}
+                </Typography.Text>
             ),
         },
         {
@@ -138,7 +118,12 @@ export default function MLGroupModels() {
                 return (
                     <TagContainer>
                         {aliases.map((alias) => (
-                            <AliasPill key={alias.versionTag}>{alias.versionTag}</AliasPill>
+                            <Pill
+                                key={alias.versionTag}
+                                label={alias.versionTag}
+                                colorScheme="blue"
+                                clickable={false}
+                            />
                         ))}
                     </TagContainer>
                 );
@@ -154,7 +139,7 @@ export default function MLGroupModels() {
                 return (
                     <TagContainer>
                         {tags.map((tag) => (
-                            <TagPill key={tag}>{tag}</TagPill>
+                            <Pill key={tag} label={tag} clickable={false} />
                         ))}
                     </TagContainer>
                 );
@@ -180,13 +165,15 @@ export default function MLGroupModels() {
             <InfoItemContainer justifyContent="left">
                 <InfoItem title="Created At">
                     <InfoItemContent>
-                        {modelGroup?.properties?.created?.time ? formatDate(modelGroup.properties?.created?.time) : '-'}
+                        {modelGroup?.properties?.created?.time
+                            ? moment(modelGroup.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
+                            : '-'}
                     </InfoItemContent>
                 </InfoItem>
                 <InfoItem title="Last Modified At">
                     <InfoItemContent>
                         {modelGroup?.properties?.lastModified?.time
-                            ? formatDate(modelGroup.properties?.lastModified?.time)
+                            ? moment(modelGroup.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
                             : '-'}
                     </InfoItemContent>
                 </InfoItem>

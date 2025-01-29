@@ -12,7 +12,7 @@ import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
-import datahub as datahub_package
+from datahub._version import nice_version_name
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.common import ConfigModel, GraphError
@@ -147,7 +147,7 @@ def run(
                 return ret
 
     # main function begins
-    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", nice_version_name())
 
     pipeline_config = load_config_file(
         config,

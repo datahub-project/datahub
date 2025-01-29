@@ -272,6 +272,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             removed
         }
         properties {
+            propertiesName: name
             createdTS: created {
                 time
                 actor
@@ -322,6 +323,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             comment
         }
         properties {
+            propertiesName: name
             createdTS: created {
                 time
                 actor

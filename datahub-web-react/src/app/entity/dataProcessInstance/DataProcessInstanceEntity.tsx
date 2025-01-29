@@ -1,6 +1,7 @@
 import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import { DataProcessInstance, EntityType, OwnershipType, SearchResult, DataJob } from '../../../types.generated';
+import { Entity as GraphQLEntity } from '@types';
+import { DataProcessInstance, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -19,12 +20,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import SummaryTab from './profile/DataProcessInstanceSummary';
 
-type PreviewEntity = {
-    urn: string;
-    type: EntityType;
-};
-
-const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
+const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
@@ -34,7 +30,7 @@ const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
     }
 
     // First cast to unknown, then to Entity with proper type
-    return [parentEntity.entity as unknown as Entity<DataJob>];
+    return [parentEntity.entity];
 };
 
 /**
