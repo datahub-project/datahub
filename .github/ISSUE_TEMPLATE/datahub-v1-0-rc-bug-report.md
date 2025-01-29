@@ -1,9 +1,9 @@
 ---
-name: "\U0001F41EBug report"
-about: Create a report to help us improve
-title: A short description of the bug
-labels: bug
-assignees: ''
+name: DataHub v1.0-rc Bug Report
+about: Report issues found in DataHub v1.0 Release Candidates
+title: "[v1.0-rc/bug] Description of Bug"
+labels: bug, datahub-v1.0-rc
+assignees: chriscollins3456, david-leifker, maggiehays
 
 ---
 
@@ -20,8 +20,8 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Screenshots and/or Screen Recordings**
+If applicable, add screenshots and/or screen recordings to help explain the issue.
 
 **Desktop (please complete the following information):**
  - OS: [e.g. iOS]
