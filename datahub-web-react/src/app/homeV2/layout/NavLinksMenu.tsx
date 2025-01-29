@@ -236,7 +236,7 @@ export function NavLinksMenu(props: Props) {
     ];
 
     return (
-        <LinksWrapper areLinksHidden={areLinksHidden}>
+        <LinksWrapper areLinksHidden={areLinksHidden} data-testid="nav-menu-links">
             {menuItems.map((menuItem) => {
                 // If menu is hidden, don't show it
                 if (menuItem.isHidden) return null;

@@ -448,7 +448,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.mouseover("#title").click();
     cy.waitTextVisible("Other").click();
     cy.get("[type=submit]").click();
-    cy.waitTextVisible("Welcome to DataHub");
+    cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.logout();
