@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertNull;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -55,9 +56,12 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.TraceContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.ServletException;
@@ -87,6 +91,7 @@ import org.testng.annotations.Test;
 @ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
 @Import({
   SpringWebConfig.class,
+  TracingInterceptor.class,
   EntityControllerTest.EntityControllerTestConfig.class,
   EntityVersioningServiceFactory.class
 })
@@ -398,6 +403,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     @MockBean public EntityServiceImpl entityService;
     @MockBean public SearchService searchService;
     @MockBean public TimeseriesAspectService timeseriesAspectService;
+    @MockBean public TraceContext traceContext;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -646,5 +652,81 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                         INVALID_VERSION_SET_URN, TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  public void testSystemMetadataAndHeadersParsing() throws Exception {
+    // Test JSON with both systemMetadata and headers
+    final String testBodyWithMetadataAndHeaders =
+        "[\n"
+            + "    {\n"
+            + "      \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "      \"status\": {\n"
+            + "        \"value\": {\n"
+            + "          \"removed\": false\n"
+            + "        },\n"
+            + "        \"systemMetadata\": {\n"
+            + "          \"lastObserved\": 1234567890,\n"
+            + "          \"runId\": \"test-run-id\"\n"
+            + "        },\n"
+            + "        \"headers\": {\n"
+            + "          \"X-Custom-Header\": \"test-value\",\n"
+            + "          \"X-Another-Header\": \"another-value\"\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "]";
+
+    // Test JSON without systemMetadata and headers
+    final String testBodyWithoutMetadataAndHeaders =
+        "[\n"
+            + "    {\n"
+            + "      \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\",\n"
+            + "      \"status\": {\n"
+            + "        \"value\": {\n"
+            + "          \"removed\": false\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "]";
+
+    // Test with metadata and headers
+    AspectsBatch batchWithMetadata =
+        entityController.toMCPBatch(
+            opContext,
+            testBodyWithMetadataAndHeaders,
+            opContext.getSessionActorContext().getAuthentication().getActor());
+
+    // Verify systemMetadata is correctly parsed
+    SystemMetadata systemMetadata =
+        batchWithMetadata.getMCPItems().get(0).getMetadataChangeProposal().getSystemMetadata();
+    assertNotNull(systemMetadata);
+    assertEquals(1234567890L, systemMetadata.getLastObserved().longValue());
+    assertEquals("test-run-id", systemMetadata.getRunId());
+
+    // Verify headers are correctly parsed
+    Map<String, String> headers =
+        batchWithMetadata.getMCPItems().get(0).getMetadataChangeProposal().getHeaders();
+    assertNotNull(headers);
+    assertEquals("test-value", headers.get("X-Custom-Header"));
+    assertEquals("another-value", headers.get("X-Another-Header"));
+
+    // Test without metadata and headers
+    AspectsBatch batchWithoutMetadata =
+        entityController.toMCPBatch(
+            opContext,
+            testBodyWithoutMetadataAndHeaders,
+            opContext.getSessionActorContext().getAuthentication().getActor());
+
+    // Verify systemMetadata has lastObserved even when not in input
+    SystemMetadata metadataWithoutInput =
+        batchWithoutMetadata.getMCPItems().get(0).getMetadataChangeProposal().getSystemMetadata();
+    assertNotNull(metadataWithoutInput);
+    assertNotNull(metadataWithoutInput.getLastObserved());
+    assertEquals(
+        metadataWithoutInput.getRunId(), "no-run-id-provided"); // Should be null since not provided
+
+    // Verify headers are null when not present
+    assertNull(batchWithoutMetadata.getMCPItems().get(0).getMetadataChangeProposal().getHeaders());
   }
 }
