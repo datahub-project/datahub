@@ -242,7 +242,7 @@ class MSSQLDataJob:
                 schema=self.entity.schema,
                 **key_args,
             )
-            if hasattr(self.entity, "schema")  # StoredProcedure does
+            if isinstance(self.entity, StoredProcedure)
             else DatabaseKey(
                 **key_args,
             )
@@ -299,9 +299,7 @@ class MSSQLDataFlow:
     def as_container_aspect(self) -> ContainerClass:
         databaseKey = DatabaseKey(
             platform=self.entity.orchestrator,
-            instance=self.entity.platform_instance
-            if self.entity.platform_instance
-            else None,
+            instance=self.entity.platform_instance,
             env=self.entity.env,
             database=self.entity.db,
         )
