@@ -58,14 +58,14 @@ For platform-specific details, see our integration guides for [MLflow](/docs/gen
 To follow this tutorial, you'll need DataHub Quickstart deployed locally.
 For detailed steps, see the [Datahub Quickstart Guide](/docs/quickstart.md).
 
-Next, set up the Python client for DataHub using `DataHubAIClient`.
+Next, set up the Python client for DataHub using `DatahubAIClient`defined in [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client.py).
 
 Create a token in DataHub UI and replace `<your_token>` with your token:
 
 ```python
-from dh_ai_client import DataHubAIClient
+from dh_ai_client import DatahubAIClient
 
-client = DataHubAIClient(token="<your_token>", server_url="http://localhost:9002")
+client = DatahubAIClient(token="<your_token>", server_url="http://localhost:9002")
 ```
 
 :::note Verifying via GraphQL
@@ -757,6 +757,7 @@ Here's your complete ML system with all components connected:
 
 You now have a complete lineage view of your ML assets, from training data through runs to production models!
 
+You can check out the full code for this tutorial [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client_sample.py).
 ## What's Next?
 
 To see these integrations in action:
