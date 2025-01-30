@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class MLflowDatahubClient:
+class DatahubAIClient:
     """Client for creating and managing MLflow metadata in DataHub."""
 
     def __init__(
@@ -36,7 +36,13 @@ class MLflowDatahubClient:
         server_url: str = "http://localhost:8080",
         platform: str = "mlflow",
     ) -> None:
-        """Initialize the MLflow DataHub client."""
+        """Initialize the DataHub AI client.
+
+        Args:
+            token: DataHub access token
+            server_url: DataHub server URL (defaults to http://localhost:8080)
+            platform: Platform name (defaults to mlflow)
+        """
         self.token = token
         self.server_url = server_url
         self.platform = platform

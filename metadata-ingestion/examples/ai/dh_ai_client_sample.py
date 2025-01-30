@@ -1,6 +1,6 @@
 import argparse
 
-from mlflow_dh_client import MLflowDatahubClient
+from dh_ai_client import DatahubAIClient
 
 import datahub.metadata.schema_classes as models
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
@@ -9,9 +9,15 @@ if __name__ == "__main__":
     # Example usage
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=True, help="DataHub access token")
+    parser.add_argument(
+        "--server_url",
+        required=False,
+        default="http://localhost:8080",
+        help="DataHub server URL (defaults to http://localhost:8080)",
+    )
     args = parser.parse_args()
 
-    client = MLflowDatahubClient(token=args.token)
+    client = DatahubAIClient(token=args.token, server_url=args.server_url)
 
     # Create model group
     model_group_urn = client.create_model_group(
