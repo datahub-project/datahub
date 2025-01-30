@@ -100,6 +100,7 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
                 },
                 // Add the missing 'siblings' field with the appropriate data
                 siblings: currData?.entity?.siblings || null,
+                siblingsSearch: currData?.entity?.siblingsSearch || null,
             },
         },
     });

@@ -184,6 +184,43 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
+query getUsers($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on CorpUser {
+            urn
+            type
+            ...userFields
+        }
+    }
+}
+
+fragment userFields on CorpUser {
+    username
+    properties {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    info {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    editableProperties {
+        displayName
+        title
+        pictureLink
+    }
+}
+
 mutation removeUser($urn: String!) {
     removeUser(urn: $urn)
 }
@@ -206,4 +243,10 @@ mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
 
 mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
     updateCorpUserViewsSettings(input: $input)
+}
+
+query getUserOwnedAssets($urn: String!) {
+    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: [$urn] }] }) {
+        ...searchResults
+    }
 }

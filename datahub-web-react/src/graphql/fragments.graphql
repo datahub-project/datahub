@@ -14,14 +14,148 @@ fragment globalTagsFields on GlobalTags {
     }
 }
 
+fragment displayPropertiesFields on DisplayProperties {
+    colorHex
+    icon {
+        name
+        style
+        iconLibrary
+    }
+}
+
+fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
+    urn
+    type
+    properties {
+        name
+        description
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }) {
+        total
+        relationships {
+            type
+            entity {
+                type
+                ... on GlossaryTerm {
+                    urn
+                }
+                ... on GlossaryNode {
+                    urn
+                    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }) {
+                        total
+                        relationships {
+                            type
+                            entity {
+                                type
+                                ... on GlossaryTerm {
+                                    urn
+                                }
+                                ... on GlossaryNode {
+                                    urn
+                                    children: relationships(
+                                        input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
+                                    ) {
+                                        total
+                                        relationships {
+                                            type
+                                            entity {
+                                                type
+                                                ... on GlossaryTerm {
+                                                    urn
+                                                }
+                                                ... on GlossaryNode {
+                                                    urn
+                                                    children: relationships(
+                                                        input: {
+                                                            types: ["IsPartOf"]
+                                                            direction: INCOMING
+                                                            start: 0
+                                                            count: 500
+                                                        }
+                                                    ) {
+                                                        total
+                                                        relationships {
+                                                            type
+                                                            entity {
+                                                                type
+                                                                ... on GlossaryTerm {
+                                                                    urn
+                                                                }
+                                                                ... on GlossaryNode {
+                                                                    urn
+                                                                    children: relationships(
+                                                                        input: {
+                                                                            types: ["IsPartOf"]
+                                                                            direction: INCOMING
+                                                                            start: 0
+                                                                            count: 500
+                                                                        }
+                                                                    ) {
+                                                                        total
+                                                                        relationships {
+                                                                            type
+                                                                            entity {
+                                                                                type
+                                                                                ... on GlossaryTerm {
+                                                                                    urn
+                                                                                }
+                                                                                ... on GlossaryNode {
+                                                                                    urn
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment glossaryNode on GlossaryNode {
     urn
     type
     properties {
         name
+        description
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
         total
+        relationships {
+            type
+            entity {
+                ... on GlossaryTerm {
+                    urn
+                    name
+                    type
+                    hierarchicalName
+                    properties {
+                        name
+                        description
+                    }
+                }
+                ... on GlossaryNode {
+                    urn
+                }
+            }
+        }
     }
 }
 
@@ -53,6 +187,9 @@ fragment glossaryTerms on GlossaryTerms {
         term {
             ...glossaryTerm
         }
+        actor {
+            urn
+        }
         associatedUrn
     }
 }
@@ -62,6 +199,19 @@ fragment deprecationFields on Deprecation {
     deprecated
     note
     decommissionTime
+    actorEntity {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    replacement {
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+        }
+    }
 }
 
 fragment parentContainersFields on ParentContainersResult {
@@ -225,6 +375,28 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             time
         }
         associatedUrn
+    }
+}
+
+fragment documentationFields on Documentation {
+    documentations {
+        documentation
+        attribution {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+            source {
+                urn
+                type
+            }
+            sourceDetail {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -735,7 +907,29 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
 }
 
-fragment schemaFieldFields on SchemaField {
+fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
+    deprecation {
+        ...deprecationFields
+    }
+    urn
+    fieldPath
+    type
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    documentation {
+        ...documentationFields
+    }
+}
+
+fragment entitySchemaFieldFields on SchemaField {
     fieldPath
     label
     jsonPath
@@ -753,39 +947,7 @@ fragment schemaFieldFields on SchemaField {
         ...glossaryTerms
     }
     schemaFieldEntity {
-        urn
-        type
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        businessAttributes {
-            businessAttribute {
-                ...businessAttribute
-            }
-        }
-        documentation {
-            documentations {
-                documentation
-                attribution {
-                    time
-                    actor {
-                        urn
-                        type
-                        ...entityDisplayNameFields
-                    }
-                    source {
-                        urn
-                        type
-                    }
-                    sourceDetail {
-                        key
-                        value
-                    }
-                }
-            }
-        }
+        ...entitySchemaFieldEntityFields
     }
 }
 
@@ -808,7 +970,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     fields {
-        ...schemaFieldFields
+        ...entitySchemaFieldFields
     }
     primaryKeys
     foreignKeys {
@@ -1116,7 +1278,7 @@ fragment inputFieldsFields on InputFields {
     fields {
         schemaFieldUrn
         schemaField {
-            ...schemaFieldFields
+            ...entitySchemaFieldFields
         }
     }
 }
@@ -1224,6 +1386,7 @@ fragment entityDisplayNameFields on Entity {
     ... on GlossaryNode {
         properties {
             name
+            description
         }
     }
     ... on Domain {
@@ -1273,6 +1436,11 @@ fragment entityDisplayNameFields on Entity {
         definition {
             displayName
             qualifiedName
+        }
+    }
+    ... on OwnershipTypeEntity {
+        info {
+            name
         }
     }
 }
@@ -1522,11 +1690,27 @@ fragment formsFields on Forms {
 
 fragment entityPrivileges on EntityPrivileges {
     canEditLineage
+    canEditDomains
+    canEditDataProducts
+    canEditTags
+    canEditGlossaryTerms
+    canEditDescription
+    canEditLinks
+    canEditOwners
+    canEditAssertions
+    canEditIncidents
+    canEditDeprecation
+    canEditSchemaFieldTags
+    canEditSchemaFieldGlossaryTerms
+    canEditSchemaFieldDescription
     canEditQueries
     canEditEmbed
     canManageEntity
     canManageChildren
     canEditProperties
+    canViewDatasetUsage
+    canViewDatasetProfile
+    canViewDatasetOperations
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1573,4 +1757,62 @@ fragment businessAttribute on BusinessAttributeAssociation {
         }
     }
     associatedUrn
+}
+
+fragment datasetProfileFields on DatasetProfile {
+    rowCount
+    columnCount
+    sizeInBytes
+    timestampMillis
+    partitionSpec {
+        type
+        partition
+        timePartition {
+            startTimeMillis
+            durationMillis
+        }
+    }
+    fieldProfiles {
+        fieldPath
+        uniqueCount
+        uniqueProportion
+        nullCount
+        nullProportion
+        min
+        max
+        mean
+        median
+        stdev
+        sampleValues
+    }
+}
+
+fragment notes on Entity {
+    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+        total
+        relationships {
+            type
+            entity {
+                ... on Post {
+                    urn
+                    type
+                    postType
+                    lastModified {
+                        time
+                        actor
+                    }
+                    content {
+                        contentType
+                        title
+                        description
+                        link
+                        media {
+                            type
+                            location
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
