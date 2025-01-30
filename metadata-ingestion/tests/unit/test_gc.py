@@ -9,6 +9,34 @@ from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataProcessCleanupConfig,
     DataProcessCleanupReport,
 )
+from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
+    SoftDeletedEntitiesCleanup,
+    SoftDeletedEntitiesCleanupConfig,
+    SoftDeletedEntitiesReport,
+)
+
+
+class TestSoftDeletedEntitiesCleanup(unittest.TestCase):
+    def setUp(self):
+        self.ctx = PipelineContext(run_id="test_run")
+        self.ctx.graph = MagicMock()
+        self.config = SoftDeletedEntitiesCleanupConfig()
+        self.report = SoftDeletedEntitiesReport()
+        self.cleanup = SoftDeletedEntitiesCleanup(
+            self.ctx, self.config, self.report, dry_run=True
+        )
+
+    def test_update_report(self):
+        self.cleanup._update_report(
+            urn="urn:li:dataset:1",
+            entity_type="dataset",
+        )
+        self.assertEqual(1, self.report.num_hard_deleted)
+        self.assertEqual(1, self.report.num_hard_deleted_by_type["dataset"])
+
+    def test_increment_retained_count(self):
+        self.cleanup._increment_retained_count()
+        self.assertEqual(1, self.report.num_soft_deleted_retained_due_to_age)
 
 
 class TestDataProcessCleanup(unittest.TestCase):

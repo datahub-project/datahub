@@ -369,6 +369,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_8",
             "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
@@ -702,6 +703,7 @@ module.exports = {
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
         "docs/advanced/bootstrap-mcps",
+        "docs/advanced/api-tracing",
       ],
     },
     {
@@ -780,6 +782,11 @@ module.exports = {
                   type: "doc",
                   label: "Getting Started With GraphQL",
                   id: "docs/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
                 },
                 {
                   type: "doc",
@@ -1031,7 +1038,8 @@ module.exports = {
     // "smoke-test/tests/openapi/README"
     // "smoke-test/README"
     // "docs/SECURITY_STANCE"
-    // "metadata-integration/java/datahub-schematron/README"
+    // "metadata-integration/java/datahub-schematron/README",
+    // "datahub-integrations-service/experiments/term_suggestion_v2/term_suggestion_analysis_documentation"
     // ],
   ],
 };

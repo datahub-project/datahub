@@ -1253,6 +1253,11 @@ enum EntityType {
     BUSINESS_ATTRIBUTE
 
     """
+    A set of versioned entities, representing a single source / logical entity over time
+    """
+    VERSION_SET
+
+    """
     A Remote Executor
     """
     REMOTE_EXECUTOR
@@ -1261,11 +1266,6 @@ enum EntityType {
     A Remote Executor Pool
     """
     REMOTE_EXECUTOR_POOL
-
-    """
-    A set of versioned entities, representing a single source / logical entity over time
-    """
-    VERSION_SET
 }
 
 """
@@ -7081,6 +7081,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     forms: Forms
 
     """
+    Data Transform Logic associated with the Data Job
+    """
+    dataTransformLogic: DataTransformLogic
+
+    """
     Info about the results from sharing metadata for this entity
     """
     share: Share
@@ -7094,11 +7099,6 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
-
-    """
-    Data Transform Logic associated with the Data Job
-    """
-    dataTransformLogic: DataTransformLogic
 }
 
 """
@@ -13974,7 +13974,7 @@ type MLTrainingRunProperties {
     List of URLs to access training run outputs (e.g. model artifacts, logs)
     """
     outputUrls: [String]
-    
+
     """
     Hyperparameters used in this training run
     """
@@ -14007,11 +14007,6 @@ extend type DataProcessInstance {
     The parent container in which the entity resides
     """
     container: Container
-
-    """
-    Standardized platform urn where the data process instance is defined
-    """
-    platform: DataPlatform!
 
     """
     Recursively get the lineage of containers for this entity

@@ -208,21 +208,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(
-      name = "metadataChangeProposal.validation.extensions.enabled",
-      havingValue = "true")
-  public MutationHook extendedModelStructuredPropertyMutator(
-      ConfigurationProvider configurationProvider) throws Exception {
-    ExtendedModelValidationConfiguration config =
-        configurationProvider
-            .getMetadataChangeProposal()
-            .getValidation()
-            .getExtensions()
-            .resolve(new YAMLMapper());
-    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
-  }
-
-  @Bean
   @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionPropertiesValidator() {
     return new VersionPropertiesValidator()
@@ -274,5 +259,20 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(VERSION_SET_PROPERTIES_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.extensions.enabled",
+      havingValue = "true")
+  public MutationHook extendedModelStructuredPropertyMutator(
+      ConfigurationProvider configurationProvider) throws Exception {
+    ExtendedModelValidationConfiguration config =
+        configurationProvider
+            .getMetadataChangeProposal()
+            .getValidation()
+            .getExtensions()
+            .resolve(new YAMLMapper());
+    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
   }
 }

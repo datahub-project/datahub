@@ -432,7 +432,9 @@ def generateAccessToken_v2(session, actorUrn):
     return response.json()
 
 
-def listAccessTokens(session, filters=[]):
+def listAccessTokens(session, filters):
+    if filters is None:
+        filters = []
     # Get count of existing tokens
     input = {"start": 0, "count": 20}
 

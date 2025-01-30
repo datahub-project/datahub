@@ -132,9 +132,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.filters = BigQueryFilter(self.config, self.report)
         self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
-        redundant_lineage_run_skip_handler: Optional[
-            RedundantLineageRunSkipHandler
-        ] = None
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
@@ -206,9 +206,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.use_queries_v2
-            or self.config.lineage_parse_view_ddl
-            or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -255,10 +253,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
 
-        if self.config.use_queries_v2:
-            # Always ingest View and Snapshot lineage with schema ingestion
-            self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
-
+        with self.report.new_stage("*: View and Snapshot Lineage"):
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],
                 self.bq_schema_extractor.view_refs_by_project,
@@ -267,6 +262,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshots_by_ref,
             )
 
+        if self.config.use_queries_v2:
             # if both usage and lineage are disabled then skip queries extractor piece
             if (
                 not self.config.include_usage_statistics
@@ -274,29 +270,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
-            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
-
-            with BigQueryQueriesExtractor(
-                connection=self.config.get_bigquery_client(),
-                schema_api=self.bq_schema_extractor.schema_api,
-                config=BigQueryQueriesExtractorConfig(
-                    window=self.config,
-                    user_email_pattern=self.config.usage.user_email_pattern,
-                    include_lineage=self.config.include_table_lineage,
-                    include_usage_statistics=self.config.include_usage_statistics,
-                    include_operations=self.config.usage.include_operational_stats,
-                    top_n_queries=self.config.usage.top_n_queries,
-                    region_qualifiers=self.config.region_qualifiers,
-                ),
-                structured_report=self.report,
-                filters=self.filters,
-                identifiers=self.identifiers,
-                schema_resolver=self.sql_parser_schema_resolver,
-                discovered_tables=self.bq_schema_extractor.table_refs,
-            ) as queries_extractor:
-                self.report.queries_extractor = queries_extractor.report
-                yield from queries_extractor.get_workunits_internal()
-
+            with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
+                with BigQueryQueriesExtractor(
+                    connection=self.config.get_bigquery_client(),
+                    schema_api=self.bq_schema_extractor.schema_api,
+                    config=BigQueryQueriesExtractorConfig(
+                        window=self.config,
+                        user_email_pattern=self.config.usage.user_email_pattern,
+                        include_lineage=self.config.include_table_lineage,
+                        include_usage_statistics=self.config.include_usage_statistics,
+                        include_operations=self.config.usage.include_operational_stats,
+                        include_queries=self.config.include_queries,
+                        include_query_usage_statistics=self.config.include_query_usage_statistics,
+                        top_n_queries=self.config.usage.top_n_queries,
+                        region_qualifiers=self.config.region_qualifiers,
+                    ),
+                    structured_report=self.report,
+                    filters=self.filters,
+                    identifiers=self.identifiers,
+                    schema_resolver=self.sql_parser_schema_resolver,
+                    discovered_tables=self.bq_schema_extractor.table_refs,
+                ) as queries_extractor:
+                    self.report.queries_extractor = queries_extractor.report
+                    yield from queries_extractor.get_workunits_internal()
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
@@ -306,10 +302,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if self.config.include_table_lineage:
                 yield from self.lineage_extractor.get_lineage_workunits(
                     [p.id for p in projects],
-                    self.bq_schema_extractor.view_refs_by_project,
-                    self.bq_schema_extractor.view_definitions,
-                    self.bq_schema_extractor.snapshot_refs_by_project,
-                    self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
                 )
 

@@ -88,15 +88,15 @@ def assert_field(
     expected_nullable: bool,
     expected_type: Any,
 ) -> None:
-    assert (
-        schema_field.description == expected_description
-    ), f"Field description '{schema_field.description}' is different from expected description '{expected_description}'"
-    assert (
-        schema_field.nullable == expected_nullable
-    ), f"Field nullable '{schema_field.nullable}' is different from expected nullable '{expected_nullable}'"
-    assert isinstance(
-        schema_field.type.type, expected_type
-    ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
+    assert schema_field.description == expected_description, (
+        f"Field description '{schema_field.description}' is different from expected description '{expected_description}'"
+    )
+    assert schema_field.nullable == expected_nullable, (
+        f"Field nullable '{schema_field.nullable}' is different from expected nullable '{expected_nullable}'"
+    )
+    assert isinstance(schema_field.type.type, expected_type), (
+        f"Field type {schema_field.type.type} is different from expected type {expected_type}"
+    )
 
 
 def test_config_no_catalog():
@@ -219,9 +219,9 @@ def test_iceberg_primitive_type_to_schema_field(
     ]:
         schema = Schema(column)
         schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
-        assert (
-            len(schema_fields) == 1
-        ), f"Expected 1 field, but got {len(schema_fields)}"
+        assert len(schema_fields) == 1, (
+            f"Expected 1 field, but got {len(schema_fields)}"
+        )
         assert_field(
             schema_fields[0],
             column.doc,
@@ -300,19 +300,19 @@ def test_iceberg_list_to_schema_field(
         iceberg_source_instance = with_iceberg_source()
         schema = Schema(list_column)
         schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
-        assert (
-            len(schema_fields) == 1
-        ), f"Expected 1 field, but got {len(schema_fields)}"
+        assert len(schema_fields) == 1, (
+            f"Expected 1 field, but got {len(schema_fields)}"
+        )
         assert_field(
             schema_fields[0], list_column.doc, list_column.optional, ArrayTypeClass
         )
-        assert isinstance(
-            schema_fields[0].type.type, ArrayType
-        ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
+        assert isinstance(schema_fields[0].type.type, ArrayType), (
+            f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
+        )
         arrayType: ArrayType = schema_fields[0].type.type
-        assert arrayType.nestedType == [
-            expected_array_nested_type
-        ], f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
+        assert arrayType.nestedType == [expected_array_nested_type], (
+            f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -387,9 +387,9 @@ def test_iceberg_map_to_schema_field(
         schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
         # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
         # The first field will be the array.
-        assert (
-            len(schema_fields) == 3
-        ), f"Expected 3 fields, but got {len(schema_fields)}"
+        assert len(schema_fields) == 3, (
+            f"Expected 3 fields, but got {len(schema_fields)}"
+        )
         assert_field(
             schema_fields[0], map_column.doc, map_column.optional, ArrayTypeClass
         )

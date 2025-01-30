@@ -288,7 +288,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
         # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
         self.mongo_client = MongoClient(
-            self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options  # type: ignore
+            self.config.connect_uri,
+            datetime_conversion="DATETIME_AUTO",
+            **options,  # type: ignore
         )
 
         # This cheaply tests the connection. For details, see
@@ -470,9 +472,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties[
-                "schema.totalFields"
-            ] = f"{collection_schema_size}"
+            dataset_properties.customProperties["schema.totalFields"] = (
+                f"{collection_schema_size}"
+            )
 
         logger.debug(f"Size of collection fields = {len(collection_fields)}")
         # append each schema field (sort so output is consistent)

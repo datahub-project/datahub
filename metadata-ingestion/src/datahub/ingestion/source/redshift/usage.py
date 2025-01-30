@@ -182,38 +182,38 @@ class RedshiftUsageExtractor:
         self.report.num_operational_stats_filtered = 0
 
         if self.config.include_operational_stats:
-            self.report.report_ingestion_stage_start(USAGE_EXTRACTION_OPERATIONAL_STATS)
-            with PerfTimer() as timer:
-                # Generate operation aspect workunits
-                yield from self._gen_operation_aspect_workunits(
-                    self.connection, all_tables
-                )
-                self.report.operational_metadata_extraction_sec[
-                    self.config.database
-                ] = round(timer.elapsed_seconds(), 2)
+            with self.report.new_stage(USAGE_EXTRACTION_OPERATIONAL_STATS):
+                with PerfTimer() as timer:
+                    # Generate operation aspect workunits
+                    yield from self._gen_operation_aspect_workunits(
+                        self.connection, all_tables
+                    )
+                    self.report.operational_metadata_extraction_sec[
+                        self.config.database
+                    ] = timer.elapsed_seconds(digits=2)
 
         # Generate aggregate events
-        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)
-        query: str = self.queries.usage_query(
-            start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            database=self.config.database,
-        )
-        access_events_iterable: Iterable[
-            RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(
-            query, connection=self.connection, all_tables=all_tables
-        )
+        with self.report.new_stage(USAGE_EXTRACTION_USAGE_AGGREGATION):
+            query: str = self.queries.usage_query(
+                start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+                end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+                database=self.config.database,
+            )
+            access_events_iterable: Iterable[RedshiftAccessEvent] = (
+                self._gen_access_events_from_history_query(
+                    query, connection=self.connection, all_tables=all_tables
+                )
+            )
 
-        aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
-            access_events_iterable
-        )
-        # Generate usage workunits from aggregated events.
-        for time_bucket in aggregated_events.values():
-            for aggregate in time_bucket.values():
-                wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
-                self.report.num_usage_workunits_emitted += 1
-                yield wu
+            aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
+                access_events_iterable
+            )
+            # Generate usage workunits from aggregated events.
+            for time_bucket in aggregated_events.values():
+                for aggregate in time_bucket.values():
+                    wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
+                    self.report.num_usage_workunits_emitted += 1
+                    yield wu
 
     def _gen_operation_aspect_workunits(
         self,
@@ -225,10 +225,10 @@ class RedshiftUsageExtractor:
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
-        access_events_iterable: Iterable[
-            RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(
-            query, connection, all_tables=all_tables
+        access_events_iterable: Iterable[RedshiftAccessEvent] = (
+            self._gen_access_events_from_history_query(
+                query, connection, all_tables=all_tables
+            )
         )
 
         # Generate operation aspect work units from the access events

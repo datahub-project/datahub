@@ -60,7 +60,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/operations/elasticSearch")
+@RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
 @Tag(
     name = "ElasticSearchOperations",
@@ -231,7 +231,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {
@@ -338,7 +341,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {

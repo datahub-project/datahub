@@ -250,9 +250,9 @@ class SnowflakeConnectionConfig(ConfigModel):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
-                assert (
-                    self.private_key_path
-                ), "missing required private key path to read key from"
+                assert self.private_key_path, (
+                    "missing required private key path to read key from"
+                )
                 with open(self.private_key_path, "rb") as key:
                     pkey_bytes = key.read()
 
@@ -284,9 +284,9 @@ class SnowflakeConnectionConfig(ConfigModel):
         return self.options
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
-        assert (
-            self.oauth_config
-        ), "oauth_config should be provided if using oauth based authentication"
+        assert self.oauth_config, (
+            "oauth_config should be provided if using oauth based authentication"
+        )
         generator = OAuthTokenGenerator(
             client_id=self.oauth_config.client_id,
             authority_url=self.oauth_config.authority_url,

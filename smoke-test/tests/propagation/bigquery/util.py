@@ -2,16 +2,17 @@ import os
 import time
 from typing import Dict, List
 
-from datahub.configuration.common import PermissiveConfigModel
-from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryConnectionConfig,
-)
 from google.api_core import exceptions
 from google.cloud.bigquery.dataset import Dataset, DatasetReference
 from google.cloud.bigquery.schema import SchemaField
 from google.cloud.bigquery.table import Table, TableReference
 from google.cloud.datacatalog_v1 import DataCatalogClient
 from pydantic import Field
+
+from datahub.configuration.common import PermissiveConfigModel
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryConnectionConfig,
+)
 
 
 class BigqueryConnectionConfigPermissive(
@@ -132,27 +133,26 @@ class BigqueryTestHelper:
 
     def expect_table_description(self, table_name: str, description: str) -> None:
         table = self.get_table(table_name)
-        assert (
-            table.description == description
-        ), f"Table description {table.description} does not match with expected description: {description}"
+        assert table.description == description, (
+            f"Table description {table.description} does not match with expected description: {description}"
+        )
 
     def expect_column_description(
         self, table_name: str, column_name: str, description: str
     ) -> None:
         table = self.get_table(table_name)
         column = next(filter(lambda x: x.name == column_name, table.schema), None)
-        if column is None:
-            assert False, f"Column {column_name} not found"
-        assert (
-            column.description == description
-        ), f"Column description {column.description} does not match with expected description: {description}"
+        assert column is not None, f"Column {column_name} not found"
+        assert column.description == description, (
+            f"Column description {column.description} does not match with expected description: {description}"
+        )
 
     def expect_table_labels(self, table_name: str, labels: Dict[str, str]) -> None:
         table = self.get_table(table_name)
         for key, value in labels.items():
-            assert (
-                table.labels[key] == value
-            ), f"Label {table.labels[key]} does not match with {value}"
+            assert table.labels[key] == value, (
+                f"Label {table.labels[key]} does not match with {value}"
+            )
 
     def expect_policy_tags(
         self, table_name: str, column: str, policy_tags: List[str]
@@ -162,21 +162,18 @@ class BigqueryTestHelper:
             filter(lambda x: x.name == column, table.schema)
         )
         bq_tag_names = []
-        if (
-            not policy_tags
-            or not schema_field.policy_tags
-            or not schema_field.policy_tags.names
-        ):
-            assert False, "Column has no policy tags"
+        assert (
+            policy_tags and schema_field.policy_tags and schema_field.policy_tags.names
+        ), "Column has no policy tags"
 
         for bq_tag in schema_field.policy_tags.names:
             t = self.ptm_client.get_policy_tag(name=bq_tag)
             bq_tag_names.append(t.display_name)
 
         for policy_tag in policy_tags:
-            assert (
-                policy_tag in bq_tag_names
-            ), f"Policy tag {policy_tag} not found in bq_tag_names {bq_tag_names}"
+            assert policy_tag in bq_tag_names, (
+                f"Policy tag {policy_tag} not found in bq_tag_names {bq_tag_names}"
+            )
 
     def __del__(self):
         self.bq_client.close()

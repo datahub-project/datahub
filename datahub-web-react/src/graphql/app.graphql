@@ -106,6 +106,7 @@ query appConfig {
             slackBotTokensObfuscationEnabled
             showSeparateSiblings
             showManageStructuredProperties
+            entityVersioningEnabled
             formCreationEnabled
             schemaFieldCLLEnabled
             showSeparateSiblings
@@ -118,7 +119,6 @@ query appConfig {
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions
-            entityVersioningEnabled
         }
         chromeExtensionConfig {
             enabled

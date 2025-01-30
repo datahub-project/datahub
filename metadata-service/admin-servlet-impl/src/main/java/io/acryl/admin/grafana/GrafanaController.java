@@ -53,7 +53,7 @@ public class GrafanaController {
   }
 
   @RequestMapping(
-      value = "/**",
+      value = "/admin/dashboard/**",
       method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.HEAD, RequestMethod.OPTIONS})
   protected @ResponseBody void handleRequest(
       @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) throws Exception {

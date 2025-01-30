@@ -199,6 +199,18 @@ public class OpenAPIV3Generator {
                                 "/v3/entity/%s/{urn}/%s",
                                 e.getName().toLowerCase(), a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
+    definedEntitySpecs.forEach(
+        e ->
+            e.getAspectSpecs().stream()
+                .filter(a -> definitionNames.contains(a.getName()))
+                .sorted(Comparator.comparing(AspectSpec::getName))
+                .forEach(
+                    a ->
+                        paths.addPathItem(
+                            String.format(
+                                "/v3/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                            buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
     if (configurationProvider.getFeatureFlags().isEntityVersioning()) {
@@ -211,6 +223,7 @@ public class OpenAPIV3Generator {
                     buildVersioningRelationshipPath());
               });
     }
+
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
 

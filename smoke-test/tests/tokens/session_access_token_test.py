@@ -2,10 +2,10 @@ import os
 import time
 
 import pytest
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import AuditStampClass, CorpUserStatusClass
 from requests.exceptions import HTTPError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import AuditStampClass, CorpUserStatusClass
 from tests.utils import (
     get_admin_credentials,
     get_frontend_url,

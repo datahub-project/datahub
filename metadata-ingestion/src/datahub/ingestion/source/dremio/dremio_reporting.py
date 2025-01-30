@@ -45,6 +45,3 @@ class DremioSourceReport(
             self.views_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
-
-    def set_ingestion_stage(self, dataset: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{dataset}: {stage}")

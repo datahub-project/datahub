@@ -213,15 +213,15 @@ class ClickHouseUsageSource(Source):
     def _aggregate_access_events(
         self, events: List[ClickHouseJoinedAccessEvent]
     ) -> Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[ClickHouseTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+        datasets: Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]] = (
+            collections.defaultdict(dict)
+        )
 
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)
 
             resource = (
-                f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
+                f"{self.config.platform_instance + '.' if self.config.platform_instance else ''}"
                 f"{event.database}.{event.table}"
             )
 

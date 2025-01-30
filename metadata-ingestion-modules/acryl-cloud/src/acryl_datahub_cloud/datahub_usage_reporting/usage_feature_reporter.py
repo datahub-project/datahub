@@ -933,14 +933,14 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.dataset_usage_enabled:
             with self.report.dataset_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate dataset usage")
+                self.report.new_stage("generate dataset usage")
                 yield from self.generate_dataset_usage_mcps()
                 time_taken = timer.elapsed_seconds()
                 logger.info(f"Dataset Usage generation took {time_taken:.3f} seconds")
 
         if self.config.dashboard_usage_enabled:
             with self.report.dashboard_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate dashboard usage")
+                self.report.new_stage("generate dashboard usage")
                 yield from self.generate_dashboard_usage_mcps()
 
                 time_taken = timer.elapsed_seconds()
@@ -948,7 +948,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         if self.config.chart_usage_enabled:
             with self.report.chart_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate chart usage")
+                self.report.new_stage("generate chart usage")
 
                 yield from self.generate_chart_usage_mcps()
 
@@ -957,7 +957,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         if self.config.query_usage_enabled:
             with self.report.query_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate query usage")
+                self.report.new_stage("generate query usage")
 
                 yield from self.generate_query_usage_mcps()
 

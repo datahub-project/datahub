@@ -163,9 +163,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
                 if "properties" not in writeable_dict["systemMetadata"]:
                     writeable_dict["systemMetadata"]["properties"] = {}
-                writeable_dict["systemMetadata"]["properties"][
-                    "sysVersion"
-                ] = new_version
+                writeable_dict["systemMetadata"]["properties"]["sysVersion"] = (
+                    new_version
+                )
                 if needs_write:
                     self.duckdb_client.execute(
                         query="INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
@@ -208,9 +208,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                             "lastObserved": writeable.systemMetadata.lastObserved
                         }
                     else:
-                        system_metadata[
-                            "lastObserved"
-                        ] = writeable.systemMetadata.lastObserved
+                        system_metadata["lastObserved"] = (
+                            writeable.systemMetadata.lastObserved
+                        )
                     self.duckdb_client.execute(
                         query="UPDATE metadata_aspect_v2 SET system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
                         parameters=[
@@ -497,9 +497,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             aspect_name = r[1]
             aspect_payload = json.loads(r[2])
             if typed:
-                assert (
-                    aspect_name in ASPECT_MAP
-                ), f"Missing aspect name {aspect_name} in the registry"
+                assert aspect_name in ASPECT_MAP, (
+                    f"Missing aspect name {aspect_name} in the registry"
+                )
                 try:
                     aspect_payload = ASPECT_MAP[aspect_name].from_obj(
                         post_json_transform(aspect_payload)
@@ -531,7 +531,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         for r in results.fetchall():
             urn = r[0]
             aspect_name = r[1]
-            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(post_json_transform(json.loads(r[2])))  # type: ignore
+            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(
+                post_json_transform(json.loads(r[2]))
+            )  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=urn,

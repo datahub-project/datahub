@@ -4,12 +4,14 @@ from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import add_structured_properties_to_entity_wu
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
@@ -72,6 +74,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    AuditStamp,
     GlobalTags,
     Status,
     SubTypes,
@@ -98,7 +101,18 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.metadata.urns import (
+    ContainerUrn,
+    DatasetUrn,
+    DataTypeUrn,
+    EntityTypeUrn,
+    SchemaFieldUrn,
+    StructuredPropertyUrn,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
     SqlParsingAggregator,
@@ -180,9 +194,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[
-            SnowsightUrlBuilder
-        ] = snowsight_url_builder
+        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
+            snowsight_url_builder
+        )
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -216,21 +230,23 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         try:
             for snowflake_db in self.databases:
-                self.report.set_ingestion_stage(snowflake_db.name, METADATA_EXTRACTION)
-                yield from self._process_database(snowflake_db)
+                with self.report.new_stage(
+                    f"{snowflake_db.name}: {METADATA_EXTRACTION}"
+                ):
+                    yield from self._process_database(snowflake_db)
 
-            self.report.set_ingestion_stage("*", EXTERNAL_TABLE_DDL_LINEAGE)
-            discovered_tables: List[str] = [
-                self.identifiers.get_dataset_identifier(
-                    table_name, schema.name, db.name
-                )
-                for db in self.databases
-                for schema in db.schemas
-                for table_name in schema.tables
-            ]
-            if self.aggregator:
-                for entry in self._external_tables_ddl_lineage(discovered_tables):
-                    self.aggregator.add(entry)
+            with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
+                discovered_tables: List[str] = [
+                    self.identifiers.get_dataset_identifier(
+                        table_name, schema.name, db.name
+                    )
+                    for db in self.databases
+                    for schema in db.schemas
+                    for table_name in schema.tables
+                ]
+                if self.aggregator:
+                    for entry in self._external_tables_ddl_lineage(discovered_tables):
+                        self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
@@ -251,9 +267,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
-            ischema_databases: List[
-                SnowflakeDatabase
-            ] = self.get_databases_from_ischema(databases)
+            ischema_databases: List[SnowflakeDatabase] = (
+                self.get_databases_from_ischema(databases)
+            )
 
             if len(ischema_databases) == 0:
                 self.structured_reporter.failure(
@@ -332,8 +348,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         yield from self._process_db_schemas(snowflake_db, db_tables)
 
         if self.profiler and db_tables:
-            self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
-            yield from self.profiler.get_workunits(snowflake_db, db_tables)
+            with self.report.new_stage(f"{snowflake_db.name}: {PROFILING}"):
+                yield from self.profiler.get_workunits(snowflake_db, db_tables)
 
     def _process_db_schemas(
         self,
@@ -435,11 +451,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
 
         if self.config.include_views:
-            if (
-                self.aggregator
-                and self.config.include_view_lineage
-                and self.config.parse_view_ddl
-            ):
+            if self.aggregator:
                 for view in views:
                     view_identifier = self.identifiers.get_dataset_identifier(
                         view.name, schema_name, db_name
@@ -479,15 +491,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             view_definitions = self.data_dictionary.get_secure_view_definitions()
             return view_definitions[db_name][schema_name][table_name]
+        except KeyError:
+            # Received secure view definitions but the view is not present in results
+            self.structured_reporter.info(
+                title="Secure view definition not found",
+                message="Lineage will be missing for the view.",
+                context=f"{db_name}.{schema_name}.{table_name}",
+            )
+            return None
         except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = (
-                    "Failed to get secure views definitions. Please check permissions."
-                )
-            else:
-                error_msg = "Failed to get secure views definitions"
+            action_msg = (
+                "Please check permissions."
+                if isinstance(e, SnowflakePermissionError)
+                else ""
+            )
+
             self.structured_reporter.warning(
-                error_msg,
+                title="Failed to get secure views definitions",
+                message=f"Lineage will be missing for the view. {action_msg}",
+                context=f"{db_name}.{schema_name}.{table_name}",
                 exc=e,
             )
             return None
@@ -675,14 +697,31 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_identifier = tag.identifier()
+        use_sp = self.config.extract_tags_as_structured_properties
+        identifier = (
+            self.snowflake_identifier(tag.structured_property_identifier())
+            if use_sp
+            else tag.tag_identifier()
+        )
 
-        if self.report.is_tag_processed(tag_identifier):
+        if self.report.is_tag_processed(identifier):
             return
 
-        self.report.report_tag_processed(tag_identifier)
+        self.report.report_tag_processed(identifier)
+        if use_sp:
+            yield from self.gen_tag_as_structured_property_workunits(tag)
+        else:
+            yield from self.gen_tag_workunits(tag)
 
-        yield from self.gen_tag_workunits(tag)
+    def _format_tags_as_structured_properties(
+        self, tags: List[SnowflakeTag]
+    ) -> Dict[StructuredPropertyUrn, str]:
+        return {
+            StructuredPropertyUrn(
+                self.snowflake_identifier(tag.structured_property_identifier())
+            ): tag.value
+            for tag in tags
+        }
 
     def gen_dataset_workunits(
         self,
@@ -727,6 +766,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             env=self.config.env,
         )
 
+        if self.config.extract_tags_as_structured_properties:
+            yield from self.gen_column_tags_as_structured_properties(dataset_urn, table)
+
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
@@ -760,16 +802,24 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
         if table.tags:
-            tag_associations = [
-                TagAssociation(
-                    tag=make_tag_urn(self.snowflake_identifier(tag.identifier()))
+            if self.config.extract_tags_as_structured_properties:
+                yield from add_structured_properties_to_entity_wu(
+                    dataset_urn,
+                    self._format_tags_as_structured_properties(table.tags),
                 )
-                for tag in table.tags
-            ]
-            global_tags = GlobalTags(tag_associations)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=global_tags
-            ).as_workunit()
+            else:
+                tag_associations = [
+                    TagAssociation(
+                        tag=make_tag_urn(
+                            self.snowflake_identifier(tag.tag_identifier())
+                        )
+                    )
+                    for tag in table.tags
+                ]
+                global_tags = GlobalTags(tag_associations)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=global_tags
+                ).as_workunit()
 
         if isinstance(table, SnowflakeView) and table.view_definition is not None:
             view_properties_aspect = ViewProperties(
@@ -842,16 +892,51 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_urn = make_tag_urn(self.snowflake_identifier(tag.identifier()))
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag.tag_identifier()))
 
         tag_properties_aspect = TagProperties(
-            name=tag.display_name(),
+            name=tag.tag_display_name(),
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=tag_urn, aspect=tag_properties_aspect
         ).as_workunit()
+
+    def gen_tag_as_structured_property_workunits(
+        self, tag: SnowflakeTag
+    ) -> Iterable[MetadataWorkUnit]:
+        identifier = self.snowflake_identifier(tag.structured_property_identifier())
+        urn = StructuredPropertyUrn(identifier).urn()
+        aspect = StructuredPropertyDefinition(
+            qualifiedName=identifier,
+            displayName=tag.name,
+            valueType=DataTypeUrn("datahub.string").urn(),
+            entityTypes=[
+                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
+                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
+                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+            ],
+            lastModified=AuditStamp(
+                time=get_sys_time(), actor="urn:li:corpuser:datahub"
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=aspect,
+        ).as_workunit()
+
+    def gen_column_tags_as_structured_properties(
+        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView]
+    ) -> Iterable[MetadataWorkUnit]:
+        for column_name in table.column_tags:
+            schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
+            yield from add_structured_properties_to_entity_wu(
+                schema_field_urn,
+                self._format_tags_as_structured_properties(
+                    table.column_tags[column_name]
+                ),
+            )
 
     def gen_schema_metadata(
         self,
@@ -894,13 +979,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             [
                                 TagAssociation(
                                     make_tag_urn(
-                                        self.snowflake_identifier(tag.identifier())
+                                        self.snowflake_identifier(tag.tag_identifier())
                                     )
                                 )
                                 for tag in table.column_tags[col.name]
                             ]
                         )
                         if col.name in table.column_tags
+                        and not self.config.extract_tags_as_structured_properties
                         else None
                     ),
                 )
@@ -987,8 +1073,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
             ),
             tags=(
-                [self.snowflake_identifier(tag.identifier()) for tag in database.tags]
+                [
+                    self.snowflake_identifier(tag.tag_identifier())
+                    for tag in database.tags
+                ]
                 if database.tags
+                and not self.config.extract_tags_as_structured_properties
+                else None
+            ),
+            structured_properties=(
+                self._format_tags_as_structured_properties(database.tags)
+                if database.tags and self.config.extract_tags_as_structured_properties
                 else None
             ),
         )
@@ -1040,8 +1135,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 else None
             ),
             tags=(
-                [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
-                if schema.tags
+                [self.snowflake_identifier(tag.tag_identifier()) for tag in schema.tags]
+                if schema.tags and not self.config.extract_tags_as_structured_properties
+                else None
+            ),
+            structured_properties=(
+                self._format_tags_as_structured_properties(schema.tags)
+                if schema.tags and self.config.extract_tags_as_structured_properties
                 else None
             ),
         )

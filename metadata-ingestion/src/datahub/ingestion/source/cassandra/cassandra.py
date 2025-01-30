@@ -91,7 +91,6 @@ class KeyspaceKey(ContainerKey):
     supported=True,
 )
 class CassandraSource(StatefulIngestionSourceBase):
-
     """
     This plugin extracts the following:
 

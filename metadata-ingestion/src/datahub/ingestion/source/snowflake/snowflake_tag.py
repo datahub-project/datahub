@@ -38,9 +38,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         table_name: Optional[str],
     ) -> List[SnowflakeTag]:
         if db_name not in self.tag_cache:
-            self.tag_cache[
-                db_name
-            ] = self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+            self.tag_cache[db_name] = (
+                self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+            )
 
         if domain == SnowflakeObjectDomain.DATABASE:
             return self.tag_cache[db_name].get_database_tags(db_name)
@@ -130,10 +130,10 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
             if db_name not in self.tag_cache:
-                self.tag_cache[
-                    db_name
-                ] = self.data_dictionary.get_tags_for_database_without_propagation(
-                    db_name
+                self.tag_cache[db_name] = (
+                    self.data_dictionary.get_tags_for_database_without_propagation(
+                        db_name
+                    )
                 )
             temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
                 table_name, schema_name, db_name
@@ -165,10 +165,20 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         allowed_tags = []
         for tag in tags:
-            tag_identifier = tag.identifier()
-            self.report.report_entity_scanned(tag_identifier, "tag")
-            if not self.config.tag_pattern.allowed(tag_identifier):
-                self.report.report_dropped(tag_identifier)
+            identifier = (
+                tag._id_prefix_as_str()
+                if self.config.extract_tags_as_structured_properties
+                else tag.tag_identifier()
+            )
+            self.report.report_entity_scanned(identifier, "tag")
+
+            pattern = (
+                self.config.structured_property_pattern
+                if self.config.extract_tags_as_structured_properties
+                else self.config.tag_pattern
+            )
+            if not pattern.allowed(identifier):
+                self.report.report_dropped(identifier)
             else:
                 allowed_tags.append(tag)
         return allowed_tags

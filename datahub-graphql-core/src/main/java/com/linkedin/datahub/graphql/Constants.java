@@ -28,9 +28,9 @@ public class Constants {
   public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
   public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String CONNECTIONS_SCHEMA_FILE = "connection.graphql";
+  public static final String VERSION_SCHEMA_FILE = "versioning.graphql";
   public static final String OPERATIONS_SCHEMA_FILE = "operations.graphql";
   public static final String TIMESERIES_SCHEMA_FILE = "timeseries.graphql";
-  public static final String VERSION_SCHEMA_FILE = "versioning.graphql";
 
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";

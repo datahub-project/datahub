@@ -4,8 +4,8 @@ from datetime import timedelta
 
 import pendulum
 from airflow.decorators import dag, task
-from datahub.ingestion.graph.client import DataHubGraph, RemovedStatusFilter
 
+from datahub.ingestion.graph.client import DataHubGraph, RemovedStatusFilter
 from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 

@@ -139,7 +139,10 @@ class LookMLSourceConfig(
     )
     emit_reachable_views_only: bool = Field(
         True,
-        description="When enabled, only views that are reachable from explores defined in the model files are emitted",
+        description=(
+            "When enabled, only views that are reachable from explores defined in the model files are emitted. "
+            "If set to False, all views imported in model files are emitted. Views that are unreachable i.e. not explicitly defined in the model files are currently not emitted however reported as warning for debugging purposes."
+        ),
     )
     populate_sql_logic_for_missing_descriptions: bool = Field(
         False,
@@ -158,11 +161,25 @@ class LookMLSourceConfig(
         description="When enabled, looker refinement will be processed to adapt an existing view.",
     )
 
-    liquid_variable: Dict[Any, Any] = Field(
+    liquid_variables: Dict[Any, Any] = Field(
         {},
-        description="A dictionary containing Liquid variables and their corresponding values, utilized in SQL-defined "
+        description="A dictionary containing Liquid variables with their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
+    )
+
+    _liquid_variable_deprecated = pydantic_renamed_field(
+        old_name="liquid_variable", new_name="liquid_variables", print_warning=True
+    )
+
+    lookml_constants: Dict[str, str] = Field(
+        {},
+        description=(
+            "A dictionary containing LookML constants (`@{constant_name}`) and their values. "
+            "If a constant is defined in the `manifest.lkml` file, its value will be used. "
+            "If not found in the manifest, the value from this config will be used instead. "
+            "Defaults to an empty dictionary."
+        ),
     )
 
     looker_environment: Literal["prod", "dev"] = Field(

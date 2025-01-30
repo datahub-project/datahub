@@ -16,6 +16,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.TraceContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
@@ -46,7 +47,8 @@ public class SystemOperationContextFactory {
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull final ConfigurationProvider configurationProvider,
-      @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient) {
+      @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final TraceContext traceContext) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -79,7 +81,9 @@ public class SystemOperationContextFactory {
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            traceContext,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
@@ -108,7 +112,8 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
-      @Nonnull final ConfigurationProvider configurationProvider) {
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final TraceContext traceContext) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -134,7 +139,9 @@ public class SystemOperationContextFactory {
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            traceContext,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);

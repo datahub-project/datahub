@@ -132,6 +132,9 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                         context, new StructuredProperties(data), entityUrn));
               } else if (FORMS_ASPECT_NAME.equals(name)) {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
+              } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
+                result.setDataTransformLogic(
+                    DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
               } else if (SHARE_ASPECT_NAME.equals(name)) {
                 result.setShare(ShareMapper.map(context, new Share(data)));
               } else if (ORIGIN_ASPECT_NAME.equals(name)) {
@@ -141,9 +144,6 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                     LineageFeaturesMapper.map(context, new LineageFeatures(data)));
               } else if (DOCUMENTATION_ASPECT_NAME.equals(name)) {
                 result.setDocumentation(DocumentationMapper.map(context, new Documentation(data)));
-              } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
-                result.setDataTransformLogic(
-                    DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
               }
             });
 

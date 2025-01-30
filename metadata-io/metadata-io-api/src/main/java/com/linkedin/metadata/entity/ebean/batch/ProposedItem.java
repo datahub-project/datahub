@@ -81,6 +81,11 @@ public class ProposedItem implements MCPItem {
     return metadataChangeProposal.getSystemMetadata();
   }
 
+  @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    metadataChangeProposal.setSystemMetadata(systemMetadata);
+  }
+
   @Nonnull
   @Override
   public ChangeType getChangeType() {

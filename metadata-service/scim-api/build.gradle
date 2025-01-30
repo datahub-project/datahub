@@ -51,6 +51,8 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
+    testImplementation project(':metadata-service:factories')
+
     testImplementation project(':metadata-test-util:java')
 
     testImplementation externalDependency.mockito
@@ -59,13 +61,14 @@ dependencies {
 
     testImplementation externalDependency.springWebMVC
 
-    testImplementation externalDependency.springBootStarterWeb
+    testImplementation(externalDependency.springBootStarterWeb) {
+        exclude module: "spring-boot-starter-tomcat"
+    }
+    testImplementation externalDependency.springBootStarterJetty
 
     testImplementation externalDependency.springBootTest
 
     testImplementation externalDependency.scimSpecTest
-
-    testImplementation externalDependency.scimServer
 
     testImplementation externalDependency.ebean
 

@@ -2,12 +2,7 @@ import json
 import logging
 from typing import List
 
-from expandvars import UnboundVariable
-
-from datahub.configuration.config_loader import (
-    list_referenced_env_variables,
-    resolve_env_variables,
-)
+from datahub.configuration.config_loader import EnvResolver
 from datahub.secret.secret_store import SecretStore
 
 logger = logging.getLogger(__name__)
@@ -45,28 +40,26 @@ def resolve_secrets(secret_names: List[str], secret_stores: List[SecretStore]) -
 
 
 def resolve_recipe(
-    recipe: str, secret_stores: List[SecretStore], strict: bool = True
+    recipe: str, secret_stores: List[SecretStore], strict_env_syntax: bool = True
 ) -> dict:
+    # Note: the default for `strict_env_syntax` is normally False, but here we override
+    # it to be true. Particularly when fetching secrets from external secret stores, we
+    # want to be more careful about not over-fetching secrets.
+
     json_recipe_raw = json.loads(recipe)
 
     # 1. Extract all secrets needing resolved.
-    secrets_to_resolve = list_referenced_env_variables(json_recipe_raw)
+    secrets_to_resolve = EnvResolver.list_referenced_variables(
+        json_recipe_raw, strict_env_syntax=strict_env_syntax
+    )
 
     # 2. Resolve secret values
     secret_values_dict = resolve_secrets(list(secrets_to_resolve), secret_stores)
 
-    try:
-        # 3. Substitute secrets into recipe file
-        json_recipe_resolved = resolve_env_variables(
-            json_recipe_raw, environ=secret_values_dict
-        )
-    except UnboundVariable as e:
-        if strict:
-            raise e
-        else:
-            logger.warning(
-                "Failed to substitute all variable values for recipe. Ignoring..."
-            )
-            return json_recipe_raw
+    # 3. Substitute secrets into recipe file
+    resolver = EnvResolver(
+        environ=secret_values_dict, strict_env_syntax=strict_env_syntax
+    )
+    json_recipe_resolved = resolver.resolve(json_recipe_raw)
 
     return json_recipe_resolved

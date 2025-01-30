@@ -262,8 +262,7 @@ def test_collapse_temp_lineage():
     lineage_item: LineageItem = lineage_extractor._lineage_map[target_urn]
 
     assert list(lineage_item.upstreams)[0].urn == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-        "test.public.player_activity,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_activity,PROD)"
     )
 
     assert lineage_item.cll is not None
@@ -276,8 +275,7 @@ def test_collapse_temp_lineage():
     assert lineage_item.cll[0].downstream.column == "price"
 
     assert lineage_item.cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-        "test.public.player_activity,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_activity,PROD)"
     )
 
     assert lineage_item.cll[0].upstreams[0].column == "price"
@@ -441,8 +439,7 @@ def test_collapse_temp_recursive_cll_lineage():
     )
 
     assert target_dataset_cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-        "dev.public.player_activity,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
     )
     assert target_dataset_cll[0].upstreams[0].column == "price"
 
@@ -638,8 +635,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
     )
 
     assert target_dataset_cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-        "dev.public.player_activity,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
     )
     assert target_dataset_cll[0].upstreams[0].column == "price"
     assert target_dataset_cll[0].upstreams[1].column == "tax"

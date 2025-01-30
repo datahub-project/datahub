@@ -40,7 +40,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
@@ -133,7 +133,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
               getRelatedEntities(rawUrn, relationshipTypes, direction, start, count);
@@ -210,7 +210,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             _graphService.getLineage(systemOperationContext,
                 urn,

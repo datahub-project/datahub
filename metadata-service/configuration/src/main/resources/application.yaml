@@ -1,3 +1,6 @@
+# Name of the data hub component or container (used for tracing)
+spring.application.name: ${APPLICATION_NAME:datahub-gms}
+
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
@@ -5,6 +8,10 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
+  excludedPaths: /schema-registry/*,/health,/config,/config/search/export
+
+  # Disable if you want to skip validation of deleted user's tokens
+  enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
@@ -370,16 +377,34 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+  jmx:
+    enabled: true
+  web:
+    resources:
+      add-mappings: false # do not serve static files
   mvc:
     servlet:
-      path: /openapi
+      path: /
+    throw-exception-if-no-handler-found: true # throw exception on 404 to be handled
   kafka:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 springdoc:
   cache:
-    disabled: true
+    disabled: false
+  swagger-ui:
+    path: /openapi/swagger-ui/index.html
+  api-docs:
+    path: /openapi/v3/api-docs
+  groups:
+    enabled: true
 
 metadataTests:
   # Enable metadata tests feature
@@ -615,6 +640,7 @@ featureFlags:
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
@@ -623,11 +649,11 @@ featureFlags:
   showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
-  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
   consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:}
+  entityExclusions: ${ECE_ENTITY_EXCLUSIONS:schemaField} # provides a comma separated list of entities to exclude from the ECE hook
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -770,8 +796,6 @@ subscriptions:
 executors:
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
-
-springdoc.api-docs.groups.enabled: true
 
 corpuser:
   hook:

@@ -181,7 +181,12 @@ public class AuthModule extends AbstractModule {
       final Authentication systemAuthentication,
       final ConfigurationProvider configurationProvider) {
     ActorContext systemActorContext =
-        ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
+        ActorContext.builder()
+            .systemAuth(true)
+            .authentication(systemAuthentication)
+            .enforceExistenceEnabled(
+                configurationProvider.getAuthentication().isEnforceExistenceEnabled())
+            .build();
     OperationContextConfig systemConfig =
         OperationContextConfig.builder()
             .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
@@ -197,7 +202,9 @@ public class AuthModule extends AbstractModule {
         .entityRegistryContext(EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY))
         .validationContext(ValidationContext.builder().alternateValidation(false).build())
         .retrieverContext(RetrieverContext.EMPTY)
-        .build(systemAuthentication);
+        .build(
+            systemAuthentication,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
   }
 
   @Provides

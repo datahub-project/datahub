@@ -1,6 +1,5 @@
 package com.linkedin.metadata.boot.kafka;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
@@ -8,6 +7,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -42,19 +42,21 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   public static final String TOPIC_NAME =
       "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME + "}";
 
-  private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
+  private final DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
   private String revision;
 
-  private final GitVersion _gitVersion;
-  private final ConfigurationProvider _configurationProvider;
+  private final GitVersion gitVersion;
+  private final ConfigurationProvider configurationProvider;
 
   @Value(CONSUMER_GROUP)
   private String consumerGroup;
 
   @Value(TOPIC_NAME)
   private String topicName;
+
+  private final OperationContext systemOperationContext;
 
   private static final AtomicBoolean IS_UPDATED = new AtomicBoolean(false);
 
@@ -63,11 +65,13 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       @Qualifier("duheKafkaConsumerFactory")
           DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory,
       GitVersion gitVersion,
-      ConfigurationProvider configurationProvider) {
+      ConfigurationProvider configurationProvider,
+      @Qualifier("systemOperationContext") OperationContext operationContext) {
     this.registry = registry;
-    this._defaultKafkaConsumerFactory = defaultKafkaConsumerFactory;
-    this._gitVersion = gitVersion;
-    this._configurationProvider = configurationProvider;
+    this.defaultKafkaConsumerFactory = defaultKafkaConsumerFactory;
+    this.gitVersion = gitVersion;
+    this.configurationProvider = configurationProvider;
+    this.systemOperationContext = operationContext;
   }
 
   // Constructs a consumer to read determine final offset to assign, prevents re-reading whole topic
@@ -76,7 +80,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   public void onPartitionsAssigned(
       Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
     try (Consumer<String, GenericRecord> kafkaConsumer =
-        _defaultKafkaConsumerFactory.createConsumer(consumerGroup, SUFFIX)) {
+        defaultKafkaConsumerFactory.createConsumer(consumerGroup, SUFFIX)) {
       final Map<TopicPartition, Long> offsetMap = kafkaConsumer.endOffsets(assignments.keySet());
       assignments.entrySet().stream()
           .filter(entry -> topicName.equals(entry.getKey().topic()))
@@ -97,46 +101,52 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       id = CONSUMER_GROUP,
       topics = {TOPIC_NAME},
       containerFactory = "duheKafkaEventConsumer",
-      concurrency = "1")
+      concurrency = "1",
+      autoStartup = "false")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try (Timer.Context i = MetricUtils.timer(this.getClass(), "checkSystemVersion").time()) {
-      final GenericRecord record = consumerRecord.value();
-      final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
 
-      DataHubUpgradeHistoryEvent event;
-      try {
-        event = EventUtils.avroToPegasusDUHE(record);
-        log.info("Latest system update version: {}", event.getVersion());
-        if (expectedVersion.equals(event.getVersion())) {
-          IS_UPDATED.getAndSet(true);
-        } else if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
-          log.warn("Wait for system update is disabled. Proceeding with startup.");
-          IS_UPDATED.getAndSet(true);
-        } else {
-          log.warn(
-              "System version is not up to date: {}. Waiting for datahub-upgrade to complete...",
-              expectedVersion);
-        }
+    systemOperationContext.withSpan(
+        "checkSystemVersion",
+        () -> {
+          final GenericRecord record = consumerRecord.value();
+          final String expectedVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
 
-      } catch (Exception e) {
-        MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-        log.error("Error deserializing message due to: ", e);
-        log.error("Message: {}", record.toString());
-        return;
-      }
-    }
+          DataHubUpgradeHistoryEvent event;
+          try {
+            event = EventUtils.avroToPegasusDUHE(record);
+            log.info("Latest system update version: {}", event.getVersion());
+            if (expectedVersion.equals(event.getVersion())) {
+              IS_UPDATED.getAndSet(true);
+            } else if (!configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+              log.warn("Wait for system update is disabled. Proceeding with startup.");
+              IS_UPDATED.getAndSet(true);
+            } else {
+              log.warn(
+                  "System version is not up to date: {}. Waiting for datahub-upgrade to complete...",
+                  expectedVersion);
+            }
+
+          } catch (Exception e) {
+            MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+            log.error("Error deserializing message due to: ", e);
+            log.error("Message: {}", record.toString());
+            return;
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "checkSystemVersion"));
   }
 
   public void waitForUpdate() {
-    if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+    if (!configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
       log.warn("Wait for system update is disabled. Proceeding with startup.");
       IS_UPDATED.getAndSet(true);
     }
-    int maxBackOffs = Integer.parseInt(_configurationProvider.getSystemUpdate().getMaxBackOffs());
+    int maxBackOffs = Integer.parseInt(configurationProvider.getSystemUpdate().getMaxBackOffs());
     long initialBackOffMs =
-        Long.parseLong(_configurationProvider.getSystemUpdate().getInitialBackOffMs());
+        Long.parseLong(configurationProvider.getSystemUpdate().getInitialBackOffMs());
     int backOffFactor =
-        Integer.parseInt(_configurationProvider.getSystemUpdate().getBackOffFactor());
+        Integer.parseInt(configurationProvider.getSystemUpdate().getBackOffFactor());
 
     long backOffMs = initialBackOffMs;
     for (int i = 0; i < maxBackOffs; i++) {

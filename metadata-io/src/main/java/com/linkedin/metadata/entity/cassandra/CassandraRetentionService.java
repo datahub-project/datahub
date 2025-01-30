@@ -31,7 +31,7 @@ import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;

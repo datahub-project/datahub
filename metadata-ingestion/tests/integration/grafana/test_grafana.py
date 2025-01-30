@@ -120,7 +120,7 @@ def test_grafana_dashboard(loaded_grafana, pytestconfig, tmp_path, test_resource
         time.sleep(5)
         resp = requests.get(url)
         if resp.status_code == 200:
-            logging.info(f"Grafana started after waiting {i*5} seconds")
+            logging.info(f"Grafana started after waiting {i * 5} seconds")
             break
     else:
         pytest.fail("Grafana did not start in time")
@@ -131,12 +131,12 @@ def test_grafana_dashboard(loaded_grafana, pytestconfig, tmp_path, test_resource
     assert resp.status_code == 200, "Failed to load default dashboard"
     dashboard = resp.json()
 
-    assert (
-        dashboard["dashboard"]["title"] == "Default Dashboard"
-    ), "Default dashboard title mismatch"
-    assert any(
-        panel["type"] == "text" for panel in dashboard["dashboard"]["panels"]
-    ), "Default dashboard missing text panel"
+    assert dashboard["dashboard"]["title"] == "Default Dashboard", (
+        "Default dashboard title mismatch"
+    )
+    assert any(panel["type"] == "text" for panel in dashboard["dashboard"]["panels"]), (
+        "Default dashboard missing text panel"
+    )
 
     # Verify the output. (You can add further checks here if needed)
     logging.info("Default dashboard verified successfully")
@@ -153,7 +153,7 @@ def test_grafana_ingest(
         time.sleep(5)
         resp = requests.get(url)
         if resp.status_code == 200:
-            logging.info(f"Grafana started after waiting {i*5} seconds")
+            logging.info(f"Grafana started after waiting {i * 5} seconds")
             break
     else:
         pytest.fail("Grafana did not start in time")

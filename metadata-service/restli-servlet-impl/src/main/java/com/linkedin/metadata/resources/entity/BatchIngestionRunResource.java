@@ -34,7 +34,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -106,7 +106,7 @@ public class BatchIngestionRunResource
           "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtils.toTask(
+      return RestliUtils.toTask(systemOperationContext,
           () -> {
 
               try {
@@ -134,7 +134,7 @@ public class BatchIngestionRunResource
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
@@ -158,7 +158,7 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();

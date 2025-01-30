@@ -158,7 +158,7 @@ public class AutocompleteRequestHandlerTest {
     assertEquals("keyPart1.delimited", prefixQuery.fieldName());
 
     assertEquals(wrapper.mustNot().size(), 1);
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
@@ -203,7 +203,7 @@ public class AutocompleteRequestHandlerTest {
         (MatchPhrasePrefixQueryBuilder) query.should().get(1);
     assertEquals("field.delimited", prefixQuery.fieldName());
 
-    MatchQueryBuilder removedFilter = (MatchQueryBuilder) wrapper.mustNot().get(0);
+    TermQueryBuilder removedFilter = (TermQueryBuilder) wrapper.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();

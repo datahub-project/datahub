@@ -78,9 +78,9 @@ def test_complete_entity_term_proposal_accept(auth_session, ingest_cleanup_data)
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -115,9 +115,9 @@ def test_complete_entity_term_proposal_accept(auth_session, ingest_cleanup_data)
 
     # We should find our request with COMPLETED & ACCEPTED
     matching = [r for r in requests if r["urn"] == proposal_urn]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {proposal_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {proposal_urn}"
+    )
     assert matching[0]["status"] == "COMPLETED"
     assert matching[0]["result"] == "ACCEPTED"
 
@@ -140,9 +140,9 @@ def test_complete_entity_term_proposal_accept(auth_session, ingest_cleanup_data)
     dataset_terms_resp = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp
-    ), f"Errors found: {dataset_terms_resp.get('errors')}"
+    assert "errors" not in dataset_terms_resp, (
+        f"Errors found: {dataset_terms_resp.get('errors')}"
+    )
 
     # Extract the list of term URNs from the dataset
     actual_terms = dataset_terms_resp["data"]["dataset"]["glossaryTerms"]["terms"]
@@ -159,27 +159,27 @@ def test_complete_entity_term_proposal_accept(auth_session, ingest_cleanup_data)
     remove_resp = execute_gql(
         auth_session, query=remove_term_mutation, variables=variables_remove_term
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing term: {remove_resp.get('errors')}"
-    assert (
-        remove_resp["data"]["removeTerm"] is True
-    ), "Expected removeTerm to return True"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing term: {remove_resp.get('errors')}"
+    )
+    assert remove_resp["data"]["removeTerm"] is True, (
+        "Expected removeTerm to return True"
+    )
 
     # Optional: verify the term was removed
     dataset_terms_resp_after_removal = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp_after_removal
-    ), f"Errors found: {dataset_terms_resp_after_removal.get('errors')}"
+    assert "errors" not in dataset_terms_resp_after_removal, (
+        f"Errors found: {dataset_terms_resp_after_removal.get('errors')}"
+    )
     updated_terms = dataset_terms_resp_after_removal["data"]["dataset"][
         "glossaryTerms"
     ]["terms"]
     updated_term_urns = [t["term"]["urn"] for t in updated_terms]
-    assert (
-        term_urn not in updated_term_urns
-    ), f"Expected {term_urn} to be removed, but it still appears: {updated_term_urns}"
+    assert term_urn not in updated_term_urns, (
+        f"Expected {term_urn} to be removed, but it still appears: {updated_term_urns}"
+    )
 
 
 @pytest.mark.dependency()
@@ -225,9 +225,9 @@ def test_complete_entity_term_proposal_reject(auth_session, ingest_cleanup_data)
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     wait_for_writes_to_sync()
 
@@ -281,9 +281,9 @@ def test_complete_entity_term_proposal_reject(auth_session, ingest_cleanup_data)
     dataset_terms_resp = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp
-    ), f"Errors found: {dataset_terms_resp.get('errors')}"
+    assert "errors" not in dataset_terms_resp, (
+        f"Errors found: {dataset_terms_resp.get('errors')}"
+    )
     applied_terms = dataset_terms_resp["data"]["dataset"]["glossaryTerms"]["terms"]
     applied_term_urns = [t["term"]["urn"] for t in applied_terms]
 
@@ -387,9 +387,9 @@ def test_list_action_requests_term_params(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -439,9 +439,9 @@ def test_complete_schema_field_term_proposal_accept(auth_session, ingest_cleanup
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return True"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -506,9 +506,9 @@ def test_complete_schema_field_term_proposal_accept(auth_session, ingest_cleanup
     ]
     field_bar = next(f for f in fields if f["fieldPath"] == field_name)
     applied_terms = [t["term"]["urn"] for t in field_bar["glossaryTerms"]["terms"]]
-    assert (
-        term_urn in applied_terms
-    ), f"Expected {term_urn} on {field_name}, found {applied_terms}"
+    assert term_urn in applied_terms, (
+        f"Expected {term_urn} on {field_name}, found {applied_terms}"
+    )
 
     # 5) Remove the term to reset for subsequent tests
     remove_term_mutation = """
@@ -527,20 +527,20 @@ def test_complete_schema_field_term_proposal_accept(auth_session, ingest_cleanup
     remove_resp = execute_gql(
         auth_session, query=remove_term_mutation, variables=variables_remove_term
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing term: {remove_resp.get('errors')}"
-    assert (
-        remove_resp["data"]["removeTerm"] is True
-    ), "Expected removeTerm to return True"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing term: {remove_resp.get('errors')}"
+    )
+    assert remove_resp["data"]["removeTerm"] is True, (
+        "Expected removeTerm to return True"
+    )
 
     # Optional: verify the term is gone
     fields_resp_after_removal = execute_gql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
     )
-    assert (
-        "errors" not in fields_resp_after_removal
-    ), f"Errors found: {fields_resp_after_removal.get('errors')}"
+    assert "errors" not in fields_resp_after_removal, (
+        f"Errors found: {fields_resp_after_removal.get('errors')}"
+    )
     updated_fields = fields_resp_after_removal["data"]["dataset"][
         "editableSchemaMetadata"
     ]["editableSchemaFieldInfo"]
@@ -548,9 +548,9 @@ def test_complete_schema_field_term_proposal_accept(auth_session, ingest_cleanup
     updated_terms = [
         t["term"]["urn"] for t in updated_field_bar["glossaryTerms"]["terms"]
     ]
-    assert (
-        term_urn not in updated_terms
-    ), f"Term {term_urn} should have been removed from field {field_name}, but is still there: {updated_terms}"
+    assert term_urn not in updated_terms, (
+        f"Term {term_urn} should have been removed from field {field_name}, but is still there: {updated_terms}"
+    )
 
 
 @pytest.mark.dependency()
@@ -599,9 +599,9 @@ def test_complete_schema_field_term_proposal_reject(auth_session, ingest_cleanup
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return True"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -672,9 +672,9 @@ def test_complete_schema_field_term_proposal_reject(auth_session, ingest_cleanup
             ]
 
             # Since it was rejected, we expect not to see the term on field_bar
-            assert (
-                term_urn not in applied_terms
-            ), f"Term {term_urn} should NOT have been applied, but is present: {applied_terms}"
+            assert term_urn not in applied_terms, (
+                f"Term {term_urn} should NOT have been applied, but is present: {applied_terms}"
+            )
 
 
 @pytest.mark.dependency()
@@ -798,9 +798,9 @@ def test_propose_term_term_already_proposed(auth_session, ingest_cleanup_data):
     first_resp = execute_gql(
         auth_session=auth_session, query=propose_terms_mutation, variables=variables
     )
-    assert (
-        "errors" not in first_resp
-    ), f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    assert "errors" not in first_resp, (
+        f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    )
     first_proposal_urn = first_resp["data"]["proposeTerms"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
 
@@ -832,9 +832,9 @@ def test_propose_term_term_already_proposed(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -887,16 +887,16 @@ def test_propose_term_schema_field_no_subresource(auth_session, ingest_cleanup_d
         }
     }
     resp = execute_gql(auth_session, query=propose_terms_mutation, variables=variables)
-    assert (
-        "errors" in resp
-    ), "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    assert "errors" in resp, (
+        "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    )
     error_msg = resp["errors"][0]["message"]
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "subresource field must be provided" in error_msg.lower()
-    ), f"Expected error message about missing subResource, but got: {error_msg}"
+    assert "subresource field must be provided" in error_msg.lower(), (
+        f"Expected error message about missing subResource, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -923,9 +923,9 @@ def test_propose_term_malformed_term_urn(auth_session, ingest_cleanup_data):
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "invalid term urns" in error_msg.lower() or "invalid" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "invalid term urns" in error_msg.lower() or "invalid" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -952,9 +952,9 @@ def test_propose_term_empty_term_urns(auth_session, ingest_cleanup_data):
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "no terms provided" in error_msg.lower() or "invalid" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "no terms provided" in error_msg.lower() or "invalid" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 # TESTS FOR THE LEGACY (deprecated) proposeTerm API
@@ -1033,9 +1033,9 @@ def test_complete_legacy_entity_term_proposal_accept(auth_session, ingest_cleanu
         for r in requests
         if r["params"]["glossaryTermProposal"]["glossaryTerm"]["urn"] == term_urn
     ]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {term_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {term_urn}"
+    )
     assert matching[0]["status"] == "PENDING"
     proposal_urn = matching[0]["urn"]
 
@@ -1053,9 +1053,9 @@ def test_complete_legacy_entity_term_proposal_accept(auth_session, ingest_cleanu
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # 4) Verify the term was applied by fetching the dataset
     dataset_terms_query = """
@@ -1076,9 +1076,9 @@ def test_complete_legacy_entity_term_proposal_accept(auth_session, ingest_cleanu
     dataset_terms_resp = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp
-    ), f"Errors found: {dataset_terms_resp.get('errors')}"
+    assert "errors" not in dataset_terms_resp, (
+        f"Errors found: {dataset_terms_resp.get('errors')}"
+    )
 
     # Extract the list of term URNs from the dataset
     actual_terms = dataset_terms_resp["data"]["dataset"]["glossaryTerms"]["terms"]
@@ -1095,27 +1095,27 @@ def test_complete_legacy_entity_term_proposal_accept(auth_session, ingest_cleanu
     remove_resp = execute_gql(
         auth_session, query=remove_term_mutation, variables=variables_remove_term
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing term: {remove_resp.get('errors')}"
-    assert (
-        remove_resp["data"]["removeTerm"] is True
-    ), "Expected removeTerm to return True"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing term: {remove_resp.get('errors')}"
+    )
+    assert remove_resp["data"]["removeTerm"] is True, (
+        "Expected removeTerm to return True"
+    )
 
     # Optional: verify the term was removed
     dataset_terms_resp_after_removal = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp_after_removal
-    ), f"Errors found: {dataset_terms_resp_after_removal.get('errors')}"
+    assert "errors" not in dataset_terms_resp_after_removal, (
+        f"Errors found: {dataset_terms_resp_after_removal.get('errors')}"
+    )
     updated_terms = dataset_terms_resp_after_removal["data"]["dataset"][
         "glossaryTerms"
     ]["terms"]
     updated_term_urns = [t["term"]["urn"] for t in updated_terms]
-    assert (
-        term_urn not in updated_term_urns
-    ), f"Expected {term_urn} to be removed, but it still appears: {updated_term_urns}"
+    assert term_urn not in updated_term_urns, (
+        f"Expected {term_urn} to be removed, but it still appears: {updated_term_urns}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1204,9 +1204,9 @@ def test_complete_legacy_entity_term_proposal_reject(auth_session, ingest_cleanu
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     # 4) Confirm that the term was NOT applied to the dataset
     dataset_terms_query = """
@@ -1227,9 +1227,9 @@ def test_complete_legacy_entity_term_proposal_reject(auth_session, ingest_cleanu
     dataset_terms_resp = execute_gql(
         auth_session, query=dataset_terms_query, variables=variables_dataset_terms
     )
-    assert (
-        "errors" not in dataset_terms_resp
-    ), f"Errors found: {dataset_terms_resp.get('errors')}"
+    assert "errors" not in dataset_terms_resp, (
+        f"Errors found: {dataset_terms_resp.get('errors')}"
+    )
     applied_terms = dataset_terms_resp["data"]["dataset"]["glossaryTerms"]["terms"]
     applied_term_urns = [t["term"]["urn"] for t in applied_terms]
 
@@ -1354,6 +1354,6 @@ def test_list_action_requests_legacy_term_params(auth_session, ingest_cleanup_da
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )

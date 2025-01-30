@@ -97,7 +97,7 @@ export default defineConfig(({ mode }) => {
             css: true,
             // reporters: ['verbose'],
             coverage: {
-                enabled: true,
+		enabled: true,
 				provider: 'v8',
 				reporter: ['text', 'json', 'html'],
                 include: ['src/**/*'],

@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.*;
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -163,6 +164,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (dashboard, dataMap) ->
             dashboard.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
     mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -177,11 +183,6 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setLineageFeatures(
                 LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
-    mappingHelper.mapToResult(
-        VERSION_PROPERTIES_ASPECT_NAME,
-        (entity, dataMap) ->
-            entity.setVersionProperties(
-                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

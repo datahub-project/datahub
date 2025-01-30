@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook.test;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
@@ -30,7 +29,7 @@ import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestInterval;
 import com.linkedin.test.TestSourceType;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -168,8 +167,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
   @WithSpan
   private void evaluateTest(Urn entity) {
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "evaluateTestOnChange").time()) {
+    try {
       log.debug("Evaluating tests for urn {}", entity);
       testClient.evaluate(entity, null, true, systemAuthentication);
       MetricUtils.counter(this.getClass(), "evaluateTestOnChangeSucceeded").inc();

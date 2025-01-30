@@ -1,12 +1,7 @@
 import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import {
-    DataProcessInstance,
-    Entity as GeneratedEntity,
-    EntityType,
-    OwnershipType,
-    SearchResult,
-} from '../../../types.generated';
+import { Entity as GraphQLEntity } from '@types';
+import { DataProcessInstance, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -23,32 +18,21 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-// import SummaryTab from './profile/DataProcessInstaceSummary';
+import SummaryTab from './profile/DataProcessInstanceSummary';
 
-// const getProcessPlatformName = (data?: DataProcessInstance): string => {
-//     return (
-//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
-//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-//         ''
-//     );
-// };
-
-const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    if (!parentEntity?.entity) return [];
+    if (!parentEntity || !parentEntity.entity) {
+        return [];
+    }
 
-    // Convert to GeneratedEntity
-    return [
-        {
-            type: parentEntity.entity.type,
-            urn: (parentEntity.entity as any).urn, // Make sure urn exists
-            relationships: (parentEntity.entity as any).relationships,
-        },
-    ];
+    // First cast to unknown, then to Entity with proper type
+    return [parentEntity.entity];
 };
+
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */
@@ -110,6 +94,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 //     component: SummaryTab,
                 // },
                 {
+                    name: 'Summary',
+                    component: SummaryTab,
+                },
+                {
                     name: 'Lineage',
                     component: LineageTab,
                 },
@@ -161,6 +149,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         return {
             name,
             externalUrl,
+            platform: processInstance?.dataPlatformInstance?.platform,
         };
     };
 
@@ -174,9 +163,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data?.dataPlatformInstance?.platform?.properties?.logoUrl}
                 owners={null}
                 globalTags={null}
                 // domain={data.domain?.domain}
@@ -194,6 +184,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         const data = result.entity as DataProcessInstance;
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
+
+        const firstState = data?.state && data.state.length > 0 ? data.state[0] : undefined;
+
         return (
             <Preview
                 urn={data.urn}
@@ -201,9 +194,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data.dataPlatformInstance?.platform?.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={null}
                 globalTags={null}
@@ -217,10 +211,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // duration={data?.state?.[0]?.durationMillis}
-                // status={data?.state?.[0]?.result?.resultType}
-                // startTime={data?.state?.[0]?.timestampMillis}
-                //                health={data.health}
+                duration={firstState?.durationMillis}
+                status={firstState?.result?.resultType}
+                startTime={firstState?.timestampMillis}
             />
         );
     };
@@ -231,8 +224,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             name: this.displayName(entity),
             type: EntityType.DataProcessInstance,
             subtype: entity?.subTypes?.typeNames?.[0],
-            icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform,
+            icon: entity?.dataPlatformInstance?.platform?.properties?.logoUrl || undefined,
+            platform: entity?.dataPlatformInstance?.platform,
             container: entity?.container,
             //            health: entity?.health || undefined,
         };

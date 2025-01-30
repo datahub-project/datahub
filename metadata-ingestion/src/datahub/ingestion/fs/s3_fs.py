@@ -17,9 +17,9 @@ def parse_s3_path(path: str) -> "S3Path":
 
 def assert_ok_status(s3_response):
     is_ok = s3_response["ResponseMetadata"]["HTTPStatusCode"] == 200
-    assert (
-        is_ok
-    ), f"Failed to fetch S3 object, error message: {s3_response['Error']['Message']}"
+    assert is_ok, (
+        f"Failed to fetch S3 object, error message: {s3_response['Error']['Message']}"
+    )
 
 
 @dataclass

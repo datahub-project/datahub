@@ -374,100 +374,6 @@ public class SearchUtils {
     return sortCriteria;
   }
 
-  public static CompletableFuture<ScrollResults> scrollAcrossEntities(
-      QueryContext inputContext,
-      final EntityClient _entityClient,
-      final ViewService _viewService,
-      List<EntityType> inputEntityTypes,
-      String inputQuery,
-      Filter baseFilter,
-      String viewUrn,
-      com.linkedin.datahub.graphql.generated.SearchFlags inputSearchFlags,
-      Integer inputCount,
-      String scrollId,
-      String inputKeepAlive,
-      String className) {
-
-    final List<EntityType> entityTypes =
-        (inputEntityTypes == null || inputEntityTypes.isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : inputEntityTypes;
-    final List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
-
-    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
-    // blank/empty
-    final String query =
-        StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";
-
-    final Optional<SearchFlags> searchFlags =
-        Optional.ofNullable(inputSearchFlags)
-            .map((flags) -> SearchFlagsInputMapper.map(inputContext, flags));
-    final OperationContext context =
-        inputContext.getOperationContext().withSearchFlags(searchFlags::orElse);
-
-    final int count = Optional.ofNullable(inputCount).orElse(DEFAULT_SCROLL_COUNT);
-    final String keepAlive = Optional.ofNullable(inputKeepAlive).orElse(DEFAULT_SCROLL_KEEP_ALIVE);
-
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          final OperationContext baseContext = inputContext.getOperationContext();
-          final Optional<DataHubViewInfo> maybeResolvedView =
-              Optional.ofNullable(viewUrn)
-                  .map((urn) -> resolveView(baseContext, _viewService, UrnUtils.getUrn(urn)));
-
-          final List<String> finalEntityNames =
-              maybeResolvedView
-                  .map(
-                      (view) ->
-                          intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
-                  .orElse(entityNames);
-
-          final Filter finalFilters =
-              maybeResolvedView
-                  .map((view) -> combineFilters(baseFilter, view.getDefinition().getFilter()))
-                  .orElse(baseFilter);
-
-          log.debug(
-              "Executing search for multiple entities: entity types {}, query {}, filters: {}, scrollId: {}, count: {}",
-              finalEntityNames,
-              query,
-              finalFilters,
-              scrollId,
-              count);
-
-          try {
-            final ScrollResult scrollResult =
-                _entityClient.scrollAcrossEntities(
-                    context,
-                    finalEntityNames,
-                    query,
-                    finalFilters,
-                    scrollId,
-                    keepAlive,
-                    count,
-                    null);
-            return UrnScrollResultsMapper.map(inputContext, scrollResult);
-          } catch (Exception e) {
-            log.warn(
-                "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",
-                finalEntityNames,
-                query,
-                finalFilters,
-                scrollId,
-                count);
-            throw new RuntimeException(
-                "Failed to execute search: "
-                    + String.format(
-                        "entity types %s, query %s, filters: %s, start: %s, count: %s",
-                        finalEntityNames, query, finalFilters, scrollId, count),
-                e);
-          }
-        },
-        className,
-        "scrollAcrossEntities");
-  }
-
   public static CompletableFuture<SearchResults> searchAcrossEntities(
       QueryContext inputContext,
       final EntityClient _entityClient,
@@ -560,5 +466,99 @@ public class SearchUtils {
         },
         className,
         "searchAcrossEntities");
+  }
+
+  public static CompletableFuture<ScrollResults> scrollAcrossEntities(
+      QueryContext inputContext,
+      final EntityClient _entityClient,
+      final ViewService _viewService,
+      List<EntityType> inputEntityTypes,
+      String inputQuery,
+      Filter baseFilter,
+      String viewUrn,
+      com.linkedin.datahub.graphql.generated.SearchFlags inputSearchFlags,
+      Integer inputCount,
+      String scrollId,
+      String inputKeepAlive,
+      String className) {
+
+    final List<EntityType> entityTypes =
+        (inputEntityTypes == null || inputEntityTypes.isEmpty())
+            ? SEARCHABLE_ENTITY_TYPES
+            : inputEntityTypes;
+    final List<String> entityNames =
+        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+
+    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // blank/empty
+    final String query =
+        StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";
+
+    final Optional<SearchFlags> searchFlags =
+        Optional.ofNullable(inputSearchFlags)
+            .map((flags) -> SearchFlagsInputMapper.map(inputContext, flags));
+    final OperationContext context =
+        inputContext.getOperationContext().withSearchFlags(searchFlags::orElse);
+
+    final int count = Optional.ofNullable(inputCount).orElse(DEFAULT_SCROLL_COUNT);
+    final String keepAlive = Optional.ofNullable(inputKeepAlive).orElse(DEFAULT_SCROLL_KEEP_ALIVE);
+
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          final OperationContext baseContext = inputContext.getOperationContext();
+          final Optional<DataHubViewInfo> maybeResolvedView =
+              Optional.ofNullable(viewUrn)
+                  .map((urn) -> resolveView(baseContext, _viewService, UrnUtils.getUrn(urn)));
+
+          final List<String> finalEntityNames =
+              maybeResolvedView
+                  .map(
+                      (view) ->
+                          intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
+                  .orElse(entityNames);
+
+          final Filter finalFilters =
+              maybeResolvedView
+                  .map((view) -> combineFilters(baseFilter, view.getDefinition().getFilter()))
+                  .orElse(baseFilter);
+
+          log.debug(
+              "Executing search for multiple entities: entity types {}, query {}, filters: {}, scrollId: {}, count: {}",
+              finalEntityNames,
+              query,
+              finalFilters,
+              scrollId,
+              count);
+
+          try {
+            final ScrollResult scrollResult =
+                _entityClient.scrollAcrossEntities(
+                    context,
+                    finalEntityNames,
+                    query,
+                    finalFilters,
+                    scrollId,
+                    keepAlive,
+                    count,
+                    null);
+            return UrnScrollResultsMapper.map(inputContext, scrollResult);
+          } catch (Exception e) {
+            log.warn(
+                "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",
+                finalEntityNames,
+                query,
+                finalFilters,
+                scrollId,
+                count);
+            throw new RuntimeException(
+                "Failed to execute search: "
+                    + String.format(
+                        "entity types %s, query %s, filters: %s, start: %s, count: %s",
+                        finalEntityNames, query, finalFilters, scrollId, count),
+                e);
+          }
+        },
+        className,
+        "scrollAcrossEntities");
   }
 }

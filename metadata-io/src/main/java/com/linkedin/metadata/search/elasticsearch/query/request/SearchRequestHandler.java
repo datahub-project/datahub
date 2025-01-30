@@ -50,7 +50,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;

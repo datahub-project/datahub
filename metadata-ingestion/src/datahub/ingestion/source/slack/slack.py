@@ -5,6 +5,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, SecretStr
 from slack_sdk import WebClient
+from tenacity import retry, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -586,26 +588,74 @@ class SlackSource(Source):
             ),
         )
 
-    def get_user_to_be_updated(
-        self,
-    ) -> Iterable[Tuple[CorpUser, Optional[CorpUserEditableInfoClass]]]:
+    def get_user_to_be_updated(self) -> Iterable[CorpUser]:
+        graphql_query = textwrap.dedent(
+            """
+            query listUsers($input: ListUsersInput!) {
+                listUsers(input: $input) {
+                    total
+                    users {
+                        urn
+                        editableProperties {
+                            email
+                            slack
+                        }
+                    }
+                }
+            }
+        """
+        )
+
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
+    )
+    def get_user_to_be_updated(self) -> Iterable[CorpUser]:
+        graphql_query = textwrap.dedent(
+            """
+            query listUsers($input: ListUsersInput!) {
+                listUsers(input: $input) {
+                    total
+                    users {
+                        urn
+                        editableProperties {
+                            email
+                            slack
+                        }
+                    }
+                }
+            }
+        """
+        )
+        start = 0
+        count = 10
+        total = count
+
         assert self.ctx.graph is not None
-        for urn in self.ctx.graph.get_urns_by_filter(
-            entity_types=["corpuser"], query="*"
-        ):
-            user_obj = CorpUser()
-            user_obj.urn = urn
-            editable_properties = self.ctx.graph.get_aspect(
-                urn, CorpUserEditableInfoClass
+
+        while start < total:
+            variables = {"input": {"start": start, "count": count}}
+            response = self.ctx.graph.execute_graphql(
+                query=graphql_query, variables=variables
             )
-            if editable_properties and editable_properties.email:
-                user_obj.email = editable_properties.email
-            else:
-                urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
-                if "@" in urn_id:
-                    user_obj.email = urn_id
-            if user_obj.email is not None:
-                yield (user_obj, editable_properties)
+            list_users = response.get("listUsers", {})
+            total = list_users.get("total", 0)
+            users = list_users.get("users", [])
+            for user in users:
+                user_obj = CorpUser()
+                editable_properties = user.get("editableProperties", {})
+                user_obj.urn = user.get("urn")
+                if user_obj.urn is None:
+                    continue
+                if editable_properties is not None:
+                    user_obj.email = editable_properties.get("email")
+                if user_obj.email is None:
+                    urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
+                    if "@" in urn_id:
+                        user_obj.email = urn_id
+                if user_obj.email is not None:
+                    yield user_obj
+            start += count
 
     def get_report(self) -> SourceReport:
         return self.report

@@ -5,6 +5,7 @@ on:
     branches:
       - "**"
     paths:
+      - ".github/workflows/documentation.yml"
       - "metadata-ingestion/**"
       - "metadata-models/**"
       - "docs/**"
@@ -13,6 +14,7 @@ on:
     branches:
       - acryl-main
     paths:
+      - ".github/workflows/documentation.yml"
       - "metadata-ingestion/**"
       - "metadata-models/**"
       - "docs/**"
@@ -40,7 +42,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -57,7 +59,8 @@ jobs:
 
       - name: Deploy
         if: github.event_name == 'push' && github.repository == 'acryldata/datahub-fork' && github.ref_name == 'acryl-main'
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-website/build
+          force_orphan: true

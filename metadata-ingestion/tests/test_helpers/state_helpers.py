@@ -104,7 +104,7 @@ def mock_datahub_graph():
 
 @pytest.fixture
 def mock_datahub_graph_instance(
-    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph]
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
 ) -> DataHubGraph:
     return mock_datahub_graph(DatahubClientConfig(server="http://fake.domain.local"))
 

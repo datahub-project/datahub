@@ -477,9 +477,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_dataset_urns
                     and dataset_urn not in self.dataset_upstream_urn_mapping
                 ):
-                    self.dataset_upstream_urn_mapping[
-                        dataset_urn
-                    ] = upstream_dataset_urns
+                    self.dataset_upstream_urn_mapping[dataset_urn] = (
+                        upstream_dataset_urns
+                    )
 
             element_input_fields = [
                 InputFieldClass(

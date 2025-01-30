@@ -32,6 +32,15 @@ default_connector_query_results = [
         "sync_frequency": 1440,
         "destination_id": "interval_unconstitutional",
     },
+    {
+        "connector_id": "my_confluent_cloud_connector_id",
+        "connecting_user_id": "reapply_phone",
+        "connector_type_id": "confluent_cloud",
+        "connector_name": "confluent_cloud",
+        "paused": False,
+        "sync_frequency": 1440,
+        "destination_id": "my_confluent_cloud_connector_id",
+    },
 ]
 
 
@@ -45,7 +54,7 @@ def default_query_results(
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
     elif query == fivetran_log_query.get_table_lineage_query(
-        connector_ids=["calendar_elected"]
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
     ):
         return [
             {
@@ -66,9 +75,18 @@ def default_query_results(
                 "destination_table_name": "company",
                 "destination_schema_name": "postgres_public",
             },
+            {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "source_table_id": "10042",
+                "source_table_name": "my-source-topic",
+                "source_schema_name": "confluent_cloud",
+                "destination_table_id": "7781",
+                "destination_table_name": "my-destination-topic",
+                "destination_schema_name": "confluent_cloud",
+            },
         ]
     elif query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected"]
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
     ):
         return [
             {
@@ -107,7 +125,7 @@ def default_query_results(
         ]
     elif query == fivetran_log_query.get_sync_logs_query(
         syncs_interval=7,
-        connector_ids=["calendar_elected"],
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
     ):
         return [
             {
@@ -130,6 +148,13 @@ def default_query_results(
                 "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
                 "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
                 "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+            },
+            {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
+                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
             },
         ]
     # Unreachable code
@@ -172,19 +197,30 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                             },
                         },
                         "connector_patterns": {
-                            "allow": [
-                                "postgres",
-                            ]
+                            "allow": ["postgres", "confluent_cloud"]
                         },
                         "destination_patterns": {
                             "allow": [
                                 "interval_unconstitutional",
+                                "my_confluent_cloud_connector_id",
                             ]
                         },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
                                 "database": "postgres_db",
                                 "env": "DEV",
+                            },
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "include_schema_in_urn": False,
+                                "database": "kafka_prod",
+                            },
+                        },
+                        "destination_to_platform_instance": {
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "include_schema_in_urn": False,
+                                "database": "kafka_prod",
                             }
                         },
                     },
@@ -234,6 +270,15 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "sync_frequency": 1440,
                 "destination_id": "interval_unconstitutional",
             },
+            {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "connecting_user_id": None,
+                "connector_type_id": "confluent_cloud",
+                "connector_name": "confluent_cloud",
+                "paused": False,
+                "sync_frequency": 1440,
+                "destination_id": "interval_unconstitutional",
+            },
         ]
 
         connection_magic_mock.execute.side_effect = partial(
@@ -261,9 +306,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                             },
                         },
                         "connector_patterns": {
-                            "allow": [
-                                "postgres",
-                            ]
+                            "allow": ["postgres", "confluent_cloud"]
                         },
                         "destination_patterns": {
                             "allow": [
@@ -275,6 +318,18 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                                 "platform": "postgres",
                                 "env": "DEV",
                                 "database": "postgres_db",
+                            },
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "database": "kafka_prod",
+                                "include_schema_in_urn": False,
+                            },
+                        },
+                        "destination_to_platform_instance": {
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "database": "kafka_prod",
+                                "include_schema_in_urn": False,
                             }
                         },
                     },

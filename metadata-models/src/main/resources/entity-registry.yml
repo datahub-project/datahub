@@ -57,11 +57,11 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - versionProperties
       - share
       - origin
       - documentation
       - entityInferenceMetadata
-      - versionProperties
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -95,11 +95,11 @@ entities:
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
       - share
       - origin
       - lineageFeatures
       - documentation
-      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -448,12 +448,12 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - versionProperties
       - share
       - origin
       - lineageFeatures
       - documentation
       - incidentsSummary
-      - versionProperties
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey

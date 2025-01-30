@@ -159,9 +159,9 @@ def test_ensure_size_of_proper_dataset_profile(processor):
     processor.ensure_dataset_profile_size(
         "urn:li:dataset:(s3, dummy_dataset, DEV)", profile
     )
-    assert orig_repr == json.dumps(
-        profile.to_obj()
-    ), "Aspect was modified in case where workunit processor should have been no-op"
+    assert orig_repr == json.dumps(profile.to_obj()), (
+        "Aspect was modified in case where workunit processor should have been no-op"
+    )
 
 
 @freeze_time("2023-01-02 00:00:00")
@@ -177,9 +177,9 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     # +100kb is completely arbitrary, but we are truncating the aspect based on schema fields size only, not total taken
     # by other parameters of the aspect - it is reasonable approach though - schema fields is the only field in schema
     # metadata which can be expected to grow out of control
-    assert (
-        len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000
-    ), "Aspect exceeded acceptable size"
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000, (
+        "Aspect exceeded acceptable size"
+    )
 
 
 @freeze_time("2023-01-02 00:00:00")
@@ -189,9 +189,9 @@ def test_ensure_size_of_proper_schema_metadata(processor):
     processor.ensure_schema_metadata_size(
         "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
     )
-    assert orig_repr == json.dumps(
-        schema.to_obj()
-    ), "Aspect was modified in case where workunit processor should have been no-op"
+    assert orig_repr == json.dumps(schema.to_obj()), (
+        "Aspect was modified in case where workunit processor should have been no-op"
+    )
 
 
 @freeze_time("2023-01-02 00:00:00")
@@ -214,9 +214,9 @@ def test_ensure_size_of_too_big_dataset_profile(processor):
     )
     assert expected_profile.fieldProfiles
     expected_profile.fieldProfiles.insert(4, reduced_field)
-    assert json.dumps(profile.to_obj()) == json.dumps(
-        expected_profile.to_obj()
-    ), "Field 'big' was not properly removed from aspect due to its size"
+    assert json.dumps(profile.to_obj()) == json.dumps(expected_profile.to_obj()), (
+        "Field 'big' was not properly removed from aspect due to its size"
+    )
 
 
 @freeze_time("2023-01-02 00:00:00")

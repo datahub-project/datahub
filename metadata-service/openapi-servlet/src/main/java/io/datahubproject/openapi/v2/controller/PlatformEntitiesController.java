@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v2/platform/entities/v1")
+@RequestMapping("/openapiv2/platform/entities/v1")
 @Slf4j
 @Tag(
     name = "Platform Entities",

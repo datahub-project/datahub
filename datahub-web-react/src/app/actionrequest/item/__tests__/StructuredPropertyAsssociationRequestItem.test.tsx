@@ -109,7 +109,7 @@ describe('StructuredPropertyAsssociationRequestItem', () => {
             </MockedProvider>,
         );
 
-        fireEvent.mouseEnter(getByText('& 1 others'));
+        fireEvent.mouseEnter(getByText('+ 1 other'));
 
         expect(await findByText('Value 1')).toBeInTheDocument();
         expect(await findByText('Value 2')).toBeInTheDocument();

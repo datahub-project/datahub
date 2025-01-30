@@ -195,6 +195,7 @@ public class KafkaEventConsumerFactory {
     factory.setConsumerFactory(factoryWithOverrides);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(kafkaEventConsumerConcurrency);
+    factory.setAutoStartup(false);
 
     /*
      * Sets up a delegating error handler for Deserialization errors, if disabled
@@ -229,6 +230,7 @@ public class KafkaEventConsumerFactory {
     factory.setConsumerFactory(kafkaConsumerFactory);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
+    factory.setAutoStartup(false);
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

@@ -5,11 +5,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 import requests
-from datahub.cli import cli_utils, env_utils
-from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
 from requests.structures import CaseInsensitiveDict
 
+from datahub.cli import cli_utils, env_utils
+from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
@@ -337,10 +337,10 @@ def assert_dict_contains(subset, superset):
             assert_dict_contains(value, superset[key])
     elif isinstance(subset, list):
         assert isinstance(superset, list), "superset is not a list"
-        assert all(
-            item in superset for item in subset
-        ), "subset list items not found in superset list"
+        assert all(item in superset for item in subset), (
+            "subset list items not found in superset list"
+        )
     else:
-        assert (
-            subset == superset
-        ), f"value {subset} does not match value in superset {superset}"
+        assert subset == superset, (
+            f"value {subset} does not match value in superset {superset}"
+        )

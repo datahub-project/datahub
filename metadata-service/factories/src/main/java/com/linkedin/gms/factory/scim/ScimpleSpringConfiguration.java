@@ -28,20 +28,19 @@ import org.apache.directory.scim.server.configuration.ServerConfiguration;
 import org.apache.directory.scim.server.rest.EtagGenerator;
 import org.apache.directory.scim.spec.resources.ScimResource;
 import org.apache.directory.scim.spec.schema.ServiceProviderConfiguration;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-// import java.util.Iterator;
 /** Autoconfigures default beans needed for Apache SCIMple. */
 @Configuration
-@AutoConfiguration
 @Slf4j
+@ComponentScan(ScimpleSpringConfiguration.SCIM_IMPL_PACKAGE)
 public class ScimpleSpringConfiguration {
+  public static final String SCIM_IMPL_PACKAGE = "org.apache.directory.scim.server";
 
   @Bean
-  @ConditionalOnMissingBean
   ServerConfiguration serverConfiguration() {
     return new ServerConfiguration()
         .addAuthenticationSchema(ServiceProviderConfiguration.AuthenticationSchema.oauthBearer());
@@ -58,7 +57,7 @@ public class ScimpleSpringConfiguration {
   RepositoryRegistry repositoryRegistry(
       SchemaRegistry schemaRegistry, List<Repository<? extends ScimResource>> scimResources) {
 
-    log.debug("SCIM repositories count : " + scimResources.size());
+    log.info("SCIM repositories count : {}", scimResources.size());
 
     RepositoryRegistry registry = new RepositoryRegistry(schemaRegistry);
 

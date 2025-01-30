@@ -3865,18 +3865,18 @@
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
-      "doc" : "Properties associated with a ML Model\r",
+      "doc" : "Properties associated with a ML Model",
       "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
         "type" : "record",
         "name" : "MLModelLineageInfo",
-        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
         "fields" : [ {
           "name" : "trainingJobs",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.Urn"
           },
-          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
           "optional" : true,
           "Relationship" : {
             "/*" : {
@@ -3891,7 +3891,7 @@
             "type" : "array",
             "items" : "com.linkedin.common.Urn"
           },
-          "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
+          "doc" : "List of jobs or process instances (if any) that use the model or group.",
           "optional" : true,
           "Relationship" : {
             "/*" : {
@@ -3906,7 +3906,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "Display name of the MLModel\r",
+        "doc" : "Display name of the MLModel",
         "optional" : true,
         "Searchable" : {
           "boostScore" : 10.0,
@@ -3938,7 +3938,8 @@
         "name" : "lastModified",
         "type" : "com.linkedin.common.TimeStamp",
         "doc" : "Date when the MLModel was last modified\r",
-        "optional" : true
+        "optional" : true,
+        "deprecated" : true
       }, {
         "name" : "version",
         "type" : "com.linkedin.common.VersionTag",

@@ -8,10 +8,12 @@ import subprocess
 import time
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
-import datahub.metadata.schema_classes as models
 import pydantic
 import pytest
 import yaml
+from pydantic import BaseModel
+
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_schema_field_urn,
@@ -35,8 +37,6 @@ from datahub.metadata._schema_classes import (
 from datahub.metadata._urns.urn_defs import SchemaFieldUrn
 from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaFieldInfo
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
-from pydantic import BaseModel
-
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.integrations_service_utils import (
     get_live_logs,
@@ -136,9 +136,9 @@ def bigquery_test_helper() -> BigqueryTestHelper:
     recipe_file = test_dir / "bq_doc_propagation_action_recipe.yaml"
     with open(recipe_file, "r") as f:
         recipe = yaml.safe_load(f)
-        recipe["action"]["config"]["bigquery"][
-            "credential"
-        ] = generate_bigquery_credentials().dict()
+        recipe["action"]["config"]["bigquery"]["credential"] = (
+            generate_bigquery_credentials().dict()
+        )
         # raise Exception(recipe["action"]["config"]["bigquery"])
         bq_config = recipe["action"]["config"]["bigquery"]
         test_helper = BigqueryTestHelper(config=bq_config)
@@ -247,9 +247,9 @@ def create_test_action(
 
     with open(recipe_file, "r") as f:
         recipe = yaml.safe_load(f)
-        recipe["action"]["config"]["bigquery"][
-            "credential"
-        ] = generate_bigquery_credentials().dict()
+        recipe["action"]["config"]["bigquery"]["credential"] = (
+            generate_bigquery_credentials().dict()
+        )
         recipe_json_str = json.dumps(recipe)
 
     cleanup(

@@ -106,8 +106,8 @@ public class GmsGraphQLEngineArgs {
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   ClassificationConfiguration classificationConfiguration;
   AssertionService assertionService;
-  ConnectionService connectionService;
   EntityVersioningService entityVersioningService;
+  ConnectionService connectionService;
 
   // any fork specific args should go below this line
   EntitySearchService entitySearchService;

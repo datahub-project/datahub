@@ -1,3 +1,6 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # How To Set Up GraphQL
 
 ## Preparing Local Datahub Deployment
@@ -29,6 +32,7 @@ DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://githu
 This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment.
 
 To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahubproject.io/api/graphiql.
+
 For instance, you can create a tag by posting the following query:
 
 ```json
@@ -42,6 +46,29 @@ mutation createTag {
 ```
 
 For a detailed usage guide, check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/).
+
+To navigate to `GraphiQL` on the demo site or your local instance, select `GraphiQL` from the user profile drop-down menu as
+shown below.
+
+<Tab>
+<TabItem value="DataHub" label="DataHub" default>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql_link.png"/>
+</p>
+![graphiql_link.png](../../../../../Desktop/datahub_graphiql_link.png)
+</TabItem>
+<TabItem value="DataHubCloud" label="DataHub Cloud">
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahubcloud_graphiql_link.png"/>
+</p>
+</TabItem>
+</Tab>
+
+This link will then display the following interface for exploring GraphQL queries.
+
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql.png"/>
+</p>
 
 ### CURL
 

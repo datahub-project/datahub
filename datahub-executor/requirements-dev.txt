@@ -84,11 +84,6 @@ asttokens==3.0.0
     # via
     #   -r requirements.txt
     #   stack-data
-async-timeout==5.0.1
-    # via
-    #   -r requirements.txt
-    #   aiohttp
-    #   redis
 attrs==24.2.0
     # via
     #   -r requirements.txt
@@ -321,12 +316,6 @@ et-xmlfile==2.0.0
     # via
     #   -r requirements.txt
     #   openpyxl
-exceptiongroup==1.2.2
-    # via
-    #   -r requirements.txt
-    #   anyio
-    #   ipython
-    #   pytest
 executing==2.1.0
     # via
     #   -r requirements.txt
@@ -909,7 +898,7 @@ py-partiql-parser==0.5.0
     # via
     #   -r requirements.txt
     #   moto
-py4j==0.10.9.5
+py4j==0.10.9.7
     # via
     #   -r requirements.txt
     #   pyspark
@@ -980,7 +969,7 @@ pyparsing==3.2.0
     # via
     #   -r requirements.txt
     #   great-expectations
-pyspark==3.3.4
+pyspark==3.5.4
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -1303,13 +1292,6 @@ toml==0.10.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
-tomli==2.2.1
-    # via
-    #   -r requirements.txt
-    #   black
-    #   coverage
-    #   mypy
-    #   pytest
 tomlkit==0.13.2
     # via
     #   -r requirements.txt
@@ -1369,24 +1351,17 @@ typing-extensions==4.12.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   acryl-executor
     #   alembic
     #   anyio
-    #   black
-    #   cloudpathlib
     #   faker
     #   great-expectations
-    #   multidict
     #   mypy
     #   pydantic
     #   python-utils
-    #   rich
-    #   schwifty
     #   snowflake-connector-python
     #   sqlalchemy-stubs
     #   typer
     #   typing-inspect
-    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   -r requirements.txt

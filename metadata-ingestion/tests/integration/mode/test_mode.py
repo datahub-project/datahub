@@ -1,11 +1,14 @@
 import json
 import pathlib
+from typing import Sequence
 from unittest.mock import patch
 
+import pytest
 from freezegun import freeze_time
 from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
+from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -28,7 +31,7 @@ JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/acryl/reports/24f66e1701b6/queries": "dataset_queries_24f66e1701b6.json",
 }
 
-RESPONSE_ERROR_LIST = ["https://app.mode.com/api/acryl/spaces/75737b70402e/reports"]
+ERROR_URL = "https://app.mode.com/api/acryl/spaces/75737b70402e/reports"
 
 test_resources_dir = pathlib.Path(__file__).parent
 
@@ -49,15 +52,6 @@ class MockResponse:
         return self
 
     def get(self, url, timeout=40):
-        self.url = url
-        self.timeout = timeout
-        response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
-        with open(response_json_path) as file:
-            data = json.loads(file.read())
-            self.json_data = data
-        return self
-
-    def raise_for_status(self):
         if self.error_list is not None and self.url in self.error_list:
             http_error_msg = "{} Client Error: {} for url: {}".format(
                 400,
@@ -66,20 +60,54 @@ class MockResponse:
             )
             raise HTTPError(http_error_msg, response=self)
 
+        self.url = url
+        self.timeout = timeout
+        response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
+        with open(response_json_path) as file:
+            data = json.loads(file.read())
+            self.json_data = data
+        return self
 
-def mocked_requests_sucess(*args, **kwargs):
+
+class MockResponseJson(MockResponse):
+    def __init__(
+        self,
+        status_code: int = 200,
+        *,
+        json_empty_list: Sequence[str] = (),
+        json_error_list: Sequence[str] = (),
+    ):
+        super().__init__(None, status_code)
+        self.json_empty_list = json_empty_list
+        self.json_error_list = json_error_list
+
+    def json(self):
+        if self.url in self.json_empty_list:
+            return json.loads("")  # Shouldn't be called
+        if self.url in self.json_error_list:
+            return json.loads("{")
+        return super().json()
+
+    def get(self, url, timeout=40):
+        response = super().get(url, timeout)
+        if self.url in self.json_empty_list:
+            response.status_code = 204
+        return response
+
+
+def mocked_requests_success(*args, **kwargs):
     return MockResponse(None, 200)
 
 
 def mocked_requests_failure(*args, **kwargs):
-    return MockResponse(RESPONSE_ERROR_LIST, 200)
+    return MockResponse([ERROR_URL], 200)
 
 
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
-        side_effect=mocked_requests_sucess,
+        side_effect=mocked_requests_success,
     ):
         pipeline = Pipeline.create(
             {
@@ -142,8 +170,89 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             }
         )
         pipeline.run()
-        try:
+        with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status()
-        except PipelineExecutionError as exec_error:
-            assert exec_error.args[0] == "Source reported errors"
-            assert len(exec_error.args[1].failures) == 1
+        assert exec_error.value.args[0] == "Source reported errors"
+        assert len(exec_error.value.args[1].failures) == 1
+        error_dict: StructuredLogEntry
+        _level, error_dict = exec_error.value.args[1].failures[0]
+        error = next(iter(error_dict.context))
+        assert "Simulate error" in error
+        assert ERROR_URL in error
+
+
+@freeze_time(FROZEN_TIME)
+def test_mode_ingest_json_empty(pytestconfig, tmp_path):
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=lambda *args, **kwargs: MockResponseJson(
+            json_empty_list=["https://app.mode.com/api/modeuser"]
+        ),
+    ):
+        global test_resources_dir
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/mode"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-test",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/mode_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status(raise_warnings=True)
+
+
+@freeze_time(FROZEN_TIME)
+def test_mode_ingest_json_failure(pytestconfig, tmp_path):
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=lambda *args, **kwargs: MockResponseJson(
+            json_error_list=["https://app.mode.com/api/modeuser"]
+        ),
+    ):
+        global test_resources_dir
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/mode"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-test",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/mode_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status(raise_warnings=False)
+        with pytest.raises(PipelineExecutionError) as exec_error:
+            pipeline.raise_from_status(raise_warnings=True)
+        assert len(exec_error.value.args[1].warnings) > 0
+        error_dict: StructuredLogEntry
+        _level, error_dict = exec_error.value.args[1].warnings[0]
+        error = next(iter(error_dict.context))
+        assert "Expecting property name enclosed in double quotes" in error

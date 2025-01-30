@@ -61,17 +61,17 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
     def create(
         cls, output_dir: str, extras: Dict[str, str]
     ) -> "SnowflakeAssertionCompiler":
-        assert os.path.exists(
-            output_dir
-        ), f"Specified location {output_dir} does not exist."
+        assert os.path.exists(output_dir), (
+            f"Specified location {output_dir} does not exist."
+        )
 
-        assert os.path.isdir(
-            output_dir
-        ), f"Specified location {output_dir} is not a folder."
+        assert os.path.isdir(output_dir), (
+            f"Specified location {output_dir} is not a folder."
+        )
 
-        assert any(
-            x.upper() == DMF_SCHEMA_PROPERTY_KEY for x in extras
-        ), "Must specify value for DMF schema using -x DMF_SCHEMA=<db.schema>"
+        assert any(x.upper() == DMF_SCHEMA_PROPERTY_KEY for x in extras), (
+            "Must specify value for DMF schema using -x DMF_SCHEMA=<db.schema>"
+        )
 
         return SnowflakeAssertionCompiler(output_dir, extras)
 
@@ -232,6 +232,6 @@ def get_dmf_schedule(trigger: AssertionTrigger) -> str:
     elif isinstance(trigger.trigger, CronTrigger):
         return f"USING CRON {trigger.trigger.cron} {trigger.trigger.timezone}"
     elif isinstance(trigger.trigger, IntervalTrigger):
-        return f"{trigger.trigger.interval.seconds/60} MIN"
+        return f"{trigger.trigger.interval.seconds / 60} MIN"
     else:
         raise ValueError(f"Unsupported trigger type {type(trigger.trigger)}")

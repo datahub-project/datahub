@@ -69,14 +69,14 @@ public class SearchFlagsInputMapper
       result.setCustomHighlightingFields(
           new StringArray(searchFlags.getCustomHighlightingFields()));
     }
+    if (searchFlags.getFilterNonLatestVersions() != null) {
+      result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
+    }
     if (searchFlags.getFetchExtraFields() != null) {
       result.setFetchExtraFields(new StringArray(searchFlags.getFetchExtraFields()));
     }
     if (searchFlags.getRewriteQuery() != null) {
       result.setRewriteQuery(searchFlags.getRewriteQuery());
-    }
-    if (searchFlags.getFilterNonLatestVersions() != null) {
-      result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
     }
     return result;
   }

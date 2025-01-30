@@ -33,7 +33,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
@@ -264,11 +264,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             pass
             # TODO(Gabe): how should we message about this error?
         return requests_session
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = SupersetConfig.parse_obj(config_dict)
-        return cls(ctx, config)
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
         current_page = 0

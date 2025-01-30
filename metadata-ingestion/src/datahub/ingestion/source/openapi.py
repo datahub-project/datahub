@@ -101,16 +101,16 @@ class OpenApiConfig(ConfigModel):
                 # details there once, and then use that session for all requests.
                 self.token = f"Bearer {self.bearer_token}"
             else:
-                assert (
-                    "url_complement" in self.get_token.keys()
-                ), "When 'request_type' is set to 'get', an url_complement is needed for the request."
+                assert "url_complement" in self.get_token.keys(), (
+                    "When 'request_type' is set to 'get', an url_complement is needed for the request."
+                )
                 if self.get_token["request_type"] == "get":
-                    assert (
-                        "{username}" in self.get_token["url_complement"]
-                    ), "we expect the keyword {username} to be present in the url"
-                    assert (
-                        "{password}" in self.get_token["url_complement"]
-                    ), "we expect the keyword {password} to be present in the url"
+                    assert "{username}" in self.get_token["url_complement"], (
+                        "we expect the keyword {username} to be present in the url"
+                    )
+                    assert "{password}" in self.get_token["url_complement"], (
+                        "we expect the keyword {password} to be present in the url"
+                    )
                     url4req = self.get_token["url_complement"].replace(
                         "{username}", self.username
                     )
