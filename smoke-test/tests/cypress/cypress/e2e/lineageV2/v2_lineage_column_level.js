@@ -5,7 +5,7 @@ const DATASET_URN =
 const clickDownAndUpArrow = (asset, arrow) => {
   cy.contains(".react-flow__node-lineage-entity", asset)
     .find(`svg[data-testid="${arrow}"]`)
-    .click();
+    .click({ force: true });
 };
 
 describe("column-level lineage graph test", () => {
