@@ -1457,7 +1457,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
 
-            logger.info(
+            logger.debug(
                 f"""upstream_urn: {upstream_urn}, downstream_urn: {dataset_urn}"""
             )
 
