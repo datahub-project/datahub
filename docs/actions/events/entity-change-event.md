@@ -420,7 +420,7 @@ This event is emitted when a new entity has been hard-deleted on DataHub.
 
 ## Action Request Events
 
-Action Request events represent proposals for changes to entities that may require approval before being applied. These events have entityType "actionRequest" and use the LIFECYCLE category with CREATE operation.
+Action Request events represent proposals for changes to entities that may require approval before being applied. These events have entityType "actionRequest" and use the `LIFECYCLE` category with `CREATE` operation.
 
 ### Domain Association Request Event
 
