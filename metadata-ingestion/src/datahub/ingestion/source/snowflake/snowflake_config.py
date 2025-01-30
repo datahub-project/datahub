@@ -250,6 +250,7 @@ class SnowflakeV2Config(
     )
 
     structured_properties_template_cache_invalidation_interval: int = Field(
+        hidden_from_docs=True,
         default=60,
         description="Interval in seconds to invalidate the structured properties template cache.",
     )
