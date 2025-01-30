@@ -63,7 +63,7 @@ class LineageClient:
             updater.add_fine_grained_upstream_lineage(cl)
 
         # Will throw if the dataset does not exist.
-        self._client.update(updater)
+        self._client.entities.update(updater)
 
     def infer_dataset_lineage_from_sql(
         self,

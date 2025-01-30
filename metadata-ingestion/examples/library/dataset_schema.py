@@ -18,4 +18,4 @@ dataset = Dataset(
         ("last_sold_date", "date", "Date of the last sale date for this property"),
     ],
 )
-client.upsert(dataset)
+client.entities.upsert(dataset)
