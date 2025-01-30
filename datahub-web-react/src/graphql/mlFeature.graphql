@@ -20,5 +20,6 @@ query getMLFeature($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

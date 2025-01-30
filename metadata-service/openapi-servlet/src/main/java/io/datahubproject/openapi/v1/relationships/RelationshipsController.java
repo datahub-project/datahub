@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -157,7 +156,7 @@ public class RelationshipsController {
           @RequestParam(name = "count", defaultValue = "200")
           @Nullable
           Integer count) {
-    Timer.Context context = MetricUtils.timer("getRelationships").time();
+
     // Have to decode here because of frontend routing, does No-op for already unencoded through
     // direct API access
     final Urn entityUrn = UrnUtils.getUrn(URLDecoder.decode(urn, Charset.forName("UTF-8")));
@@ -201,7 +200,6 @@ public class RelationshipsController {
       } else {
         MetricUtils.counter(MetricRegistry.name("getRelationships", "success")).inc();
       }
-      context.stop();
     }
   }
 }

@@ -1,20 +1,10 @@
 package com.linkedin.metadata.kafka.util;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
-import com.linkedin.mxe.FailedMetadataChangeProposal;
-import com.linkedin.mxe.MetadataChangeProposal;
-import java.io.IOException;
 import java.util.Optional;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
-import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 
@@ -60,37 +50,5 @@ public class KafkaListenerUtil {
     } else {
       log.info("MCE Consumer Throttle Disabled");
     }
-  }
-
-  public static void sendFailedMCP(
-      @Nonnull MetadataChangeProposal event,
-      @Nonnull Throwable throwable,
-      String fmcpTopicName,
-      Producer<String, IndexedRecord> kafkaProducer) {
-    final FailedMetadataChangeProposal failedMetadataChangeProposal =
-        createFailedMCPEvent(event, throwable);
-    try {
-      final GenericRecord genericFailedMCERecord =
-          EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
-      log.debug("Sending FailedMessages to topic - {}", fmcpTopicName);
-      log.info(
-          "Error while processing FMCP: FailedMetadataChangeProposal - {}",
-          failedMetadataChangeProposal);
-      kafkaProducer.send(new ProducerRecord<>(fmcpTopicName, genericFailedMCERecord));
-    } catch (IOException e) {
-      log.error(
-          "Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
-          e.getStackTrace(),
-          failedMetadataChangeProposal);
-    }
-  }
-
-  @Nonnull
-  public static FailedMetadataChangeProposal createFailedMCPEvent(
-      @Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeProposal fmcp = new FailedMetadataChangeProposal();
-    fmcp.setError(ExceptionUtils.getStackTrace(throwable));
-    fmcp.setMetadataChangeProposal(event);
-    return fmcp;
   }
 }
