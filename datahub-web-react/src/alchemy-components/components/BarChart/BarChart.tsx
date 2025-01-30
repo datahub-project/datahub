@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { colors } from '@src/alchemy-components/theme';
+import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { TickLabelProps } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
@@ -7,8 +8,12 @@ import { Axis, AxisScale, BarSeries, Grid, Tooltip, XYChart } from '@visx/xychar
 import dayjs from 'dayjs';
 import { Popover } from '../Popover';
 import { ChartWrapper, StyledBarSeries } from './components';
-import { BarChartProps } from './types';
-import { abbreviateNumber } from '../dataviz/utils';
+import { AxisProps, BarChartProps } from './types';
+import { getMockedProps } from './utils';
+import useMergedProps from './hooks/useMergedProps';
+import useAdaptYScaleToZeroValues from './hooks/useAdaptYScaleToZeroValues';
+import useAdaptYAccessorToZeroValue from './hooks/useAdaptYAccessorToZeroValues';
+import useMaxDataValue from './hooks/useMaxDataValue';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -18,39 +23,66 @@ const commonTickLabelProps: TickLabelProps<any> = {
 
 export const barChartDefault: BarChartProps<any> = {
     data: [],
+
     xAccessor: (datum) => datum?.x,
     yAccessor: (datum) => datum?.y,
-    leftAxisTickFormat: abbreviateNumber,
-    leftAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'end',
-    },
-    bottomAxisTickFormat: (value) => dayjs(value).format('DD MMM'),
-    bottomAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'middle',
-        verticalAnchor: 'start',
-        width: 20,
-    },
+    xScale: { type: 'band', paddingInner: 0.4, paddingOuter: 0.1 },
+    yScale: { type: 'linear', nice: true, round: true },
+
     barColor: 'url(#bar-gradient)',
     barSelectedColor: colors.violet[500],
-    gridColor: '#e0e0e0',
+
+    leftAxisProps: {
+        tickFormat: abbreviateNumber,
+        tickLabelProps: {
+            ...commonTickLabelProps,
+            textAnchor: 'end',
+        },
+        hideAxisLine: true,
+        hideTicks: true,
+    },
+    bottomAxisProps: {
+        tickFormat: (value) => dayjs(value).format('DD MMM'),
+        tickLabelProps: {
+            ...commonTickLabelProps,
+            textAnchor: 'middle',
+            verticalAnchor: 'start',
+            width: 20,
+        },
+        hideAxisLine: true,
+        hideTicks: true,
+    },
+    gridProps: {
+        rows: true,
+        columns: false,
+        stroke: '#e0e0e0',
+        strokeWidth: 1,
+        lineStyle: {},
+    },
+
     renderGradients: () => <LinearGradient id="bar-gradient" from={colors.violet[500]} to="#917FFF" toOpacity={0.6} />,
 };
 
 export function BarChart<DatumType extends object = any>({
     data,
+    isEmpty,
+
     xAccessor = barChartDefault.xAccessor,
     yAccessor = barChartDefault.yAccessor,
-    renderTooltipContent,
-    margin,
-    leftAxisTickFormat = barChartDefault.leftAxisTickFormat,
-    leftAxisTickLabelProps = barChartDefault.leftAxisTickLabelProps,
-    bottomAxisTickFormat = barChartDefault.bottomAxisTickFormat,
-    bottomAxisTickLabelProps = barChartDefault.bottomAxisTickLabelProps,
+    xScale = barChartDefault.xScale,
+    yScale = barChartDefault.yScale,
+    maxYDomainForZeroData,
+    minYForZeroData,
+
     barColor = barChartDefault.barColor,
     barSelectedColor = barChartDefault.barSelectedColor,
-    gridColor = barChartDefault.gridColor,
+    margin,
+
+    leftAxisProps = barChartDefault.leftAxisProps,
+    bottomAxisProps = barChartDefault.bottomAxisProps,
+    gridProps = barChartDefault.gridProps,
+
+    popoverRenderer,
     renderGradients = barChartDefault.renderGradients,
 }: BarChartProps<DatumType>) {
     const [hasSelectedBar, setHasSelectedBar] = useState<boolean>(false);
@@ -63,7 +95,27 @@ export function BarChart<DatumType extends object = any>({
         left: (margin?.left ?? 0) + 40,
     };
 
-    const accessors = { xAccessor, yAccessor };
+    const maxDataValue = useMaxDataValue(data, yAccessor);
+    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
+    const adaptedYAccessor = useAdaptYAccessorToZeroValue(yAccessor, maxDataValue, minYForZeroData);
+
+    const accessors = { xAccessor, yAccessor: adaptedYAccessor };
+
+    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps<DatumType>>(
+        leftAxisProps,
+        barChartDefault.leftAxisProps,
+    );
+
+    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<
+        AxisProps<DatumType>
+    >(bottomAxisProps, barChartDefault.bottomAxisProps);
+
+    // In case of no data we should render empty graph with axises
+    // but they don't render at all without any data.
+    // To handle this case we will render the same graph with fake data and hide bars
+    if (!data.length) {
+        return <BarChart {...getMockedProps()} isEmpty />;
+    }
 
     return (
         <ChartWrapper>
@@ -73,8 +125,8 @@ export function BarChart<DatumType extends object = any>({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'band', paddingInner: 0.4, paddingOuter: 0.1 }}
-                            yScale={{ type: 'linear', nice: true, round: true }}
+                            xScale={xScale}
+                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={false}
                         >
@@ -82,19 +134,14 @@ export function BarChart<DatumType extends object = any>({
 
                             <Axis
                                 orientation="left"
-                                hideAxisLine
-                                hideTicks
-                                tickFormat={leftAxisTickFormat}
-                                tickLabelProps={leftAxisTickLabelProps}
+                                numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
+                                {...mergedLeftAxisProps}
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={data.length}
-                                tickFormat={bottomAxisTickFormat}
-                                tickLabelProps={bottomAxisTickLabelProps}
-                                hideAxisLine
-                                hideTicks
+                                numTicks={computeBottomAxisNumTicks?.(width, height, internalMargin, data)}
+                                {...mergedBottomAxisProps}
                             />
 
                             <line
@@ -102,16 +149,17 @@ export function BarChart<DatumType extends object = any>({
                                 x2={internalMargin.left}
                                 y1={0}
                                 y2={height - internalMargin.bottom}
-                                stroke={gridColor}
+                                stroke={gridProps?.stroke}
                             />
 
-                            <Grid rows columns={false} stroke={gridColor} strokeWidth={1} lineStyle={{}} />
+                            <Grid {...gridProps} />
 
                             <StyledBarSeries
                                 as={BarSeries<AxisScale, AxisScale, DatumType>}
                                 $hasSelectedItem={hasSelectedBar}
                                 $color={barColor}
                                 $selectedColor={barSelectedColor}
+                                $isEmpty={isEmpty}
                                 dataKey="bar-seria-0"
                                 data={data}
                                 radius={4}
@@ -136,8 +184,10 @@ export function BarChart<DatumType extends object = any>({
                                         tooltipData?.nearestDatum && (
                                             <Popover
                                                 open
+                                                defaultOpen
                                                 placement="topLeft"
-                                                content={renderTooltipContent?.(tooltipData.nearestDatum.datum)}
+                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
                                             />
                                         )
                                     );
