@@ -13,6 +13,8 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -32,6 +34,27 @@ class S3(ConfigModel):
     use_s3_object_tags: Optional[bool] = Field(
         False,
         description="# Whether or not to create tags in datahub from the s3 object",
+    )
+
+
+class Azure(ConfigModel):
+    """Azure-specific configuration for Delta Lake"""
+
+    azure_config: Optional[AzureConnectionConfig] = Field(
+        default=None, description="Azure configuration"
+    )
+
+    use_abs_container_properties: Optional[bool] = Field(
+        False,
+        description="Whether or not to create properties in datahub from the Azure blob container",
+    )
+    use_abs_blob_properties: Optional[bool] = Field(
+        False,
+        description="Whether or not to create properties in datahub from the Azure blob",
+    )
+    use_abs_blob_tags: Optional[bool] = Field(
+        False,
+        description="Whether or not to create tags in datahub from Azure blob tags",
     )
 
 
@@ -71,11 +94,23 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         "When set to `False`, number_of_files in delta table can not be reported.",
     )
 
-    s3: Optional[S3] = Field()
+    s3: Optional[S3] = Field(default=None, description="S3 specific configuration")
+    azure: Optional[Azure] = Field(
+        default=None, description="Azure specific configuration"
+    )
 
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.base_path or "")
+
+    @cached_property
+    def is_azure(self):
+        is_abfss = self.base_path.startswith("abfss://")
+        is_abs = is_abs_uri(self.base_path or "")
+        logger.debug(
+            f"Checking if {self.base_path} is Azure path: abfss={is_abfss}, abs={is_abs}"
+        )
+        return is_abfss or is_abs
 
     @cached_property
     def complete_path(self):

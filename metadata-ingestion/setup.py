@@ -458,6 +458,7 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
+    "msfabric": {"requests"} | {*abs_base, *data_lake_profiling},
     "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
@@ -788,6 +789,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "msfabric = datahub.ingestion.source.ms_fabric.source:AzureFabricSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
