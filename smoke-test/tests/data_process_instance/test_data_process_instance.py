@@ -3,7 +3,6 @@ import os
 import tempfile
 from random import randint
 
-import datahub.metadata.schema_classes as models
 import pytest
 
 import datahub.metadata.schema_classes as models
