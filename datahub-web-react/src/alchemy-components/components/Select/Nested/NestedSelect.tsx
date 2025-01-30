@@ -180,11 +180,11 @@ export const NestedSelect = ({
 
     useEffect(() => {
         if (initialValues && shouldAlwaysSyncParentValues) {
-            const filteredOptions = selectedOptions.filter((option) =>
-                initialValues.some((initial) => initial.value === option.value),
-            );
-            if (filteredOptions.length !== selectedOptions.length) {
-                setSelectedOptions(filteredOptions);
+            // Check if selectedOptions and initialValues are different
+            const areDifferent = JSON.stringify(selectedOptions) !== JSON.stringify(initialValues);
+
+            if (initialValues && areDifferent) {
+                setSelectedOptions(initialValues);
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
