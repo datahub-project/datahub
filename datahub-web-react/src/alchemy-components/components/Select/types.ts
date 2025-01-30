@@ -1,18 +1,26 @@
+import React from 'react';
+import { IconNames } from '../Icon';
+
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 
 export interface SelectOption {
     value: string;
     label: string;
     description?: string;
+    icon?: React.ReactNode;
 }
+
+export type SelectLabelVariants = 'default' | 'labeled';
 
 export interface SelectProps {
     options: SelectOption[];
     label?: string;
     values?: string[];
+    initialValues?: string[];
     onCancel?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
+    icon?: IconNames;
     showSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
@@ -24,8 +32,13 @@ export interface SelectProps {
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
-    optionListTestId?: string;
     showDescriptions?: boolean;
+    optionListTestId?: string;
+    optionSwitchable?: boolean;
+    selectLabelProps?: {
+        variant: SelectLabelVariants;
+        label: string;
+    };
 }
 
 export interface SelectStyleProps {
@@ -34,10 +47,10 @@ export interface SelectStyleProps {
     isReadOnly?: boolean;
     isRequired?: boolean;
     isOpen?: boolean;
+    width?: number | 'full';
 }
 
 export interface ActionButtonsProps {
-    fontSize?: SelectSizeOptions;
     selectedValues: string[];
     isOpen: boolean;
     isDisabled: boolean;
@@ -54,6 +67,12 @@ export interface SelectLabelDisplayProps {
     removeOption?: (option: SelectOption) => void;
     disabledValues?: string[];
     showDescriptions?: boolean;
+    variant?: SelectLabelVariants;
+    label?: string;
+}
+
+export interface SelectLabelVariantProps extends Omit<SelectLabelDisplayProps, 'variant'> {
+    selectedOptions: SelectOption[];
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

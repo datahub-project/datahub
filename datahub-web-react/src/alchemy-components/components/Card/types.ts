@@ -10,4 +10,7 @@ export interface CardProps {
     iconAlignment?: IconAlignmentOptions;
     children?: React.ReactNode;
     width?: string;
+    maxWidth?: string;
+    height?: string;
+    isEmpty?: boolean;
 }
