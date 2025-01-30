@@ -2430,7 +2430,7 @@ class TableauSiteSource:
     ) -> Optional["SqlParsingResult"]:
         database_field = datasource.get(c.DATABASE) or {}
         database_id: Optional[str] = database_field.get(c.ID)
-        database_name: str = database_field.get(c.NAME) or c.UNKNOWN.lower()
+        database_name: Optional[str] = database_field.get(c.NAME) or c.UNKNOWN.lower()
         database_connection_type: Optional[str] = database_field.get(
             c.CONNECTION_TYPE
         ) or datasource.get(c.CONNECTION_TYPE)
@@ -2458,7 +2458,7 @@ class TableauSiteSource:
 
         logger.debug(f"Parsing sql={query}")
 
-        upstream_db: Optional[str] = database_name
+        upstream_db = database_name
 
         if func_overridden_info is not None:
             # Override the information as per configuration
