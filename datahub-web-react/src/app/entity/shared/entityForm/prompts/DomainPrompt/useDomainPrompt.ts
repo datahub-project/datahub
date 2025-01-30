@@ -19,8 +19,11 @@ export default function useDomainPrompt({ prompt, submitResponse }: Props) {
     } = useEntityFormContext();
 
     const initialEntity = useMemo(
-        () => (formView === FormView.BY_ENTITY ? promptAssociation?.response?.domainResponse?.domain || null : null),
-        [formView, promptAssociation?.response?.domainResponse?.domain],
+        () =>
+            formView === FormView.BY_ENTITY
+                ? promptAssociation?.response?.domainResponse?.domain || entityData?.domain?.domain || null
+                : null,
+        [formView, promptAssociation?.response?.domainResponse?.domain, entityData?.domain?.domain],
     );
 
     const [selectedDomain, setSelectedDomain] = useState<string | null>(initialEntity?.urn || null);
