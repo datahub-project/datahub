@@ -23,6 +23,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
@@ -692,6 +693,12 @@ ORDER by DataBaseName, TableName;
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url()
+
+        # replace pooling with pooling for teradata
+        if "max_overflow" in self.config.options:
+            self.config.options.pop("max_overflow")
+            self.config.options["poolclass"] = QueuePool
+
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
