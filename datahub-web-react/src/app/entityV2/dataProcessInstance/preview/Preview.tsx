@@ -1,3 +1,5 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import React from 'react';
 import {
     DataProduct,
@@ -11,15 +13,14 @@ import {
     Owner,
     SearchInsight,
     Container,
-    ParentContainersResult,
 } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 
-export const Preview = ({
+export default function Preview({
     urn,
     name,
+    data,
     subType,
     description,
     platformName,
@@ -38,13 +39,10 @@ export const Preview = ({
     paths,
     health,
     parentEntities,
-    parentContainers,
-}: // duration,
-// status,
-// startTime,
-{
+}: {
     urn: string;
     name: string;
+    data: GenericEntityProperties | null;
     subType?: string | null;
     description?: string | null;
     platformName?: string;
@@ -63,17 +61,15 @@ export const Preview = ({
     paths?: EntityPath[];
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
-    parentContainers?: ParentContainersResult | null;
-    // duration?: number | null;
-    // status?: string | null;
-    // startTime?: number | null;
-}): JSX.Element => {
+}): JSX.Element {
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
+            entityType={EntityType.DataProcessInstance}
             url={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, urn)}
             name={name}
             urn={urn}
+            data={data}
             description={description || ''}
             type={subType || 'Process Instance'}
             typeIcon={entityRegistry.getIcon(EntityType.DataProcessInstance, 14, IconStyleType.ACCENT)}
@@ -81,7 +77,6 @@ export const Preview = ({
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
             container={container}
-            parentContainers={parentContainers}
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
@@ -95,9 +90,6 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            // duration={duration}
-            // status={status}
-            // startTime={startTime}
         />
     );
-};
+}

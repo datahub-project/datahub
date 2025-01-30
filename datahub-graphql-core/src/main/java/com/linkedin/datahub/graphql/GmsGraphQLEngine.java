@@ -3141,13 +3141,26 @@ public class GmsGraphQLEngine {
         "DataProcessInstance",
         typeWiring ->
             typeWiring
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final DataProcessInstance dataProcessInstance = env.getSource();
+                          return dataProcessInstance != null
+                                  && dataProcessInstance.getPlatform() != null
+                              ? dataProcessInstance.getPlatform().getUrn()
+                              : null;
+                        }))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
                         (env) -> {
                           final DataProcessInstance dataProcessInstance = env.getSource();
-                          return dataProcessInstance.getDataPlatformInstance() != null
+                          return dataProcessInstance != null
+                                  && dataProcessInstance.getDataPlatformInstance() != null
                               ? dataProcessInstance.getDataPlatformInstance().getUrn()
                               : null;
                         }))
@@ -3160,6 +3173,11 @@ public class GmsGraphQLEngine {
                           final DataProcessInstance dpi = env.getSource();
                           return dpi.getContainer() != null ? dpi.getContainer().getUrn() : null;
                         }))
+                .dataFetcher(
+                    "parentTemplate",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> ((DataProcessInstance) env.getSource()).getParentTemplate()))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
