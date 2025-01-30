@@ -1,11 +1,6 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.UI_SOURCE;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
@@ -1502,19 +1497,36 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
+    if (updateIndicesService == null) {
+      return false;
+    }
+
+    boolean syncIndexUpdate = false;
+
     if (preProcessHooks.isUiEnabled()) {
       if (metadataChangeLog.getSystemMetadata() != null) {
         if (metadataChangeLog.getSystemMetadata().getProperties() != null) {
           if (UI_SOURCE.equals(
               metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))) {
             // Pre-process the update indices hook for UI updates to avoid perceived lag from Kafka
-            if (updateIndicesService != null) {
-              updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
-            }
-            return true;
+            syncIndexUpdate = true;
           }
         }
       }
+    }
+    if (!syncIndexUpdate && metadataChangeLog.getHeaders() != null) {
+      if (metadataChangeLog
+          .getHeaders()
+          .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
+          .equalsIgnoreCase(Boolean.toString(true))) {
+        // A specific MCP requested a sync index update.
+        syncIndexUpdate = true;
+      }
+    }
+
+    if (syncIndexUpdate) {
+      updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
+      return true;
     }
     return false;
   }
