@@ -820,6 +820,10 @@
       "name" : "actor",
       "type" : "Urn",
       "doc" : "The user URN which will be credited for modifying this deprecation content."
+    }, {
+      "name" : "replacement",
+      "type" : "Urn",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "deprecation"

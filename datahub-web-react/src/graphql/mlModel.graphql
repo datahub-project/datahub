@@ -51,6 +51,7 @@ query getMLModel($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
         ...entityProfileVersionProperties
     }
 }

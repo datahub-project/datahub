@@ -33,7 +33,7 @@ export const AnalyticsChart = ({ chartData, width, height }: Props) => {
     }
 
     return (
-        <ChartCard shouldScroll={isTable}>
+        <ChartCard $shouldScroll={isTable}>
             <ChartContainer>
                 <div>
                     <Typography.Title level={5}>{chartData.title}</Typography.Title>
