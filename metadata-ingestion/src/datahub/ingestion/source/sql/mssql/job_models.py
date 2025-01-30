@@ -176,11 +176,7 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
-            platform_instance=(
-                self.entity.flow.platform_instance
-                if self.entity.flow.platform_instance
-                else None
-            ),
+            platform_instance=self.entity.flow.platform_instance,
         )
 
     def add_property(
@@ -231,9 +227,7 @@ class MSSQLDataJob:
     def as_container_aspect(self) -> ContainerClass:
         key_args = dict(
             platform=self.entity.flow.orchestrator,
-            instance=self.entity.flow.platform_instance
-            if self.entity.flow.platform_instance
-            else None,
+            instance=self.entity.flow.platform_instance,
             env=self.entity.flow.env,
             database=self.entity.flow.db,
         )
@@ -271,9 +265,7 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
-            platform_instance=(
-                self.entity.platform_instance if self.entity.platform_instance else None
-            ),
+            platform_instance=self.entity.platform_instance,
         )
 
     @property
