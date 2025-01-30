@@ -2458,7 +2458,7 @@ class TableauSiteSource:
 
         logger.debug(f"Parsing sql={query}")
 
-        upstream_db = database_name
+        upstream_db: Optional[str] = database_name
 
         if func_overridden_info is not None:
             # Override the information as per configuration
