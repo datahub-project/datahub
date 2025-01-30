@@ -6734,6 +6734,16 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
+    Status metadata of the data process instance
+    """
+    status: Status
+
+    """
     The history of state changes for the run
     """
     state(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DataProcessRunEvent]
@@ -6741,12 +6751,12 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     """
     When the run was kicked off
     """
-    created: AuditStamp
+    created: AuditStamp @deprecated(reason: "Use `properties.created`")
 
     """
     The name of the data process
     """
-    name: String
+    name: String @deprecated(reason: "Use `properties.name`")
 
     """
     Edges extending from this entity.
@@ -13154,7 +13164,7 @@ type DataProcessInstanceProperties {
     """
     When this process instance was created
     """
-    created: AuditStamp
+    created: AuditStamp!
 
     """
     Additional custom properties specific to this process instance
@@ -13188,9 +13198,8 @@ type MLTrainingRunProperties {
 }
 
 extend type DataProcessInstance {
-
     """
-    Additional read only properties associated with the Data Job
+    Additional read only properties associated with the Data Process Instance
     """
     properties: DataProcessInstanceProperties
 
@@ -13210,6 +13219,11 @@ extend type DataProcessInstance {
     container: Container
 
     """
+    Standardized platform urn where the data process instance is defined
+    """
+    platform: DataPlatform
+
+    """
     Recursively get the lineage of containers for this entity
     """
     parentContainers: ParentContainersResult
@@ -13218,4 +13232,9 @@ extend type DataProcessInstance {
     Additional properties when subtype is Training Run
     """
     mlTrainingRunProperties: MLTrainingRunProperties
+
+    """
+    The parent entity whose run instance it is
+    """
+    parentTemplate: Entity
 }
