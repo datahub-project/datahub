@@ -2431,9 +2431,9 @@ class TableauSiteSource:
         database_field = datasource.get(c.DATABASE) or {}
         database_id: Optional[str] = database_field.get(c.ID)
         database_name: str = database_field.get(c.NAME) or c.UNKNOWN.lower()
-        database_connection_type: Optional[str] = (
-            database_field.get(c.CONNECTION_TYPE) or datasource.get(c.CONNECTION_TYPE),
-        )
+        database_connection_type: Optional[str] = database_field.get(
+            c.CONNECTION_TYPE
+        ) or datasource.get(c.CONNECTION_TYPE)
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
