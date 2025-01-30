@@ -65,6 +65,6 @@ class GetItemsWorkbooksConnectionWorkbooksConnectionPageInfo(BaseModel):
     end_cursor: Optional[str] = Field(alias="endCursor")
 
 
-GetItemsWorkbooksConnection.model_rebuild()
-GetItemsWorkbooksConnectionWorkbooksConnection.model_rebuild()
-GetItemsWorkbooksConnectionWorkbooksConnectionNodes.model_rebuild()
+# !!! GetItemsWorkbooksConnection.model_rebuild()
+# !!! GetItemsWorkbooksConnectionWorkbooksConnection.model_rebuild()
+# !!! GetItemsWorkbooksConnectionWorkbooksConnectionNodes.model_rebuild()

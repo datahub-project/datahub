@@ -232,7 +232,7 @@ class GetItems_customSQLTablesConnectionCustomsqltablesconnectionNodesColumnsRef
     "The database to which this table belongs"
     the_schema: Optional[str] = Field(
         default=None, alias="schema"
-    )  # !! schema is a reserved word
+    )  # !!! schema is a reserved word
     "Name of table schema.\n    \nNote: For some databases, such as Amazon Athena and Exasol, the schema attribute may not return the correct schema name for the table. For more information, see https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute."
     full_name: Optional[str] = Field(default=None, alias="fullName")
     "Fully qualified table name"
@@ -406,7 +406,7 @@ class GetItems_customSQLTablesConnectionCustomsqltablesconnectionNodesTables(Bas
     "The database to which this table belongs"
     the_schema: Optional[str] = Field(
         default=None, alias="schema"
-    )  # !! schema is a reserved word
+    )  # !!! schema is a reserved word
     "Name of table schema.\n    \nNote: For some databases, such as Amazon Athena and Exasol, the schema attribute may not return the correct schema name for the table. For more information, see https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute."
     full_name: Optional[str] = Field(default=None, alias="fullName")
     "Fully qualified table name"
@@ -634,7 +634,7 @@ class GetItems_publishedDatasourcesConnectionPublisheddatasourcesconnectionNodes
     "The database to which this table belongs"
     the_schema: Optional[str] = Field(
         default=None, alias="schema"
-    )  # !! schema is a reserved word
+    )  # !!! schema is a reserved word
     "Name of table schema.\n    \nNote: For some databases, such as Amazon Athena and Exasol, the schema attribute may not return the correct schema name for the table. For more information, see https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute."
     full_name: Optional[str] = Field(default=None, alias="fullName")
     "Fully qualified table name"
@@ -1275,7 +1275,7 @@ class GetItems_embeddedDatasourcesConnectionEmbeddeddatasourcesconnectionNodesUp
     "The database to which this table belongs"
     the_schema: Optional[str] = Field(
         default=None, alias="schema"
-    )  # !! schema is a reserved keyword
+    )  # !!! schema is a reserved keyword
     "Name of table schema.\n    \nNote: For some databases, such as Amazon Athena and Exasol, the schema attribute may not return the correct schema name for the table. For more information, see https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute."
     full_name: Optional[str] = Field(default=None, alias="fullName")
     "Fully qualified table name"

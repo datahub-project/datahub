@@ -943,6 +943,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         if self.server is None or not self.server.is_signed_in():
             return
         try:
+            ##############################################
+            ################## PoC #######################
+            ##############################################
+
             # TURMS
 
             # mypy errors
@@ -966,11 +970,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 query=GetItems_workbooksConnection.Meta.document,
                 variables=variables.json(),
             )
-            logger.info(f"[[TURMS]] Tableau Workbooks: {result}")
+            logger.info(f"[[TURMS]] Result: {result}")
+            workbooks = GetItems_workbooksConnection(**result["data"])
+            logger.info(f"[[TURMS]] Workbooks: {workbooks}")
 
             # After some manual edits to fix the 'schema' field issue and ignoring mypy errors
 
-            # -[2025-01-29 17:41:24,631] INFO     {datahub.ingestion.source.tableau.tableau:962} - [[TURMS]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
+            # [2025-01-30 10:12:28,257] INFO     {datahub.ingestion.source.tableau.tableau:962} - [[TURMS]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
             #   workbooksConnection(
             #     first: $first
             #     after: $after
@@ -1016,7 +1022,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             #     __typename
             #   }
             # } Variables: {"first": 100, "after": null}
-            # [2025-01-29 17:41:25,070] INFO     {datahub.ingestion.source.tableau.tableau:967} - [[TURMS]] Tableau Workbooks: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io', '__typename': 'TableauUser'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4', '__typename': 'Sheet'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86', '__typename': 'EmbeddedDatasource'}], '__typename': 'Workbook'}], 'pageInfo': {'hasNextPage': False, 'endCursor': None, '__typename': 'PageInfo'}, '__typename': 'WorkbooksConnection'}}}
+            # [2025-01-30 10:12:28,669] INFO     {datahub.ingestion.source.tableau.tableau:969} - [[TURMS]] Result: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io', '__typename': 'TableauUser'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4', '__typename': 'Sheet'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86', '__typename': 'EmbeddedDatasource'}], '__typename': 'Workbook'}], 'pageInfo': {'hasNextPage': False, 'endCursor': None, '__typename': 'PageInfo'}, '__typename': 'WorkbooksConnection'}}}
+            # [2025-01-30 10:12:28,669] INFO     {datahub.ingestion.source.tableau.tableau:971} - [[TURMS]] Workbooks: workbooks_connection=GetItems_workbooksConnectionWorkbooksconnection(typename='WorkbooksConnection', nodes=[GetItems_workbooksConnectionWorkbooksconnectionNodes(typename='Workbook', id='280d3fd0-c431-30c3-2e8f-c2620a4f472e', name='customer_profit_wb', luid='3c6b22b8-5c42-413f-9505-f5d4715413db', uri='sites/71413/workbooks/2782740', project_name='project_test2', owner=GetItems_workbooksConnectionWorkbooksconnectionNodesOwner(typename='TableauUser', username='harshal@acryl.io'), description='', created_at=datetime.datetime(2024, 9, 3, 4, 36, 19, tzinfo=datetime.timezone.utc), updated_at=datetime.datetime(2024, 9, 3, 4, 36, 19, tzinfo=datetime.timezone.utc), tags=[], sheets=[GetItems_workbooksConnectionWorkbooksconnectionNodesSheets(typename='Sheet', id='aa141b11-a1ae-fef6-4a25-28b85d62b3f4')], dashboards=[], embedded_datasources=[GetItems_workbooksConnectionWorkbooksconnectionNodesEmbeddeddatasources(typename='EmbeddedDatasource', id='a00e6ea7-64f5-f999-9967-236609717f86')])], page_info=GetItems_workbooksConnectionWorkbooksconnectionPageinfo(typename='PageInfo', has_next_page=False, end_cursor=None))
 
             # SGQLC
 
@@ -1068,8 +1075,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 query=str(op), variables=dict(first=100, after=None)
             )
             logger.info(f"[[SGQLC]] Result: {result}")
+            workbooks = op + result
+            logger.info(f"[[SGQLC]] Workbooks: {workbooks}")
 
-            # [2025-01-29 17:41:25,119] INFO     {datahub.ingestion.source.tableau.tableau:1015} - [[SGQLC]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
+            # [2025-01-30 10:15:51,755] INFO     {datahub.ingestion.source.tableau.tableau:1067} - [[SGQLC]] Query: query GetItems_workbooksConnection($first: Int, $after: String) {
             #   workbooksConnection(first: $first, after: $after, filter: {projectNameWithin: ["project_test2"]}) {
             #     nodes {
             #       id
@@ -1102,7 +1111,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             #     }
             #   }
             # } Variables: {'first': 100, 'after': None}
-            # [2025-01-29 17:41:25,568] INFO     {datahub.ingestion.source.tableau.tableau:1020} - [[SGQLC]] Result: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86'}]}], 'pageInfo': {'hasNextPage': False, 'endCursor': None}}}}
+            # [2025-01-30 10:15:52,186] INFO     {datahub.ingestion.source.tableau.tableau:1073} - [[SGQLC]] Result: {'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86'}]}], 'pageInfo': {'hasNextPage': False, 'endCursor': None}}}}
+            # [2025-01-30 10:15:52,188] INFO     {datahub.ingestion.source.tableau.tableau:1075} - [[SGQLC]] Workbooks: Query(workbooks_connection=WorkbooksConnection(nodes=[Workbook(id='280d3fd0-c431-30c3-2e8f-c2620a4f472e', name='customer_profit_wb', luid='3c6b22b8-5c42-413f-9505-f5d4715413db', uri='sites/71413/workbooks/2782740', project_name='project_test2', owner=TableauUser(username='harshal@acryl.io'), description='', created_at=datetime.datetime(2024, 9, 3, 4, 36, 19, tzinfo=datetime.timezone.utc), updated_at=datetime.datetime(2024, 9, 3, 4, 36, 19, tzinfo=datetime.timezone.utc), tags=[], sheets=[Sheet(id='aa141b11-a1ae-fef6-4a25-28b85d62b3f4')], dashboards=[], embedded_datasources=[EmbeddedDatasource(id='a00e6ea7-64f5-f999-9967-236609717f86')])], page_info=PageInfo(has_next_page=False, end_cursor=None)))
 
             # ARIADNE
 
@@ -1164,15 +1174,62 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:525: error: "type[GetItemsSheetsConnection]" has no attribute "model_validate"  [attr-defined]
             # src/datahub/ingestion/source/tableau/codegen_ariadne/client.py:583: error: "type[GetItemsWorkbooksConnection]" has no attribute "model_validate"  [attr-defined]
 
-            from datahub.ingestion.source.tableau.codegen_ariadne.get_items_workbooks_connection import (
-                GetItemsWorkbooksConnection as GetItemsWorkbooksConnectionAriadne,
+            import asyncio
+
+            from datahub.ingestion.source.tableau.codegen_ariadne.client import Client
+
+            # big concern, we cannot use the tableauserverclient library when using ariadne!!
+
+            client = Client(
+                f"{self.server.server_address}/api/metadata/graphql",
+                {"X-tableau-auth": f"{self.server._auth_token}"},
+            )
+            workbooks = asyncio.run(
+                client.get_items_workbooks_connection(first=100, after=None)
             )
 
-            op = GetItemsWorkbooksConnectionAriadne()
+            logger.info(f"[[ARIADNE]] Worbooks: {workbooks}")
 
-            logger.info(
-                f"[[ARIADNE]] Query: {op} Variables: {dict(first=100, after=None)}"
-            )
+            # request/response ok, but fails the deserialization
+
+            # [2025-01-30 13:24:20,595] INFO     {datahub.ingestion.source.tableau.codegen_ariadne.client:586} - Ariadne.client.get_items_workbooks_connection.response=<Response [200 OK]>
+            # [2025-01-30 13:24:20,595] INFO     {datahub.ingestion.source.tableau.codegen_ariadne.client:587} - Ariadne.client.get_items_workbooks_connection.response={'data': {'workbooksConnection': {'nodes': [{'id': '280d3fd0-c431-30c3-2e8f-c2620a4f472e', 'name': 'customer_profit_wb', 'luid': '3c6b22b8-5c42-413f-9505-f5d4715413db', 'uri': 'sites/71413/workbooks/2782740', 'projectName': 'project_test2', 'owner': {'username': 'harshal@acryl.io'}, 'description': '', 'createdAt': '2024-09-03T04:36:19Z', 'updatedAt': '2024-09-03T04:36:19Z', 'tags': [], 'sheets': [{'id': 'aa141b11-a1ae-fef6-4a25-28b85d62b3f4'}], 'dashboards': [], 'embeddedDatasources': [{'id': 'a00e6ea7-64f5-f999-9967-236609717f86'}]}], 'pageInfo': {'hasNextPage': False, 'endCursor': None}}}}
+            # [2025-01-30 13:24:20,597] ERROR    {datahub.ingestion.run.pipeline:741} - Ingestion pipeline threw an uncaught exception: type object 'GetItemsWorkbooksConnection' has no attribute 'model_validate'
+            # Traceback (most recent call last):
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/run/pipeline.py", line 466, in run
+            #     for wu in itertools.islice(
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/source/state/stale_entity_removal_handler.py", line 72, in auto_stale_entity_removal
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/auto_work_units/auto_ensure_aspect_size.py", line 91, in ensure_aspect_size
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/auto_work_units/auto_dataset_properties_aspect.py", line 62, in auto_patch_last_modified
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 148, in auto_workunit_reporter
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 252, in auto_browse_path_v2
+            #     for urn, batch in _batch_workunits_by_urn(stream):
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 508, in _batch_workunits_by_urn
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 415, in auto_fix_empty_field_paths
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 367, in auto_fix_duplicate_schema_field_paths
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 171, in auto_materialize_referenced_tags_terms
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/api/source_helpers.py", line 103, in auto_status_aspect
+            #     for wu in stream:
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/source/tableau/tableau.py", line 1195, in get_workunits_internal
+            #     workbooks = asyncio.run(client.get_items_workbooks_connection(first=100, after=None))
+            #   File "/Users/sergio/.pyenv/versions/3.10.15/lib/python3.10/asyncio/runners.py", line 44, in run
+            #     return loop.run_until_complete(main)
+            #   File "/Users/sergio/.pyenv/versions/3.10.15/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+            #     return future.result()
+            #   File "/Users/sergio/workspace/github/datahub-project/datahub/metadata-ingestion/src/datahub/ingestion/source/tableau/codegen_ariadne/client.py", line 589, in get_items_workbooks_connection
+            #     return GetItemsWorkbooksConnection.model_validate(data)
+            # AttributeError: type object 'GetItemsWorkbooksConnection' has no attribute 'model_validate'
+            # [2025-01-30 13:24:20,604] INFO     {datahub.cli.ingest_cli:144} - Finished metadata ingestion
+
+            ##############################################
 
             if self.config.ingest_multiple_sites:
                 for site in list(TSC.Pager(self.server.sites)):
