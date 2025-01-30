@@ -1,20 +1,18 @@
+import pruneAllDuplicateEdges from '@app/lineageV2/pruneAllDuplicateEdges';
 import { useEffect, useState } from 'react';
 import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '../../types.generated';
-import EntityRegistry from '../entityV2/EntityRegistry';
 import { DBT_URN } from '../ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '../search/utils/constants';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
     addToAdjacencyList,
-    createEdgeId,
     FetchStatus,
     Filters,
     getEdgeId,
     isQuery,
     isTransformational,
-    isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LineageEntity,
     NodeContext,
@@ -80,6 +78,7 @@ export default function useSearchAcrossLineage(
                     platforms: [DBT_URN],
                 },
                 { entityType: EntityType.DataJob },
+                { entityType: EntityType.DataProcessInstance },
             ],
         },
         searchFlags: {
@@ -101,7 +100,7 @@ export default function useSearchAcrossLineage(
     }, [fetchLineage, lazy]);
 
     useEffect(() => {
-        const smallContext = { nodes, edges, adjacencyList };
+        const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
         let addedNode = false;
 
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
@@ -137,7 +136,7 @@ export default function useSearchAcrossLineage(
         }
 
         if (data) {
-            pruneDuplicateEdges(urn, direction, smallContext, entityRegistry);
+            pruneAllDuplicateEdges(urn, direction, smallContext, entityRegistry);
             processed.add(urn);
             if (addedNode) setNodeVersion((version) => version + 1);
 
@@ -160,94 +159,6 @@ export default function useSearchAcrossLineage(
     ]);
 
     return { fetchLineage, processed: processed.has(urn) };
-}
-
-/**
- * Remove direct edges between non-transformational nodes, if there is a path between them through only transformational nodes.
- * This prevents the graph from being cluttered with effectively duplicate edges.
- * @param urn Urn for which to remove parent edges.
- * @param direction Direction to look for parents.
- * @param context Lineage node context.
- * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
- */
-export function pruneDuplicateEdges(
-    urn: string,
-    direction: LineageDirection | null,
-    context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
-    entityRegistry: EntityRegistry,
-) {
-    const { edges } = context;
-    const neighbors: Record<LineageDirection, Set<string>> = {
-        [LineageDirection.Downstream]: new Set(),
-        [LineageDirection.Upstream]: new Set(),
-    };
-
-    const urnIsTransformational = isUrnTransformational(urn, entityRegistry);
-    function getNeighbors(d: LineageDirection) {
-        return getNonTransformationalNeighbors(urn, d, urnIsTransformational, context, entityRegistry);
-    }
-
-    if (direction) {
-        neighbors[direction] = getNeighbors(direction);
-    } else {
-        neighbors[LineageDirection.Upstream] = getNeighbors(LineageDirection.Upstream);
-        neighbors[LineageDirection.Downstream] = getNeighbors(LineageDirection.Downstream);
-    }
-
-    if (urnIsTransformational) {
-        neighbors[LineageDirection.Upstream].forEach((source) => {
-            neighbors[LineageDirection.Downstream].forEach((destination) => {
-                const edge = edges.get(createEdgeId(source, destination));
-                if (edge?.isDisplayed) {
-                    edge.isDisplayed = false;
-                }
-            });
-        });
-    } else {
-        Object.values(LineageDirection).forEach((d) => {
-            neighbors[d].forEach((source) => {
-                const edge = edges.get(getEdgeId(urn, source, d));
-                if (edge?.isDisplayed) {
-                    edge.isDisplayed = false;
-                }
-            });
-        });
-    }
-}
-
-/**
- * Get the non-transformational nodes that are reachable from `urn` in `direction` via a transformational path.
- * @param urn Urn for which to get neighbors.
- * @param direction Direction to look for neighbors.
- * @param includeDirect If false, only include non-transformational neighbors through a transformational node.
- * @param adjacencyList Adjacency list of the lineage graph.
- * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
- */
-function getNonTransformationalNeighbors(
-    urn: string,
-    direction: LineageDirection,
-    includeDirect: boolean,
-    { adjacencyList }: Pick<NodeContext, 'adjacencyList'>,
-    entityRegistry: EntityRegistry,
-) {
-    const neighbors = new Set<string>();
-    const stack = includeDirect
-        ? [urn]
-        : Array.from(adjacencyList[direction].get(urn) || []).filter((p) => isUrnTransformational(p, entityRegistry));
-    const seen = new Set<string>(stack);
-    for (let u = stack.pop(); u; u = stack.pop()) {
-        Array.from(adjacencyList[direction].get(u) || []).forEach((parent) => {
-            if (isUrnTransformational(parent, entityRegistry)) {
-                if (!seen.has(parent)) {
-                    stack.push(parent);
-                    seen.add(parent);
-                }
-            } else {
-                neighbors.add(parent);
-            }
-        });
-    }
-    return neighbors;
 }
 
 export function setEntityNodeDefault(

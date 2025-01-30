@@ -1,36 +1,18 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataProduct } from '@app/entityV2/shared/utils';
+import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
+import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
-import { ApiOutlined } from '@ant-design/icons';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import {
-    DataProcessInstance,
-    Entity as GeneratedEntity,
-    EntityType,
-    OwnershipType,
-    SearchResult,
-} from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetDataProcessInstanceQuery } from '../../../graphql/dataProcessInstance.generated';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-// import SummaryTab from './profile/DataProcessInstaceSummary';
-
-// const getProcessPlatformName = (data?: DataProcessInstance): string => {
-//     return (
-//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
-//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-//         ''
-//     );
-// };
+import { DataProcessInstance, Entity as GeneratedEntity, EntityType, SearchResult } from '../../../types.generated';
+import Preview from './preview/Preview';
 
 const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
@@ -48,6 +30,7 @@ const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
         },
     ];
 };
+
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */
@@ -56,15 +39,15 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ApiOutlined style={{ fontSize, color }} />;
+            return <ArrowsClockwise style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ApiOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
-            <ApiOutlined
+            <ArrowsClockwise
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
@@ -73,9 +56,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         );
     };
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => false;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     isLineageEnabled = () => true;
 
@@ -98,15 +81,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             useEntityQuery={this.useEntityQuery}
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={
+                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
+            }
             tabs={[
-                // {
-                //     name: 'Documentation',
-                //     component: DocumentationTab,
-                // },
-                // {
-                //     name: 'Summary',
-                //     component: SummaryTab,
-                // },
                 {
                     name: 'Lineage',
                     component: LineageTab,
@@ -115,51 +93,26 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-                // {
-                //     name: 'Incidents',
-                //     component: IncidentTab,
-                //     getDynamicName: (_, processInstance) => {
-                //         const activeIncidentCount = processInstance?.dataProcessInstance?.activeIncidents.total;
-                //         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
-                //     },
-                // },
             ]}
             sidebarSections={this.getSidebarSections()}
         />
     );
 
-    getSidebarSections = () => [
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
-        {
-            component: SidebarTagsSection,
-            properties: {
-                hasTags: true,
-                hasTerms: true,
-            },
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-    ];
+    getSidebarSections = () => [{ component: SidebarEntityHeader }];
 
     getOverridePropertiesFromEntity = (processInstance?: DataProcessInstance | null): GenericEntityProperties => {
-        const name = processInstance?.name;
-        const externalUrl = processInstance?.externalUrl;
+        const parent =
+            processInstance?.parentTemplate &&
+            globalEntityRegistryV2.getGenericEntityProperties(
+                processInstance.parentTemplate.type,
+                processInstance.parentTemplate,
+            );
         return {
-            name,
-            externalUrl,
-            platform: processInstance?.dataPlatformInstance?.platform,
+            name: processInstance && this.displayName(processInstance),
+            platform:
+                (processInstance as GetDataProcessInstanceQuery['dataProcessInstance'])?.optionalPlatform ||
+                parent?.platform,
+            parent,
         };
     };
 
@@ -169,73 +122,35 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name || ''}
+                data={genericProperties}
+                name={this.displayName(data)}
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
-                platformName={
-                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
-                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
-                }
-                platformLogo={data?.dataPlatformInstance?.platform?.properties?.logoUrl}
+                platformName={genericProperties?.platform?.properties?.displayName ?? undefined}
+                platformLogo={genericProperties?.platform?.properties?.logoUrl}
                 owners={null}
                 globalTags={null}
-                // domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
-                parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // health={data.health}
             />
         );
     };
 
-    renderSearch = (result: SearchResult) => {
-        const data = result.entity as DataProcessInstance;
-        const genericProperties = this.getGenericEntityProperties(data);
-        const parentEntities = getParentEntities(data);
-        return (
-            <Preview
-                urn={data.urn}
-                name={data.properties?.name || data.name || ''}
-                subType={data.subTypes?.typeNames?.[0]}
-                description=""
-                platformName={
-                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
-                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
-                }
-                platformLogo={data.dataPlatformInstance?.platform?.properties?.logoUrl}
-                platformInstanceId={data.dataPlatformInstance?.instanceId}
-                owners={null}
-                globalTags={null}
-                //                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
-                //                deprecation={data.deprecation}
-                insights={result.insights}
-                externalUrl={data.properties?.externalUrl}
-                degree={(result as any).degree}
-                paths={(result as any).paths}
-                parentContainers={data.parentContainers}
-                parentEntities={parentEntities}
-                container={data.container || undefined}
-                // duration={data?.state?.[0]?.durationMillis}
-                // status={data?.state?.[0]?.result?.resultType}
-                // startTime={data?.state?.[0]?.timestampMillis}
-                //                health={data.health}
-            />
-        );
-    };
+    renderSearch = (result: SearchResult) =>
+        this.renderPreview(PreviewType.SEARCH, result.entity as DataProcessInstance);
 
     getLineageVizConfig = (entity: DataProcessInstance) => {
+        const properties = this.getGenericEntityProperties(entity);
         return {
             urn: entity?.urn,
             name: this.displayName(entity),
             type: EntityType.DataProcessInstance,
             subtype: entity?.subTypes?.typeNames?.[0],
-            icon: entity?.dataPlatformInstance?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.dataPlatformInstance?.platform,
+            icon: properties?.platform?.properties?.logoUrl ?? undefined,
+            platform: properties?.platform ?? undefined,
             container: entity?.container,
-            //            health: entity?.health || undefined,
         };
     };
 
