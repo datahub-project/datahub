@@ -14,10 +14,18 @@ function createEnum<T extends string>(values: T[]): { [K in T]: K } {
 const names = createEnum(AVAILABLE_ICONS);
 export type IconNames = keyof typeof names;
 
-export interface IconProps extends HTMLAttributes<HTMLElement> {
+export type MaterialIconVariant = 'filled' | 'outline';
+export type IconSource = 'material' | 'phosphor';
+
+export interface IconPropsDefaults {
+    source: IconSource;
+    variant: MaterialIconVariant;
+    size: FontSizeOptions;
+    color: FontColorOptions;
+    rotate: RotationOptions;
+}
+
+export interface IconProps extends Partial<IconPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
     icon: IconNames;
-    variant?: 'filled' | 'outline';
-    size?: FontSizeOptions;
-    color?: FontColorOptions;
-    rotate?: RotationOptions;
+    className?: string;
 }

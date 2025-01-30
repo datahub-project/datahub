@@ -33,7 +33,7 @@ export default function ChangeTypeSummaryPill({ operation, onClick, selected }: 
 
     return (
         <Container>
-            <Pill size="sm" label={label} colorScheme={colorScheme} clickable={!!onClick} onPillClick={onClick} />
+            <Pill size="sm" label={label} color={colorScheme} clickable={!!onClick} onPillClick={onClick} />
         </Container>
     );
 }

@@ -1,12 +1,12 @@
 import styled from 'styled-components';
 
 import { spacing } from '@components/theme';
-import { ButtonProps } from './types';
+import { ButtonStyleProps } from './types';
 import { getButtonStyle } from './utils';
 
 export const ButtonBase = styled.button(
     // Dynamic styles
-    (props: ButtonProps) => ({ ...getButtonStyle(props as ButtonProps) }),
+    (props: ButtonStyleProps) => ({ ...getButtonStyle(props) }),
     {
         // Base root styles
         display: 'flex',
