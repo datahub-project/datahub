@@ -2,6 +2,7 @@ import { Card, Text } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { countFormatter } from '@src/utils/formatter';
 import React from 'react';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
 import { useGetStatsData } from '../useGetStatsData';
 import { useGetStatsSections } from '../useGetStatsSections';
@@ -32,7 +33,7 @@ const LatestStats = () => {
                     onClick={() => (sections.rows.hasData ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
                 />
                 <Card
-                    title={columnCount?.toString() || ''}
+                    title={columnCount !== undefined ? formatNumberWithoutAbbreviation(columnCount) : ''}
                     subTitle={pluralize(columnCount || 0, 'Column')}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}

@@ -3,6 +3,7 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { AssertionType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
@@ -79,7 +80,7 @@ export default function RowCountGraph() {
                     popoverRenderer={(datum) => (
                         <GraphPopover
                             header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
-                            value={`${datum.value} ${pluralize(datum.value, 'Row')}`}
+                            value={`${formatNumberWithoutAbbreviation(datum.value)} ${pluralize(datum.value, 'Row')}`}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}

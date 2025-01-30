@@ -1,4 +1,5 @@
 import { Pill, Text } from '@components';
+import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { pluralize } from '@src/app/shared/textUtil';
 import { Skeleton } from 'antd';
 import dayjs from 'dayjs';
@@ -41,7 +42,7 @@ export default function TimelineHeader({ day, numberOfChanges, loading }: Timeli
                 <PillSkeleton shape="round" active />
             ) : (
                 <Pill
-                    label={`${numberOfChanges} ${pluralize(numberOfChanges, 'Change')}`}
+                    label={`${abbreviateNumber(numberOfChanges)} ${pluralize(numberOfChanges, 'Change')}`}
                     colorScheme="violet"
                     size="xs"
                     clickable={false}

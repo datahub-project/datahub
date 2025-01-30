@@ -2,6 +2,7 @@ import { BarChart, GraphCard } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
@@ -55,7 +56,7 @@ const QueryCountChart = () => {
                 popoverRenderer={(datum) => (
                     <GraphPopover
                         header={getPopoverTimeFormat(groupInterval, datum.time)}
-                        value={`${datum.value} ${pluralize(datum.value, 'Query')}`}
+                        value={`${formatNumberWithoutAbbreviation(datum.value)} ${pluralize(datum.value, 'Query')}`}
                         pills={<MonthOverMonthPill value={datum.mom} />}
                     />
                 )}

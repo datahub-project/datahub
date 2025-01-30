@@ -1,5 +1,5 @@
 import { GraphCard, LineChart } from '@components';
-import { formatBytes } from '@src/app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
@@ -49,7 +49,7 @@ export default function StorageSizeGraph() {
 
     const bytesFormatter = (num: number) => {
         const formattedBytes = formatBytes(num);
-        return `${formattedBytes.number} ${formattedBytes.unit}`;
+        return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
     };
 
     return (

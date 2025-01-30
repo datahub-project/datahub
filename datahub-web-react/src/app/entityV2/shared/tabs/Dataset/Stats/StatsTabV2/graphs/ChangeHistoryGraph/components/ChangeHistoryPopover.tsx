@@ -5,6 +5,8 @@ import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { OperationType } from '@src/types.generated';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { AnyOperationType, CustomOperationType, Operation, OperationsData } from '../types';
 import { convertAggregationsToOperationsData } from '../utils';
 
@@ -80,7 +82,7 @@ export default function ChangeHistoryPopover({
     const renderTotalRow = (value: number) => {
         return (
             <Text size="sm" color="gray" weight="bold" type="div">
-                {value} {pluralize(value, 'Change')}
+                {abbreviateNumber(value)} {pluralize(value, 'Change')}
             </Text>
         );
     };
@@ -112,7 +114,7 @@ export default function ChangeHistoryPopover({
                     {name}
                 </Text>
                 <Text size="sm" color="gray" weight="bold">
-                    {operation.value}
+                    {formatNumberWithoutAbbreviation(operation.value)}
                 </Text>
             </ValueContainer>
         );
