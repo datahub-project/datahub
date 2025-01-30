@@ -29,6 +29,7 @@ public class DataPlatformInstanceAspectMapper
       result.setType(EntityType.DATA_PLATFORM_INSTANCE);
       result.setUrn(input.getInstance().toString());
     }
+    // Warning: This often cannot be read properly: overwritten by LoadableTypeResolver
     result.setPlatform(
         DataPlatform.builder()
             .setUrn(input.getPlatform().toString())

@@ -716,6 +716,9 @@ fragment entityLineageV2 on Entity {
             ...platformFields
         }
     }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
+    }
     ... on Domain {
         id
         properties {
