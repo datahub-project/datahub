@@ -5,7 +5,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    BooleanTypeClass,
     ERModelRelationshipCardinalityClass,
     ERModelRelationshipKeyClass,
     ERModelRelationshipPropertiesClass,
@@ -26,17 +25,14 @@ ENV = "PROD"
 e = DatahubRestEmitter(gms_server=GMS_ENDPOINT, extra_headers={})
 
 
-def get_schema_field(name: str, dtype) -> SchemaFieldClass:
+def get_schema_field(
+    name: str, dtype: str, type: SchemaFieldDataTypeClass
+) -> SchemaFieldClass:
     """Creates a schema field for MySQL columns."""
-    type_class = {
-        "int": NumberTypeClass,
-        "varchar": StringTypeClass,
-        "boolean": BooleanTypeClass,
-    }.get(dtype, StringTypeClass)
 
     field = SchemaFieldClass(
         fieldPath=name,
-        type=SchemaFieldDataTypeClass(type=type_class()),
+        type=type,
         nativeDataType=dtype,
         description=name,
         lastModified=AuditStampClass(
@@ -52,10 +48,14 @@ def get_schema_field(name: str, dtype) -> SchemaFieldClass:
 # Define Employee Table
 dataset_employee = make_dataset_urn(PLATFORM, "Employee", ENV)
 employee_fields = [
-    get_schema_field("id", "int"),
-    get_schema_field("name", "varchar"),
-    get_schema_field("age", "int"),
-    get_schema_field("company_id", "int"),
+    get_schema_field("id", "int", SchemaFieldDataTypeClass(type=NumberTypeClass())),
+    get_schema_field(
+        "name", "varchar", SchemaFieldDataTypeClass(type=StringTypeClass())
+    ),
+    get_schema_field("age", "int", SchemaFieldDataTypeClass(type=NumberTypeClass())),
+    get_schema_field(
+        "company_id", "int", SchemaFieldDataTypeClass(type=NumberTypeClass())
+    ),
 ]
 
 e.emit_mcp(
@@ -75,8 +75,10 @@ e.emit_mcp(
 # Define Company Table
 dataset_company = make_dataset_urn(PLATFORM, "Company", ENV)
 company_fields = [
-    get_schema_field("id", "int"),
-    get_schema_field("name", "varchar"),
+    get_schema_field("id", "int", SchemaFieldDataTypeClass(type=NumberTypeClass())),
+    get_schema_field(
+        "name", "varchar", SchemaFieldDataTypeClass(type=StringTypeClass())
+    ),
 ]
 
 e.emit_mcp(
