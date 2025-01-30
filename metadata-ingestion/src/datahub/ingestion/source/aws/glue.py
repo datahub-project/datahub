@@ -218,6 +218,7 @@ class GlueSourceConfig(
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
+    catalog_id: Optional[str] = None
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
@@ -315,6 +316,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
+        self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms

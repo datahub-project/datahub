@@ -490,6 +490,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - deprecation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
