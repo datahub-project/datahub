@@ -249,6 +249,12 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
+    structured_properties_template_cache_invalidation_interval: int = Field(
+        hidden_from_docs=True,
+        default=60,
+        description="Interval in seconds to invalidate the structured properties template cache.",
+    )
+
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
