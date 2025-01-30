@@ -6,6 +6,7 @@ dependencies {
   implementation project(':entity-registry')
   implementation project(':metadata-operation-context')
   implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:services')
 
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.httpClient

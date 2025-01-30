@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import collections
 import concurrent.futures
 import contextlib
@@ -10,7 +12,6 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
@@ -326,7 +327,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None],
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
@@ -1536,9 +1537,7 @@ def create_bigquery_temp_table(
         query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
             # In google-cloud-bigquery 3.15.0, the _query_job attribute was
             # made public and renamed to query_job.
-            cursor.query_job
-            if hasattr(cursor, "query_job")
-            else cursor._query_job  # type: ignore[attr-defined]
+            cursor.query_job if hasattr(cursor, "query_job") else cursor._query_job  # type: ignore[attr-defined]
         )
         assert query_job
         temp_destination_table = query_job.destination

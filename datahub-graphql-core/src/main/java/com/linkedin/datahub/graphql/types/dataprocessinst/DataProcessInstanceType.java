@@ -41,7 +41,8 @@ public class DataProcessInstanceType
           DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME,
           ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
-          CONTAINER_ASPECT_NAME);
+          CONTAINER_ASPECT_NAME,
+          STATUS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;

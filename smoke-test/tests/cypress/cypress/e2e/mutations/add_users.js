@@ -33,7 +33,7 @@ describe("add_user", () => {
         cy.visit(inviteLink);
         const { name, email } = tryToSignUp();
         registeredEmail = email;
-        cy.waitTextVisible("Welcome to DataHub");
+        cy.waitTextVisible("Welcome back");
         cy.hideOnboardingTour();
         cy.waitTextVisible(name);
       })

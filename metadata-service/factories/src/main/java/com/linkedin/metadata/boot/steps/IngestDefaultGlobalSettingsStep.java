@@ -78,7 +78,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     // 1. Read from the file into JSON.
     JsonNode defaultSettingsObj;
     try {
-      defaultSettingsObj = mapper.readTree(new ClassPathResource(_resourcePath).getFile());
+      defaultSettingsObj = mapper.readTree(new ClassPathResource(_resourcePath).getInputStream());
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

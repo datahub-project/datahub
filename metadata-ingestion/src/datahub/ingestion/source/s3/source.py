@@ -40,7 +40,6 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
-    group_s3_objects_by_dirname,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
@@ -73,6 +72,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -868,7 +868,11 @@ class S3Source(StatefulIngestionSourceBase):
         """
         partitions: List[Folder] = []
         s3_objects = bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
-        for key, group in group_s3_objects_by_dirname(s3_objects).items():
+        grouped_s3_objects_by_dirname = groupby_unsorted(
+            s3_objects,
+            key=lambda obj: obj.key.rsplit("/", 1)[0],
+        )
+        for key, group in grouped_s3_objects_by_dirname:
             file_size = 0
             creation_time = None
             modification_time = None
@@ -1124,7 +1128,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():

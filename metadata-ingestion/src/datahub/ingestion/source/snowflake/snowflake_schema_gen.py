@@ -194,9 +194,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[
-            SnowsightUrlBuilder
-        ] = snowsight_url_builder
+        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
+            snowsight_url_builder
+        )
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -267,9 +267,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
-            ischema_databases: List[
-                SnowflakeDatabase
-            ] = self.get_databases_from_ischema(databases)
+            ischema_databases: List[SnowflakeDatabase] = (
+                self.get_databases_from_ischema(databases)
+            )
 
             if len(ischema_databases) == 0:
                 self.structured_reporter.failure(
@@ -491,15 +491,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             view_definitions = self.data_dictionary.get_secure_view_definitions()
             return view_definitions[db_name][schema_name][table_name]
+        except KeyError:
+            # Received secure view definitions but the view is not present in results
+            self.structured_reporter.info(
+                title="Secure view definition not found",
+                message="Lineage will be missing for the view.",
+                context=f"{db_name}.{schema_name}.{table_name}",
+            )
+            return None
         except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = (
-                    "Failed to get secure views definitions. Please check permissions."
-                )
-            else:
-                error_msg = "Failed to get secure views definitions"
+            action_msg = (
+                "Please check permissions."
+                if isinstance(e, SnowflakePermissionError)
+                else ""
+            )
+
             self.structured_reporter.warning(
-                error_msg,
+                title="Failed to get secure views definitions",
+                message=f"Lineage will be missing for the view. {action_msg}",
+                context=f"{db_name}.{schema_name}.{table_name}",
                 exc=e,
             )
             return None
