@@ -41,6 +41,7 @@ export const barChartDefault: BarChartProps<any> = {
         hideAxisLine: true,
         hideTicks: true,
     },
+    showLeftAxisLine: false,
     bottomAxisProps: {
         tickFormat: (value) => dayjs(value).format('DD MMM'),
         tickLabelProps: {
@@ -79,6 +80,7 @@ export function BarChart<DatumType extends object = any>({
     margin,
 
     leftAxisProps = barChartDefault.leftAxisProps,
+    showLeftAxisLine = barChartDefault.showLeftAxisLine,
     bottomAxisProps = barChartDefault.bottomAxisProps,
     gridProps = barChartDefault.gridProps,
 
@@ -144,13 +146,15 @@ export function BarChart<DatumType extends object = any>({
                                 {...mergedBottomAxisProps}
                             />
 
-                            <line
-                                x1={internalMargin.left}
-                                x2={internalMargin.left}
-                                y1={0}
-                                y2={height - internalMargin.bottom}
-                                stroke={gridProps?.stroke}
-                            />
+                            {showLeftAxisLine && (
+                                <line
+                                    x1={internalMargin.left}
+                                    x2={internalMargin.left}
+                                    y1={0}
+                                    y2={height - internalMargin.bottom}
+                                    stroke={gridProps?.stroke}
+                                />
+                            )}
 
                             <Grid {...gridProps} />
 

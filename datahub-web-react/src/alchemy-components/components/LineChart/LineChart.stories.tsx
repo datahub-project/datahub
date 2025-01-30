@@ -57,8 +57,14 @@ const meta = {
         leftAxisProps: {
             description: 'The props for the left axis',
         },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
+        },
         bottomAxisProps: {
             description: 'The props for the bottom axis',
+        },
+        showBottomAxisLine: {
+            description: 'Enable to show bottom horizontal line',
         },
         gridProps: {
             description: 'The props for the grid',

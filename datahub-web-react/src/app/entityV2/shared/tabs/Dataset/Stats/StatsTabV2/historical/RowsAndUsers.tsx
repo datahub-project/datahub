@@ -18,6 +18,16 @@ const Container = styled.div`
     width: 100%;
 `;
 
+const GraphWrapper = styled.div`
+    display: flex;
+    width: 70%;
+
+    @media screen and (max-width: 2300px) {
+        // align with highlights cards
+        max-width: 1225px;
+    }
+`;
+
 const RowsAndUsers = () => {
     const {
         permissions: { canViewDatasetUsage },
@@ -41,7 +51,9 @@ const RowsAndUsers = () => {
     return (
         <SectionWrapper>
             <Container>
-                <RowCountGraph />
+                <GraphWrapper>
+                    <RowCountGraph />
+                </GraphWrapper>
                 <TopUsers users={users || undefined} />
             </Container>
         </SectionWrapper>

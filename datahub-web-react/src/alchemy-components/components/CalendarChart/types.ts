@@ -40,6 +40,7 @@ export type CalendarChartProps<ValueType> = {
     showPopover?: boolean;
     popoverRenderer?: (day: DayData<ValueType>) => React.ReactNode;
     leftAxisLabelProps?: LabelProps;
+    showLeftAxisLine?: boolean;
     bottomAxisLabelProps?: LabelProps;
     margin?: Margin;
     maxHeight?: number;
@@ -70,6 +71,7 @@ export type DayProps<ValueType> = {
 
 export type AxisLeftWeekdaysProps = {
     labelProps?: LabelProps;
+    showLeftAxisLine?: boolean;
 };
 
 export type AxisBottomMonthsProps = {

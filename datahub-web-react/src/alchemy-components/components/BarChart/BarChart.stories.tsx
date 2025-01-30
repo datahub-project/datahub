@@ -65,6 +65,9 @@ const meta = {
         leftAxisProps: {
             description: 'The props for the left axis',
         },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
+        },
         bottomAxisProps: {
             description: 'The props for the bottom axis',
         },

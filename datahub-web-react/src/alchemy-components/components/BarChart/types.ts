@@ -30,6 +30,7 @@ export type BarChartProps<DatumType extends object> = {
     margin?: Margin;
 
     leftAxisProps?: AxisProps<DatumType>;
+    showLeftAxisLine?: boolean;
     bottomAxisProps?: AxisProps<DatumType>;
     gridProps?: GridProps<DatumType>;
 

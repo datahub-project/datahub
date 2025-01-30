@@ -35,6 +35,11 @@ export const StatsContainer = styled.div`
     padding: 12px 0;
     width: 100%;
     box-sizing: border-box;
+
+    overflow-x: auto;
+    &::-webkit-scrollbar {
+        display: none;
+    }
 `;
 
 export const StatCards = styled.div`

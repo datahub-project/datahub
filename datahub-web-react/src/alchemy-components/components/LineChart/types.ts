@@ -20,7 +20,9 @@ export type LineChartProps<DatumType extends object> = {
     margin?: Margin;
 
     leftAxisProps?: AxisProps<DatumType>;
+    showLeftAxisLine?: boolean;
     bottomAxisProps?: AxisProps<DatumType>;
+    showBottomAxisLine?: boolean;
     gridProps?: GridProps<DatumType>;
 
     popoverRenderer?: (datum: DatumType) => React.ReactNode;

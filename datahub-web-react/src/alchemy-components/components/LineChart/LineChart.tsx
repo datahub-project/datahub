@@ -48,6 +48,7 @@ export const lineChartDefault: LineChartProps<any> = {
         hideAxisLine: true,
         hideTicks: true,
     },
+    showLeftAxisLine: false,
     bottomAxisProps: {
         tickFormat: (x) => dayjs(x).format('D MMM'),
         tickLabelProps: {
@@ -65,6 +66,7 @@ export const lineChartDefault: LineChartProps<any> = {
         hideAxisLine: true,
         hideTicks: true,
     },
+    showBottomAxisLine: true,
     gridProps: {
         rows: true,
         columns: false,
@@ -99,7 +101,9 @@ export function LineChart<DatumType extends object>({
     margin,
 
     leftAxisProps,
+    showLeftAxisLine = lineChartDefault.showLeftAxisLine,
     bottomAxisProps,
+    showBottomAxisLine = lineChartDefault.showBottomAxisLine,
     gridProps,
 
     popoverRenderer,
@@ -170,21 +174,26 @@ export function LineChart<DatumType extends object>({
                                 {...mergedBottomAxisProps}
                             />
                             {/* Left vertical line for y-axis */}
-                            <line
-                                x1={internalMargin.left}
-                                x2={internalMargin.left}
-                                y1={0}
-                                y2={height - internalMargin.bottom}
-                                stroke={mergedGridProps.stroke}
-                            />
+                            {showLeftAxisLine && (
+                                <line
+                                    x1={internalMargin.left}
+                                    x2={internalMargin.left}
+                                    y1={0}
+                                    y2={height - internalMargin.bottom}
+                                    stroke={mergedGridProps.stroke}
+                                />
+                            )}
+
                             {/* Bottom horizontal line for x-axis */}
-                            <line
-                                x1={internalMargin.left}
-                                x2={width - internalMargin.right}
-                                y1={height - internalMargin.bottom}
-                                y2={height - internalMargin.bottom}
-                                stroke={mergedGridProps.stroke}
-                            />
+                            {showBottomAxisLine && (
+                                <line
+                                    x1={internalMargin.left}
+                                    x2={width - internalMargin.right}
+                                    y1={height - internalMargin.bottom}
+                                    y2={height - internalMargin.bottom}
+                                    stroke={mergedGridProps.stroke}
+                                />
+                            )}
 
                             {showGrid && (
                                 <Grid

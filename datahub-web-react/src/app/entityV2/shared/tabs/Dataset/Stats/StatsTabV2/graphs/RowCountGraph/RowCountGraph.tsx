@@ -56,7 +56,6 @@ export default function RowCountGraph() {
             emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
             loading={loading}
             graphHeight="290px"
-            width="70%"
             renderControls={() => (
                 <>
                     <AddAssertionButton assertionType={AssertionType.Volume} />
