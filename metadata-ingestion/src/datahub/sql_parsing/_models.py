@@ -1,4 +1,5 @@
 import functools
+import re
 from typing import Any, Optional
 
 import sqlglot
@@ -6,6 +7,10 @@ from pydantic import BaseModel
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.sql_parsing.sql_parsing_common import DIALECTS_WITH_DELTALAKE_TVF_SUPPORT
+from datahub.sql_parsing.sqlglot_utils import (
+    is_dialect_instance,
+)
 
 
 class _ParserBaseModel(
@@ -78,6 +83,7 @@ class _TableName(_FrozenModel):
         table: sqlglot.exp.Table,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        dialect: sqlglot.Dialect = None,
     ) -> "_TableName":
         if isinstance(table.this, sqlglot.exp.Dot):
             # For tables that are more than 3 parts, the extra parts will be in a Dot.
@@ -89,6 +95,12 @@ class _TableName(_FrozenModel):
                 exp = exp.expression
             parts.append(exp.name)
             table_name = ".".join(parts)
+        elif (
+            is_dialect_instance(dialect, DIALECTS_WITH_DELTALAKE_TVF_SUPPORT)
+            and table.this.name == "table_changes"
+            and re.match(r"TABLE_CHANGES\s*\([^)]*\)", table.this)
+        ):
+            table_name = table.this.expressions[0].alias_or_name
         else:
             table_name = table.this.name
         return cls(

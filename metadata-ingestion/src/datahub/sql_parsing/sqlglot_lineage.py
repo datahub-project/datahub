@@ -203,7 +203,7 @@ def _table_level_lineage(
     # Generate table-level lineage.
     modified = (
         {
-            _TableName.from_sqlglot_table(expr.this)
+            _TableName.from_sqlglot_table(table=expr.this, dialect=dialect)
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
@@ -220,7 +220,7 @@ def _table_level_lineage(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            _TableName.from_sqlglot_table(expr.this.this)
+            _TableName.from_sqlglot_table(table=expr.this.this, dialect=dialect)
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
@@ -231,7 +231,7 @@ def _table_level_lineage(
         | {
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
-            _TableName.from_sqlglot_table(expr.this)
+            _TableName.from_sqlglot_table(table=expr.this, dialect=dialect)
             for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
             if isinstance(expr.this, sqlglot.exp.Table)
             and expr.this.this
@@ -241,7 +241,7 @@ def _table_level_lineage(
 
     tables = (
         {
-            _TableName.from_sqlglot_table(table)
+            _TableName.from_sqlglot_table(table=table, dialect=dialect)
             for table in statement.find_all(sqlglot.exp.Table)
             if not isinstance(table.parent, sqlglot.exp.Drop)
         }
@@ -518,7 +518,9 @@ def _select_statement_cll(  # noqa: C901
             # )
 
             # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                lineage_node, dialect
+            )
 
             # column_logic = lineage_node.source
 
@@ -652,7 +654,7 @@ def _column_level_lineage(
 
 
 def _get_direct_raw_col_upstreams(
-    lineage_node: sqlglot.lineage.Node,
+    lineage_node: sqlglot.lineage.Node, dialect: sqlglot.Dialect
 ) -> Set[_ColumnRef]:
     # Using a set here to deduplicate upstreams.
     direct_raw_col_upstreams: Set[_ColumnRef] = set()
@@ -663,7 +665,9 @@ def _get_direct_raw_col_upstreams(
             pass
 
         elif isinstance(node.expression, sqlglot.exp.Table):
-            table_ref = _TableName.from_sqlglot_table(node.expression)
+            table_ref = _TableName.from_sqlglot_table(
+                table=node.expression, dialect=dialect
+            )
 
             if node.name == "*":
                 # This will happen if we couldn't expand the * to actual columns e.g. if

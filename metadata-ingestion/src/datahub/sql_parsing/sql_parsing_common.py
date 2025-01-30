@@ -31,6 +31,9 @@ DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # automatically lowercase unquoted identifiers.
     "snowflake",
 }
+# To support delta lake functions
+DIALECTS_WITH_DELTALAKE_TVF_SUPPORT = {"hive", "spark"}
+
 assert DIALECTS_WITH_DEFAULT_UPPERCASE_COLS.issubset(
     DIALECTS_WITH_CASE_INSENSITIVE_COLS
 )
