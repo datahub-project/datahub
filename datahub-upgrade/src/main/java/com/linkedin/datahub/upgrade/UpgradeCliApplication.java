@@ -5,7 +5,9 @@ import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
 import com.linkedin.gms.factory.graphql.GraphQLEngineFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
+import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
@@ -30,7 +32,9 @@ import org.springframework.context.annotation.FilterType;
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,
             KafkaEventConsumerFactory.class,
-            GraphQLEngineFactory.class
+            GraphQLEngineFactory.class,
+            KafkaTraceReaderFactory.class,
+            TraceServiceFactory.class
           })
     })
 public class UpgradeCliApplication {

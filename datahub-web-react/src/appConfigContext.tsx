@@ -55,9 +55,22 @@ export const DEFAULT_APP_CONFIG = {
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
+        themeV2Enabled: false,
+        themeV2Default: false,
+        themeV2Toggleable: false,
+        lineageGraphV2: false,
         showSeparateSiblings: false,
+        schemaFieldCLLEnabled: false,
+        schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
+        hideDbtSourceInLineage: false,
+        showNavBarRedesign: false,
+        showAutoCompleteResults: false,
         entityVersioningEnabled: false,
+    },
+    chromeExtensionConfig: {
+        enabled: false,
+        lineageEnabled: false,
     },
 };
 

@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.IngestAspectsResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
@@ -88,7 +89,8 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn),
+            argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
 
@@ -101,42 +103,43 @@ public class AspectResourceTest {
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
             .build(opContext.getAspectRetriever());
-    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
-        .thenReturn(
-            List.of(List.of(
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name1"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name2"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name3"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name4"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name5"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build())));
+    IngestAspectsResult txResult = IngestAspectsResult.builder()
+            .updateAspectResults(List.of(
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name1"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name2"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name3"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name4"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name5"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build()))
+            .build();
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(List.of(txResult));
     aspectResource.ingestProposal(mcp, "false");
     verify(producer, times(5))
-        .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
+        .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
   }
 
@@ -160,7 +163,7 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn), argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
     reset(producer, aspectDao);
