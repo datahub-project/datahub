@@ -184,6 +184,18 @@ datahub.add_command(assertions)
 datahub.add_command(container)
 
 try:
+    from datahub.cli.iceberg_cli import iceberg
+
+    datahub.add_command(iceberg)
+except ImportError as e:
+    logger.debug(f"Failed to load datahub iceberg command: {e}")
+    datahub.add_command(
+        make_shim_command(
+            "iceberg", "run `pip install 'acryl-datahub[iceberg-catalog]'`"
+        )
+    )
+
+try:
     from datahub.cli.lite_cli import lite
 
     datahub.add_command(lite)
