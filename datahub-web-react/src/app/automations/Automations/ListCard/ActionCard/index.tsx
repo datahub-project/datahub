@@ -88,6 +88,10 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
             .catch((error) => openErrorNotification('Initialize Automation', error.message));
     };
 
+    const copyUrnAction = () => {
+        navigator.clipboard.writeText(urn);
+    };
+
     // Delete Action
     const deleteAction = () => {
         // Delete is handled by the context
@@ -147,6 +151,14 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                     icon: 'AutoMode',
                                     label: 'Initialize',
                                     tooltip: 'Backfill the automation for existing data assets. This may take a while!',
+                                },
+                                {
+                                    key: 'copy',
+                                    onClick: copyUrnAction,
+                                    disabled: false,
+                                    icon: 'AutoMode',
+                                    label: 'Copy Urn',
+                                    tooltip: 'Copy Urn to clipboard',
                                 },
                                 // TODO: Rollback is currently disabled due to quality problems.
                                 // {
