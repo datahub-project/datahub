@@ -41,6 +41,7 @@ import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -150,7 +151,7 @@ public class DeleteEntityServiceTest {
             1);
 
     Mockito.when(_aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.anyInt()))
-        .thenReturn(result);
+        .thenReturn(Optional.of(result));
 
     final DeleteReferencesResponse response =
         _deleteEntityService.deleteReferencesTo(opContext, container, false);

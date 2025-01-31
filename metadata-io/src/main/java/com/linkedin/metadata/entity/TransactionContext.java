@@ -72,4 +72,10 @@ public class TransactionContext {
       tx.flush();
     }
   }
+
+  public void rollback() {
+    if (tx != null) {
+      tx.rollback();
+    }
+  }
 }

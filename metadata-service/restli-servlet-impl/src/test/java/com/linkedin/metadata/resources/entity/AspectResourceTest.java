@@ -34,6 +34,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -136,7 +137,7 @@ public class AspectResourceTest {
                             .request(req)
                             .build()))
             .build();
-    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(List.of(txResult));
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(Optional.of(txResult));
     aspectResource.ingestProposal(mcp, "false");
     verify(producer, times(5))
         .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
