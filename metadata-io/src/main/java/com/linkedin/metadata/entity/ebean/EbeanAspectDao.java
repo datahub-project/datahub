@@ -5,9 +5,6 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -20,6 +17,7 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.TransactionContext;
+import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
@@ -53,14 +51,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -89,12 +83,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // more testing.
   private int _queryKeysCount = 375; // 0 means no pagination on keys
 
-  /**
-   * Used to control write concurrency when an entity key aspect is present. If a batch contains an
-   * entity key aspect, only allow a single execution per URN
-   */
-  private final LoadingCache<String, Lock> locks;
-
   private final String batchGetMethod;
 
   public EbeanAspectDao(@Nonnull final Database server, EbeanConfiguration ebeanConfiguration) {
@@ -103,21 +91,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
-    if (ebeanConfiguration.getLocking().isEnabled()) {
-      this.locks =
-          CacheBuilder.newBuilder()
-              .maximumSize(ebeanConfiguration.getLocking().getMaximumLocks())
-              .expireAfterWrite(
-                  ebeanConfiguration.getLocking().getDurationSeconds(), TimeUnit.SECONDS)
-              .build(
-                  new CacheLoader<>() {
-                    public Lock load(String key) {
-                      return new ReentrantLock(true);
-                    }
-                  });
-    } else {
-      this.locks = null;
-    }
   }
 
   @Override
@@ -764,83 +737,42 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   @Nonnull
-  public <T> T runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry) {
-    return runInTransactionWithRetry(block, null, maxTransactionRetry).get(0);
+  public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
+      final int maxTransactionRetry) {
+    return runInTransactionWithRetry(block, null, maxTransactionRetry);
   }
 
   @Override
   @Nonnull
-  public <T> List<T> runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block,
+  public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
 
-    LinkedList<T> result = new LinkedList<>();
-
-    if (locks != null && batch != null) {
-      Set<Urn> urnsWithKeyAspects =
-          batch.getMCPItems().stream()
-              .filter(i -> i.getEntitySpec().getKeyAspectSpec().equals(i.getAspectSpec()))
-              .map(MCPItem::getUrn)
-              .collect(Collectors.toSet());
-
-      if (!urnsWithKeyAspects.isEmpty()) {
-
-        // Split into batches by urn with key aspect, remaining aspects in the pair's second
-        Pair<List<AspectsBatch>, AspectsBatch> splitBatches =
-            splitByUrn(batch, urnsWithKeyAspects, batch.getRetrieverContext());
-
-        // Run non-key aspect `other` batch per normal
-        if (!splitBatches.getSecond().getItems().isEmpty()) {
-          result.add(
-              runInTransactionWithRetryUnlocked(
-                  block, splitBatches.getSecond(), maxTransactionRetry));
-        }
-
-        // For each key aspect batch
-        for (AspectsBatch splitBatch : splitBatches.getFirst()) {
-          try {
-            Lock lock =
-                locks.get(splitBatch.getMCPItems().stream().findFirst().get().getUrn().toString());
-            lock.lock();
-            try {
-              result.add(runInTransactionWithRetryUnlocked(block, splitBatch, maxTransactionRetry));
-            } finally {
-              lock.unlock();
-            }
-          } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      } else {
-        // No key aspects found, run per normal
-        result.add(runInTransactionWithRetryUnlocked(block, batch, maxTransactionRetry));
-      }
-    } else {
-      // locks disabled or null batch
-      result.add(runInTransactionWithRetryUnlocked(block, batch, maxTransactionRetry));
-    }
-
-    return result;
+    return runInTransactionWithRetryUnlocked(block, batch, maxTransactionRetry).getResults();
   }
 
   @Nonnull
-  public <T> T runInTransactionWithRetryUnlocked(
-      @Nonnull final Function<TransactionContext, T> block,
+  public <T> TransactionResult<T> runInTransactionWithRetryUnlocked(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
 
     validateConnection();
     TransactionContext transactionContext = TransactionContext.empty(maxTransactionRetry);
 
-    T result = null;
+    TransactionResult<T> result = null;
     do {
       try (Transaction transaction =
           _server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction.setBatchMode(true);
         result = block.apply(transactionContext.tx(transaction));
-        transaction.commit();
+        if (result.isCommitOrRollback()) {
+          transaction.commit();
+        } else {
+          transaction.rollback();
+        }
         break;
       } catch (PersistenceException exception) {
         if (exception instanceof DuplicateKeyException) {
