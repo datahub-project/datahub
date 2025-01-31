@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity as GraphQLEntity } from '@types';
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -13,23 +14,21 @@ import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
 import { DataProcessInstance, Entity as GeneratedEntity, EntityType, SearchResult } from '../../../types.generated';
 import Preview from './preview/Preview';
+import DataProcessInstanceSummary from './profile/DataProcessInstanceSummary';
 
-const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    if (!parentEntity?.entity) return [];
+    if (!parentEntity || !parentEntity.entity) {
+        return [];
+    }
 
-    // Convert to GeneratedEntity
-    return [
-        {
-            type: parentEntity.entity.type,
-            urn: (parentEntity.entity as any).urn, // Make sure urn exists
-            relationships: (parentEntity.entity as any).relationships,
-        },
-    ];
+    // First cast to unknown, then to Entity with proper type
+    return [parentEntity.entity];
 };
+
 
 /**
  * Definition of the DataHub DataProcessInstance entity.
@@ -85,6 +84,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
             }
             tabs={[
+                {
+                    name: 'Summary',
+                    component: DataProcessInstanceSummary,
+                },
                 {
                     name: 'Lineage',
                     component: LineageTab,
