@@ -48,7 +48,9 @@ class AzureFabricSource(Source):
             ctx=self.ctx,
             report=self.report,
         )
-        yield from semantic_model_manager.get_semantic_model_wus()
+        for w in semantic_model_manager.get_semantic_model_wus():
+            logger.error(w)
+            yield w
 
         # # Process Warehouses
         # warehouse_manager = WarehouseManager(

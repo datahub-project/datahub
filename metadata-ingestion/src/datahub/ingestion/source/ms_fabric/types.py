@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field, root_validator
 
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.ms_fabric.constants import (
     ItemType,
     LakehouseTableType,
@@ -77,6 +78,10 @@ class MirroredDatabase(BaseModel):
     workspace_id: str = Field(alias="workspaceId")
 
 
+class SemanticModelContainerKey(ContainerKey):
+    key: str
+
+
 class SemanticModelPart(BaseModel):
     path: str
     payload: str
@@ -104,32 +109,54 @@ class SemanticModel(BaseModel):
     definition: Optional[SemanticModelParts]
 
 
+class TmdlMeasure(BaseModel):
+    name: str
+    formula: str
+    description: str = ""
+    annotations: Dict[str, str] = None
+
+
 class TmdlColumn(BaseModel):
     name: str
-    data_type: str
-    source_provider_type: Optional[str]
-    lineage_tag: str
-    summarize_by: str
-    source_column: Optional[str]
-    annotations: Dict[str, str]
+    data_type: str = ""
+    source_provider_type: Optional[str] = None
+    lineage_tag: str = ""
+    summarize_by: str = ""
+    source_column: Optional[str] = None
+    source_lineage_tag: Optional[str] = None
+    is_hidden: bool = False
+    annotations: Dict[str, str] = None
 
 
 class TmdlPartition(BaseModel):
     name: str
-    mode: str
-    source_query: Optional[str]
+    mode: str = ""
+    source_query: Optional[str] = None
+    source_type: Optional[str] = None
+    expression_source: Optional[str] = None
 
 
-class TmdlTable(BaseModel):
-    name: str
-    lineage_tag: str
-    columns: List[TmdlColumn]
-    partitions: List[TmdlPartition]
-    annotations: Dict[str, str]
-
-
-class CalculatedColumnInfo(BaseModel):
+class TmdlCalculatedColumn(BaseModel):
     name: str
     formula: str
     referenced_columns: Set[str]
     description: str = ""
+
+
+class TmdlTable(BaseModel):
+    name: str
+    lineage_tag: str = ""
+    columns: List[TmdlColumn]
+    measures: List[TmdlMeasure]
+    partitions: List[TmdlPartition]
+    calculated_columns: List[TmdlCalculatedColumn]
+    annotations: Dict[str, str]
+    source_lineage_tag: Optional[str] = None
+
+
+class TmdlModel(BaseModel):
+    name: str
+    culture: Optional[str] = "en-US"
+    tables: List[TmdlTable]
+    compatibility_level: Optional[int] = 1550
+    annotations: Dict[str, str]

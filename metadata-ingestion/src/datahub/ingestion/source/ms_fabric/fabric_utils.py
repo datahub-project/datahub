@@ -1,26 +1,19 @@
 import logging
 import re
-from typing import Dict, List, Set, Union
+import urllib.parse
+from typing import Dict, List, Optional
 
 import requests
-from azure.identity import (
-    ClientSecretCredential,
-)
+from azure.identity import ClientSecretCredential
 
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.ms_fabric.types import (
-    CalculatedColumnInfo,
+    TmdlCalculatedColumn,
     TmdlColumn,
+    TmdlMeasure,
+    TmdlModel,
     TmdlPartition,
     TmdlTable,
-)
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,19 +23,7 @@ def set_session(
     session: requests.Session,
     azure_config: AzureConnectionConfig,
 ) -> requests.Session:
-    """
-    Sets up a session with Azure authentication.
-
-    Args:
-        session: The requests session to configure
-        azure_config: Azure configuration containing credentials
-
-    Returns:
-        Configured requests session
-
-    Raises:
-        ValueError: If azure_config is invalid
-    """
+    """Sets up a session with Azure authentication."""
     if not isinstance(azure_config, AzureConnectionConfig):
         raise ValueError("azure_config must be an AzureConnectionConfig instance")
 
@@ -56,7 +37,6 @@ def set_session(
             }
         )
     else:
-        # For other credential types, ensure they support get_token
         if hasattr(credentials, "get_token"):
             token = credentials.get_token("https://api.fabric.microsoft.com/.default")
             session.headers.update(
@@ -67,369 +47,468 @@ def set_session(
     return session
 
 
-def _map_powerbi_type_to_datahub_type(
-    data_type: str,
-) -> Union[
-    StringTypeClass,
-    NumberTypeClass,
-    TimeTypeClass,
-    DateTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-]:
-    """Map Power BI data types to DataHub types"""
-    type_mapping = {
-        "string": StringTypeClass(),
-        "double": NumberTypeClass(),
-        "decimal": NumberTypeClass(),
-        "integer": NumberTypeClass(),
-        "int64": NumberTypeClass(),
-        "datetime": TimeTypeClass(),
-        "date": DateTypeClass(),
-        "time": TimeTypeClass(),
-        "boolean": BooleanTypeClass(),
-        "binary": BytesTypeClass(),
-    }
-    return type_mapping.get(data_type.lower(), "string")
-
-
-def _parse_m_query(query: str) -> List[str]:
-    """Parse Power BI's M query to extract source tables"""
-    if not query:
-        return []
-
-    source_tables = []
-
+def clean_tmdl_content(content: str) -> str:
+    """Clean TMDL content by handling URL encoding and normalizing line endings"""
     try:
-        # Safer regex patterns with escaped characters and no unbalanced parentheses
-        patterns = [
-            # Basic Source pattern
-            r'Source\{[^}]*\[Name="([^"]+)"[^}]*\}',
-            # Schema pattern
-            r'(\w+)_Schema\{[^}]*\[Name="([^"]+)"[^}]*\}',
-            # Database pattern with optional schema/table
-            r'(?:[\w.]+)\.Database(?:\.|\\)\w+\("([^"]+)"\)',
-            # Direct table references
-            r"\[([^\]]+)\]",
-            # Named references
-            r'#"([^"]+)"',
-        ]
+        # Unescape all URL encoded characters
+        content = urllib.parse.unquote(content)
 
-        for pattern in patterns:
-            try:
-                matches = re.finditer(pattern, query, re.IGNORECASE)
-                for match in matches:
-                    # Get the last group if multiple groups exist, otherwise get the first group
-                    table_name = match.group(match.lastindex or 1)
-                    if table_name and isinstance(table_name, str):
-                        # Clean up the table name
-                        cleaned_name = table_name.strip('[]"')
-                        if cleaned_name:
-                            source_tables.append(cleaned_name)
-            except (re.error, IndexError, AttributeError) as e:
-                print(f"Error parsing with pattern {pattern}: {str(e)}")
+        # Normalize line endings
+        content = content.replace("\r\n", "\n")
+
+        # Join lines that are part of the same statement
+        lines = []
+        current_line = []
+
+        for line in content.split("\n"):
+            stripped = line.strip()
+
+            if not stripped:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                    current_line = []
                 continue
 
-    except Exception as e:
-        logger.error(f"Error parsing M query: {str(e)}")
+            if stripped.endswith((",", "=", "+", "-", "*", "/", "&&", "||")):
+                current_line.append(stripped)
+            elif current_line and stripped.startswith(("&&", "||", "+", "-", "*", "/")):
+                current_line.append(stripped)
+            else:
+                if current_line:
+                    lines.append(" ".join(current_line))
+                current_line = [stripped]
 
-    # Remove duplicates while preserving order
-    return list(dict.fromkeys(source_tables))
+        if current_line:
+            lines.append(" ".join(current_line))
 
-
-def clean_m_query(query: str) -> str:
-    """Clean and normalize M-query content for safer parsing"""
-    if not query:
-        return ""
-
-    try:
-        # Replace escaped quotes with temporary markers
-        query = query.replace('\\"', "%%QUOTE%%")
-
-        # Normalize newlines
-        query = query.replace("\r\n", "\n").replace("\r", "\n")
-
-        # Remove comments
-        query = re.sub(r"//.*$", "", query, flags=re.MULTILINE)
-
-        # Clean up whitespace
-        query = " ".join(query.split())
-
-        # Restore escaped quotes
-        query = query.replace("%%QUOTE%%", '\\"')
-
-        return query
+        return "\n".join(lines)
 
     except Exception as e:
-        print(f"Error cleaning M query: {str(e)}")
-        return query  # Return original if cleaning fails
+        logger.error(f"Error cleaning TMDL content: {str(e)}")
+        return content
 
 
-def extract_table_reference(reference: str) -> str:
-    """Safely extract table name from various reference formats"""
-    if not reference:
-        return ""
+def _clean_table_name(table_name: str) -> str:
+    """Clean table names by removing brackets and extra whitespace"""
+    # Remove leading/trailing brackets and whitespace
+    cleaned = table_name.strip("[]").strip()
 
-    try:
-        # Remove common wrappers
-        for wrapper in ["[", "]", '"', "'", "`"]:
-            reference = reference.strip(wrapper)
+    # Handle schema.table format with brackets
+    parts = cleaned.split(".")
+    cleaned_parts = [part.strip("[]").strip() for part in parts]
 
-        # Split on common separators and take the last part
-        for separator in [".", "\\", "/"]:
-            if separator in reference:
-                reference = reference.split(separator)[-1]
-
-        return reference.strip()
-
-    except Exception as e:
-        print(f"Error extracting table reference: {str(e)}")
-        return reference  # Return original if extraction fails
+    return ".".join(cleaned_parts)
 
 
 class TmdlParser:
     def __init__(self, tmdl_content: str):
-        self.content = tmdl_content
-        self.lines = [line for line in tmdl_content.split("\n") if line.strip()]
-        self.current_position = 0
+        self.raw_content = tmdl_content
+        self.content = clean_tmdl_content(tmdl_content)
+        self.lines = self.content.split("\n")
 
-    def parse_table(self) -> TmdlTable:
-        """Parse TMDL content into a TmdlTable object"""
-        table_data = self._find_table_section()
-        if not table_data:
-            raise ValueError("Invalid TMDL format: No table definition found")
-
-        # Parse basic table info
-        columns = self._parse_columns(table_data["content"])
-        partitions = self._parse_partitions(table_data["content"])
-        annotations = self._parse_annotations(table_data["content"])
-
-        # Get calculated columns info
-        calculated_columns = self._parse_calculated_columns(table_data["content"])
-
-        # Add calculation info to column annotations
-        for calc in calculated_columns:
-            for col in columns:
-                if col.name == calc.name:
-                    col.annotations["formula"] = calc.formula
-                    col.annotations["isCalculated"] = "true"
-                    col.annotations["referencedColumns"] = ",".join(
-                        calc.referenced_columns
-                    )
-                    col.annotations["description"] = (
-                        f"{col.annotations.get('description', '')} Calculation: {calc.formula}"
-                    )
-
-        return TmdlTable(
-            name=table_data["name"],
-            lineage_tag=table_data.get("lineageTag", ""),
-            columns=columns,
-            partitions=partitions,
-            annotations=annotations,
-        )
-
-    def _find_table_section(self) -> Dict:
-        """Extract the complete table section and its metadata"""
-        table_data = {"content": [], "name": "", "lineageTag": ""}
-        in_table = False
+    def parse(self) -> TmdlModel:
+        """Parse the entire TMDL content into a model"""
+        model_name = "DefaultModel"
+        model_culture = "en-US"
+        tables = []
+        current_table = None
+        table_content = []
 
         for line in self.lines:
-            stripped_line = line.strip()
-            if stripped_line.startswith("table "):
-                in_table = True
-                table_data["name"] = self._extract_table_name(stripped_line[6:])
-                continue
+            stripped = line.strip()
 
-            if in_table:
-                if stripped_line.startswith("lineageTag:"):
-                    table_data["lineageTag"] = stripped_line.split(":", 1)[1].strip()
-                table_data["content"].append(line)
+            # Model definition
+            if stripped.startswith("model "):
+                model_name = stripped[6:].strip()
 
-                # Check for end of table section
-                if stripped_line == "" and any(
-                    next_line.strip().startswith("table ")
-                    for next_line in self.lines[self.lines.index(line) + 1 :]
-                    if next_line.strip()
-                ):
-                    break
+            # Table definition
+            elif stripped.startswith("table "):
+                # Complete previous table
+                if current_table and table_content:
+                    table = self._parse_table_content(current_table, table_content)
+                    if table:
+                        tables.append(table)
 
-        return table_data
+                current_table = stripped[6:].strip()
+                table_content = []
 
-    def _parse_columns(self, table_lines: List[str]) -> List[TmdlColumn]:
+            # Culture info
+            elif stripped.startswith("culture: "):
+                model_culture = stripped[9:].strip()
+
+            # Add line to current table content
+            elif current_table:
+                table_content.append(line)
+
+        # Handle last table
+        if current_table and table_content:
+            table = self._parse_table_content(current_table, table_content)
+            if table:
+                tables.append(table)
+
+        return TmdlModel(
+            name=model_name, culture=model_culture, tables=tables, annotations={}
+        )
+
+    def _parse_table_content(
+        self, table_name: str, content: List[str]
+    ) -> Optional[TmdlTable]:
+        """Parse individual table content"""
+        try:
+            table_name = urllib.parse.unquote(table_name).split(" ")[0].strip("\"[]'")
+            table_content = "\n".join(content)
+
+            # Extract lineage tags
+            lineage_tag = ""
+            source_lineage_tag = ""
+
+            lineage_match = re.search(r"lineageTag:\s*([^\n]+)", table_content)
+            if lineage_match:
+                lineage_tag = lineage_match.group(1).strip()
+
+            source_match = re.search(r"sourceLineageTag:\s*([^\n]+)", table_content)
+            if source_match:
+                source_lineage_tag = source_match.group(1).strip()
+
+            # Parse components
+            columns = self._parse_columns(table_content)
+            measures = self._parse_measures(table_content)
+            partitions = self._parse_partitions(table_content)
+            annotations = self._parse_annotations(table_content)
+
+            return TmdlTable(
+                name=table_name,
+                lineage_tag=lineage_tag,
+                source_lineage_tag=source_lineage_tag,
+                columns=columns,
+                measures=measures,
+                partitions=partitions,
+                annotations=annotations,
+                calculated_columns=[],  # Will be populated during column parsing
+            )
+
+        except Exception as e:
+            logger.error(f"Error parsing table {table_name}: {str(e)}")
+            return None
+
+    def _parse_columns(self, content: str) -> List[TmdlColumn]:
+        """Parse column definitions with improved property handling"""
         columns = []
         current_column = None
+        current_properties = {}
 
-        for line in table_lines:
-            stripped_line = line.strip()
+        for line in content.split("\n"):
+            stripped = line.strip()
 
-            if stripped_line.startswith("column "):
+            # Start of new column
+            if stripped.startswith("column "):
+                # Complete previous column
                 if current_column:
+                    self._complete_column(current_column, current_properties)
                     columns.append(current_column)
 
-                column_name = stripped_line[7:].strip()
+                # Initialize new column
+                col_name = stripped[7:].strip()
+                for char in "\"[]'":
+                    col_name = col_name.strip(char)
+
                 current_column = TmdlColumn(
-                    name=column_name,
+                    name=col_name,
                     data_type="",
                     source_provider_type=None,
                     lineage_tag="",
                     summarize_by="",
                     source_column=None,
+                    source_lineage_tag=None,
+                    is_hidden=False,
                     annotations={},
                 )
+                current_properties = {}
+                continue
 
-            elif current_column and line.startswith("\t\t"):
-                if ":" in line:
-                    key, value = [x.strip() for x in line.split(":", 1)]
-                    if key == "dataType":
-                        current_column.data_type = value
-                    elif key == "sourceProviderType":
-                        current_column.source_provider_type = value
-                    elif key == "lineageTag":
-                        current_column.lineage_tag = value
-                    elif key == "summarizeBy":
-                        current_column.summarize_by = value
-                    elif key == "sourceColumn":
-                        current_column.source_column = value
+            # Collect column properties
+            if current_column and stripped:
+                if ":" in stripped:
+                    key, value = [x.strip() for x in stripped.split(":", 1)]
+                    current_properties[key] = value
+                elif stripped.startswith("annotation"):
+                    if "=" in stripped:
+                        key, value = stripped.replace("annotation", "", 1).split("=", 1)
+                        current_column.annotations[key.strip()] = value.strip().strip(
+                            '"'
+                        )
+                elif stripped == "isHidden":
+                    current_column.is_hidden = True
+                elif stripped.startswith("changedProperty"):
+                    prop = stripped.replace("changedProperty", "", 1).strip()
+                    if "=" in prop:
+                        key, value = prop.split("=", 1)
+                        current_column.annotations[f"changedProperty_{key.strip()}"] = (
+                            value.strip()
+                        )
                     else:
-                        current_column.annotations[key] = value
-                else:
-                    # Handle flag attributes
-                    key = line.strip()
-                    current_column.annotations[key] = "true"
+                        current_column.annotations["changedProperty"] = prop.strip()
 
+        # Complete last column
         if current_column:
+            self._complete_column(current_column, current_properties)
             columns.append(current_column)
 
         return columns
 
-    def _parse_partitions(self, table_lines: List[str]) -> List[TmdlPartition]:
-        """Parse partition definitions with robust M-query handling"""
-        partitions = []
-        current_partition = None
-        collecting_source = False
-        source_lines = []
+    def _complete_column(self, column: TmdlColumn, properties: Dict[str, str]):
+        """Apply collected properties to column object"""
+        for key, value in properties.items():
+            if key == "dataType":
+                column.data_type = value
+            elif key == "sourceProviderType":
+                column.source_provider_type = value
+            elif key == "lineageTag":
+                column.lineage_tag = value.strip("[]").strip()
+            elif key == "summarizeBy":
+                column.summarize_by = value
+            elif key == "sourceColumn":
+                column.source_column = value.strip("[]").strip()
+            elif key == "sourceLineageTag":
+                column.source_lineage_tag = value.strip("[]").strip()
+            elif key == "expression":
+                # Clean the formula value
+                column.annotations["formula"] = value.strip()
 
-        for line in table_lines:
-            stripped_line = line.strip()
+                # Extract and clean referenced columns from expression
+                refs = set()
+                for match in re.finditer(r"\[([^]]+)]", value):
+                    # Clean each referenced column name
+                    ref_col = match.group(1).strip("[]").strip()
+                    refs.add(ref_col)
 
-            if stripped_line.startswith("partition "):
-                if current_partition:
-                    if source_lines:
-                        # Clean and join the source query
-                        source_query = clean_m_query("\n".join(source_lines))
-                        current_partition.source_query = source_query
-                    partitions.append(current_partition)
+                if refs:
+                    column.annotations["referencedColumns"] = ",".join(sorted(refs))
 
-                partition_name = stripped_line[10:].split("=")[0].strip()
-                current_partition = TmdlPartition(
-                    name=partition_name, mode="", source_query=None
-                )
-                collecting_source = False
-                source_lines = []
-
-            elif current_partition:
-                if "mode:" in stripped_line:
-                    current_partition.mode = stripped_line.split(":", 1)[1].strip()
-                elif "source =" in stripped_line:
-                    collecting_source = True
-                elif collecting_source and stripped_line:
-                    source_lines.append(stripped_line)
-
-        # Handle the last partition
-        if current_partition:
-            if source_lines:
-                source_query = clean_m_query("\n".join(source_lines))
-                current_partition.source_query = source_query
-            partitions.append(current_partition)
-
-        return partitions
-
-    def _extract_source_info(self, line: str) -> Dict:
-        """Extract source information with robust error handling"""
-        source_info = {}
-
-        try:
-            cleaned_line = clean_m_query(line)
-
-            # Look for source patterns
-            if "Source{" in cleaned_line:
-                match = re.search(r'Source\{[^}]*\[Name="([^"]+)"', cleaned_line)
-                if match:
-                    table_ref = extract_table_reference(match.group(1))
-                    if "." in table_ref:
-                        db, table = table_ref.rsplit(".", 1)
-                        source_info["source_database"] = db
-                        source_info["source_table"] = table
-                    else:
-                        source_info["source_table"] = table_ref
-
-            elif "Database(" in cleaned_line:
-                db_match = re.search(r'Database\("([^"]+)"\)', cleaned_line)
-                schema_match = re.search(r'Schema="([^"]+)"', cleaned_line)
-
-                if db_match:
-                    source_info["source_database"] = db_match.group(1)
-                if schema_match:
-                    source_info["source_table"] = schema_match.group(1)
-
-        except Exception as e:
-            print(f"Error extracting source info: {str(e)}")
-
-        return source_info
-
-    def _parse_calculated_columns(
-        self, table_lines: List[str]
-    ) -> List[CalculatedColumnInfo]:
+    def _parse_calculated_columns(self, content: str) -> List[TmdlCalculatedColumn]:
+        """Parse calculated column definitions"""
         calculated_columns = []
+        current_column = None
+        expression_lines = []
 
-        for line in table_lines:
-            stripped_line = line.strip()
-            if "=" in stripped_line and not stripped_line.startswith("partition"):
-                try:
-                    name, formula = [x.strip() for x in stripped_line.split("=", 1)]
-                    referenced_cols = self._extract_referenced_columns(formula)
+        for line in content.split("\n"):
+            stripped = line.strip()
 
-                    calc_info = CalculatedColumnInfo(
-                        name=name,
-                        formula=formula,
-                        referenced_columns=referenced_cols,
-                        description=f"Calculated column: {formula}",
+            if (
+                stripped.startswith("column ")
+                and "expression:" in content[content.index(stripped) :]
+            ):
+                # Complete previous column
+                if current_column and expression_lines:
+                    column = self._complete_calculated_column(
+                        current_column, expression_lines
                     )
-                    calculated_columns.append(calc_info)
+                    if column:
+                        calculated_columns.append(column)
 
-                except Exception as e:
-                    print(f"Error parsing calculation: {str(e)}")
+                # Start new column
+                current_column = stripped[7:].split("=")[0].strip()
+                expression_lines = []
+                continue
+
+            if current_column and stripped.startswith("expression:"):
+                expression_lines.append(stripped.replace("expression:", "").strip())
+            elif (
+                current_column
+                and expression_lines
+                and not stripped.startswith(
+                    ("lineageTag:", "changedProperty", "annotation")
+                )
+            ):
+                expression_lines.append(stripped)
+
+        # Complete last column
+        if current_column and expression_lines:
+            column = self._complete_calculated_column(current_column, expression_lines)
+            if column:
+                calculated_columns.append(column)
 
         return calculated_columns
 
-    def _extract_referenced_columns(self, formula: str) -> Set[str]:
-        """Extract column names referenced in a calculation"""
-        referenced = set()
-        words = formula.split()
-        for word in words:
-            clean_word = word.strip("()[]{},.+-*/= ")
-            if clean_word and clean_word[0].isalpha():
-                referenced.add(clean_word)
-        return referenced
+    def _complete_calculated_column(
+        self, name: str, expression_lines: List[str]
+    ) -> Optional[TmdlCalculatedColumn]:
+        """Complete calculated column parsing"""
+        try:
+            expression = " ".join(expression_lines).strip()
 
-    def _parse_annotations(self, table_lines: List[str]) -> Dict[str, str]:
+            # Extract referenced columns
+            referenced_cols = set()
+            for match in re.finditer(r"\[([^]]+)]", expression):
+                referenced_cols.add(match.group(1))
+
+            return TmdlCalculatedColumn(
+                name=name,
+                formula=expression,
+                referenced_columns=referenced_cols,
+                description="",
+            )
+        except Exception as e:
+            logger.error(f"Error completing calculated column {name}: {str(e)}")
+            return None
+
+    def _parse_measures(self, content: str) -> List[TmdlMeasure]:
+        """Parse measure definitions with improved handling of backtick formulas"""
+        measures = []
+        current_measure = None
+        formula_lines = []
+        in_backticks = False
+
+        for line in content.split("\n"):
+            stripped = line.strip()
+
+            # Start of new measure
+            if stripped.startswith("measure "):
+                # Complete previous measure
+                if current_measure and formula_lines:
+                    measure = self._complete_measure(current_measure, formula_lines)
+                    if measure:
+                        measures.append(measure)
+
+                # Parse measure name
+                current_measure = stripped[8:].split("=")[0].strip()
+                formula_lines = []
+                continue
+
+            # Handle backtick blocks
+            if "```" in stripped:
+                in_backticks = not in_backticks
+                stripped = stripped.replace("```", "").strip()
+
+            # Collect formula lines
+            if current_measure:
+                if stripped and not stripped.startswith(
+                    ("lineageTag:", "changedProperty", "annotation")
+                ):
+                    formula_lines.append(stripped)
+                elif stripped.startswith(
+                    ("lineageTag:", "changedProperty", "annotation")
+                ):
+                    # Complete measure when we hit metadata
+                    if formula_lines:
+                        measure = self._complete_measure(current_measure, formula_lines)
+                        if measure:
+                            measures.append(measure)
+                        current_measure = None
+                        formula_lines = []
+
+        # Handle last measure
+        if current_measure and formula_lines:
+            measure = self._complete_measure(current_measure, formula_lines)
+            if measure:
+                measures.append(measure)
+
+        return measures
+
+    def _complete_measure(
+        self, name: str, formula_lines: List[str]
+    ) -> Optional[TmdlMeasure]:
+        """Complete measure parsing with formula and annotations"""
+        try:
+            formula = " ".join(formula_lines).strip()
+
+            # Extract referenced columns
+            referenced_cols = set()
+            for match in re.finditer(r"\[([^]]+)]", formula):
+                referenced_cols.add(match.group(1))
+
+            # Create annotations dict
+            annotations = {"referencedColumns": ",".join(sorted(referenced_cols))}
+
+            return TmdlMeasure(
+                name=name, formula=formula, description="", annotations=annotations
+            )
+        except Exception as e:
+            logger.error(f"Error completing measure {name}: {str(e)}")
+            return None
+
+    def _parse_partitions(self, content: str) -> List[TmdlPartition]:
+        """Parse partition definitions"""
+        partitions = []
+        partition_content = []
+        current_partition = None
+        in_partition = False
+        bracket_count = 0
+
+        for line in content.split("\n"):
+            stripped = line.strip()
+
+            if stripped.startswith("partition "):
+                if current_partition and partition_content:
+                    partition = self._complete_partition(
+                        current_partition, partition_content
+                    )
+                    if partition:
+                        partitions.append(partition)
+
+                current_partition = stripped[10:].split("=")[0].strip()
+                partition_content = []
+                in_partition = True
+                continue
+
+            if in_partition:
+                bracket_count += stripped.count("{") - stripped.count("}")
+                partition_content.append(line)
+
+                if bracket_count == 0 and not stripped:
+                    partition = self._complete_partition(
+                        current_partition, partition_content
+                    )
+                    if partition:
+                        partitions.append(partition)
+                    current_partition = None
+                    partition_content = []
+                    in_partition = False
+
+        if current_partition and partition_content:
+            partition = self._complete_partition(current_partition, partition_content)
+            if partition:
+                partitions.append(partition)
+
+        return partitions
+
+    def _complete_partition(
+        self, name: str, content: List[str]
+    ) -> Optional[TmdlPartition]:
+        """Complete partition parsing"""
+        try:
+            partition_content = "\n".join(content)
+
+            partition = TmdlPartition(name=name)
+
+            # Extract mode
+            mode_match = re.search(r"mode:\s*([^\n,]+)", partition_content)
+            if mode_match:
+                partition.mode = mode_match.group(1).strip()
+
+            # Extract source query
+            source_match = re.search(
+                r"source\s*=\s*(.*?)(?=\s*(?:,\s*$|$))", partition_content, re.DOTALL
+            )
+            if source_match:
+                partition.source_query = source_match.group(1).strip()
+
+            return partition
+
+        except Exception as e:
+            logger.error(f"Error completing partition {name}: {str(e)}")
+            return None
+
+    def _parse_annotations(self, content: str) -> Dict[str, str]:
+        """Parse annotations"""
         annotations = {}
-        for line in table_lines:
-            if "annotation" in line:
-                try:
-                    key, value = line.split("=", 1)
-                    key = key.replace("annotation", "").strip()
-                    value = value.strip().strip('"')
-                    annotations[key] = value
-                except ValueError:
-                    # Handle flag-style annotations
-                    key = line.replace("annotation", "").strip()
-                    annotations[key] = "true"
-        return annotations
 
-    def _extract_table_name(self, full_name: str) -> str:
-        """Extract clean table name from the full table declaration"""
-        name = full_name
-        for char in "\"[]'":
-            name = name.replace(char, "")
-        return name.split(" ")[0]
+        for match in re.finditer(r"annotation\s+([^\n]+)", content):
+            ann_def = match.group(1)
+            if "=" in ann_def:
+                key, value = ann_def.split("=", 1)
+                annotations[key.strip()] = value.strip().strip('"')
+            else:
+                annotations[ann_def.strip()] = "true"
+
+        return annotations
