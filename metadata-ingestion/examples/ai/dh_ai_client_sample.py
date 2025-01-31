@@ -8,7 +8,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
 if __name__ == "__main__":
     # Example usage
     parser = argparse.ArgumentParser()
-    parser.add_argument("--token", required=True, help="DataHub access token")
+    parser.add_argument("--token", required=False, help="DataHub access token")
     parser.add_argument(
         "--server_url",
         required=False,
