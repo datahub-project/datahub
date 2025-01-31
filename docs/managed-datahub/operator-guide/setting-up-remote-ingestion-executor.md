@@ -102,9 +102,9 @@ In order to update the executor, ie. to deploy a new container version, you'll n
 
 ### Deploying on Kubernetes
 
-The Helm chart [datahub-executor-worker](https://github.com/acryldata/datahub-executor-helm/tree/main/charts/datahub-executor-worker) can be used to deploy on a Kubernetes cluster. These instructions also apply for deploying to Amazon Elastic Kubernetes Service (EKS) or Google Kubernetes Engine (GKE).
+The Helm chart [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) can be used to deploy on a Kubernetes cluster. These instructions also apply for deploying to Amazon Elastic Kubernetes Service (EKS) or Google Kubernetes Engine (GKE).
 
-1. **Download Chart**: Download the [latest release](https://github.com/acryldata/datahub-executor-helm/releases) of the chart
+1. **Download Chart**: Download the [latest release](https://executor-helm.acryl.io/index.yaml) of the chart
 2. **Unpack the release archive**:
   ```
   tar zxvf v0.0.4.tar.gz --strip-components=2

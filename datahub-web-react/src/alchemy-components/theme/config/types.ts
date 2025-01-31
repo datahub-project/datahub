@@ -41,7 +41,7 @@ export type VariantOptions = 'filled' | 'outline';
 export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';
 
 // Avatar Size options
-export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'default';
+export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | 'default';
 
 // Icon Alignment types
 export type IconAlignmentOptions = 'horizontal' | 'vertical';

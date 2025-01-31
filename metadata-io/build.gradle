@@ -61,6 +61,7 @@ dependencies {
   implementation externalDependency.ebeanDdl
   implementation externalDependency.ebeanAgent
   implementation externalDependency.opentelemetryAnnotations
+  implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.resilience4j
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
