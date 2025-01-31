@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemySource
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
@@ -106,6 +107,7 @@ class ClickHouseUsageSource(TwoTierSQLAlchemySource):
     """
 
     config: ClickHouseUsageConfig
+    report: SQLSourceReport
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -137,6 +139,7 @@ class ClickHouseUsageSource(TwoTierSQLAlchemySource):
 
         for mcp in self.aggregator.gen_metadata():
             wu = mcp.as_workunit()
+            self.report.report_workunit(wu)
             yield wu
 
     def _make_usage_query(self) -> str:
