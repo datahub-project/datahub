@@ -110,15 +110,17 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 </Popconfirm>
             ),
         },
-        {
-            key: 'copy',
-            icon: (
-                <MenuButtonContainer>
-                    <CopyOutlined />
-                    <MenuButtonText>Copy Urn</MenuButtonText>
-                </MenuButtonContainer>
-            ),
-        },
+        navigator.clipboard
+            ? {
+                  key: 'copy',
+                  icon: (
+                      <MenuButtonContainer>
+                          <CopyOutlined />
+                          <MenuButtonText>Copy Urn</MenuButtonText>
+                      </MenuButtonContainer>
+                  ),
+              }
+            : null,
     ];
 
     const onClick: MenuProps['onClick'] = (e) => {
