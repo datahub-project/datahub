@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -22,8 +22,8 @@ class RedshiftReport(
     num_usage_workunits_emitted: Optional[int] = None
     num_operational_stats_workunits_emitted: Optional[int] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
-    usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
-    lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    usage_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
+    lineage_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
     table_processed: TopKDict[str, int] = field(default_factory=TopKDict)
     table_filtered: TopKDict[str, int] = field(default_factory=TopKDict)
     view_filtered: TopKDict[str, int] = field(default_factory=TopKDict)
@@ -34,9 +34,9 @@ class RedshiftReport(
     operational_metadata_extraction_sec: TopKDict[str, float] = field(
         default_factory=TopKDict
     )
-    lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
-    tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
-    views_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
+    lineage_mem_size: TopKDict[str, str] = field(default_factory=TopKDict)
+    tables_in_mem_size: TopKDict[str, str] = field(default_factory=TopKDict)
+    views_in_mem_size: TopKDict[str, str] = field(default_factory=TopKDict)
     num_operational_stats_filtered: int = 0
     num_repeated_operations_dropped: int = 0
     num_usage_stat_skipped: int = 0
@@ -58,7 +58,7 @@ class RedshiftReport(
 
     # lineage/usage v2
     sql_aggregator: Optional[SqlAggregatorReport] = None
-    lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
+    lineage_phases_timer: TopKDict[str, PerfTimer] = field(default_factory=TopKDict)
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)

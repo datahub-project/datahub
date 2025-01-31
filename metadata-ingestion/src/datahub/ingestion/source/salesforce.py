@@ -60,6 +60,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ class SalesforceConfig(DatasetSourceConfigMixin):
 
 
 class SalesforceSourceReport(SourceReport):
-    filtered: List[str] = []
+    filtered: LossyList[str] = Field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)

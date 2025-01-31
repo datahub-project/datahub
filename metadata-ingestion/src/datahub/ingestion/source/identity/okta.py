@@ -50,6 +50,7 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 nest_asyncio.apply()
@@ -173,7 +174,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
 
 @dataclass
 class OktaSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_filtered(self, name: str) -> None:
         self.filtered.append(name)

@@ -12,6 +12,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyDict
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -66,7 +67,7 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_external_table_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
-    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+    upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
