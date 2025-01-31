@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 from datahub.utilities.lossy_collections import LossyList, LossySet
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
@@ -1417,7 +1418,9 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossySet
     )
 
-    stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
+    stage_latency: LossyList[StageLatency] = dataclasses_field(
+        default_factory=LossyList
+    )
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
     explores_scanned: int = 0
@@ -1427,11 +1430,11 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     looker_user_count: int = 0
 
     _looker_api: Optional[LookerAPI] = None
-    query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
-        default_factory=dict
+    query_latency: TopKDict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=int_top_k_dict
     )
-    user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
-        default_factory=dict
+    user_resolution_latency: TopKDict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=int_top_k_dict
     )
 
     def report_total_dashboards(self, total_dashboards: int) -> None:

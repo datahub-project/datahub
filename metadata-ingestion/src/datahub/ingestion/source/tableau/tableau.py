@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -170,8 +170,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 DEFAULT_PAGE_SIZE = 10
@@ -763,29 +764,33 @@ class TableauSourceReport(
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
     # timers
-    extract_usage_stats_timer: Dict[str, float] = dataclass_field(
+    extract_usage_stats_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    fetch_groups_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
-    populate_database_server_hostname_map_timer: Dict[str, float] = dataclass_field(
+    fetch_groups_timer: TopKDict[str, float] = dataclass_field(default_factory=TopKDict)
+    populate_database_server_hostname_map_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    populate_projects_registry_timer: Dict[str, float] = dataclass_field(
+    populate_projects_registry_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    emit_workbooks_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
-    emit_sheets_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
-    emit_dashboards_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
-    emit_embedded_datasources_timer: Dict[str, float] = dataclass_field(
+    emit_workbooks_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    emit_published_datasources_timer: Dict[str, float] = dataclass_field(
+    emit_sheets_timer: TopKDict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_dashboards_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    emit_custom_sql_datasources_timer: Dict[str, float] = dataclass_field(
+    emit_embedded_datasources_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
-    emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
+    emit_published_datasources_timer: TopKDict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_custom_sql_datasources_timer: TopKDict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_upstream_tables_timer: TopKDict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
     # lineage
@@ -798,14 +803,14 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+    logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
 
     num_expected_tableau_metadata_queries: int = 0
     num_actual_tableau_metadata_queries: int = 0
-    tableau_server_error_stats: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+    tableau_server_error_stats: TopKDict[str, int] = dataclass_field(
+        default_factory=int_top_k_dict
     )
 
     # Counters for tracking the number of queries made to get_connection_objects method
@@ -815,14 +820,14 @@ class TableauSourceReport(
     # - num_paginated_queries_by_connection_type: total number of queries due to Tableau pagination
     # These counters are useful to understand the impact of changing the page size.
 
-    num_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+    num_queries_by_connection_type: TopKDict[str, int] = dataclass_field(
+        default_factory=int_top_k_dict
     )
-    num_filter_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+    num_filter_queries_by_connection_type: TopKDict[str, int] = dataclass_field(
+        default_factory=int_top_k_dict
     )
-    num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
-        default_factory=(lambda: defaultdict(int))
+    num_paginated_queries_by_connection_type: TopKDict[str, int] = dataclass_field(
+        default_factory=int_top_k_dict
     )
 
 

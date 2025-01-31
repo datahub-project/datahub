@@ -99,8 +99,8 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
 
 @dataclass
 class SoftDeletedEntitiesReport(SourceReport):
-    num_calls_made: Dict[str, int] = field(default_factory=dict)
-    num_entities_found: Dict[str, int] = field(default_factory=dict)
+    num_calls_made: TopKDict[str, int] = field(default_factory=TopKDict)
+    num_entities_found: TopKDict[str, int] = field(default_factory=TopKDict)
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
     num_soft_deleted_entity_removal_started: int = 0

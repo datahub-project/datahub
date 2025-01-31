@@ -2,7 +2,7 @@ import collections
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Counter, Dict, List, Optional
+from typing import Counter, List, Optional
 
 import pydantic
 
@@ -107,9 +107,9 @@ class BigQueryV2Report(
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
     lineage_metadata_entries: TopKDict[str, int] = field(default_factory=TopKDict)
-    lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
-    lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
-    usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    lineage_mem_size: TopKDict[str, str] = field(default_factory=TopKDict)
+    lineage_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
+    usage_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
     num_usage_total_log_entries: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
@@ -121,8 +121,8 @@ class BigQueryV2Report(
     num_usage_operations_dropped: int = 0
     operation_dropped: LossyList[str] = field(default_factory=LossyList)
     usage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
-    num_project_datasets_to_scan: Dict[str, int] = field(default_factory=TopKDict)
-    metadata_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    num_project_datasets_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
+    metadata_extraction_sec: TopKDict[str, float] = field(default_factory=TopKDict)
     include_table_lineage: Optional[bool] = None
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
@@ -132,16 +132,18 @@ class BigQueryV2Report(
     audit_start_time: Optional[datetime] = None
     audit_end_time: Optional[datetime] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
-    partition_info: Dict[str, str] = field(default_factory=TopKDict)
-    profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
-    selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
-    profiling_skipped_invalid_partition_ids: Dict[str, str] = field(
+    partition_info: TopKDict[str, str] = field(default_factory=TopKDict)
+    profile_table_selection_criteria: TopKDict[str, str] = field(
         default_factory=TopKDict
     )
-    profiling_skipped_invalid_partition_type: Dict[str, str] = field(
+    selected_profile_tables: TopKDict[str, List[str]] = field(default_factory=TopKDict)
+    profiling_skipped_invalid_partition_ids: TopKDict[str, str] = field(
         default_factory=TopKDict
     )
-    profiling_skipped_partition_profiling_disabled: List[str] = field(
+    profiling_skipped_invalid_partition_type: TopKDict[str, str] = field(
+        default_factory=TopKDict
+    )
+    profiling_skipped_partition_profiling_disabled: LossyList[str] = field(
         default_factory=LossyList
     )
     allow_pattern: Optional[str] = None
