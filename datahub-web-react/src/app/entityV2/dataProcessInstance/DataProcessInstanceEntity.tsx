@@ -12,7 +12,7 @@ import { getDataProduct } from '@app/entityV2/shared/utils';
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
-import { DataProcessInstance, Entity as GeneratedEntity, EntityType, SearchResult } from '../../../types.generated';
+import { DataProcessInstance, EntityType, SearchResult } from '../../../types.generated';
 import Preview from './preview/Preview';
 import DataProcessInstanceSummary from './profile/DataProcessInstanceSummary';
 
