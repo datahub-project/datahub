@@ -31,7 +31,8 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Mlmodel, model.urn)}
-            name={model.name || ''}
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            name={model?.properties?.['propertiesName'] || model?.name || ''}
             urn={model.urn}
             data={data}
             description={model.description || ''}

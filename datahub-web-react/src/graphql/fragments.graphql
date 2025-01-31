@@ -1054,6 +1054,9 @@ fragment nonRecursiveMLModel on MLModel {
             urn
             name
             description
+            properties {
+                name
+            }
         }
         customProperties {
             key
