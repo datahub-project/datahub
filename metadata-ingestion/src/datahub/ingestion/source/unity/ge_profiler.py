@@ -117,6 +117,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
         if table.size_in_bytes is None:
             self.report.num_profile_missing_size_in_bytes += 1
+
         if not self.is_dataset_eligible_for_profiling(
             dataset_name,
             size_in_bytes=table.size_in_bytes,
@@ -143,6 +144,17 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 self.report.report_dropped(dataset_name)
             return None
 
+        if profile_table_level_only and table.size_in_bytes is not None:
+            # For requests with profile_table_level_only set, dataset profile is generated
+            # by looking at table.rows_count. For delta tables (a typical databricks table)
+            # count(*) is an efficient query to compute row count.
+            # Presence of size_in_bytes confirms this is DELTA table and that we have
+            # SELECT permission on this table.
+            try:
+                table.rows_count = _get_dataset_row_count(table, conn)
+            except Exception as e:
+                logger.warning(f"Failed to get table row count for {dataset_name}: {e}")
+
         self.report.report_entity_profiled(dataset_name)
         logger.debug(f"Preparing profiling request for {dataset_name}")
         return TableProfilerRequest(
@@ -160,11 +172,32 @@ def _get_dataset_size_in_bytes(
         conn.dialect.identifier_preparer.quote(c)
         for c in [table.ref.catalog, table.ref.schema, table.ref.table]
     )
+    # This query only works for delta table.
+    # Ref: https://docs.databricks.com/en/delta/table-details.html
+    # Note: Any change here should also update _get_dataset_row_count
     row = conn.execute(f"DESCRIBE DETAIL {name}").fetchone()
     if row is None:
         return None
     else:
         try:
             return int(row._asdict()["sizeInBytes"])
+        except Exception:
+            return None
+
+
+def _get_dataset_row_count(
+    table: UnityCatalogSQLGenericTable, conn: Connection
+) -> Optional[int]:
+    name = ".".join(
+        conn.dialect.identifier_preparer.quote(c)
+        for c in [table.ref.catalog, table.ref.schema, table.ref.table]
+    )
+    # This query only works efficiently for delta table
+    row = conn.execute(f"select count(*) as numRows from {name}").fetchone()
+    if row is None:
+        return None
+    else:
+        try:
+            return int(row._asdict()["numRows"])
         except Exception:
             return None
