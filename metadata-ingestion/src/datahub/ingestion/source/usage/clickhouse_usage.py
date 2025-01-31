@@ -21,13 +21,15 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemySource
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @dataclasses.dataclass
-class ClickHouseUsageSource(Source):
+class ClickHouseUsageSource(TwoTierSQLAlchemySource):
     """
     This plugin has the below functionalities -
     1. For a specific dataset this plugin ingests the following statistics -
@@ -104,7 +106,6 @@ class ClickHouseUsageSource(Source):
     """
 
     config: ClickHouseUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -118,12 +119,26 @@ class ClickHouseUsageSource(Source):
         if not access_events:
             return
 
+        for event in access_events:
+            self.aggregator.add_observed_query(
+                observed=ObservedQuery(
+                    default_db=event.database,
+                    default_schema=None,
+                    query=event.query,
+                )
+            )
+
         joined_access_event = self._get_joined_access_event(access_events)
         aggregated_info = self._aggregate_access_events(joined_access_event)
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
                 yield self._make_usage_stat(aggregate)
+
+        for mcp in self.aggregator.gen_metadata():
+            wu = mcp.as_workunit()
+            self.report.report_workunit(wu)
+            yield wu
 
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(
