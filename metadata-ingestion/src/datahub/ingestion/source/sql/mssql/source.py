@@ -627,7 +627,7 @@ class SQLServerSource(SQLAlchemySource):
     def construct_job_workunits(
         self,
         data_job: MSSQLDataJob,
-        override_include_lineage: Option[bool] = None,
+        override_include_lineage: Optional[bool] = None,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
