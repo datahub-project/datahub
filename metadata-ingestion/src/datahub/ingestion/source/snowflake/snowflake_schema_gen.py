@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -82,6 +83,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
+    DatasetProfileClass,
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -840,6 +842,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=view_properties_aspect
             ).as_workunit()
+
+        # if there is no profiling, still send the row count
+        if not self.profiler:
+            if table_row_count := table.rows_count:
+                datasetProfile = DatasetProfileClass(
+                    timestampMillis=get_sys_time(),
+                    rowCount=table_row_count,
+                    sizeInBytes=table.size_in_bytes,
+                    columnCount=len(table.columns),
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=datasetProfile
+                ).as_workunit()
 
     def get_dataset_properties(
         self,
