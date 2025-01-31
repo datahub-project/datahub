@@ -107,7 +107,7 @@ class ClickHouseUsageSource(TwoTierSQLAlchemySource):
     """
 
     config: ClickHouseUsageConfig
-    report: SQLSourceReport
+    report: SQLSourceReport = dataclasses.field(default_factory=SQLSourceReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
