@@ -137,7 +137,6 @@ class ClickHouseUsageSource(TwoTierSQLAlchemySource):
 
         for mcp in self.aggregator.gen_metadata():
             wu = mcp.as_workunit()
-            self.report.report_workunit(wu)
             yield wu
 
     def _make_usage_query(self) -> str:
