@@ -29,7 +29,6 @@ const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     return [parentEntity.entity];
 };
 
-
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */

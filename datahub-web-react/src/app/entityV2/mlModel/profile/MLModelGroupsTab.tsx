@@ -28,7 +28,7 @@ export default function MLModelGroupsTab() {
                     <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
                         {record.properties?.name || name}
                     </Link>
-                ); // TODO: get properties.name from the model group
+                );
             },
         },
         {
