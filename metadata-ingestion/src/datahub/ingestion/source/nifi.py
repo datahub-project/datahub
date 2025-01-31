@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -452,7 +453,7 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 @dataclass
 class NifiSourceReport(SourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
