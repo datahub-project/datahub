@@ -1,14 +1,13 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "grafana",
-                "instance": "local-grafana",
                 "dashboard_id": "default"
             },
             "name": "Test Integration Dashboard",
@@ -23,7 +22,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -39,13 +38,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:grafana",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+            "platform": "urn:li:dataPlatform:grafana"
         }
     },
     "systemMetadata": {
@@ -56,7 +54,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -74,17 +72,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                }
-            ]
+            "path": []
         }
     },
     "systemMetadata": {
@@ -96,12 +89,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.1)",
+            "urn": "urn:li:chart:(grafana,default.1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -129,18 +121,6 @@
                         "chartUrl": "http://localhost:3000/d/default?viewPanel=1",
                         "inputs": []
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
                 }
             ]
         }
@@ -153,12 +133,12 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "entityUrn": "urn:li:chart:(grafana,default.1)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -169,19 +149,15 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "entityUrn": "urn:li:chart:(grafana,default.1)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -195,12 +171,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -290,18 +265,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
                 }
             ]
         }
@@ -314,12 +277,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -330,44 +293,15 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -381,12 +315,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.2)",
+            "urn": "urn:li:chart:(grafana,default.2)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -418,22 +351,10 @@
                         "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD)"
                             }
                         ],
                         "type": "LINE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
                     }
                 }
             ]
@@ -447,14 +368,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "entityUrn": "urn:li:chart:(grafana,default.2)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),value)",
                     "schemaField": {
                         "fieldPath": "value",
                         "nullable": false,
@@ -469,7 +390,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -484,7 +405,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),dimension)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),dimension)",
                     "schemaField": {
                         "fieldPath": "dimension",
                         "nullable": false,
@@ -499,7 +420,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value_ms)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),value_ms)",
                     "schemaField": {
                         "fieldPath": "value_ms",
                         "nullable": false,
@@ -524,12 +445,12 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "entityUrn": "urn:li:chart:(grafana,default.2)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -540,19 +461,15 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "entityUrn": "urn:li:chart:(grafana,default.2)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -566,12 +483,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -661,18 +577,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
                 }
             ]
         }
@@ -685,12 +589,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -701,44 +605,15 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -752,12 +627,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.4)",
+            "urn": "urn:li:chart:(grafana,default.4)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -789,22 +663,10 @@
                         "chartUrl": "http://localhost:3000/d/default?viewPanel=4",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD)"
                             }
                         ],
                         "type": "TABLE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
                     }
                 }
             ]
@@ -818,14 +680,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "entityUrn": "urn:li:chart:(grafana,default.4)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),metric)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),metric)",
                     "schemaField": {
                         "fieldPath": "metric",
                         "nullable": false,
@@ -840,7 +702,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),value)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),value)",
                     "schemaField": {
                         "fieldPath": "value",
                         "nullable": false,
@@ -855,7 +717,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),dimension)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),dimension)",
                     "schemaField": {
                         "fieldPath": "dimension",
                         "nullable": false,
@@ -870,7 +732,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -895,12 +757,12 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "entityUrn": "urn:li:chart:(grafana,default.4)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -911,19 +773,15 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "entityUrn": "urn:li:chart:(grafana,default.4)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -937,12 +795,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -1008,18 +865,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
                 }
             ]
         }
@@ -1032,12 +877,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -1048,44 +893,15 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -1099,12 +915,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.5)",
+            "urn": "urn:li:chart:(grafana,default.5)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -1136,22 +951,10 @@
                         "chartUrl": "http://localhost:3000/d/default?viewPanel=5",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD)"
                             }
                         ],
                         "type": "TEXT"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
                     }
                 }
             ]
@@ -1165,14 +968,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "entityUrn": "urn:li:chart:(grafana,default.5)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),count)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD),count)",
                     "schemaField": {
                         "fieldPath": "count",
                         "nullable": false,
@@ -1187,7 +990,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -1212,12 +1015,12 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "entityUrn": "urn:li:chart:(grafana,default.5)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -1228,19 +1031,15 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "entityUrn": "urn:li:chart:(grafana,default.5)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -1254,12 +1053,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -1325,18 +1123,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
                 }
             ]
         }
@@ -1349,12 +1135,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -1365,44 +1151,15 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:prometheus,local.test-prometheus,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -1416,12 +1173,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.6)",
+            "urn": "urn:li:chart:(grafana,default.6)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -1453,22 +1209,10 @@
                         "chartUrl": "http://localhost:3000/d/default?viewPanel=6",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD)"
                             }
                         ],
                         "type": "LINE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
                     }
                 }
             ]
@@ -1482,14 +1226,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "entityUrn": "urn:li:chart:(grafana,default.6)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),CPU Usage)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD),CPU Usage)",
                     "schemaField": {
                         "fieldPath": "CPU Usage",
                         "nullable": false,
@@ -1504,7 +1248,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),Memory Usage)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,prometheus.test-prometheus.6,PROD),Memory Usage)",
                     "schemaField": {
                         "fieldPath": "Memory Usage",
                         "nullable": false,
@@ -1529,12 +1273,12 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "entityUrn": "urn:li:chart:(grafana,default.6)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -1545,19 +1289,15 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "entityUrn": "urn:li:chart:(grafana,default.6)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
         }
@@ -1571,12 +1311,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(grafana,local-grafana.default)",
+            "urn": "urn:li:dashboard:(grafana,default)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                        "platform": "urn:li:dataPlatform:grafana"
                     }
                 },
                 {
@@ -1590,11 +1329,11 @@
                         "title": "Test Integration Dashboard",
                         "description": "A comprehensive test dashboard for integration testing with various panel types and data sources",
                         "charts": [
-                            "urn:li:chart:(grafana,local-grafana.default.1)",
-                            "urn:li:chart:(grafana,local-grafana.default.2)",
-                            "urn:li:chart:(grafana,local-grafana.default.4)",
-                            "urn:li:chart:(grafana,local-grafana.default.5)",
-                            "urn:li:chart:(grafana,local-grafana.default.6)"
+                            "urn:li:chart:(grafana,default.1)",
+                            "urn:li:chart:(grafana,default.2)",
+                            "urn:li:chart:(grafana,default.4)",
+                            "urn:li:chart:(grafana,default.5)",
+                            "urn:li:chart:(grafana,default.6)"
                         ],
                         "datasets": [],
                         "dashboards": [],
@@ -1609,33 +1348,6 @@
                             }
                         },
                         "dashboardUrl": "http://localhost:3000/d/default"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:default",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
                     }
                 },
                 {
@@ -1654,12 +1366,12 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "entityUrn": "urn:li:dashboard:(grafana,default)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
         }
     },
     "systemMetadata": {
@@ -1670,53 +1382,17 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "entityUrn": "urn:li:dashboard:(grafana,default)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:integration-test",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "integration-test"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:test-tag",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "test-tag"
         }
     },
     "systemMetadata": {
