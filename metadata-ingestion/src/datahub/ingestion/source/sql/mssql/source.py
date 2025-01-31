@@ -466,7 +466,7 @@ class SQLServerSource(SQLAlchemySource):
         yield from self.construct_job_workunits(
             data_job,
             # For stored procedure lineage is ingested later
-            include_lineage=False,
+            override_include_lineage=False,
         )
 
     @staticmethod
@@ -627,7 +627,7 @@ class SQLServerSource(SQLAlchemySource):
     def construct_job_workunits(
         self,
         data_job: MSSQLDataJob,
-        include_lineage: bool = True,
+        override_include_lineage: Option[bool] = None,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
@@ -641,7 +641,12 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
 
-        if include_lineage:
+        effective_include_lineage = (
+            override_include_lineage
+            if override_include_lineage is not None
+            else self.config.include_lineage
+        )
+        if effective_include_lineage:
             yield MetadataChangeProposalWrapper(
                 entityUrn=data_job.urn,
                 aspect=data_job.as_datajob_input_output_aspect,
