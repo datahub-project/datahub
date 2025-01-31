@@ -1371,8 +1371,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 "Failed to get columns for stream:", stream.name, exc=e
             )
 
-        yield from self.gen_dataset_workunits(stream, schema_name, db_name)
-
     def get_columns_for_stream(
         self,
         source_object: str,  # Qualified name of source table/view
