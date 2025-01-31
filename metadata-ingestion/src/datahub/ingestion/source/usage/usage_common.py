@@ -273,10 +273,11 @@ class UsageAggregator(Generic[ResourceType]):
                 resource=resource,
             ),
         ).add_read_entry(
-            user,
-            query,
-            fields,
+            user_email=user,
+            query=query,
+            fields=fields,
             count=count,
+            user_email_pattern=self.config.user_email_pattern,
         )
 
     def generate_workunits(

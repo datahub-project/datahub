@@ -584,6 +584,15 @@ class SqlParsingAggregator(Closeable):
             TableSwap,
         ],
     ) -> None:
+        if (
+            isinstance(item, PreparsedQuery | ObservedQuery)
+            and item.user
+            and self.usage_config
+            and not self.usage_config.user_email_pattern.allowed(item.user.urn())
+        ):
+            logger.info(f"Skipping query from user: {item.user}")
+            return
+
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
         elif isinstance(item, KnownLineageMapping):
