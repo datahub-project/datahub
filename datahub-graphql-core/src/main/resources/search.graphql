@@ -60,7 +60,7 @@ extend type Query {
   List Data Product assets for a given urn
   """
   listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
-  
+
   """
   Browse for different entities by getting organizational groups and their
   aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
@@ -412,6 +412,11 @@ input SearchAcrossLineageInput {
   Flags controlling the lineage query
   """
   lineageFlags: LineageFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
