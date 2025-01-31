@@ -1,8 +1,9 @@
 import { colors } from '@src/alchemy-components/theme';
 import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
+import { GlyphProps } from '@visx/xychart';
 import { GLYPH_DROP_SHADOW_FILTER } from './constants';
-import { TooltipGlyphProps } from './types';
+import { GlyphPropsWithRef } from './types';
 
 export const ChartWrapper = styled.div`
     width: 100%;
@@ -11,7 +12,16 @@ export const ChartWrapper = styled.div`
     cursor: pointer;
 `;
 
-export const TooltipGlyph = ({ x, y }: TooltipGlyphProps) => {
+export const Glyph = <T extends object>({ x, y }: GlyphPropsWithRef<T>): React.ReactElement => {
+    return (
+        <g>
+            <circle cx={x} cy={y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
+            <circle cx={x} cy={y} r="6" fill={colors.violet[500]} />
+        </g>
+    );
+};
+
+export const TooltipGlyph = <T extends object>(props: GlyphProps<T>): React.ReactElement => {
     const ref = useRef<SVGGElement>(null);
 
     // FYI: Change size of parent SVG to prevent showing window's horizontal scrolling
@@ -27,10 +37,5 @@ export const TooltipGlyph = ({ x, y }: TooltipGlyphProps) => {
         }
     }, [ref]);
 
-    return (
-        <g ref={ref}>
-            <circle cx={x} cy={y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
-            <circle cx={x} cy={y} r="6" fill={colors.violet[500]} />
-        </g>
-    );
+    return <Glyph {...props} ref={ref} />;
 };
