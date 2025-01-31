@@ -25,6 +25,7 @@ import {
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
 import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { toProperTitleCase } from '../../../utils';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -146,17 +147,6 @@ const ASSERTION_TYPE_TO_INFO = new Map();
 ASSERTION_INFO.forEach((info) => {
     ASSERTION_TYPE_TO_INFO.set(info.type, info);
 });
-
-export const toProperTitleCase = (str: string) => {
-    const exceptions = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
-    return str
-        .toLowerCase()
-        .split(' ')
-        .map((word, index) =>
-            index === 0 || !exceptions.includes(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
-        )
-        .join(' ');
-};
 
 export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);

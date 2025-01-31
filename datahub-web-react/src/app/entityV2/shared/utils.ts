@@ -294,3 +294,15 @@ export function getDashboardLastUpdatedMs(
     if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
     return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }
+
+// return title case of the string with handling exceptions
+export const toProperTitleCase = (str: string) => {
+    const exceptions = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) =>
+            index === 0 || !exceptions.includes(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+        )
+        .join(' ');
+};
