@@ -118,7 +118,7 @@ export function LineChart<DatumType extends object>({
         top: (margin?.top ?? 0) + 30,
         right: (margin?.right ?? 0) + 30,
         bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 40,
+        left: (margin?.left ?? 0) + 50,
     };
 
     const maxDataValue = useMaxDataValue(data, yAccessor);

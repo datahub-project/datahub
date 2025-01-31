@@ -37,6 +37,7 @@ export const barChartDefault: BarChartProps<any> = {
         tickLabelProps: {
             ...commonTickLabelProps,
             textAnchor: 'end',
+            width: 50,
         },
         hideAxisLine: true,
         hideTicks: true,
@@ -94,7 +95,7 @@ export function BarChart<DatumType extends object = any>({
         top: (margin?.top ?? 0) + 30,
         right: margin?.right ?? 0,
         bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 40,
+        left: (margin?.left ?? 0) + 50,
     };
 
     const maxDataValue = useMaxDataValue(data, yAccessor);
