@@ -78,7 +78,7 @@ export default function DataProcessInstanceRightColumn({ startTime, duration, st
             {status && (
                 <>
                     <StatContainer>
-                        <Pill label={capitalize(status)} colorScheme={statusPillColor} clickable={false} />
+                        <Pill label={capitalize(status)} color={statusPillColor} clickable={false} />
                     </StatContainer>
                 </>
             )}

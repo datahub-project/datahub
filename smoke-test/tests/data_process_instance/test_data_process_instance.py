@@ -216,13 +216,6 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                             container {
                                 urn
                             }
-                            platform {
-                                urn
-                                name
-                                properties {
-                                    type
-                                }
-                            }
                             mlTrainingRunProperties {
                                 id
                                 trainingMetrics {

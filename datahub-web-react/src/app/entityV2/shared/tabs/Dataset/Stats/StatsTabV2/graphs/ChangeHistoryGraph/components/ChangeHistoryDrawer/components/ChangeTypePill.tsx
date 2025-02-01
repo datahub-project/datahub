@@ -23,5 +23,5 @@ export default function ChangeTypePill({ operation }: ChangeTypePillProps) {
         }
     }, [operation.operationType]);
 
-    return <Pill size="sm" label={changeTypeName} colorScheme={colorScheme} clickable={false} />;
+    return <Pill size="sm" label={changeTypeName} color={colorScheme} clickable={false} />;
 }

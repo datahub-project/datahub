@@ -41,7 +41,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,

@@ -48,7 +48,7 @@ export default function StorageSizeGraph() {
     }, [rangeType, setLookbackWindow]);
 
     const bytesFormatter = (num: number) => {
-        const formattedBytes = formatBytes(num);
+        const formattedBytes = formatBytes(num, 2, 'B');
         return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
     };
 

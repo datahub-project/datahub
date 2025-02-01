@@ -78,6 +78,15 @@ const meta = {
         renderTooltipGlyph: {
             description: 'A function to render a glyph',
         },
+        showGlyphOnSingleDataPoint: {
+            description: 'Whether to show the glyph when there is only one data point',
+            control: {
+                type: 'boolean',
+            },
+        },
+        renderGlyphOnSingleDataPoint: {
+            description: 'A function to render a glyph for a single data point',
+        },
     },
 
     // Define defaults

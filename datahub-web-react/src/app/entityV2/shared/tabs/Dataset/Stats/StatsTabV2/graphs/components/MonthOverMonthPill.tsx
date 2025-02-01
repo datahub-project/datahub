@@ -14,7 +14,7 @@ export default function MonthOverMonthPill({ value }: PillMoMProps) {
 
     if (value === undefined || value === null) return null;
 
-    if (value > 0) return <Pill label={`${value}% MoM`} leftIcon="TrendingUp" size="sm" colorScheme="green" />;
-    if (value < 0) return <Pill label={`${value}% MoM`} leftIcon="TrendingDown" size="sm" colorScheme="red" />;
-    return <Pill label={`${value}% MoM`} size="sm" colorScheme="gray" />;
+    if (value > 0) return <Pill label={`${value}% MoM`} leftIcon="TrendingUp" size="sm" color="green" />;
+    if (value < 0) return <Pill label={`${value}% MoM`} leftIcon="TrendingDown" size="sm" color="red" />;
+    return <Pill label={`${value}% MoM`} size="sm" color="gray" />;
 }

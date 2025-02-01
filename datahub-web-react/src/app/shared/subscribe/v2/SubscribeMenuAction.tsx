@@ -1,3 +1,4 @@
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -143,7 +144,7 @@ export const SubscribeMenuAction = () => {
     };
 
     return (
-        <ActionMenuItem key="subscribe">
+        <ActionMenuItem key="subscribe" id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
             <Dropdown
                 disabled={isSiblingMode}
                 trigger={['click']}
@@ -177,6 +178,7 @@ export const SubscribeMenuAction = () => {
                     <Tooltip2
                         header={() => <TooltipHeader title="Subscribers" />}
                         placement="leftBottom"
+                        width={250}
                         sections={[
                             {
                                 title: 'Users',

@@ -81,18 +81,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             urn={urn}
             entityType={EntityType.DataProcessInstance}
             useEntityQuery={this.useEntityQuery}
-            // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
-                // {
-                //     name: 'Documentation',
-                //     component: DocumentationTab,
-                // },
-                // {
-                //     name: 'Summary',
-                //     component: SummaryTab,
-                // },
                 {
                     name: 'Summary',
                     component: SummaryTab,
@@ -105,14 +96,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-                // {
-                //     name: 'Incidents',
-                //     component: IncidentTab,
-                //     getDynamicName: (_, processInstance) => {
-                //         const activeIncidentCount = processInstance?.dataProcessInstance?.activeIncidents.total;
-                //         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
-                //     },
-                // },
             ]}
             sidebarSections={this.getSidebarSections()}
         />
@@ -169,13 +152,11 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 platformLogo={data?.dataPlatformInstance?.platform?.properties?.logoUrl}
                 owners={null}
                 globalTags={null}
-                // domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // health={data.health}
             />
         );
     };
@@ -201,9 +182,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={null}
                 globalTags={null}
-                //                domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
-                //                deprecation={data.deprecation}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
@@ -227,7 +206,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             icon: entity?.dataPlatformInstance?.platform?.properties?.logoUrl || undefined,
             platform: entity?.dataPlatformInstance?.platform,
             container: entity?.container,
-            //            health: entity?.health || undefined,
         };
     };
 

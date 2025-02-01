@@ -32,11 +32,7 @@ const CreateFormHeader = () => {
                 <Text size="2xl" weight="bold" data-testid="form-title">
                     Compliance Forms
                 </Text>
-                <Pill
-                    size="sm"
-                    label={formStatus.charAt(0) + formStatus.slice(1).toLowerCase()}
-                    colorScheme={colorScheme}
-                />
+                <Pill size="sm" label={formStatus.charAt(0) + formStatus.slice(1).toLowerCase()} color={colorScheme} />
             </Header>
             <Text size="md" color="gray">
                 {`${formMode === 'create' ? 'Create a new' : 'Edit a'} compliance requirements form`}

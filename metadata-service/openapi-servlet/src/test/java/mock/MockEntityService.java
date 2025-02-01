@@ -232,7 +232,8 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete) {
+      boolean hardDelete,
+      boolean preProcessHooks) {
     return null;
   }
 

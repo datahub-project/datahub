@@ -1,5 +1,6 @@
 import json
 import logging
+import textwrap
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -588,29 +589,32 @@ class SlackSource(Source):
             ),
         )
 
-    def get_user_to_be_updated(self) -> Iterable[CorpUser]:
-        graphql_query = textwrap.dedent(
-            """
-            query listUsers($input: ListUsersInput!) {
-                listUsers(input: $input) {
-                    total
-                    users {
-                        urn
-                        editableProperties {
-                            email
-                            slack
-                        }
-                    }
-                }
-            }
-        """
-        )
+    def get_user_to_be_updated(
+        self,
+    ) -> Iterable[Tuple[CorpUser, Optional[CorpUserEditableInfoClass]]]:
+        assert self.ctx.graph is not None
+        for urn in self.ctx.graph.get_urns_by_filter(
+            entity_types=["corpuser"], query="*"
+        ):
+            user_obj = CorpUser()
+            user_obj.urn = urn
+            editable_properties = self.ctx.graph.get_aspect(
+                urn, CorpUserEditableInfoClass
+            )
+            if editable_properties and editable_properties.email:
+                user_obj.email = editable_properties.email
+            else:
+                urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
+                if "@" in urn_id:
+                    user_obj.email = urn_id
+            if user_obj.email is not None:
+                yield (user_obj, editable_properties)
 
     @retry(
         wait=wait_exponential(multiplier=2, min=4, max=60),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
-    def get_user_to_be_updated(self) -> Iterable[CorpUser]:
+    def get_user_to_be_updated_oss(self) -> Iterable[CorpUser]:
         graphql_query = textwrap.dedent(
             """
             query listUsers($input: ListUsersInput!) {

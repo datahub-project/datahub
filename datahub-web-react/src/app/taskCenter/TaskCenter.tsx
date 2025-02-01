@@ -121,7 +121,7 @@ const TabTitle = ({ title, count, dataTestId }: TabTitleProps) => {
             {count > 0 && !isShowNavBarRedesign && (
                 <StyledBadge count={count} overflowCount={99} size="small" color="red" />
             )}
-            {isShowNavBarRedesign && <Badge count={count} size="xs" colorScheme="violet" clickable={false} />}
+            {isShowNavBarRedesign && <Badge count={count} size="xs" color="violet" clickable={false} />}
         </TabContainer>
     );
 };

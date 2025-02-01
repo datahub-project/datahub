@@ -72,6 +72,7 @@ setup(
                 "datahub-usage-reporting = acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter:DataHubUsageFeatureReportingSource",
                 "datahub-metadata-sharing = acryl_datahub_cloud.datahub_metadata_sharing.metadata_sharing_source:DataHubMetadataSharingSource",
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
+                "datahub-restore = acryl_datahub_cloud.datahub_restore.source:DataHubRestoreSource",
             ],
         },
         "include_package_data": True,

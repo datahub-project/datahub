@@ -43,7 +43,7 @@ export const Card = ({
                                     <Pill
                                         label={`${Math.abs(percent)}%`}
                                         size="sm"
-                                        colorScheme={percent < 0 ? 'red' : 'green'}
+                                        color={percent < 0 ? 'red' : 'green'}
                                         leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
                                         clickable={false}
                                     />

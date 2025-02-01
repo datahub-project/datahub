@@ -4,11 +4,11 @@ import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
-import { AreaSeries, Axis, AxisScale, Grid, Tooltip, XYChart } from '@visx/xychart';
+import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Popover } from '../Popover';
-import { ChartWrapper, TooltipGlyph } from './components';
+import { ChartWrapper, Glyph, TooltipGlyph } from './components';
 import { LineChartProps } from './types';
 import { getMockedProps } from '../BarChart/utils';
 import useMergedProps from '../BarChart/hooks/useMergedProps';
@@ -83,7 +83,9 @@ export const lineChartDefault: LineChartProps<any> = {
         strokeWidth: 2,
         filter: GLYPH_DROP_SHADOW_FILTER,
     },
-    renderTooltipGlyph: (props) => <TooltipGlyph x={props.x} y={props.y} />,
+    renderTooltipGlyph: (props) => <TooltipGlyph {...props} />,
+    showGlyphOnSingleDataPoint: true,
+    renderGlyphOnSingleDataPoint: Glyph,
 };
 
 export function LineChart<DatumType extends object>({
@@ -110,6 +112,8 @@ export function LineChart<DatumType extends object>({
     renderGradients = lineChartDefault.renderGradients,
     toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
+    showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
+    renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
 }: LineChartProps<DatumType>) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
@@ -118,7 +122,7 @@ export function LineChart<DatumType extends object>({
         top: (margin?.top ?? 0) + 30,
         right: (margin?.right ?? 0) + 30,
         bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 40,
+        left: (margin?.left ?? 0) + 50,
     };
 
     const maxDataValue = useMaxDataValue(data, yAccessor);
@@ -210,6 +214,15 @@ export function LineChart<DatumType extends object>({
                                 lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
                                 {...accessors}
                             />
+
+                            {showGlyphOnSingleDataPoint && data.length === 1 && (
+                                <GlyphSeries<AxisScale, AxisScale, DatumType>
+                                    dataKey="line-chart-seria-01"
+                                    data={data}
+                                    renderGlyph={renderGlyphOnSingleDataPoint}
+                                    {...accessors}
+                                />
+                            )}
 
                             <Tooltip<DatumType>
                                 snapTooltipToDatumX

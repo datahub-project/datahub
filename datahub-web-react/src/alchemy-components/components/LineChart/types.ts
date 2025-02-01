@@ -1,7 +1,6 @@
 import { AxisScaleOutput } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
-import { Margin } from '@visx/xychart';
-import { RenderTooltipGlyphProps } from '@visx/xychart/lib/components/Tooltip';
+import { GlyphProps, Margin } from '@visx/xychart';
 import React from 'react';
 import { AxisProps, GridProps } from '../BarChart/types';
 
@@ -28,7 +27,13 @@ export type LineChartProps<DatumType extends object> = {
     popoverRenderer?: (datum: DatumType) => React.ReactNode;
     renderGradients?: () => React.ReactNode;
     toolbarVerticalCrosshairStyle?: React.SVGProps<SVGLineElement>;
-    renderTooltipGlyph?: (props: RenderTooltipGlyphProps<object>) => React.ReactNode | undefined;
+    renderTooltipGlyph?: (props: GlyphPropsWithRef<object>) => React.ReactElement | null;
+    showGlyphOnSingleDataPoint?: boolean;
+    renderGlyphOnSingleDataPoint?: React.FC<GlyphProps<DatumType>>;
+};
+
+export type GlyphPropsWithRef<T extends object> = GlyphProps<T> & {
+    ref?: React.RefObject<SVGGElement>;
 };
 
 export type TooltipGlyphProps = {

@@ -24,7 +24,7 @@ class RemovedStatusFilter(enum.Enum):
 
 
 def _validate_or_filter_structure(
-    or_filters: List[Dict[str, List[SearchFilterRule]]]
+    or_filters: List[Dict[str, List[SearchFilterRule]]],
 ) -> None:
     for filter_list in or_filters:
         if "and" not in filter_list:
