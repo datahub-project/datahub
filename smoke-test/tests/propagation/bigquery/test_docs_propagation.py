@@ -22,7 +22,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
-from datahub.metadata._schema_classes import (
+from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaFieldInfo
+from datahub.metadata.schema_classes import (
     AuditStampClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
@@ -30,11 +31,10 @@ from datahub.metadata._schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
+    MetadataChangeProposalClass,
     TagAssociationClass,
 )
-from datahub.metadata._urns.urn_defs import SchemaFieldUrn
-from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaFieldInfo
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.urns import SchemaFieldUrn
 from pydantic import BaseModel
 
 from tests.consistency_utils import wait_for_writes_to_sync

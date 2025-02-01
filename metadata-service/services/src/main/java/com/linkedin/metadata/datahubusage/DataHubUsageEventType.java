@@ -132,7 +132,10 @@ public enum DataHubUsageEventType {
   DELETE_FORM_EVENT("DeleteFormEvent"),
   CREATE_QUESTION_EVENT("CreateQuestionEvent"),
   EDIT_QUESTION_EVENT("EditQuestionEvent"),
-  SSO_CONFIGURATION_EVENT("SSOConfigurationEvent");
+  SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
+  SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
+  LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
+  UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent");
 
   private final String type;
 
