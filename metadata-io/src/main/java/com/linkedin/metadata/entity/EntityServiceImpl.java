@@ -944,7 +944,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // No changes, return
                     if (changeMCPs.isEmpty()) {
                       MetricUtils.counter(EntityServiceImpl.class, "batch_empty").inc();
-                      return IngestAspectsResult.EMPTY;
+                      return TransactionResult.ingestAspectsRollback();
                     }
 
                     // do final pre-commit checks with previous aspect value
@@ -1093,10 +1093,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       log.debug("Empty transaction detected");
                     }
 
-                    return IngestAspectsResult.builder()
-                        .updateAspectResults(upsertResults)
-                        .failedUpdateAspectResults(failedUpsertResults)
-                        .build();
+                    return TransactionResult.of(
+                        IngestAspectsResult.builder()
+                            .updateAspectResults(upsertResults)
+                            .failedUpdateAspectResults(failedUpsertResults)
+                            .build());
                   },
                   inputBatch,
                   DEFAULT_MAX_TRANSACTION_RETRY)
@@ -2410,164 +2411,175 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     final RollbackResult result =
-        aspectDao.runInTransactionWithRetry(
-            (txContext) -> {
-              Integer additionalRowsDeleted = 0;
+        aspectDao
+            .runInTransactionWithRetry(
+                (txContext) -> {
+                  Integer additionalRowsDeleted = 0;
 
-              // 1. Fetch the latest existing version of the aspect.
-              final EntityAspect.EntitySystemAspect latest =
-                  (EntityAspect.EntitySystemAspect)
-                      EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext(),
-                              aspectDao.getLatestAspect(urn, aspectName, false))
-                          .orElse(null);
+                  // 1. Fetch the latest existing version of the aspect.
+                  final EntityAspect.EntitySystemAspect latest =
+                      (EntityAspect.EntitySystemAspect)
+                          EntityUtils.toSystemAspect(
+                                  opContext.getRetrieverContext(),
+                                  aspectDao.getLatestAspect(urn, aspectName, false))
+                              .orElse(null);
 
-              // 1.1 If no latest exists, skip this aspect
-              if (latest == null) {
-                return null;
-              }
-
-              // 2. Compare the match conditions, if they don't match, ignore.
-              SystemMetadata latestSystemMetadata = latest.getSystemMetadata();
-              if (!filterMatch(latestSystemMetadata, conditions)) {
-                return null;
-              }
-
-              // 3. Check if this is a key aspect
-              Boolean isKeyAspect = opContext.getKeyAspectName(entityUrn).equals(aspectName);
-
-              // 4. Fetch all preceding aspects, that match
-              List<EntityAspect> aspectsToDelete = new ArrayList<>();
-              Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
-              long minVersion = Math.max(0, versionRange.getFirst());
-              long maxVersion = Math.max(0, versionRange.getSecond());
-
-              EntityAspect.EntitySystemAspect survivingAspect = null;
-
-              boolean filterMatch = true;
-              while (maxVersion > minVersion && filterMatch) {
-                EntityAspect.EntitySystemAspect candidateAspect =
-                    (EntityAspect.EntitySystemAspect)
-                        EntityUtils.toSystemAspect(
-                                opContext.getRetrieverContext(),
-                                aspectDao.getAspect(urn, aspectName, maxVersion))
-                            .orElse(null);
-                SystemMetadata previousSysMetadata =
-                    candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
-                filterMatch =
-                    previousSysMetadata != null && filterMatch(previousSysMetadata, conditions);
-                if (filterMatch) {
-                  aspectsToDelete.add(candidateAspect.getEntityAspect());
-                } else if (candidateAspect == null) {
-                  // potential gap
-                  filterMatch = true;
-                } else {
-                  survivingAspect = candidateAspect;
-                }
-                maxVersion = maxVersion - 1;
-              }
-
-              // Delete validation hooks
-              ValidationExceptionCollection preCommitExceptions =
-                  AspectsBatch.validatePreCommit(
-                      aspectsToDelete.stream()
-                          .map(
-                              toDelete ->
-                                  DeleteItemImpl.builder()
-                                      .urn(UrnUtils.getUrn(toDelete.getUrn()))
-                                      .aspectName(toDelete.getAspect())
-                                      .auditStamp(auditStamp)
-                                      .build(opContext.getAspectRetriever()))
-                          .collect(Collectors.toList()),
-                      opContext.getRetrieverContext());
-              if (!preCommitExceptions.isEmpty()) {
-                throw new ValidationException(collectMetrics(preCommitExceptions).toString());
-              }
-
-              // 5. Apply deletes and fix up latest row
-              aspectsToDelete.forEach(aspect -> aspectDao.deleteAspect(txContext, aspect));
-
-              if (survivingAspect != null) {
-                // if there was a surviving aspect, copy its information into the latest row
-                // eBean does not like us updating a pkey column (version) for the surviving aspect
-                // as a result we copy information from survivingAspect to latest and delete
-                // survivingAspect
-                latest
-                    .getEntityAspect()
-                    .setMetadata(survivingAspect.getEntityAspect().getMetadata());
-                latest
-                    .getEntityAspect()
-                    .setSystemMetadata(survivingAspect.getEntityAspect().getSystemMetadata());
-                latest.getEntityAspect().setCreatedOn(survivingAspect.getCreatedOn());
-                latest.getEntityAspect().setCreatedBy(survivingAspect.getCreatedBy());
-                latest
-                    .getEntityAspect()
-                    .setCreatedFor(survivingAspect.getEntityAspect().getCreatedFor());
-                aspectDao.saveAspect(txContext, latest.getEntityAspect(), false);
-                // metrics
-                aspectDao.incrementWriteMetrics(
-                    aspectName, 1, latest.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
-                aspectDao.deleteAspect(txContext, survivingAspect.getEntityAspect());
-              } else {
-                if (isKeyAspect) {
-                  if (hardDelete) {
-                    // If this is the key aspect, delete the entity entirely.
-                    additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
-                  } else if (deleteItem.getEntitySpec().hasAspect(Constants.STATUS_ASPECT_NAME)) {
-                    // soft delete by setting status.removed=true (if applicable)
-                    final Status statusAspect = new Status();
-                    statusAspect.setRemoved(true);
-
-                    final MetadataChangeProposal gmce = new MetadataChangeProposal();
-                    gmce.setEntityUrn(entityUrn);
-                    gmce.setChangeType(ChangeType.UPSERT);
-                    gmce.setEntityType(entityUrn.getEntityType());
-                    gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
-                    gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
-
-                    this.ingestProposal(opContext, gmce, auditStamp, false);
+                  // 1.1 If no latest exists, skip this aspect
+                  if (latest == null) {
+                    return TransactionResult.rollback();
                   }
-                } else {
-                  // Else, only delete the specific aspect.
-                  aspectDao.deleteAspect(txContext, latest.getEntityAspect());
-                }
-              }
 
-              // 6. Emit the Update
-              try {
-                final RecordTemplate latestValue =
-                    latest == null ? null : latest.getRecordTemplate();
-                final RecordTemplate previousValue =
-                    survivingAspect == null ? null : latest.getRecordTemplate();
+                  // 2. Compare the match conditions, if they don't match, ignore.
+                  SystemMetadata latestSystemMetadata = latest.getSystemMetadata();
+                  if (!filterMatch(latestSystemMetadata, conditions)) {
+                    return TransactionResult.rollback();
+                  }
 
-                final Urn urnObj = Urn.createFromString(urn);
-                // We are not deleting key aspect if hardDelete has not been set so do not return a
-                // rollback result
-                if (isKeyAspect && !hardDelete) {
-                  return null;
-                }
-                return new RollbackResult(
-                    urnObj,
-                    urnObj.getEntityType(),
-                    latest.getAspectName(),
-                    latestValue,
-                    previousValue,
-                    latestSystemMetadata,
-                    previousValue == null ? null : survivingAspect.getSystemMetadata(),
-                    survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT,
-                    isKeyAspect,
-                    additionalRowsDeleted);
-              } catch (URISyntaxException e) {
-                throw new RuntimeException(
-                    String.format("Failed to emit the update for urn %s", urn));
-              } catch (IllegalStateException e) {
-                log.warn(
-                    "Unable to find aspect, rollback result will not be sent. Error: {}",
-                    e.getMessage());
-                return null;
-              }
-            },
-            DEFAULT_MAX_TRANSACTION_RETRY);
+                  // 3. Check if this is a key aspect
+                  Boolean isKeyAspect = opContext.getKeyAspectName(entityUrn).equals(aspectName);
+
+                  // 4. Fetch all preceding aspects, that match
+                  List<EntityAspect> aspectsToDelete = new ArrayList<>();
+                  Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
+                  long minVersion = Math.max(0, versionRange.getFirst());
+                  long maxVersion = Math.max(0, versionRange.getSecond());
+
+                  EntityAspect.EntitySystemAspect survivingAspect = null;
+
+                  boolean filterMatch = true;
+                  while (maxVersion > minVersion && filterMatch) {
+                    EntityAspect.EntitySystemAspect candidateAspect =
+                        (EntityAspect.EntitySystemAspect)
+                            EntityUtils.toSystemAspect(
+                                    opContext.getRetrieverContext(),
+                                    aspectDao.getAspect(urn, aspectName, maxVersion))
+                                .orElse(null);
+                    SystemMetadata previousSysMetadata =
+                        candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
+                    filterMatch =
+                        previousSysMetadata != null && filterMatch(previousSysMetadata, conditions);
+                    if (filterMatch) {
+                      aspectsToDelete.add(candidateAspect.getEntityAspect());
+                    } else if (candidateAspect == null) {
+                      // potential gap
+                      filterMatch = true;
+                    } else {
+                      survivingAspect = candidateAspect;
+                    }
+                    maxVersion = maxVersion - 1;
+                  }
+
+                  // Delete validation hooks
+                  ValidationExceptionCollection preCommitExceptions =
+                      AspectsBatch.validatePreCommit(
+                          aspectsToDelete.stream()
+                              .map(
+                                  toDelete ->
+                                      DeleteItemImpl.builder()
+                                          .urn(UrnUtils.getUrn(toDelete.getUrn()))
+                                          .aspectName(toDelete.getAspect())
+                                          .auditStamp(auditStamp)
+                                          .build(opContext.getAspectRetriever()))
+                              .collect(Collectors.toList()),
+                          opContext.getRetrieverContext());
+                  if (!preCommitExceptions.isEmpty()) {
+                    throw new ValidationException(collectMetrics(preCommitExceptions).toString());
+                  }
+
+                  // 5. Apply deletes and fix up latest row
+                  aspectsToDelete.forEach(aspect -> aspectDao.deleteAspect(txContext, aspect));
+
+                  if (survivingAspect != null) {
+                    // if there was a surviving aspect, copy its information into the latest row
+                    // eBean does not like us updating a pkey column (version) for the surviving
+                    // aspect
+                    // as a result we copy information from survivingAspect to latest and delete
+                    // survivingAspect
+                    latest
+                        .getEntityAspect()
+                        .setMetadata(survivingAspect.getEntityAspect().getMetadata());
+                    latest
+                        .getEntityAspect()
+                        .setSystemMetadata(survivingAspect.getEntityAspect().getSystemMetadata());
+                    latest.getEntityAspect().setCreatedOn(survivingAspect.getCreatedOn());
+                    latest.getEntityAspect().setCreatedBy(survivingAspect.getCreatedBy());
+                    latest
+                        .getEntityAspect()
+                        .setCreatedFor(survivingAspect.getEntityAspect().getCreatedFor());
+                    aspectDao.saveAspect(txContext, latest.getEntityAspect(), false);
+                    // metrics
+                    aspectDao.incrementWriteMetrics(
+                        aspectName,
+                        1,
+                        latest.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
+                    aspectDao.deleteAspect(txContext, survivingAspect.getEntityAspect());
+                  } else {
+                    if (isKeyAspect) {
+                      if (hardDelete) {
+                        // If this is the key aspect, delete the entity entirely.
+                        additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
+                      } else if (deleteItem
+                          .getEntitySpec()
+                          .hasAspect(Constants.STATUS_ASPECT_NAME)) {
+                        // soft delete by setting status.removed=true (if applicable)
+                        final Status statusAspect = new Status();
+                        statusAspect.setRemoved(true);
+
+                        final MetadataChangeProposal gmce = new MetadataChangeProposal();
+                        gmce.setEntityUrn(entityUrn);
+                        gmce.setChangeType(ChangeType.UPSERT);
+                        gmce.setEntityType(entityUrn.getEntityType());
+                        gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
+                        gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
+
+                        this.ingestProposal(opContext, gmce, auditStamp, false);
+                      }
+                    } else {
+                      // Else, only delete the specific aspect.
+                      aspectDao.deleteAspect(txContext, latest.getEntityAspect());
+                    }
+                  }
+
+                  // 6. Emit the Update
+                  try {
+                    final RecordTemplate latestValue =
+                        latest == null ? null : latest.getRecordTemplate();
+                    final RecordTemplate previousValue =
+                        survivingAspect == null ? null : latest.getRecordTemplate();
+
+                    final Urn urnObj = Urn.createFromString(urn);
+                    // We are not deleting key aspect if hardDelete has not been set so do not
+                    // return a
+                    // rollback result
+                    if (isKeyAspect && !hardDelete) {
+                      return TransactionResult.rollback();
+                    }
+                    return TransactionResult.commit(
+                        new RollbackResult(
+                            urnObj,
+                            urnObj.getEntityType(),
+                            latest.getAspectName(),
+                            latestValue,
+                            previousValue,
+                            latestSystemMetadata,
+                            previousValue == null ? null : survivingAspect.getSystemMetadata(),
+                            survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT,
+                            isKeyAspect,
+                            additionalRowsDeleted));
+                  } catch (URISyntaxException e) {
+                    throw new RuntimeException(
+                        String.format("Failed to emit the update for urn %s", urn));
+                  } catch (IllegalStateException e) {
+                    log.warn(
+                        "Unable to find aspect, rollback result will not be sent. Error: {}",
+                        e.getMessage());
+                    return TransactionResult.rollback();
+                  }
+                },
+                DEFAULT_MAX_TRANSACTION_RETRY)
+            .stream()
+            .findFirst()
+            .orElse(null);
 
     if (result != null) {
       processPostCommitMCLSideEffects(opContext, List.of(result.toMCL(auditStamp)));
