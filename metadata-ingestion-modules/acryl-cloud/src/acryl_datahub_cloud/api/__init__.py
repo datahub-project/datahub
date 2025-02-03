@@ -1,1 +1,1 @@
-from acryl_datahub_cloud.api.client import AcrylGraph
+from acryl_datahub_cloud.api.client import AcrylGraph as AcrylGraph

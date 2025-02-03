@@ -66,9 +66,9 @@ class DatasetRegistrationSpec(BaseModel):
 
 class FileStoreBackedDatasetConfig(ConfigModel):
     dataset_name: str
-    dataset_urn: Optional[
-        str
-    ] = None  # If not set, it will be generated from the dataset_name
+    dataset_urn: Optional[str] = (
+        None  # If not set, it will be generated from the dataset_name
+    )
     bucket_prefix: str
     store_platform: str = "s3"
     file_name: str = "data"
@@ -79,9 +79,9 @@ class FileStoreBackedDatasetConfig(ConfigModel):
     generate_presigned_url: bool = True
     presigned_url_expiry_days: int = 7
     dataset_registration_spec: DatasetRegistrationSpec = DatasetRegistrationSpec()
-    file: Optional[
-        str
-    ] = None  # This is the file to be registered. When set, the file will be registered as a dataset immediately
+    file: Optional[str] = (
+        None  # This is the file to be registered. When set, the file will be registered as a dataset immediately
+    )
 
     datahub_platform: str = "acryl"
 

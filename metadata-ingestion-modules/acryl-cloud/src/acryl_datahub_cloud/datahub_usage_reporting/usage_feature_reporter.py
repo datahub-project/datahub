@@ -355,7 +355,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             for doc in results:
                 if "platform" not in doc["_source"] or not doc["_source"]["platform"]:
                     logger.warning(
-                        f"Platform not found in query { doc['_source']['urn']}. Skipping..."
+                        f"Platform not found in query {doc['_source']['urn']}. Skipping..."
                     )
                     continue
 
@@ -672,10 +672,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def polars_to_arrow_schema(
-        polars_schema: Dict[str, Union[DataTypeClass, polars.DataType]]
+        polars_schema: Dict[str, Union[DataTypeClass, polars.DataType]],
     ) -> pa.Schema:
         def convert_dtype(
-            polars_dtype: Union[DataTypeClass, polars.DataType]
+            polars_dtype: Union[DataTypeClass, polars.DataType],
         ) -> pa.DataType:
             type_mapping: Dict[Union[DataTypeClass, polars.DataType], pa.DataType] = {
                 polars.Boolean(): pa.bool_(),
@@ -1443,9 +1443,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         if not self.config.streaming_mode:
             return polars.LazyFrame(data, schema)
         else:
-            assert (
-                self.temp_dir is not None
-            ), "In Streaming mode temp dir should be set. Normally this should not happen..."
+            assert self.temp_dir is not None, (
+                "In Streaming mode temp dir should be set. Normally this should not happen..."
+            )
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
@@ -1614,7 +1614,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     time_taken = timer.elapsed_seconds()
                     processed_count += len(results["hits"]["hits"])
                     logger.info(
-                        f"Processed {len(results['hits']['hits'''])} data from {index} index in {time_taken:.3f} seconds. Total: {processed_count} processed."
+                        f"Processed {len(results['hits']['hits'])} data from {index} index in {time_taken:.3f} seconds. Total: {processed_count} processed."
                     )
                     if len(results["hits"]["hits"]) < batch_size:
                         break
