@@ -39,7 +39,7 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
     @property
     def is_delta_table(self) -> bool:
-        return self.data_source_format == DataSourceFormat.DELTA.value
+        return self.data_source_format.value == DataSourceFormat.DELTA.value
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
