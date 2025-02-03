@@ -1,10 +1,10 @@
 import itertools
 import logging
+import time
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
-    get_sys_time,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -77,7 +77,6 @@ from datahub.ingestion.source_report.ingestion_stage import (
     PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
     GlobalTags,
     Status,
     SubTypes,
@@ -105,15 +104,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.metadata.urns import (
-    ContainerUrn,
-    DatasetUrn,
-    DataTypeUrn,
-    EntityTypeUrn,
     SchemaFieldUrn,
     StructuredPropertyUrn,
 )
@@ -195,7 +187,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report
+            config, self.data_dictionary, self.report, identifiers
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
@@ -221,6 +213,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return self.identifiers.snowflake_identifier(identifier)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.extract_tags_as_structured_properties:
+            logger.info("Creating structured property templates for tags")
+            yield from self.tag_extractor.create_structured_property_templates()
+            # We have to wait until cache invalidates to make sure the structured property template is available
+            logger.info(
+                f"Waiting for {self.config.structured_properties_template_cache_invalidation_interval} seconds for structured properties cache to invalidate"
+            )
+            time.sleep(
+                self.config.structured_properties_template_cache_invalidation_interval
+            )
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
@@ -749,6 +751,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         use_sp = self.config.extract_tags_as_structured_properties
+
         identifier = (
             self.snowflake_identifier(tag.structured_property_identifier())
             if use_sp
@@ -759,10 +762,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return
 
         self.report.report_tag_processed(identifier)
+
         if use_sp:
-            yield from self.gen_tag_as_structured_property_workunits(tag)
-        else:
-            yield from self.gen_tag_workunits(tag)
+            return
+
+        yield from self.gen_tag_workunits(tag)
 
     def _format_tags_as_structured_properties(
         self, tags: List[SnowflakeTag]
@@ -783,6 +787,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if table.tags:
             for tag in table.tags:
                 yield from self._process_tag(tag)
+
         for column_name in table.column_tags:
             for tag in table.column_tags[column_name]:
                 yield from self._process_tag(tag)
@@ -976,29 +981,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=tag_urn, aspect=tag_properties_aspect
-        ).as_workunit()
-
-    def gen_tag_as_structured_property_workunits(
-        self, tag: SnowflakeTag
-    ) -> Iterable[MetadataWorkUnit]:
-        identifier = self.snowflake_identifier(tag.structured_property_identifier())
-        urn = StructuredPropertyUrn(identifier).urn()
-        aspect = StructuredPropertyDefinition(
-            qualifiedName=identifier,
-            displayName=tag.name,
-            valueType=DataTypeUrn("datahub.string").urn(),
-            entityTypes=[
-                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
-            ],
-            lastModified=AuditStamp(
-                time=get_sys_time(), actor="urn:li:corpuser:datahub"
-            ),
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=aspect,
         ).as_workunit()
 
     def gen_column_tags_as_structured_properties(

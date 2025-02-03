@@ -310,6 +310,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return secure_view_definitions
 
+    def get_all_tags(self) -> List[SnowflakeTag]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_all_tags(),
+        )
+
+        tags = [
+            SnowflakeTag(
+                database=tag["TAG_DATABASE"],
+                schema=tag["TAG_SCHEMA"],
+                name=tag["TAG_NAME"],
+                value="",
+            )
+            for tag in cur
+        ]
+
+        return tags
+
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str

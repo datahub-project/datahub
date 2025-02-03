@@ -25,3 +25,32 @@ input LineageEdge {
     """
     upstreamUrn: String!
 }
+
+"""
+Represents lineage information for ML entities.
+"""
+type MLModelLineageInfo {
+   """
+   List of jobs or processes used to train the model.
+   """
+   trainingJobs: [String!]
+
+   """
+   List of jobs or processes that use this model.
+   """
+   downstreamJobs: [String!]
+}
+
+extend type MLModelProperties {
+    """
+    Information related to lineage to this model group
+    """
+    mlModelLineageInfo: MLModelLineageInfo
+}
+
+extend type MLModelGroupProperties {
+    """
+    Information related to lineage to this model group
+    """
+    mlModelLineageInfo: MLModelLineageInfo
+}

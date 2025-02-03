@@ -163,6 +163,17 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
+    def get_all_tags():
+        return """
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        FROM snowflake.account_usage.tag_references
+        GROUP BY TAG_DATABASE , TAG_SCHEMA, tag_name
+        ORDER BY TAG_DATABASE, TAG_SCHEMA, TAG_NAME  ASC;
+        """
+
+    @staticmethod
     def get_all_tags_on_object_with_propagation(
         db_name: str, quoted_identifier: str, domain: str
     ) -> str:

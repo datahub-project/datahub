@@ -14,13 +14,20 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
-from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerConstant,
+    LookerModel,
+)
 from datahub.ingestion.source.looker.looker_template_language import (
+    LookmlConstantTransformer,
     SpecialVariable,
     load_and_preprocess_file,
     resolve_liquid_variable,
 )
-from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_config import (
+    LookMLSourceConfig,
+    LookMLSourceReport,
+)
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.ingestion.source.looker.lookml_source import LookMLSource
 from datahub.metadata.schema_classes import (
@@ -835,8 +842,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
 
     manifest = load_and_preprocess_file(
-        path=manifest_file,
-        source_config=MagicMock(),
+        path=manifest_file, source_config=MagicMock(), reporter=LookMLSourceReport()
     )
 
     assert manifest
@@ -893,6 +899,31 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
     pipeline.raise_from_status(raise_warnings=True)
 
     golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "vv_lineage_lookml_constant_golden.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/vv-lineage-and-lookml-constant",
+    )
+
+    new_recipe["source"]["config"]["lookml_constants"] = {"winner_table": "dev"}
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    assert pipeline.source.get_report().warnings.total_elements == 1
+
+    golden_path = test_resources_dir / "vv_lineage_lookml_constant_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,
@@ -966,6 +997,8 @@ def test_special_liquid_variables():
     actual_text = resolve_liquid_variable(
         text=text,
         liquid_variable=input_liquid_variable,
+        report=LookMLSourceReport(),
+        view_name="test",
     )
 
     expected_text: str = (
@@ -974,6 +1007,108 @@ def test_special_liquid_variables():
         "'source_table'\n    "
     )
     assert actual_text == expected_text
+
+
+@pytest.mark.parametrize(
+    "view, expected_result, warning_expected",
+    [
+        # Case 1: Single constant replacement in sql_table_name
+        (
+            {"sql_table_name": "@{constant1}.kafka_streaming.events"},
+            {"datahub_transformed_sql_table_name": "value1.kafka_streaming.events"},
+            False,
+        ),
+        # Case 2: Single constant replacement with config-defined constant
+        (
+            {"sql_table_name": "SELECT * FROM @{constant2}"},
+            {"datahub_transformed_sql_table_name": "SELECT * FROM value2"},
+            False,
+        ),
+        # Case 3: Multiple constants in a derived_table SQL query
+        (
+            {"derived_table": {"sql": "SELECT @{constant1}, @{constant3}"}},
+            {
+                "derived_table": {
+                    "datahub_transformed_sql": "SELECT value1, manifest_value3"
+                }
+            },
+            False,
+        ),
+        # Case 4: Non-existent constant in sql_table_name
+        (
+            {"sql_table_name": "SELECT * FROM @{nonexistent}"},
+            {"datahub_transformed_sql_table_name": "SELECT * FROM @{nonexistent}"},
+            False,
+        ),
+        # Case 5: View with unsupported attribute
+        ({"unsupported_attribute": "SELECT * FROM @{constant1}"}, {}, False),
+        # Case 6: View with no transformable attributes
+        (
+            {"sql_table_name": "SELECT * FROM table_name"},
+            {"datahub_transformed_sql_table_name": "SELECT * FROM table_name"},
+            False,
+        ),
+        # Case 7: Constants only in manifest_constants
+        (
+            {"sql_table_name": "SELECT @{constant3}"},
+            {"datahub_transformed_sql_table_name": "SELECT manifest_value3"},
+            False,
+        ),
+        # Case 8: Constants only in lookml_constants
+        (
+            {"sql_table_name": "SELECT @{constant2}"},
+            {"datahub_transformed_sql_table_name": "SELECT value2"},
+            False,
+        ),
+        # Case 9: Multiple unsupported attributes
+        (
+            {
+                "unsupported_attribute": "SELECT @{constant1}",
+                "another_unsupported_attribute": "SELECT @{constant2}",
+            },
+            {},
+            False,
+        ),
+        # Case 10: Misplaced lookml constant
+        (
+            {"sql_table_name": "@{constant1}.@{constant2}.@{constant4}"},
+            {"datahub_transformed_sql_table_name": "value1.value2.@{constant4}"},
+            True,
+        ),
+    ],
+)
+@freeze_time(FROZEN_TIME)
+def test_lookml_constant_transformer(view, expected_result, warning_expected):
+    """
+    Test LookmlConstantTransformer with various view structures.
+    """
+    config = MagicMock()
+    report = MagicMock()
+    config.lookml_constants = {
+        "constant1": "value1",
+        "constant2": "value2",
+    }
+    config.liquid_variables = {
+        "constant4": "liquid_value1",
+    }
+
+    transformer = LookmlConstantTransformer(
+        source_config=config,
+        reporter=report,
+        manifest_constants={
+            "constant1": LookerConstant(name="constant1", value="manifest_value1"),
+            "constant3": LookerConstant(name="constant3", value="manifest_value3"),
+        },
+    )
+
+    result = transformer.transform(view)
+    assert result == expected_result
+    if warning_expected:
+        report.warning.assert_called_once_with(
+            title="Misplaced lookml constant",
+            message="Use 'lookml_constants' instead of 'liquid_variables'.",
+            context="Key constant4",
+        )
 
 
 @freeze_time(FROZEN_TIME)

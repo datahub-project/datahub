@@ -254,6 +254,12 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
+    structured_properties_template_cache_invalidation_interval: int = Field(
+        hidden_from_docs=True,
+        default=60,
+        description="Interval in seconds to invalidate the structured properties template cache.",
+    )
+
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
@@ -310,6 +316,13 @@ class SnowflakeV2Config(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
         " assertions CLI in snowflake",
+    )
+
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
     )
 
     @validator("convert_urns_to_lowercase")
