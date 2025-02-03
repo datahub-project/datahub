@@ -627,9 +627,9 @@ class PowerBiAPI:
                 )
                 # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
+                    # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
+                    # https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-new-workspaces
                     if tile.report_id:
-                        # As per ChatGPT, Reports cannot be in a different workspace from the dashboard and its tiles:
-                        # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
                         tile.report = workspace.reports.get(tile.report_id)
                         if tile.report is None:
                             self.reporter.info(
@@ -637,6 +637,9 @@ class PowerBiAPI:
                                 message="A Report reference that failed to be resolved. Please ensure that 'extract_reports' is set to True in the configuration.",
                                 context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, report-id: {tile.report_id}",
                             )
+                    # However, semantic models (aka datasets) can be shared accross workspaces
+                    # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
+                    # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
