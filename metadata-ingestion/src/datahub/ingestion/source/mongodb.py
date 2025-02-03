@@ -219,6 +219,8 @@ def construct_schema_pymongo(
 
     aggregations: List[Dict] = []
 
+    # The order of the aggregations impacts execution time. By setting the sample/limit aggregation first,
+    # the subsequent aggregations process a much smaller dataset, improving performance.
     if sample_size:
         if use_random_sampling:
             aggregations.append({"$sample": {"size": sample_size}})
