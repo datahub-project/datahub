@@ -12,6 +12,7 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.TransactionResult;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.util.List;
@@ -38,7 +39,7 @@ public class EbeanAspectDaoTest {
         (txContext) -> {
           testDao.getNextVersions(
               Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
-          return "";
+          return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
         0);
@@ -61,7 +62,7 @@ public class EbeanAspectDaoTest {
         (txContext) -> {
           testDao.getLatestAspects(
               Map.of("urn:li:corpuser:testGetLatestAspectsForUpdate", Set.of("status")), true);
-          return "";
+          return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
         0);
@@ -94,7 +95,7 @@ public class EbeanAspectDaoTest {
                       DATA_PLATFORM_INSTANCE_ASPECT_NAME,
                       ASPECT_LATEST_VERSION)),
               true);
-          return "";
+          return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
         0);

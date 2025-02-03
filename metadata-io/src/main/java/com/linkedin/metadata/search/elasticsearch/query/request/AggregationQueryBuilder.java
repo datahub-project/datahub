@@ -22,7 +22,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -104,6 +104,10 @@ public class AggregationQueryBuilder {
             .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
             .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
+    // Entity Type > Sub-Type aggregations.
+    // TODO: Ideally we can avoid the index-virtual-fields aggregation.
+    facets.add(
+        String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames"));
     return facets;
   }
 

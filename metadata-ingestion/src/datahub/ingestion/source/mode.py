@@ -24,6 +24,7 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -155,10 +156,7 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     workspace: str = Field(
         description="The Mode workspace name. Find it in Settings > Workspace > Details."
     )
-    default_schema: str = Field(
-        default="public",
-        description="Default schema to use when schema is not provided in an SQL query",
-    )
+    _default_schema = pydantic_removed_field("default_schema")
 
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(
