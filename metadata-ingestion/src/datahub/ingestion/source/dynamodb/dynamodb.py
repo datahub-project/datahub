@@ -164,6 +164,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",
 )
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -243,6 +247,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             name=dataset_name,
         )
         dataset_properties = DatasetPropertiesClass(
+            name=table_name,
             tags=[],
             customProperties={
                 "table.arn": table_info["TableArn"],
