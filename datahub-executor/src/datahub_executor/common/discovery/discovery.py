@@ -118,6 +118,12 @@ class DatahubExecutorDiscovery:
     def get_uptime(self) -> float:
         return time.time() - self.start_time
 
+    def is_backend_discovery_capable(self) -> bool:
+        server_config = self.graph.get_config()
+        if server_config and server_config.get("remoteExecutorBackend"):
+            return True
+        return False
+
     def start(self) -> None:
         version = self.build_info.get_version()
         logger.warning(
