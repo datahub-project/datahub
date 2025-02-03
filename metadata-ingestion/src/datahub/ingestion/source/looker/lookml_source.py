@@ -43,6 +43,7 @@ from datahub.ingestion.source.looker.looker_common import (
 from datahub.ingestion.source.looker.looker_connection import (
     get_connection_def_based_on_connection_string,
 )
+from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
@@ -254,6 +255,7 @@ class LookerManifest:
     # This must be set if the manifest has local_dependency entries.
     # See https://cloud.google.com/looker/docs/reference/param-manifest-project-name
     project_name: Optional[str]
+    constants: Optional[List[Dict[str, str]]]
 
     local_dependencies: List[str]
     remote_dependencies: List[LookerRemoteDependency]
@@ -310,11 +312,14 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
+        self.manifest_constants: Dict[str, "LookerConstant"] = {}
+
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
 
         parsed = load_and_preprocess_file(
             path=path,
+            reporter=self.reporter,
             source_config=self.source_config,
         )
 
@@ -500,26 +505,32 @@ class LookMLSource(StatefulIngestionSourceBase):
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
-        if manifest_file.exists():
-            manifest_dict = load_and_preprocess_file(
-                path=manifest_file, source_config=self.source_config
-            )
 
-            manifest = LookerManifest(
-                project_name=manifest_dict.get("project_name"),
-                local_dependencies=[
-                    x["project"] for x in manifest_dict.get("local_dependencys", [])
-                ],
-                remote_dependencies=[
-                    LookerRemoteDependency(
-                        name=x["name"], url=x["url"], ref=x.get("ref")
-                    )
-                    for x in manifest_dict.get("remote_dependencys", [])
-                ],
+        if not manifest_file.exists():
+            self.reporter.info(
+                message="manifest.lkml file missing from project",
+                context=str(manifest_file),
             )
-            return manifest
-        else:
             return None
+
+        manifest_dict = load_and_preprocess_file(
+            path=manifest_file,
+            source_config=self.source_config,
+            reporter=self.reporter,
+        )
+
+        manifest = LookerManifest(
+            project_name=manifest_dict.get("project_name"),
+            constants=manifest_dict.get("constants", []),
+            local_dependencies=[
+                x["project"] for x in manifest_dict.get("local_dependencys", [])
+            ],
+            remote_dependencies=[
+                LookerRemoteDependency(name=x["name"], url=x["url"], ref=x.get("ref"))
+                for x in manifest_dict.get("remote_dependencys", [])
+            ],
+        )
+        return manifest
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -575,7 +586,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, BASE_PROJECT_NAME, visited_projects
+                tmp_dir,
+                BASE_PROJECT_NAME,
+                visited_projects,
+                self.manifest_constants,
             )
 
             yield from self.get_internal_workunits()
@@ -588,7 +602,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _recursively_check_manifests(
-        self, tmp_dir: str, project_name: str, project_visited: Set[str]
+        self,
+        tmp_dir: str,
+        project_name: str,
+        project_visited: Set[str],
+        manifest_constants: Dict[str, "LookerConstant"],
     ) -> None:
         if project_name in project_visited:
             return
@@ -604,6 +622,14 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest = self.get_manifest_if_present(project_path)
         if not manifest:
             return
+
+        if manifest.constants:
+            for constant in manifest.constants:
+                if constant.get("name") and constant.get("value"):
+                    manifest_constants[constant["name"]] = LookerConstant(
+                        name=constant["name"],
+                        value=constant["value"],
+                    )
 
         # Special case handling if the root project has a name in the manifest file.
         if project_name == BASE_PROJECT_NAME and manifest.project_name:
@@ -664,21 +690,27 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_visited.add(project_name)
             else:
                 self._recursively_check_manifests(
-                    tmp_dir, remote_project.name, project_visited
+                    tmp_dir,
+                    remote_project.name,
+                    project_visited,
+                    manifest_constants,
                 )
 
         for project in manifest.local_dependencies:
-            self._recursively_check_manifests(tmp_dir, project, project_visited)
+            self._recursively_check_manifests(
+                tmp_dir, project, project_visited, manifest_constants
+            )
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
-
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
             self.source_config,
+            self.manifest_constants,
         )
+        logger.debug(f"LookML Constants : {', '.join(self.manifest_constants.keys())}")
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
 

@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Enum of possible icon sources
+ */
+enum IconLibrary {
+
+  /**
+   * Material UI
+   */
+   MATERIAL
+}

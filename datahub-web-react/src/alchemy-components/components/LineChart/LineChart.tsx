@@ -1,16 +1,22 @@
 import { colors } from '@src/alchemy-components/theme';
-// import { abbreviateNumber } from '@src/app/dataviz/utils';
+import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
-import { AreaSeries, Axis, AxisScale, Grid, LineSeries, Tooltip, XYChart } from '@visx/xychart';
+import { AreaSeries, Axis, AxisScale, Grid, Tooltip, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Popover } from '../Popover';
-import { ChartWrapper } from './components';
+import { ChartWrapper, TooltipGlyph } from './components';
 import { LineChartProps } from './types';
-import { abbreviateNumber } from '../dataviz/utils';
+import { getMockedProps } from '../BarChart/utils';
+import useMergedProps from '../BarChart/hooks/useMergedProps';
+import { roundToEven } from './utils';
+import { AxisProps, GridProps } from '../BarChart/types';
+import { GLYPH_DROP_SHADOW_FILTER } from './constants';
+import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import useMaxDataValue from '../BarChart/hooks/useMaxDataValue';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -18,30 +24,55 @@ const commonTickLabelProps: TickLabelProps<any> = {
     fill: colors.gray[1700],
 };
 
-const GLYPH_DROP_SHADOW_FILTER = `
-    drop-shadow(0px 1px 3px rgba(33, 23, 95, 0.30))
-    drop-shadow(0px 2px 5px rgba(33, 23, 95, 0.25))
-    drop-shadow(0px -2px 5px rgba(33, 23, 95, 0.25)
-`;
-
 export const lineChartDefault: LineChartProps<any> = {
     data: [],
+    isEmpty: false,
+
     xAccessor: (datum) => datum?.x,
     yAccessor: (datum) => datum?.y,
-    leftAxisTickFormat: abbreviateNumber,
-    leftAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'end',
-    },
-    bottomAxisTickFormat: (x) => dayjs(x).format('D MMM'),
-    bottomAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'middle',
-        verticalAnchor: 'start',
-    },
+    xScale: { type: 'time' },
+    yScale: { type: 'log', nice: true, round: true, base: 2 },
+
     lineColor: colors.violet[500],
     areaColor: 'url(#line-gradient)',
-    gridColor: '#e0e0e0',
+    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+
+    leftAxisProps: {
+        tickFormat: abbreviateNumber,
+        tickLabelProps: {
+            ...commonTickLabelProps,
+            textAnchor: 'end',
+            width: 50,
+        },
+        computeNumTicks: () => 5,
+        hideAxisLine: true,
+        hideTicks: true,
+    },
+    bottomAxisProps: {
+        tickFormat: (x) => dayjs(x).format('D MMM'),
+        tickLabelProps: {
+            ...commonTickLabelProps,
+            textAnchor: 'middle',
+            verticalAnchor: 'start',
+        },
+        computeNumTicks: (width, _, margin, data) => {
+            const widthOfTick = 80;
+            const widthOfAxis = width - margin.right - margin.left;
+            const maxCountOfTicks = Math.ceil(widthOfAxis / widthOfTick);
+            const numOfTicks = roundToEven(maxCountOfTicks / 2);
+            return Math.min(numOfTicks, data.length - 1);
+        },
+        hideAxisLine: true,
+        hideTicks: true,
+    },
+    gridProps: {
+        rows: true,
+        columns: false,
+        stroke: '#e0e0e0',
+        computeNumTicks: () => 5,
+        lineStyle: {},
+    },
+
     renderGradients: () => (
         <LinearGradient id="line-gradient" from={colors.violet[200]} to={colors.white} toOpacity={0.6} />
     ),
@@ -50,29 +81,28 @@ export const lineChartDefault: LineChartProps<any> = {
         strokeWidth: 2,
         filter: GLYPH_DROP_SHADOW_FILTER,
     },
-    renderTooltipGlyph: (props) => {
-        return (
-            <>
-                <circle cx={props.x} cy={props.y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
-                <circle cx={props.x} cy={props.y} r="6" fill={colors.violet[500]} />
-            </>
-        );
-    },
+    renderTooltipGlyph: (props) => <TooltipGlyph x={props.x} y={props.y} />,
 };
 
 export function LineChart<DatumType extends object>({
     data,
+    isEmpty,
+
     xAccessor = lineChartDefault.xAccessor,
     yAccessor = lineChartDefault.yAccessor,
-    renderTooltipContent,
-    margin,
-    leftAxisTickFormat = lineChartDefault.leftAxisTickFormat,
-    leftAxisTickLabelProps = lineChartDefault.leftAxisTickLabelProps,
-    bottomAxisTickFormat = lineChartDefault.bottomAxisTickFormat,
-    bottomAxisTickLabelProps = lineChartDefault.bottomAxisTickLabelProps,
+    xScale = lineChartDefault.xScale,
+    yScale = lineChartDefault.yScale,
+    maxYDomainForZeroData,
+
     lineColor = lineChartDefault.lineColor,
     areaColor = lineChartDefault.areaColor,
-    gridColor = lineChartDefault.gridColor,
+    margin,
+
+    leftAxisProps,
+    bottomAxisProps,
+    gridProps,
+
+    popoverRenderer,
     renderGradients = lineChartDefault.renderGradients,
     toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
@@ -82,12 +112,36 @@ export function LineChart<DatumType extends object>({
     // FYI: additional margins to show left and bottom axises
     const internalMargin = {
         top: (margin?.top ?? 0) + 30,
-        right: (margin?.right ?? 0) + 20,
+        right: (margin?.right ?? 0) + 30,
         bottom: (margin?.bottom ?? 0) + 35,
         left: (margin?.left ?? 0) + 40,
     };
 
+    const maxDataValue = useMaxDataValue(data, yAccessor);
+    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
+
     const accessors = { xAccessor, yAccessor };
+
+    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps<DatumType>>(
+        leftAxisProps,
+        lineChartDefault.leftAxisProps,
+    );
+
+    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<
+        AxisProps<DatumType>
+    >(bottomAxisProps, lineChartDefault.bottomAxisProps);
+
+    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps<DatumType>>(
+        gridProps,
+        lineChartDefault.gridProps,
+    );
+
+    // In case of no data we should render empty graph with axises
+    // but they don't render at all without any data.
+    // To handle this case we will render the same graph with fake data and hide bars
+    if (!data.length) {
+        return <LineChart {...getMockedProps()} isEmpty />;
+    }
 
     return (
         <ChartWrapper onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
@@ -97,54 +151,54 @@ export function LineChart<DatumType extends object>({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'time' }}
-                            yScale={{ type: 'linear', nice: true, round: true }}
+                            xScale={xScale}
+                            yScale={adaptedYScale}
                             margin={internalMargin}
-                            captureEvents
+                            captureEvents={!isEmpty}
                         >
                             {renderGradients?.()}
 
                             <Axis
                                 orientation="left"
-                                tickFormat={leftAxisTickFormat}
-                                tickLabelProps={leftAxisTickLabelProps}
-                                hideAxisLine
-                                hideTicks
+                                numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
+                                {...mergedLeftAxisProps}
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={Math.floor(data.length / 2)}
-                                tickFormat={bottomAxisTickFormat}
-                                tickLabelProps={bottomAxisTickLabelProps}
-                                hideAxisLine
-                                hideTicks
+                                numTicks={computeBottomAxisNumTicks?.(width, height, internalMargin, data)}
+                                {...mergedBottomAxisProps}
                             />
-
+                            {/* Left vertical line for y-axis */}
                             <line
                                 x1={internalMargin.left}
                                 x2={internalMargin.left}
                                 y1={0}
                                 y2={height - internalMargin.bottom}
-                                stroke={gridColor}
+                                stroke={mergedGridProps.stroke}
+                            />
+                            {/* Bottom horizontal line for x-axis */}
+                            <line
+                                x1={internalMargin.left}
+                                x2={width - internalMargin.right}
+                                y1={height - internalMargin.bottom}
+                                y2={height - internalMargin.bottom}
+                                stroke={mergedGridProps.stroke}
                             />
 
                             {showGrid && (
-                                <Grid rows={false} columns stroke={gridColor} numTicks={data.length} lineStyle={{}} />
+                                <Grid
+                                    numTicks={computeGridNumTicks?.(width, height, internalMargin, data)}
+                                    {...mergedGridProps}
+                                />
                             )}
 
                             <AreaSeries<AxisScale, AxisScale, DatumType>
                                 dataKey="line-chart-seria-01"
                                 data={data}
-                                fill={areaColor}
+                                fill={!isEmpty ? areaColor : 'transparent'}
                                 curve={curveMonotoneX}
-                                {...accessors}
-                            />
-                            <LineSeries<AxisScale, AxisScale, DatumType>
-                                dataKey="line-chart-seria-01"
-                                data={data}
-                                stroke={lineColor}
-                                curve={curveMonotoneX}
+                                lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
                                 {...accessors}
                             />
 
@@ -162,8 +216,10 @@ export function LineChart<DatumType extends object>({
                                         tooltipData?.nearestDatum && (
                                             <Popover
                                                 open
+                                                defaultOpen
                                                 placement="topLeft"
-                                                content={renderTooltipContent?.(tooltipData.nearestDatum.datum)}
+                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
                                             />
                                         )
                                     );
