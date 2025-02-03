@@ -11,6 +11,8 @@ const StyledEditor = styled(Editor)<{ displayBulkPromptStyles?: boolean }>`
     width: 75%;
     min-width: 585px;
     max-width: 700px;
+    max-height: 300px;
+    overflow: auto;
 
     ${(props) =>
         props.displayBulkPromptStyles &&
