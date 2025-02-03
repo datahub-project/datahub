@@ -23,19 +23,33 @@ services:
       - |
         echo "Installing Connector"
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5      
+        #confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.2.5/confluentinc-kafka-connect-jdbc-10.2.5.zip
+        confluent-hub install --no-prompt confluentinc-kafka-connect-jdbc-10.2.5.zip
         #
-        confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
+        #confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/connect-transforms/versions/1.4.1/confluentinc-connect-transforms-1.4.1.zip
+        confluent-hub install --no-prompt confluentinc-connect-transforms-1.4.1.zip
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
+        #confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/kafka-connect-datagen/versions/0.6.0/confluentinc-kafka-connect-datagen-0.6.0.zip
+        confluent-hub install --no-prompt confluentinc-kafka-connect-datagen-0.6.0.zip
         #
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
+        #confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/debezium/debezium-connector-mysql/versions/1.7.0/debezium-debezium-connector-mysql-1.7.0.zip
+        confluent-hub install --no-prompt debezium-debezium-connector-mysql-1.7.0.zip
         #
-        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/wepay/kafka-connect-bigquery/versions/1.6.8/wepay-kafka-connect-bigquery-1.6.8.zip
+        confluent-hub install --no-prompt wepay-kafka-connect-bigquery-1.6.8.zip
         #
-        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        #confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/mongodb/kafka-connect-mongodb/versions/1.10.1/mongodb-kafka-connect-mongodb-1.10.1.zip
+        confluent-hub install --no-prompt mongodb-kafka-connect-mongodb-1.10.1.zip
         #
-        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
+        #confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
+        wget https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/kafka-connect-s3/versions/10.5.1/confluentinc-kafka-connect-s3-10.5.1.zip
+        confluent-hub install --no-prompt confluentinc-kafka-connect-s3-10.5.1.zip
         #
         mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
         #
