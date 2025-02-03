@@ -32,7 +32,7 @@ class DatahubAIClient:
 
     def __init__(
         self,
-        token: str,
+        token: Optional[str] = None,
         server_url: str = "http://localhost:8080",
         platform: str = "mlflow",
     ) -> None:

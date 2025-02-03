@@ -2,6 +2,7 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.common.urn.Urn;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.v1.models.TraceStatus;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;

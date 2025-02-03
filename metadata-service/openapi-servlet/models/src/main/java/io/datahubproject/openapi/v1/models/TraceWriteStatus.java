@@ -1,4 +1,4 @@
-package com.linkedin.metadata.systemmetadata;
+package io.datahubproject.openapi.v1.models;
 
 public enum TraceWriteStatus {
   // error occurred during processing
