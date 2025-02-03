@@ -30,6 +30,7 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.TransactionContext;
+import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -44,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -294,17 +296,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
   }
 
-  @Override
   @Nonnull
-  public <T> T runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry) {
+  @Override
+  public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
     validateConnection();
     TransactionContext txContext = TransactionContext.empty(maxTransactionRetry);
     do {
       try {
         // TODO: Try to bend this code to make use of Cassandra batches. This method is called from
         // single-urn operations, so perf should not suffer much
-        return block.apply(txContext);
+        return block.apply(txContext).getResults();
       } catch (DriverException exception) {
         txContext.addException(exception);
       }

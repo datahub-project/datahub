@@ -172,10 +172,6 @@ ebean:
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
-  locking:
-    enabled: ${EBEAN_LOCKING_ENABLED:false}
-    durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
-    maximumLocks: ${EBEAN_LOCKING_MAXIMUM_LOCKS:20000}
 
 # Only required if entityService.impl is cassandra
 cassandra:
