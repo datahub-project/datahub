@@ -1,11 +1,40 @@
 extend type Query {
-    listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
-    defaultRemoteExecutorPool: RemoteExecutorPool
+  listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
+  defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
 }
+extend type Mutation {
+  """
+  Creates a remote executor pool and returns its urn
+  """
+  createRemoteExecutorPool(input: CreateRemoteExecutorPoolInput!): String!
+
+  """
+  Updates the global default remote executor pool
+  """
+  updateDefaultRemoteExecutorPool(urn: String!): Boolean!
+}
+
+input CreateRemoteExecutorPoolInput {
+  """
+  The unique identifier of the pool
+  """
+  poolName: String!
+
+  """
+  Whether this is the default pool
+  """
+  isDefault: Boolean!
+}
+
 
 input ListRemoteExecutorPoolsInput {
     start: Int!
     count: Int!
+}
+
+type DefaultRemoteExecutorPoolResult {
+  pool: RemoteExecutorPool
+  # TODO: Audit Stamp
 }
 
 type ListRemoteExecutorPoolsResult {
