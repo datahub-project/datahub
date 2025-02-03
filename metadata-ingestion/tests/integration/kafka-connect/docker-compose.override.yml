@@ -37,6 +37,8 @@ services:
         #
         confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
         #
+        mkdir -p /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib
+        #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
