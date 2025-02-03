@@ -5,7 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
-import EntityContext from '../EntityContext';
+import { EntityContext } from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
 import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';

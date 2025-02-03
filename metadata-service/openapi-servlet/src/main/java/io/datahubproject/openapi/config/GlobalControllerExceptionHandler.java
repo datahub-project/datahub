@@ -22,7 +22,8 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver;
 
 @Slf4j
-@ControllerAdvice
+@ControllerAdvice(
+    basePackages = {"io.datahubproject.openapi", "com.datahub.graphql", "com.datahub.auth"})
 public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionResolver {
 
   @PostConstruct

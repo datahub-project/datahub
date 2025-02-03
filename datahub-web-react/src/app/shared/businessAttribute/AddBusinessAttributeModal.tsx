@@ -86,7 +86,7 @@ export default function EditBusinessAttributeModal({
     const inputEl = useRef(null);
     const [urn, setUrn] = useState<string>('');
     const [disableAction, setDisableAction] = useState(false);
-    const [recommendedData] = useGetRecommendations([EntityType.BusinessAttribute]);
+    const { recommendedData } = useGetRecommendations([EntityType.BusinessAttribute]);
     const [selectedAttribute, setSelectedAttribute] = useState<any>('');
     const [attributeSearch, { data: attributeSearchData }] = useGetSearchResultsLazyQuery();
     const attributeSearchResults =

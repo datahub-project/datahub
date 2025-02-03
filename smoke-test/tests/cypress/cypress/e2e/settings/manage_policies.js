@@ -4,9 +4,14 @@ const platform_policy_edited = `Platform test policy ${test_id} EDITED`;
 const metadata_policy_name = `Metadata test policy ${test_id}`;
 const metadata_policy_edited = `Metadata test policy ${test_id} EDITED`;
 
-function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
+function searchForPolicy(metadataPolicyName) {
   cy.get('[data-testid="search-input"]').should("be.visible");
   cy.get('[data-testid="search-input"]').eq(1).type(metadataPolicyName);
+  cy.get('[data-testid="search-input"]').eq(1).blur();
+}
+
+function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
+  searchForPolicy(metadataPolicyName);
   cy.contains("tr", metadataPolicyName).as("metadataPolicyRow");
   cy.contains(targetStatus).click();
 }
@@ -34,6 +39,7 @@ function createPolicy(decription, policyName) {
   updateAndSave("groups", "All", "All Groups");
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
+  searchForPolicy(policyName);
   cy.waitTextVisible(policyName);
 }
 

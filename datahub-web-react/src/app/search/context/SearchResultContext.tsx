@@ -1,5 +1,5 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { SearchResult } from '../../../types.generated';
+import { EntityType, MatchedField, SearchResult } from '../../../types.generated';
 import {
     getMatchedFieldsByUrn,
     getMatchedFieldNames,
@@ -46,6 +46,11 @@ export const useEntityType = () => {
 export const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
+
+export function getMatchedFieldsForList(primaryField: string, entityType: EntityType, matchedFields: MatchedField[]) {
+    const showableFields = matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
+    return getMatchesPrioritized(entityType, showableFields, primaryField);
+}
 
 export const useMatchedFieldsForList = (primaryField: MatchedFieldName) => {
     const entityType = useEntityType();

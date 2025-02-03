@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import io.datahubproject.metadata.context.TraceContext;
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,6 +39,8 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
   @Autowired
   private ThrottleSensor kafkaThrottle;
 
+  @Autowired private TraceContext traceContext;
+
   @Test
   public void testRestoreIndicesInit() {
     /*
@@ -61,5 +64,10 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
   public void testNoThrottle() {
     assertEquals(
         new NoOpSensor(), kafkaThrottle, "No kafka throttle controls expected in datahub-upgrade");
+  }
+
+  @Test
+  public void testTraceContext() {
+    assertNotNull(traceContext);
   }
 }

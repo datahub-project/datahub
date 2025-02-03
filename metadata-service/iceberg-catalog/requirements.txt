@@ -1,0 +1,16 @@
+pytest>=6.2
+pytest-dependency>=0.5.1
+pyspark==3.5.3
+-e ../../metadata-ingestion[iceberg-catalog]
+# libaries for linting below this
+black==23.7.0
+isort==5.12.0
+mypy==1.5.1
+ruff==0.0.287
+# stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
+types-requests>=2.28.11.6,<=2.31.0.3
+types-PyYAML
+# https://github.com/docker/docker-py/issues/3256
+requests<=2.31.0
+# Missing numpy requirement in 8.0.0
+deepdiff!=8.0.0

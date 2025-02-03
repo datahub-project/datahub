@@ -177,7 +177,9 @@ def _get_generic_definition(
 class LookerConnectionDefinition(ConfigModel):
     platform: str
     default_db: str
-    default_schema: Optional[str]  # Optional since some sources are two-level only
+    default_schema: Optional[str] = (
+        None  # Optional since some sources are two-level only
+    )
     platform_instance: Optional[str] = None
     platform_env: Optional[str] = Field(
         default=None,
