@@ -34,7 +34,12 @@ record NotificationRecipient {
         /**
         * The notification originated from a global change.
         */
-        GLOBAL_NOTIFICATION
+        GLOBAL_NOTIFICATION,
+        /**
+        * The notification originated from an actor-oriented default notification.
+        * For example, proposal task or ownership assignment notifications.
+        */
+        ACTOR_NOTIFICATION
    }
 
    /**
