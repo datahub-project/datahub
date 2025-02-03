@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
+from databricks.sdk.service.catalog import DataSourceFormat
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection
 
@@ -34,6 +35,11 @@ class UnityCatalogSQLGenericTable(BaseTable):
         self.size_in_bytes = None
         self.rows_count = None
         self.ddl = None
+        self.data_source_format = table.data_source_format
+
+    @property
+    def is_delta_table(self) -> bool:
+        return self.data_source_format == DataSourceFormat.DELTA.value
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
@@ -110,10 +116,16 @@ class UnityCatalogGEProfiler(GenericProfiler):
         profile_table_level_only = self.profiling_config.profile_table_level_only
 
         dataset_name = table.ref.qualified_table_name
-        try:
-            table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
-        except Exception as e:
-            logger.warning(f"Failed to get table size for {dataset_name}: {e}")
+        if table.is_delta_table:
+            try:
+                table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
+            except Exception as e:
+                self.report.warning(
+                    title="Incomplete Dataset Profile",
+                    message="Failed to get table size",
+                    context=dataset_name,
+                    exc=e,
+                )
 
         if table.size_in_bytes is None:
             self.report.num_profile_missing_size_in_bytes += 1
@@ -144,16 +156,22 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 self.report.report_dropped(dataset_name)
             return None
 
-        if profile_table_level_only and table.size_in_bytes is not None:
+        if profile_table_level_only and table.is_delta_table:
             # For requests with profile_table_level_only set, dataset profile is generated
             # by looking at table.rows_count. For delta tables (a typical databricks table)
             # count(*) is an efficient query to compute row count.
-            # Presence of size_in_bytes confirms this is DELTA table and that we have
-            # SELECT permission on this table.
             try:
                 table.rows_count = _get_dataset_row_count(table, conn)
             except Exception as e:
-                logger.warning(f"Failed to get table row count for {dataset_name}: {e}")
+                self.report.warning(
+                    title="Incomplete Dataset Profile",
+                    message="Failed to get table row count",
+                    context=dataset_name,
+                    exc=e,
+                )
+
+        if table.rows_count is None:
+            self.report.num_profile_missing_row_count += 1
 
         self.report.report_entity_profiled(dataset_name)
         logger.debug(f"Preparing profiling request for {dataset_name}")
