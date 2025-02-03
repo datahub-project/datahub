@@ -481,6 +481,8 @@ public class Constants {
   public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
   public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
+  public static final String VERSION_SET_FIELD_NAME = "versionSet";
+  public static final String VERSION_LABEL_FIELD_NAME = "version";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
