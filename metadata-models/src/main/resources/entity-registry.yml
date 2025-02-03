@@ -47,6 +47,7 @@ entities:
       - forms
       - partitionsSummary
       - versionProperties
+      - icebergCatalogInfo
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -337,6 +338,7 @@ entities:
       - institutionalMemory
       - deprecation
       - status
+      - icebergWarehouseInfo
   - name: mlModel
     category: core
     keyAspect: mlModelKey
@@ -490,6 +492,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - deprecation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

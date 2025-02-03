@@ -251,6 +251,7 @@ iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
     "pyiceberg>=0.4.0",
+    *cachetools_lib,
 }
 
 mssql_common = {
@@ -300,6 +301,8 @@ abs_base = {
 data_lake_profiling = {
     "pydeequ>=1.1.0",
     "pyspark~=3.5.0",
+    # cachetools is used by the profiling config
+    *cachetools_lib,
 }
 
 delta_lake = {
@@ -407,13 +410,14 @@ plugins: Dict[str, Set[str]] = {
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4"},
+    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
+        *cachetools_lib,
     },
     "feast": {
         "feast>=0.34.0,<1",
@@ -425,7 +429,7 @@ plugins: Dict[str, Set[str]] = {
         "numpy<2",
     },
     "grafana": {"requests"},
-    "glue": aws_common,
+    "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -446,6 +450,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
+    "iceberg-catalog": aws_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -486,7 +491,7 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
-    "salesforce": {"simple-salesforce"},
+    "salesforce": {"simple-salesforce", *cachetools_lib},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
@@ -629,6 +634,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast",
             "iceberg",
+            "iceberg-catalog",
             "mlflow",
             "json-schema",
             "ldap",
@@ -691,6 +697,7 @@ full_test_dev_requirements = {
             "hana",
             "hive",
             "iceberg",
+            "iceberg-catalog",
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -743,6 +750,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
+        "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",

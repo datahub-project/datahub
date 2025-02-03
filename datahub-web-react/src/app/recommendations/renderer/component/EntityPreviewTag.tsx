@@ -1,12 +1,15 @@
 import React from 'react';
 import { Divider, Image, Tag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const EntityTag = styled(Tag)`
     margin: 4px;
+    max-width: inherit;
 `;
 
 const TitleContainer = styled.div`
@@ -14,6 +17,7 @@ const TitleContainer = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: 4px;
+    max-width: inherit;
 `;
 
 const IconContainer = styled.span`
@@ -33,6 +37,13 @@ const PlatformLogo = styled(Image)`
 const DisplayNameContainer = styled.span`
     padding-left: 4px;
     padding-right: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 `;
 
 const ColumnName = styled.span`
@@ -45,6 +56,10 @@ export const StyledDivider = styled(Divider)`
     margin: 0 7px;
 `;
 
+const StyledLink = styled(Link)`
+    max-width: inherit;
+`;
+
 type Props = {
     displayName: string;
     url: string;
@@ -53,6 +68,16 @@ type Props = {
     logoComponent?: React.ReactNode;
     onClick?: () => void;
     columnName?: string;
+    dataTestId?: string;
+};
+
+const constructExternalUrl = (url) => {
+    if (!url) return null;
+
+    const [baseUrl, queryString] = url.split('?');
+    const newBaseUrl = `${baseUrl}/`;
+
+    return queryString ? `${newBaseUrl}?${queryString}` : newBaseUrl;
 };
 
 export const EntityPreviewTag = ({
@@ -63,9 +88,13 @@ export const EntityPreviewTag = ({
     logoComponent,
     onClick,
     columnName,
+    dataTestId,
 }: Props) => {
+    const externalUrl = constructExternalUrl(url);
+    const linkProps = useEmbeddedProfileLinkProps();
+
     return (
-        <Link to={url} onClick={onClick}>
+        <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>
@@ -81,16 +110,18 @@ export const EntityPreviewTag = ({
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>
-                        <span className="test-mini-preview-class">{displayName}</span>
+                        <Tooltip title={displayName} showArrow={false}>
+                            <span className="test-mini-preview-class">{displayName}</span>
+                        </Tooltip>
                         {columnName && (
-                            <>
+                            <Tooltip title={columnName} showArrow={false}>
                                 <StyledDivider type="vertical" />
                                 <ColumnName>{columnName}</ColumnName>
-                            </>
+                            </Tooltip>
                         )}
                     </DisplayNameContainer>
                 </TitleContainer>
             </EntityTag>
-        </Link>
+        </StyledLink>
     );
 };

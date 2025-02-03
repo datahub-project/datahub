@@ -629,7 +629,27 @@ def default_query_results(  # noqa: C901
         ),
     ]:
         return []
-
+    elif query == snowflake_query.SnowflakeQuery.get_all_tags():
+        return [
+            *[
+                {
+                    "TAG_DATABASE": "TEST_DB",
+                    "TAG_SCHEMA": "TEST_SCHEMA",
+                    "TAG_NAME": f"my_tag_{ix}",
+                }
+                for ix in range(3)
+            ],
+            {
+                "TAG_DATABASE": "TEST_DB",
+                "TAG_SCHEMA": "TEST_SCHEMA",
+                "TAG_NAME": "security",
+            },
+            {
+                "TAG_DATABASE": "OTHER_DB",
+                "TAG_SCHEMA": "OTHER_SCHEMA",
+                "TAG_NAME": "my_other_tag",
+            },
+        ]
     elif (
         query
         == snowflake_query.SnowflakeQuery.get_all_tags_in_database_without_propagation(
