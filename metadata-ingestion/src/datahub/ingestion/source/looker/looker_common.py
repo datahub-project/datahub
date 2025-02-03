@@ -1417,7 +1417,9 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossySet
     )
 
-    stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
+    stage_latency: LossyList[StageLatency] = dataclasses_field(
+        default_factory=LossyList
+    )
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
     explores_scanned: int = 0
