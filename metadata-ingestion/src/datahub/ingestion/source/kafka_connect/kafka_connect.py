@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Type
 
 import jpype
 import jpype.imports
@@ -121,7 +121,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     connector_manifest.config, self.config.provided_configs
                 )
             connector_manifest.url = connector_url
-            connector_manifest.topic_names = self._get_connector_topics(connector_name)
+            connector_manifest.topic_names = self._get_connector_topics(
+                connector_name, connector_manifest.config, connector_manifest.type
+            )
             connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
             class_type: Type[BaseConnector] = BaseConnector
@@ -203,7 +205,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         return response.json()
 
-    def _get_connector_topics(self, connector_name: str) -> List[str]:
+    def _get_connector_topics(
+        self, connector_name: str, config: Dict, connector_type: str
+    ) -> List[str]:
+        if connector_type == SINK and config.get("topics"):
+            # Sink connectors may configure `topics` as List of topics to consume, separated by commas
+            # https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
+            # https://docs.confluent.io/platform/current/installation/configuration/connect/sink-connect-configs.html#topics
+            return [topic.strip() for topic in config["topics"].split(",")]
+
         try:
             response = self.session.get(
                 f"{self.config.connect_uri}/connectors/{connector_name}/topics",
