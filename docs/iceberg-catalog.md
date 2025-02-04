@@ -52,7 +52,7 @@ catalog:
     warehouse: arctic_warehouse
 ```
 
-Note: The code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository.
+Note: The python code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
 
 ### Required AWS Permissions
 
