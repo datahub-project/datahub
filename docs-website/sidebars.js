@@ -920,6 +920,11 @@ module.exports = {
       ],
     },
     {
+      type: "doc",
+      id: "docs/iceberg-catalog",
+      label: "DataHub Iceberg REST Catalog",
+    },
+    {
       "API & SDK Guides": [
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
