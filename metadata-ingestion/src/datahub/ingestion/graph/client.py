@@ -40,6 +40,7 @@ from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -125,7 +126,7 @@ def _graphql_entity_type(entity_type: str) -> str:
     return entity_type
 
 
-class DataHubGraph(DatahubRestEmitter):
+class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(

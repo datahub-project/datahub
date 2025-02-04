@@ -31,6 +31,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.LINK_VERSION,
 ]);
 
 /**

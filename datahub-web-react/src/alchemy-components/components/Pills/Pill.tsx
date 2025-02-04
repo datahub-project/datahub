@@ -1,23 +1,42 @@
 import { Icon } from '@components';
+import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
 import React from 'react';
 import { PillContainer, PillText } from './components';
-import { PillProps } from './types';
+import { PillProps, PillPropsDefaults } from './types';
 
-export const pillDefault: PillProps = {
-    label: 'Label',
-    size: 'md',
-    variant: 'filled',
-    clickable: true,
+export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
+    [PillVariantValues.filled]: [
+        ColorValues.violet,
+        ColorValues.blue,
+        ColorValues.green,
+        ColorValues.red,
+        ColorValues.yellow,
+    ],
+    [PillVariantValues.outline]: [
+        ColorValues.violet,
+        ColorValues.blue,
+        ColorValues.green,
+        ColorValues.red,
+        ColorValues.yellow,
+    ],
+    [PillVariantValues.version]: [ColorValues.white, ColorValues.gray],
+};
+
+export const pillDefaults: PillPropsDefaults = {
+    size: SizeValues.md,
+    variant: PillVariantValues.filled,
+    color: ColorValues.gray,
+    clickable: false,
 };
 
 export function Pill({
-    label = pillDefault.label,
-    size = pillDefault.size,
+    label,
+    size = pillDefaults.size,
+    variant = pillDefaults.variant,
+    clickable = pillDefaults.clickable,
+    color = pillDefaults.color,
     leftIcon,
     rightIcon,
-    colorScheme,
-    variant = pillDefault.variant,
-    clickable = pillDefault.clickable,
     id,
     onClickRightIcon,
     onClickLeftIcon,
@@ -25,10 +44,14 @@ export function Pill({
     customStyle,
     customIconRenderer,
 }: PillProps) {
+    if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
+        console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
+    }
+
     return (
         <PillContainer
             variant={variant}
-            colorScheme={colorScheme}
+            color={color}
             size={size}
             clickable={clickable}
             id={id}
