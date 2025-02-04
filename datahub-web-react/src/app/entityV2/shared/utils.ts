@@ -19,6 +19,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
 import { TimeWindowSize } from '../../shared/time/timeUtils';
+import { TITLE_CASE_EXCEPTION_WORDS } from './constants';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -297,12 +298,13 @@ export function getDashboardLastUpdatedMs(
 
 // return title case of the string with handling exceptions
 export const toProperTitleCase = (str: string) => {
-    const exceptions = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
     return str
         .toLowerCase()
         .split(' ')
         .map((word, index) =>
-            index === 0 || !exceptions.includes(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+            index === 0 || !TITLE_CASE_EXCEPTION_WORDS.includes(word)
+                ? word.charAt(0).toUpperCase() + word.slice(1)
+                : word,
         )
         .join(' ');
 };
