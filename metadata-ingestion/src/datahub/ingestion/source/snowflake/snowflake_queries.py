@@ -696,6 +696,9 @@ fingerprinted_queries as (
     JOIN filtered_access_history a USING (query_id)
 )
 SELECT * FROM query_access_history
+-- Our query aggregator expects the queries to be added in chronological order.
+-- It's easier for us to push down the sorting to Snowflake/SQL instead of doing it in Python.
+ORDER BY start_time ASC
 """
 
 
