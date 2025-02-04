@@ -335,9 +335,10 @@ To configure access:
 </p>
 
 2. Scope the policies by:
-    - Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
-    - Selecting specific DataSets for table and view data access privileges
-    - Selecting Tags that may be applied to DataSets or Data Platform Instances
+    * Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
+    * Selecting specific DataSets for table and view data access privileges
+    * Selecting Tags that may be applied to DataSets or Data Platform Instances
+
 <p>
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-privileges.png"/>
 </p>
