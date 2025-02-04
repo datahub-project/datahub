@@ -23,7 +23,7 @@ services:
       - |
         echo "Install confluent CLI"
         # https://docs.confluent.io/confluent-cli/current/install.html#tarball-or-zip-installation
-        wget https://packages.confluent.io/confluent-cli/archives/4.16.0/confluent_linux_arm64.tar.gz
+        wget https://packages.confluent.io/confluent-cli/archives/4.16.0/confluent_linux_amd64.tar.gz
         mkdir -p /tmp/confluent-cli
         tar -xvf confluent_linux_arm64.tar.gz -C /tmp/confluent-cli
         export PATH=/tmp/confluent-cli/confluent:$PATH
