@@ -1,3 +1,4 @@
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip } from '@components';
@@ -119,6 +120,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
             <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
+            <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );
 };

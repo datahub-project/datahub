@@ -28,7 +28,7 @@ const ContainerText = styled.span`
     max-width: 150px; // TODO: Remove in favor of smart truncation
 `;
 
-const StyledLink = styled(Link)`
+const StyledLink = styled(Link)<{ $disabled?: boolean }>`
     white-space: nowrap;
     border-radius: 4px;
     overflow: hidden;
@@ -44,21 +44,22 @@ const StyledLink = styled(Link)`
     }
 
     :hover {
-        color: ${colors.violet[500]};
+        color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
 
         && svg {
-            color: ${colors.violet[500]};
+            color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
         }
     }
 `;
 
 interface Props {
     entity: Maybe<Entity>;
+    linkDisabled?: boolean;
     style?: React.CSSProperties;
 }
 
 function ContextPathEntityLink(props: Props) {
-    const { entity, style } = props;
+    const { entity, linkDisabled, style } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -69,7 +70,12 @@ function ContextPathEntityLink(props: Props) {
 
     return (
         <Path style={style}>
-            <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
+            <StyledLink
+                to={linkDisabled ? null : containerUrl}
+                data-testid="container"
+                $disabled={linkDisabled}
+                {...linkProps}
+            >
                 <ContextPathEntityIcon entity={entity} />
                 <ContainerText title={containerName}>{containerName}</ContainerText>
             </StyledLink>

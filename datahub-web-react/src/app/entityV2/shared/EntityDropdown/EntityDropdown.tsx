@@ -4,15 +4,19 @@ import {
     FolderAddOutlined,
     FolderOpenOutlined,
     LinkOutlined,
-    MoreOutlined,
     NotificationOutlined,
     PlusOutlined,
     ShareAltOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
+import { Tooltip } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { Dropdown, Menu, message } from 'antd';
-import { Tooltip } from '@components';
+import { GitCommit, Link as LinkIcon, LinkBreak } from 'phosphor-react';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -21,7 +25,7 @@ import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
+import { useAppConfig, useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
 import { MarkAsDeprecatedButtonContents } from '../components/styled/MarkAsDeprecatedButton';
@@ -36,15 +40,8 @@ import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
 import useDeleteEntity from './useDeleteEntity';
 import { isDeleteDisabled, isMoveDisabled, shouldDisplayChildDeletionWarning } from './utils';
-
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: ${(props) => props.fontSize || '24'}px;
-    height: 32px;
-    margin-left: 5px;
-`;
+import LinkAssetVersionModal from './versioning/LinkAssetVersionModal';
+import UnlinkAssetVersionModal from './versioning/UnlinkAssetVersionModal';
 
 const MenuItem = styled.div`
     font-size: 13px;
@@ -69,6 +66,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         display: flex;
         font-size: 20px;
         padding: 2px;
+
         :hover {
             color: ${REDESIGN_COLORS.TITLE_PURPLE};
         }
@@ -77,13 +75,12 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
 
 const StyledMenuItem = styled(Menu.Item)<{ disabled?: boolean }>`
     ${(props) =>
-        props.disabled
-            ? `
-            ${MenuItem} {
-                color: ${ANTD_GRAY[7]};
-            }
-    `
-            : ''}
+        props.disabled &&
+        `
+        ${MenuItem} {
+            color: ${ANTD_GRAY[7]};
+        }
+    `}
 `;
 
 interface Options {
@@ -94,7 +91,7 @@ interface Options {
 interface Props {
     urn: string;
     entityType: EntityType;
-    entityData?: any;
+    entityData: GenericEntityProperties | null;
     menuItems: Set<EntityMenuItems>;
     options?: Options;
     refetchForEntity?: () => void;
@@ -121,9 +118,13 @@ const EntityDropdown = (props: Props) => {
         options,
         triggerType = ['click'],
     } = props;
+    const { urn: entityProfileUrn, setDrawer } = useEntityContext();
+    const onEntityProfile = entityProfileUrn === urn;
 
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
+    const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
+
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -141,8 +142,9 @@ const EntityDropdown = (props: Props) => {
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
-    // acryl-main only
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
+    const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
+    const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
@@ -290,6 +292,41 @@ const EntityDropdown = (props: Props) => {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
+                        {onEntityProfile &&
+                            versioningEnabled &&
+                            menuItems.has(EntityMenuItems.LINK_VERSION) &&
+                            !entityData?.versionProperties && (
+                                <StyledMenuItem key="link" disabled={false}>
+                                    <MenuItem onClick={() => setIsLinkAssetVersionModalVisible(true)}>
+                                        <LinkIcon fontSize="inherit" /> &nbsp;Link a Newer Version
+                                    </MenuItem>
+                                </StyledMenuItem>
+                            )}
+                        {onEntityProfile && entityData?.versionProperties?.isLatest && (
+                            <StyledMenuItem key="unlink" disabled={false}>
+                                <MenuItem onClick={() => setIsUnlinkAssetVersionModalVisible(true)}>
+                                    <LinkBreak fontSize="inherit" /> &nbsp;Unlink from Previous Version
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
+                        {onEntityProfile && entityData?.versionProperties && setDrawer && (
+                            <StyledMenuItem key="showVersions" disabled={false}>
+                                <MenuItem
+                                    onClick={() => {
+                                        analytics.event({
+                                            type: EventType.ShowAllVersionsEvent,
+                                            assetUrn: urn,
+                                            versionSetUrn: entityData?.versionProperties?.versionSet?.urn,
+                                            entityType,
+                                            uiLocation: 'preview',
+                                        });
+                                        setDrawer(DrawerType.VERSIONS);
+                                    }}
+                                >
+                                    <GitCommit fontSize="inherit" /> &nbsp;Show Versions
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
                         {menuItems.has(EntityMenuItems.SHARE) && (
                             <StyledSubMenu
                                 key="8"
@@ -358,7 +395,6 @@ const EntityDropdown = (props: Props) => {
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
-            {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
                     urn={urn}
@@ -380,6 +416,23 @@ const EntityDropdown = (props: Props) => {
                             );
                         }) as any
                     }
+                />
+            )}
+            {isLinkAssetVersionModalVisible && (
+                <LinkAssetVersionModal
+                    urn={urn}
+                    entityType={entityType}
+                    closeModal={() => setIsLinkAssetVersionModalVisible(false)}
+                    refetch={refetchForEntity}
+                />
+            )}
+            {isUnlinkAssetVersionModalVisible && (
+                <UnlinkAssetVersionModal
+                    urn={urn}
+                    entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    closeModal={() => setIsUnlinkAssetVersionModalVisible(false)}
+                    refetch={refetchForEntity}
                 />
             )}
         </>

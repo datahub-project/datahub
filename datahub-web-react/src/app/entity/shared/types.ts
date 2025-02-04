@@ -1,4 +1,5 @@
 import { MutationFunctionOptions, FetchResult } from '@apollo/client';
+import React from 'react';
 
 import {
     DataPlatform,
@@ -43,6 +44,7 @@ import {
     ScrollResults,
     Documentation,
     DisplayProperties,
+    VersionProperties,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -132,6 +134,7 @@ export type GenericEntityProperties = {
     parent?: Maybe<GenericEntityProperties>;
     displayProperties?: Maybe<DisplayProperties>;
     notes?: Maybe<EntityRelationshipsResult>;
+    versionProperties?: Maybe<VersionProperties>;
 };
 
 export type GenericEntityUpdate = {
@@ -160,6 +163,10 @@ interface EntityState {
     setShouldRefetchContents: (shouldRefetch: boolean) => void;
 }
 
+export enum DrawerType {
+    VERSIONS,
+}
+
 export type EntityContextType = {
     urn: string;
     entityType: EntityType;
@@ -174,6 +181,7 @@ export type EntityContextType = {
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
     entityState?: EntityState;
+    setDrawer?: React.Dispatch<React.SetStateAction<DrawerType | undefined>>;
 };
 
 export type SchemaContextType = {
