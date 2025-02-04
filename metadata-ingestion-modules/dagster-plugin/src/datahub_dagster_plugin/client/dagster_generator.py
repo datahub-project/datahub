@@ -41,19 +41,6 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata._schema_classes import (
-    AuditStampClass,
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
-    GlobalTagsClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    QuerySubjectClass,
-    QuerySubjectsClass,
-    TagAssociationClass,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -70,10 +57,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
+    GlobalTagsClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpUserUrn

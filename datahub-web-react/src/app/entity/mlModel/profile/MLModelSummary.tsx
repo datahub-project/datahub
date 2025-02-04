@@ -111,7 +111,7 @@ export default function MLModelSummary() {
                                 <Pill
                                     label={alias.versionTag ?? '-'}
                                     key={alias.versionTag}
-                                    colorScheme="blue"
+                                    color="blue"
                                     clickable={false}
                                 />
                             ))}
