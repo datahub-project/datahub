@@ -25,3 +25,7 @@ class HiddenEditWarning(Warning):
 
 class MultipleSubtypesWarning(Warning):
     pass
+
+
+class ExperimentalWarning(Warning):
+    pass
