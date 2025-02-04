@@ -1038,12 +1038,12 @@ jobs:
           cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
           
           includes=''
-          if [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            includes=$cypress_matrix
-          elif [ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]; then
-            includes=$python_matrix
-          elif [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' ]]; then
+          if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
+          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
+            includes="$cypress_matrix"
+          elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
+            includes="$python_matrix"
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
