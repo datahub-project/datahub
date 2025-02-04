@@ -167,7 +167,7 @@ def extract_dbt_entities(
     use_identifiers: bool,
     tag_prefix: str,
     only_include_if_in_catalog: bool,
-    skip_database_name: bool,
+    include_database_name: bool,
     report: DBTSourceReport,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -268,7 +268,7 @@ def extract_dbt_entities(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
             dbt_package_name=manifest_node.get("package_name"),
-            database=None if skip_database_name else manifest_node["database"],
+            database=manifest_node["database"] if include_database_name else None,
             schema=manifest_node["schema"],
             name=name,
             alias=manifest_node.get("alias"),
@@ -551,7 +551,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             use_identifiers=self.config.use_identifiers,
             tag_prefix=self.config.tag_prefix,
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
-            skip_database_name=self.config.skip_database_name,
+            include_database_name=self.config.include_database_name,
             report=self.report,
         )
 
