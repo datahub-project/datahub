@@ -154,8 +154,8 @@ public class AspectsBatchImpl implements AspectsBatch {
           mcpItem.getAuditStamp(),
           aspectRetriever.getEntityRegistry());
     }
-    return ChangeItemImpl.ChangeItemImplBuilder.build(
-        mcpItem.getMetadataChangeProposal(), mcpItem.getAuditStamp(), aspectRetriever);
+    return ChangeItemImpl.builder()
+        .build(mcpItem.getMetadataChangeProposal(), mcpItem.getAuditStamp(), aspectRetriever);
   }
 
   public static class AspectsBatchImplBuilder {
@@ -208,8 +208,8 @@ public class AspectsBatchImpl implements AspectsBatch {
                             auditStamp,
                             retrieverContext.getAspectRetriever().getEntityRegistry());
                       } else {
-                        return ChangeItemImpl.ChangeItemImplBuilder.build(
-                            mcp, auditStamp, retrieverContext.getAspectRetriever());
+                        return ChangeItemImpl.builder()
+                            .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
