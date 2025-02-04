@@ -27,6 +27,8 @@ class EntityClient:
     def __init__(self, client: DataHubClient):
         self._client = client
 
+    # TODO: Make all of these methods sync by default.
+
     @property
     def _graph(self) -> DataHubGraph:
         return self._client._graph
