@@ -31,6 +31,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.LINK_VERSION,
 ]);
 
 /**
@@ -192,7 +193,8 @@ export class MLModelEntity implements Entity<MlModel> {
     getLineageVizConfig = (entity: MlModel) => {
         return {
             urn: entity.urn,
-            name: entity.name,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            name: entity.properties?.['propertiesName'] || entity.name,
             type: EntityType.Mlmodel,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
@@ -201,7 +203,7 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     displayName = (data: MlModel) => {
-        return data.name || data.urn;
+        return data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModel: MlModel) => {

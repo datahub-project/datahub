@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -48,13 +48,17 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
-    models_dropped: List[str] = dataclass_field(default_factory=LossyList)
+    models_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
-    views_dropped: List[str] = dataclass_field(default_factory=LossyList)
-    views_dropped_unreachable: List[str] = dataclass_field(default_factory=LossyList)
+    views_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
+    views_dropped_unreachable: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
     query_parse_attempts: int = 0
     query_parse_failures: int = 0
-    query_parse_failure_views: List[str] = dataclass_field(default_factory=LossyList)
+    query_parse_failure_views: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
     _looker_api: Optional[LookerAPI] = None
 
     def report_models_scanned(self) -> None:
