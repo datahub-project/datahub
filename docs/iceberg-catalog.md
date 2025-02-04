@@ -331,7 +331,7 @@ DataHub provides granular access control for Iceberg operations through policies
 To configure access:
 1. Create policies with the appropriate privileges for Iceberg users
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/chakru-r/static-assets/b569b7bc6805dd459640cdf44649eb2c75d8c846/imgs/iceberg-policy-type.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-type.png"/>
 </p>
 
 2. Scope the policies by:
@@ -339,18 +339,18 @@ To configure access:
     - Selecting specific DataSets for table and view data access privileges
     - Selecting Tags that may be applied to DataSets or Data Platform Instances
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/chakru-r/static-assets/b569b7bc6805dd459640cdf44649eb2c75d8c846/imgs/iceberg-policy-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-privileges.png"/>
 </p>
 
 3. Assign the policies to relevant users or groups
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/chakru-r/static-assets/b569b7bc6805dd459640cdf44649eb2c75d8c846/imgs/iceberg-policy-users-groups.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-users-groups.png"/>
 </p>
 
 ### Iceberg tables in DataHub
 Once you create tables in iceberg, each of those tables show up in DataHub as a DataSet
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/76b213be0ae473524a7d8617eba6f34458f5edbd/imgs/iceberg-dataset-schema.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-dataset-schema.png"/>
 </p>
 
 ## Troubleshooting
