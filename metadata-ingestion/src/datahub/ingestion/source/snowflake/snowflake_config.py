@@ -308,6 +308,13 @@ class SnowflakeV2Config(
         " assertions CLI in snowflake",
     )
 
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:

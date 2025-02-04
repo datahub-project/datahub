@@ -800,6 +800,46 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     Assert.assertEquals(envExpanded.toString(), envExpected);
+
+    final Criterion businessAttributeRefNestedFieldCriterion =
+        buildCriterion("businessAttribute", Condition.EQUAL, "urn:li:businessAttribute:value");
+
+    QueryBuilder businessAttributeExpanded =
+        ESUtils.getQueryBuilderFromCriterion(
+            businessAttributeRefNestedFieldCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+    String businessAttributeExpected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"businessAttributeRef.keyword\" : [\n"
+            + "            \"urn:li:businessAttribute:value\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"businessAttributeRef\"\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"businessAttributeRef.urn\" : [\n"
+            + "            \"urn:li:businessAttribute:value\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"businessAttributeRef.urn\"\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(businessAttributeExpanded.toString(), businessAttributeExpected);
   }
 
   @Test
