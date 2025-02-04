@@ -118,12 +118,7 @@ export default function MLGroupModels() {
                 return (
                     <TagContainer>
                         {aliases.map((alias) => (
-                            <Pill
-                                key={alias.versionTag}
-                                label={alias.versionTag}
-                                colorScheme="blue"
-                                clickable={false}
-                            />
+                            <Pill key={alias.versionTag} label={alias.versionTag} color="blue" clickable={false} />
                         ))}
                     </TagContainer>
                 );

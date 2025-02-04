@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenAPIV3Generator {
+  private static final String PATH_PREFIX = "/openapi/v3";
   private static final String MODEL_VERSION = "_v3";
   private static final String TYPE_OBJECT = "object";
   private static final String TYPE_BOOLEAN = "boolean";
@@ -171,18 +172,19 @@ public class OpenAPIV3Generator {
     final Paths paths = new Paths();
 
     // --> Cross-entity Paths
-    paths.addPathItem("/v3/entity/scroll", buildGenericListEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/scroll", buildGenericListEntitiesPath());
 
     // --> Entity Paths
     definedEntitySpecs.forEach(
         e -> {
           paths.addPathItem(
-              String.format("/v3/entity/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+              String.format(PATH_PREFIX + "/entity/%s", e.getName().toLowerCase()),
+              buildListEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/batchGet", e.getName().toLowerCase()),
               buildBatchGetEntityPath(e));
           paths.addPathItem(
-              String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+              String.format(PATH_PREFIX + "/entity/%s/{urn}", e.getName().toLowerCase()),
               buildSingleEntityPath(e));
         });
 
@@ -196,8 +198,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
     definedEntitySpecs.forEach(
         e ->
@@ -208,8 +211,9 @@ public class OpenAPIV3Generator {
                     a ->
                         paths.addPathItem(
                             String.format(
-                                "/v3/entity/%s/{urn}/%s",
-                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                                PATH_PREFIX + "/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(),
+                                a.getName().toLowerCase()),
                             buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
@@ -219,7 +223,8 @@ public class OpenAPIV3Generator {
           .forEach(
               entitySpec -> {
                 paths.addPathItem(
-                    "/v3/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+                    PATH_PREFIX
+                        + "/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
                     buildVersioningRelationshipPath());
               });
     }

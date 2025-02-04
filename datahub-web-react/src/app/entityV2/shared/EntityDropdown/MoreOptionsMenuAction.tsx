@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
 import { ActionMenuItem } from './styledComponents';
 import { EntityMenuItems } from './EntityMenuActions';
@@ -9,7 +10,7 @@ interface Props {
     menuItems: Set<EntityMenuItems>;
     urn: string;
     entityType: EntityType;
-    entityData?: any;
+    entityData: GenericEntityProperties | null;
     refetch?: () => void;
     size?: number;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
