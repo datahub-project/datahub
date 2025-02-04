@@ -4,6 +4,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 ## Introduction
 
 BigQuery Metadata Sync is an automation that synchronizes DataHub Tags, Table and Column descriptions, and Column Glossary Terms with

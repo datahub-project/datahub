@@ -26,6 +26,7 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     DATAHUB_ANALYTICS_ENABLED: ${DATAHUB_ANALYTICS_ENABLED:-true}
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
+    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
 
 services:
   frontend-quickstart:

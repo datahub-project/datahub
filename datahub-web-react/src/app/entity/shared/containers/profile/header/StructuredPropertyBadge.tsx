@@ -78,12 +78,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
             overlayInnerStyle={{ width: 250, padding: 16 }}
         >
             <BadgeContainer>
-                <Pill
-                    label={propRow?.values[0]?.value?.toString() || ''}
-                    size="sm"
-                    colorScheme="violet"
-                    clickable={false}
-                />
+                <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="violet" clickable={false} />
             </BadgeContainer>
         </StyledTooltip>
     );

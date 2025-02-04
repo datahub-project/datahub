@@ -11,7 +11,7 @@ import {
 } from '../stories/sampleSchema';
 import { mocks } from '../../../../../Mocks';
 import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
-import EntityContext from '../../../shared/EntityContext';
+import { EntityContext } from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
 import { SchemaRow } from '../../../shared/tabs/Dataset/Schema/components/SchemaRow';
 

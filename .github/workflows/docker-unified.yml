@@ -44,6 +44,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
+      short_sha: ${{ steps.tag.outputs.short_sha }} # needed for auto-deploy
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
@@ -65,6 +66,8 @@ jobs:
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
+      integrations_service_change: "false"
+      datahub_executor_change: "false"
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -864,7 +867,8 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+          # Workaround 2025-01-25 - Depot publishing errors
+          depot-project: ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'release') && '' || vars.DEPOT_PROJECT_ID }}
       - name: Compute Tag
         id: tag
         run: echo "tag=${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
@@ -963,7 +967,8 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+          # Workaround 2025-01-25 - Depot publishing errors
+          depot-project: ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'release') && '' || vars.DEPOT_PROJECT_ID }}
       - name: Compute Tag (Full)
         id: tag
         run: echo "tag=${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> "$GITHUB_OUTPUT"
@@ -1018,8 +1023,8 @@ jobs:
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-          echo "python_batch_count=5" >> "$GITHUB_OUTPUT"
+          echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+          echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
 
       - id: set-matrix
         # For m batches for python and n batches for cypress, we need a test matrix of python x m + cypress x n.
@@ -1034,12 +1039,12 @@ jobs:
           cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
           
           includes=''
-          if [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            includes=$cypress_matrix
-          elif [ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]; then
-            includes=$python_matrix
-          elif [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' ]]; then
+          if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
+          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
+            includes="$cypress_matrix"
+          elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
+            includes="$python_matrix"
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
@@ -1177,11 +1182,6 @@ jobs:
             echo 'elasticsearch-setup head images'
             docker pull '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head'
             docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
-          fi
-          if [ '${{ needs.setup.outputs.integrations_service_change }}' == 'false' ]; then
-            echo 'datahub-integration-service head images'
-            docker pull '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:head'
-            docker tag '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:head' '${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
           fi
       - name: CI Slim Head Images
         run: |

@@ -195,13 +195,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 3 aggregations: textFieldOverride, missing␝textFieldOverride, and _index
-    assertEquals(aggBuilders.size(), 3);
+    // Expect 3 aggregations: textFieldOverride, missing␝textFieldOverride, and _entityType,
+    // _entityType␝typeNames
+    assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
-      if (aggBuilder.getName().equals("textFieldOverride")) {
+      if (aggBuilder.getName().startsWith("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().equals("_entityType")
+      } else if (!aggBuilder.getName().startsWith("_entityType")
           && !aggBuilder
               .getName()
               .equals(
@@ -241,13 +242,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 2 aggregations: textFieldOverride and _index
-    assertEquals(aggBuilders.size(), 3);
+    // Expect 4 aggregations: textFieldOverride, missing:textFieldOverride, _entityType and
+    // _entityType:typeNames
+    assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
-      if (aggBuilder.getName().equals("textFieldOverride")) {
+      if (aggBuilder.getName().startsWith("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
         assertEquals(filterPanelBuilder.field(), "textFieldOverride.keyword");
-      } else if (!aggBuilder.getName().equals("_entityType")
+      } else if (!aggBuilder.getName().startsWith("_entityType")
           && !aggBuilder
               .getName()
               .equals(
@@ -436,7 +438,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   private void testFilterQuery(BoolQueryBuilder testQuery) {
-    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition =
+    Optional<TermQueryBuilder> mustNotHaveRemovedCondition =
         testQuery.filter().stream()
             .filter(or -> or instanceof BoolQueryBuilder)
             .map(or -> (BoolQueryBuilder) or)
@@ -445,8 +447,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   System.out.println("processing: " + or.mustNot());
                   return or.mustNot().stream();
                 })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
+            .filter(and -> and instanceof TermQueryBuilder)
+            .map(and -> (TermQueryBuilder) and)
             .filter(match -> match.fieldName().equals("removed"))
             .findAny();
 
