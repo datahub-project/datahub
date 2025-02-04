@@ -11,7 +11,6 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
 )
 from datahub.sdk.entity_client import EntityClient
-from datahub.sdk.lineage_client import LineageClient
 
 
 class DataHubClient:
@@ -51,10 +50,6 @@ class DataHubClient:
         # That file is part of the "environment", but is not a traditional "env variable".
         graph = get_default_graph()
         return cls(graph=graph)
-
-    @property
-    def lineage(self) -> LineageClient:
-        return LineageClient(self)
 
     @property
     def entities(self) -> EntityClient:
@@ -138,14 +133,3 @@ class DataHubClient:
             raise SdkUsageError(f"Multiple terms found with name {name}: {terms}")
         else:
             return GlossaryTermUrn.from_string(terms[0])
-
-    """
-    def propose(
-        self,
-        entity: Union[DatasetUrn, ContainerUrn, SchemaFieldUrn],
-        proposal: Union[TagUrn, GlossaryTermUrn, str],  # str = description?
-    ) -> None:
-        # TODO: Also need to evaluate if this is the right interface?
-        # e.g. a single unified "propose" interface vs multiple individual methods
-        raise NotImplementedError("TODO: need to implement this")
-    """

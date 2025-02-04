@@ -24,7 +24,8 @@ from datahub.sdk.main_client import DataHubClient
 warnings.warn(
     "The new datahub SDK (e.g. datahub.sdk.*) is experimental. "
     "Our typical backwards-compatibility and stability guarantees do not apply to this code. "
-    "When it's promoted to stable, the import path will change to `from datahub import ...`.",
+    "When it's promoted to stable, the import path will change "
+    "from `from datahub.sdk import ...` to `from datahub import ...`.",
     ExperimentalWarning,
     stacklevel=2,
 )
