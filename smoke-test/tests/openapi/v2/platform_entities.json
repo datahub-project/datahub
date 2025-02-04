@@ -1,0 +1,31 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v2/platform/entities/v1/",
+      "description": "Create data product",
+      "params": {
+        "async": "false"
+      },
+      "json": [
+        {
+          "entityType": "dataProduct",
+          "entityUrn": "urn:li:dataProduct:4fd5aea7-a15f-4842-a2cc-e6562605ebf7",
+          "changeType": "UPSERT",
+          "aspectName": "status",
+          "aspect": {
+            "value": {
+              "__type": "Status",
+              "removed": false
+            },
+            "contentType": "application/json"
+          }
+        }
+      ]
+    },
+    "response": {
+      "json": [
+        "urn:li:dataProduct:4fd5aea7-a15f-4842-a2cc-e6562605ebf7"
+      ]
+    }
+  }
+]
