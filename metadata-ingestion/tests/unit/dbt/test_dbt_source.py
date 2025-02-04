@@ -508,7 +508,7 @@ def test_include_database_name_default():
 @pytest.mark.parametrize(
     ("include_database_name", "expected"), [("false", False), ("true", True)]
 )
-def test_include_database_name(include_database_name: str, expected: bool):
+def test_include_database_name(include_database_name: str, expected: bool) -> None:
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
