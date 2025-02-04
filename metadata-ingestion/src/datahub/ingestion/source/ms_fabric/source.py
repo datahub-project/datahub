@@ -8,9 +8,15 @@ from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import WorkUnit
 from datahub.ingestion.source.ms_fabric.config import AzureFabricSourceConfig
 from datahub.ingestion.source.ms_fabric.fabric_utils import set_session
+from datahub.ingestion.source.ms_fabric.lakehouse import LakehouseManager
+from datahub.ingestion.source.ms_fabric.mirrored_database import (
+    MirroredDatabasesManager,
+)
+from datahub.ingestion.source.ms_fabric.power_bi import PowerBIManager
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
 from datahub.ingestion.source.ms_fabric.semantic_model import SemanticModelManager
 from datahub.ingestion.source.ms_fabric.types import Workspace
+from datahub.ingestion.source.ms_fabric.warehouse import WarehouseManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,45 +54,43 @@ class AzureFabricSource(Source):
             ctx=self.ctx,
             report=self.report,
         )
-        for w in semantic_model_manager.get_semantic_model_wus():
-            logger.error(w)
-            yield w
+        yield from semantic_model_manager.get_semantic_model_wus()
 
-        # # Process Warehouses
-        # warehouse_manager = WarehouseManager(
-        #     azure_config=self.config.azure_config,
-        #     workspaces=workspaces,
-        #     ctx=self.ctx,
-        #     report=self.report,
-        # )
-        # yield from warehouse_manager.get_warehouse_wus()
-        #
-        # # Process Mirrored Databases
-        # mirrored_databases_manager = MirroredDatabasesManager(
-        #     azure_config=self.config.azure_config,
-        #     workspaces=workspaces,
-        #     ctx=self.ctx,
-        #     report=self.report,
-        # )
-        # yield from mirrored_databases_manager.get_mirrored_databases_wus()
-        #
-        # # Process Lakehouses
-        # lakehouse_manager = LakehouseManager(
-        #     azure_config=self.config.azure_config,
-        #     workspaces=workspaces,
-        #     ctx=self.ctx,
-        #     report=self.report,
-        # )
-        # yield from lakehouse_manager.get_lakehouse_wus()
-        #
-        # # Process PowerBI Dashboards
-        # powerbi_manager = PowerBIManager(
-        #     azure_config=self.config.azure_config,
-        #     workspaces=workspaces,
-        #     ctx=self.ctx,
-        #     report=self.report,
-        # )
-        # yield from powerbi_manager.get_powerbi_wus()
+        # Process Warehouses
+        warehouse_manager = WarehouseManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+        )
+        yield from warehouse_manager.get_warehouse_wus()
+
+        # Process Mirrored Databases
+        mirrored_databases_manager = MirroredDatabasesManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+        )
+        yield from mirrored_databases_manager.get_mirrored_databases_wus()
+
+        # Process Lakehouses
+        lakehouse_manager = LakehouseManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+        )
+        yield from lakehouse_manager.get_lakehouse_wus()
+
+        # Process PowerBI Dashboards
+        powerbi_manager = PowerBIManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+        )
+        yield from powerbi_manager.get_powerbi_wus()
 
     def _get_workspaces(
         self, continuation_token: Optional[str] = None

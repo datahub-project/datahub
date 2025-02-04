@@ -2,7 +2,7 @@ import logging
 import re
 import urllib
 from time import sleep
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 
@@ -21,21 +21,25 @@ from datahub.ingestion.source.ms_fabric.constants import (
     SchemaFieldTypeMapper,
 )
 from datahub.ingestion.source.ms_fabric.fabric_utils import (
-    TmdlParser,
     _clean_table_name,
+    flatten_dict,
     set_session,
 )
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
+from datahub.ingestion.source.ms_fabric.tmdl.models.table import (
+    Column,
+    Table,
+    TMDLModel,
+)
+from datahub.ingestion.source.ms_fabric.tmdl.parser import TMDLParser
 from datahub.ingestion.source.ms_fabric.types import (
     SemanticModel,
     SemanticModelContainerKey,
-    TmdlColumn,
-    TmdlMeasure,
-    TmdlTable,
     Workspace,
 )
-from datahub.metadata._schema_classes import SubTypesClass
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ContainerClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -48,6 +52,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
+    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -96,7 +101,15 @@ class SemanticModelManager:
                 name=workspace.id, path=None
             ).as_urn()
 
+            # Emit workspace metadata if not already processed
             if workspace not in processed_workspaces:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=workspace_urn,
+                    aspect=BrowsePathsV2Class(
+                        path=[BrowsePathEntryClass(id="Semantic Models")]
+                    ),
+                ).as_workunit()
+
                 yield MetadataChangeProposalWrapper(
                     entityUrn=workspace_urn,
                     aspect=ContainerPropertiesClass(
@@ -122,11 +135,16 @@ class SemanticModelManager:
                     aspect=SubTypesClass(typeNames=["Workspace"]),
                 ).as_workunit()
 
+                processed_workspaces.append(workspace)
+
+            # Process each semantic model
             for semantic_model in semantic_models:
+                # Create container for semantic model
                 container_urn = self.get_container_key(
                     name=semantic_model.id, path=None
                 ).as_urn()
 
+                # Emit semantic model container metadata
                 yield MetadataChangeProposalWrapper(
                     entityUrn=container_urn,
                     aspect=ContainerPropertiesClass(
@@ -159,22 +177,29 @@ class SemanticModelManager:
                     aspect=SubTypesClass(typeNames=["Semantic Model"]),
                 ).as_workunit()
 
+                # Process TMDL content if available
                 if semantic_model.definition and semantic_model.definition.parts:
-                    model_parts = []
-                    logger.error(semantic_model)
-                    for part in semantic_model.definition.parts:
-                        model_parts.append(part.payload)
+                    try:
+                        # Combine all TMDL parts
+                        model_parts = []
+                        for part in semantic_model.definition.parts:
+                            model_parts.append(part.payload)
 
-                    # Combine all parts together for complete model analysis
-                    combined_tmdl = "\n\n".join(model_parts)
-                    yield from self._process_tmdl_content(
-                        workspace=workspace,
-                        semantic_model=semantic_model,
-                        tmdl_content=combined_tmdl,
-                        container_urn=container_urn,
-                    )
+                        combined_tmdl = "\n\n".join(model_parts)
 
-            processed_workspaces.append(workspace)
+                        # Process TMDL content and emit table/column/lineage metadata
+                        yield from self._process_tmdl_content(
+                            workspace=workspace,
+                            semantic_model=semantic_model,
+                            tmdl_content=combined_tmdl,
+                            container_urn=container_urn,
+                        )
+                    except Exception as e:
+                        self.report.report_warning(
+                            message="Failed to process TMDL content for semantic model",
+                            context=f"{workspace.display_name}.{semantic_model.id}",
+                            exc=e,
+                        )
 
     def _process_tmdl_content(
         self,
@@ -183,139 +208,32 @@ class SemanticModelManager:
         tmdl_content: str,
         container_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Process TMDL content and generate workunits for tables and lineage"""
+        """Process TMDL content and generate workunits for tables and lineage."""
         try:
             logger.debug(
-                f"Processing TMDL content for {workspace.display_name}.{semantic_model.display_name}:\n{tmdl_content}"
+                f"Processing TMDL content for {workspace.display_name}.{semantic_model.display_name}"
             )
-            tmdl_parser = TmdlParser(tmdl_content)
-            logger.error(tmdl_content)
-            model = tmdl_parser.parse()
 
-            # Process each table in the model
+            model = self._parse_tmdl_content(tmdl_content)
+            logger.error(tmdl_content)
+            logger.error(model)
+
             for table in model.tables:
                 if not self._should_process_table(table.name):
                     continue
 
-                # Create dataset URN
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    platform="powerbi",
-                    name=self._clean_name(
-                        f"{workspace.display_name}.{semantic_model.display_name}.{table.name}"
-                    ),
-                    platform_instance=self.platform_instance,
-                    env=self.env,
-                )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=ContainerClass(
-                        container=container_urn,
-                    ),
-                ).as_workunit()
+                dataset_urn = self._create_dataset_urn(workspace, semantic_model, table)
 
                 if self._is_duplicate(dataset_urn):
                     continue
 
-                # Create schema fields
-                fields = []
-                field_lineage = {}
-
-                # Process columns
-                for column in table.columns:
-                    field = self._create_schema_field(column)
-                    fields.append(field)
-
-                    # Track column lineage
-                    if column.source_lineage_tag or column.source_column:
-                        field_lineage[column.name] = {
-                            "source_column": column.source_column,
-                            "source_lineage": column.source_lineage_tag,
-                            "source_ref": column.annotations.get(
-                                "sourceLineageTag", ""
-                            ),
-                        }
-
-                # Process measures
-                if hasattr(table, "measures"):
-                    for measure in table.measures:
-                        measure_field = self._create_measure_field(measure)
-                        fields.append(measure_field)
-                        # Add measure dependencies to lineage
-                        if measure.formula:
-                            refs = self._extract_referenced_columns(measure.formula)
-                            if refs:
-                                field_lineage[measure.name] = {
-                                    "referenced_columns": list(refs),
-                                    "formula": measure.formula,
-                                }
-
-                if fields:
-                    # Create schema metadata
-                    schema_props = SchemaMetadataClass(
-                        schemaName=table.name,
-                        platform=make_data_platform_urn("powerbi"),
-                        version=0,
-                        platformSchema=OtherSchemaClass(""),
-                        hash="",
-                        fields=fields,
-                    )
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=schema_props
-                    ).as_workunit()
-
-                    # Create dataset properties
-                    dataset_props = DatasetPropertiesClass(
-                        name=table.name,
-                        description=table.annotations.get("Description", ""),
-                        customProperties={
-                            "lineageTag": table.lineage_tag,
-                            "semanticModelId": semantic_model.id,
-                            "semanticModelName": semantic_model.display_name,
-                            **table.annotations,
-                        },
-                    )
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=dataset_props
-                    ).as_workunit()
-
-                    # Process source lineage
-                    source_info = {
-                        "tables": [],
-                        "platform": "powerbi",  # default
-                    }
-
-                    # Check table source lineage tag
-                    if table.source_lineage_tag:
-                        source_info["tables"].append(table.source_lineage_tag)
-
-                    # Process partition source queries
-                    for partition in table.partitions:
-                        if partition.source_query:
-                            source_info["platform"] = (
-                                PowerBiSourceTypeMapper.get_source_type(
-                                    partition.source_query
-                                )
-                            )
-                            source_info["tables"].extend(
-                                self._extract_source_tables(partition.source_query)
-                            )
-
-                    if source_info["tables"]:
-                        lineage_aspect = self._build_lineage(
-                            table=table,
-                            field_lineage=field_lineage,
-                            source_info=source_info,
-                            dataset_urn=dataset_urn,
-                        )
-                        if lineage_aspect:
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset_urn, aspect=lineage_aspect
-                            ).as_workunit()
-
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=StatusClass(removed=False)
-                    ).as_workunit()
+                yield from self._emit_container_relationship(dataset_urn, container_urn)
+                yield from self._process_schema_metadata(table, dataset_urn)
+                yield from self._emit_dataset_properties(table, dataset_urn)
+                yield from self._process_lineage(
+                    workspace, semantic_model, table, dataset_urn
+                )
+                yield from self._emit_status(dataset_urn)
 
         except Exception as e:
             self.report.report_warning(
@@ -324,158 +242,249 @@ class SemanticModelManager:
                 exc=e,
             )
 
-    def _build_lineage(
-        self,
-        table: TmdlTable,
-        field_lineage: Dict[str, Dict],
-        source_info: Dict[str, Union[List[str], str]],
-        dataset_urn: str,
-    ) -> Optional[UpstreamLineageClass]:
-        """Build comprehensive lineage including column level"""
-        upstreams: List[UpstreamClass] = []
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
+    def _parse_tmdl_content(self, tmdl_content: str) -> TMDLModel:
+        """Parse TMDL content using the parser."""
+        parser = TMDLParser()
+        model = parser.parse_raw(tmdl_content)
+        return model
 
-        source_tables = source_info["tables"]
-        source_platform = source_info["platform"]
-        seen_urns = set()
+    def _create_dataset_urn(
+        self, workspace: Workspace, semantic_model: SemanticModel, table: Table
+    ) -> str:
+        """Create dataset URN for the table."""
+        return make_dataset_urn_with_platform_instance(
+            platform="powerbi",
+            name=self._clean_name(
+                f"{workspace.display_name}.{semantic_model.display_name}.{table.name}"
+            ),
+            platform_instance=self.platform_instance,
+            env=self.env,
+        )
 
-        for source_table in source_tables:
-            try:
-                # Clean and parse source table name
-                source_table = self._clean_name(source_table)
-                source_urn = make_dataset_urn_with_platform_instance(
-                    platform=source_platform,
-                    name=source_table,
-                    platform_instance=self.platform_instance,
-                    env=self.env,
+    def _emit_container_relationship(
+        self, dataset_urn: str, container_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit container relationship workunit."""
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=ContainerClass(container=container_urn),
+        ).as_workunit()
+
+    def _create_schema_fields(self, table) -> List[SchemaFieldClass]:
+        """Create schema fields from table columns and measures."""
+        fields = []
+
+        # Process regular and calculated columns
+        for column in table.columns:
+            if not column.is_hidden:
+                field = self._create_column_field(column)
+                fields.append(field)
+
+        # Process measures
+        for measure in table.measures:
+            if not measure.is_hidden:
+                measure_field = self._create_measure_field(measure)
+                fields.append(measure_field)
+
+        return fields
+
+    def _create_column_field(self, column: Column) -> SchemaFieldClass:
+        """Create a schema field for a column."""
+        field = SchemaFieldClass(
+            fieldPath=column.name,
+            type=SchemaFieldTypeMapper.get_field_type(column.data_type.name),
+            description=column.description or "",
+            nativeDataType=str(column.data_type.name),
+            isPartOfKey=False,
+        )
+
+        if column.expression:
+            field.description = self._build_column_description(
+                field.description, column
+            )
+
+        return field
+
+    def _build_column_description(self, base_description: str, column) -> str:
+        """Build the complete description for a column including calculation and dependencies."""
+        description = base_description
+        if column.expression:
+            description = (
+                f"{description}\n\nCalculation:\n{column.expression.expression}"
+                if description
+                else f"Calculation:\n{column.expression.expression}"
+            )
+            if column.lineage_dependencies:
+                description += (
+                    f"\n\nDependencies:\n{', '.join(column.lineage_dependencies)}"
                 )
+        return description
 
-                if source_urn not in seen_urns:
-                    seen_urns.add(source_urn)
+    def _create_measure_field(self, measure) -> SchemaFieldClass:
+        """Create a schema field for a measure."""
+        description = (
+            f"{measure.description}\n\nDAX Expression: {measure.expression.expression}"
+            if measure.description
+            else f"DAX Expression: {measure.expression.expression}"
+        )
 
-                    # Process field lineage
-                    for field_name, lineage_info in field_lineage.items():
-                        source_col = lineage_info.get("source_column")
-                        source_lineage = lineage_info.get("source_lineage")
+        if measure.lineage_dependencies:
+            description += (
+                f"\n\nDependencies:\n{', '.join(measure.lineage_dependencies)}"
+            )
 
-                        # Direct column mapping
-                        if source_col:
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    upstreams=[
-                                        make_schema_field_urn(source_urn, source_col)
-                                    ],
-                                    downstreams=[
-                                        make_schema_field_urn(dataset_urn, field_name)
-                                    ],
-                                )
-                            )
+        return SchemaFieldClass(
+            fieldPath=measure.name,
+            type=SchemaFieldTypeMapper.get_field_type("decimal"),
+            description=description,
+            nativeDataType="measure",
+            isPartOfKey=False,
+        )
 
-                        # Source lineage tag matching
-                        elif source_lineage and source_lineage in source_table:
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    upstreams=[
-                                        make_schema_field_urn(source_urn, field_name)
-                                    ],
-                                    downstreams=[
-                                        make_schema_field_urn(dataset_urn, field_name)
-                                    ],
-                                )
-                            )
+    def _process_schema_metadata(
+        self, table: Table, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process and emit schema metadata."""
+        fields = self._create_schema_fields(table)
 
-                        # Referenced columns (for measures and calculated columns)
-                        elif "referenced_columns" in lineage_info:
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    upstreams=[
-                                        make_schema_field_urn(source_urn, field_name)
-                                        for field_name in lineage_info[
-                                            "referenced_columns"
-                                        ]
-                                    ],
-                                    downstreams=[
-                                        make_schema_field_urn(dataset_urn, field_name)
-                                    ],
-                                    transformOperation=lineage_info.get("formula"),
-                                )
-                            )
+        if fields:
+            schema_metadata = SchemaMetadataClass(
+                schemaName=table.name,
+                platform=make_data_platform_urn("powerbi"),
+                version=0,
+                fields=fields,
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                hash="",
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=schema_metadata
+            ).as_workunit()
 
+    def _emit_dataset_properties(
+        self, table: Table, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit dataset properties workunit."""
+        props = {
+            **flatten_dict(table.annotations),
+            "isHidden": str(table.is_hidden),
+        }
+        if table.annotations:
+            props.update(table.annotations)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=table.name,
+                description=table.description or "",
+                customProperties=props,
+            ),
+        ).as_workunit()
+
+    def _process_lineage(
+        self,
+        workspace: Workspace,
+        semantic_model: SemanticModel,
+        table,
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process and emit lineage information."""
+        upstreams = self._process_partition_lineage(table)
+        fine_grained_lineages = self._process_column_lineage(
+            workspace, semantic_model, table, dataset_urn
+        )
+
+        if upstreams or fine_grained_lineages:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=fine_grained_lineages
+                    if fine_grained_lineages
+                    else None,
+                ),
+            ).as_workunit()
+
+    def _process_partition_lineage(self, table: Table) -> List[UpstreamClass]:
+        """Process partition source lineage."""
+        upstreams = []
+        logger.error(table)
+        for partition in table.partitions:
+            logger.error(partition)
+            if partition.source and partition.source.expression:
+                source_tables = self._extract_source_tables(partition.source.expression)
+                for source_table in source_tables:
+                    source_platform = PowerBiSourceTypeMapper.get_source_type(
+                        partition.source.expression
+                    )
+                    source_urn = make_dataset_urn_with_platform_instance(
+                        platform=source_platform,
+                        name=source_table,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                    )
                     upstreams.append(
                         UpstreamClass(
                             dataset=source_urn,
                             type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
+        return upstreams
 
-            except Exception as e:
-                logger.warning(
-                    f"Failed to process source table {source_table}: {str(e)}"
+    def _process_column_lineage(
+        self,
+        workspace: Workspace,
+        semantic_model: SemanticModel,
+        table: Table,
+        dataset_urn: str,
+    ) -> List[FineGrainedLineageClass]:
+        """Process column-level lineage."""
+        fine_grained_lineages = []
+        for column in table.columns:
+            if column.expression and column.lineage_dependencies:
+                source_refs = self._extract_column_references(
+                    column.expression.expression
                 )
+                for source_table, source_column in source_refs:
+                    source_urn = make_dataset_urn_with_platform_instance(
+                        platform="powerbi",
+                        name=self._clean_name(
+                            f"{workspace.display_name}.{semantic_model.display_name}.{source_table}"
+                        ),
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                    )
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=[
+                                make_schema_field_urn(source_urn, source_column)
+                            ],
+                            downstreams=[
+                                make_schema_field_urn(dataset_urn, column.name)
+                            ],
+                            transformOperation=column.expression.expression,
+                        )
+                    )
+        return fine_grained_lineages
 
-        if not upstreams:
-            return None
+    def _emit_status(self, dataset_urn: str) -> Iterable[MetadataWorkUnit]:
+        """Emit status workunit."""
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
-        return UpstreamLineageClass(
-            upstreams=upstreams,
-            fineGrainedLineages=fine_grained_lineages
-            if fine_grained_lineages
-            else None,
-        )
-
-    def _create_schema_field(self, column: TmdlColumn) -> SchemaFieldClass:
-        """Create a schema field with proper type mapping and all metadata"""
-        # Get the field type
-        field_type = SchemaFieldTypeMapper.get_field_type(column.data_type)
-
-        # Build description including formula if it's a calculated column
-        description = column.annotations.get("description", "")
-        if "formula" in column.annotations:
-            formula = column.annotations["formula"]
-            referenced_cols = column.annotations.get("referencedColumns", "").split(",")
-            description = (
-                f"{description}\nCalculated Column Formula: {formula}\n"
-                f"Referenced columns: {', '.join(c for c in referenced_cols if c)}"
-            ).strip()
-
-        # Handle format string
-        native_data_type = column.source_provider_type or column.data_type
-        if "formatString" in column.annotations:
-            native_data_type = (
-                f"{native_data_type} ({column.annotations['formatString']})"
-            )
-
-        # Include source information
-        if column.source_column:
-            description = f"{description}\nSource column: {column.source_column}"
-        if column.source_lineage_tag:
-            description = (
-                f"{description}\nSource lineage tag: {column.source_lineage_tag}"
-            )
-
-        return SchemaFieldClass(
-            fieldPath=column.name,
-            type=field_type,
-            description=description,
-            nativeDataType=native_data_type,
-            isPartOfKey=False,
-        )
-
-    def _create_measure_field(self, measure: TmdlMeasure) -> SchemaFieldClass:
-        """Create a schema field for a measure"""
-        return SchemaFieldClass(
-            fieldPath=measure.name,
-            type=SchemaFieldTypeMapper.get_field_type("decimal"),
-            description=f"Measure: {measure.formula}\n{measure.description}".strip(),
-            nativeDataType="measure",
-            isPartOfKey=False,
-        )
+    def _extract_column_references(self, formula: str) -> List[Tuple[str, str]]:
+        """Extract table and column references from a DAX formula"""
+        refs = []
+        # Match patterns like 'Table'[Column] or [Column]
+        for match in re.finditer(r"(?:\'([^\']+)\'|(\w+))?\[([^\]]+)\]", formula):
+            table_name = match.group(1) or match.group(2) or ""
+            column_name = match.group(3)
+            if table_name and column_name:
+                refs.append((table_name, column_name))
+        return refs
 
     def _should_process_table(self, table_name: str) -> bool:
         """Filter out internal PowerBI tables and known system tables"""
@@ -538,17 +547,6 @@ class SemanticModelManager:
             logger.warning(f"Error extracting source tables: {str(e)}")
 
         return tables
-
-    def _extract_referenced_columns(self, formula: str) -> Set[str]:
-        """Extract column references from a DAX formula"""
-        refs = set()
-        try:
-            # Match column references in square brackets
-            matches = re.finditer(r"\[([^]]+)]", formula)
-            refs.update(match.group(1) for match in matches)
-        except Exception as e:
-            logger.warning(f"Error extracting column references: {str(e)}")
-        return refs
 
     def get_semantic_models(
         self, workspaces: List[Workspace]

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class LakehouseManager:
     azure_config: AzureConnectionConfig
     fabric_session: requests.Session
-    lakehouse_map: Dict[str, Dict[str, Union[Lakehouse, Workspace]]]
+    lakehouse_map: Dict[str, Dict[str, Union[List[Lakehouse], Workspace]]]
     ctx: PipelineContext
     report: AzureFabricSourceReport
 
@@ -44,8 +44,8 @@ class LakehouseManager:
 
     def get_lakehouse_wus(self) -> Iterable[WorkUnit]:
         for _, workspace_data in self.lakehouse_map.items():
-            workspace = workspace_data.get("workspace")
-            lakehouses = workspace_data.get("lakehouses")
+            workspace: Workspace = workspace_data.get("workspace")
+            lakehouses: List[Lakehouse] = workspace_data.get("lakehouses")
 
             for lakehouse in lakehouses:
                 delta_lake_locations: List[str] = []
@@ -95,6 +95,8 @@ class LakehouseManager:
                                 ),
                             ).as_workunit()
                             if "containerProperties" in wu.id
+                            and hasattr(wu.metadata, "aspect")
+                            and isinstance(wu.metadata.aspect, ContainerPropertiesClass)
                             else wu
                             for wu in delta_source.get_workunits()
                         )
@@ -107,7 +109,7 @@ class LakehouseManager:
     def get_lakehouses(
         self, workspaces: List[Workspace]
     ) -> Dict[str, Dict[str, Union[Lakehouse, Workspace]]]:
-        lakehouses_map: Dict[str, Dict[str, Union[Lakehouse, Workspace]]] = {}
+        lakehouses_map: Dict[str, Dict[str, Union[List[Lakehouse], Workspace]]] = {}
 
         for workspace in workspaces:
             lakehouses_map[workspace.id] = {

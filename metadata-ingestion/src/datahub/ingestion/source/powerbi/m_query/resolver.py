@@ -290,10 +290,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 self.parse_tree, current_identifier
             )
             if v_statement is None:
-                self.reporter.report_warning(
-                    title="Unable to extract lineage from M-Query expression",
-                    message="Lineage will be incomplete.",
-                    context=f"table-full-name={self.table.full_name}, expression = {self.table.expression}, output-variable={current_identifier} not found in table expression",
+                logger.error(
+                    msg=f"table-full-name={self.table.full_name}, expression = {self.table.expression}, output-variable={current_identifier} not found in table expression",
                 )
                 return None
 

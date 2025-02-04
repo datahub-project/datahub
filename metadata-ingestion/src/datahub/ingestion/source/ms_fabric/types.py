@@ -1,5 +1,5 @@
 import base64
-from typing import Dict, List, Optional, Set
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, root_validator
 
@@ -107,56 +107,3 @@ class SemanticModel(BaseModel):
     type: ItemType
     workspace_id: str = Field(alias="workspaceId")
     definition: Optional[SemanticModelParts]
-
-
-class TmdlMeasure(BaseModel):
-    name: str
-    formula: str
-    description: str = ""
-    annotations: Dict[str, str] = None
-
-
-class TmdlColumn(BaseModel):
-    name: str
-    data_type: str = ""
-    source_provider_type: Optional[str] = None
-    lineage_tag: str = ""
-    summarize_by: str = ""
-    source_column: Optional[str] = None
-    source_lineage_tag: Optional[str] = None
-    is_hidden: bool = False
-    annotations: Dict[str, str] = None
-
-
-class TmdlPartition(BaseModel):
-    name: str
-    mode: str = ""
-    source_query: Optional[str] = None
-    source_type: Optional[str] = None
-    expression_source: Optional[str] = None
-
-
-class TmdlCalculatedColumn(BaseModel):
-    name: str
-    formula: str
-    referenced_columns: Set[str]
-    description: str = ""
-
-
-class TmdlTable(BaseModel):
-    name: str
-    lineage_tag: str = ""
-    columns: List[TmdlColumn]
-    measures: List[TmdlMeasure]
-    partitions: List[TmdlPartition]
-    calculated_columns: List[TmdlCalculatedColumn]
-    annotations: Dict[str, str]
-    source_lineage_tag: Optional[str] = None
-
-
-class TmdlModel(BaseModel):
-    name: str
-    culture: Optional[str] = "en-US"
-    tables: List[TmdlTable]
-    compatibility_level: Optional[int] = 1550
-    annotations: Dict[str, str]

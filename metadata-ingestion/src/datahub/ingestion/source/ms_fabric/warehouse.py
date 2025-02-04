@@ -50,6 +50,7 @@ class WarehouseManager:
             warehouses = workspace_data.get("warehouses")
 
             for warehouse in warehouses:
+                logger.error(warehouse.id)
                 params = self.create_sql_server_connection_string(
                     warehouse.properties.connection_string
                 )
@@ -159,6 +160,7 @@ class WarehouseManager:
         return struct.pack("<i", len(encoded_bytes)) + encoded_bytes
 
     def create_sql_server_connection_string(self, server: str) -> str:
+        logger.error(server)
         connection_string = (
             f"driver={{ODBC Driver 18 for SQL Server}};Server={server},1433;"
         )
