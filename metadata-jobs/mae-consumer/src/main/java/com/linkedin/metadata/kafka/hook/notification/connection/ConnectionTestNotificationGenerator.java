@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka.hook.notification.connection;
 
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilder;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.integrations.invoker.JSON;
@@ -46,7 +46,7 @@ public class ConnectionTestNotificationGenerator extends BaseMclNotificationGene
       @Nonnull final EventProducer eventProducer,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders,
       @Nonnull final Boolean isEnabled) {
     super(
@@ -54,7 +54,7 @@ public class ConnectionTestNotificationGenerator extends BaseMclNotificationGene
         eventProducer,
         entityClient,
         graphClient,
-        settingsProvider,
+        settingsService,
         notificationRecipientBuilders);
     this.isEnabled = isEnabled;
   }

@@ -2,6 +2,7 @@ namespace com.linkedin.event.notification.settings
 
 import com.linkedin.common.Urn
 import com.linkedin.event.notification.NotificationSinkType
+import com.linkedin.settings.NotificationSetting
 
 /**
  * Notification settings for an actor or subscription.

@@ -26,6 +26,7 @@ import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.metadata.key.MLModelKey;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.notebook.NotebookInfo;
+import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.AbstractMap;
@@ -101,6 +102,8 @@ public class EntityNameProvider {
         return batchGetDataProductName(opContext, entityUrns);
       case Constants.NOTEBOOK_ENTITY_NAME:
         return batchGetNotebookName(opContext, entityUrns);
+      case Constants.OWNERSHIP_TYPE_ENTITY_NAME:
+         return batchGetOwnershipTypeName(opContext, entityUrns);
       default:
         return entityUrns.stream().collect(Collectors.toMap(k -> k, Urn::toString));
     }
@@ -607,6 +610,24 @@ public class EntityNameProvider {
                   return data != null ? new NotebookInfo(data).getTitle() : urn.toString();
                 }));
   }
+
+    private Map<Urn, String> batchGetOwnershipTypeName(
+            @Nonnull OperationContext opContext, Set<Urn> ownershipTypeUrns) {
+        Map<Urn, DataMap> dataMap =
+                batchGetAspectData(
+                        opContext,
+                        ownershipTypeUrns,
+                        Constants.OWNERSHIP_TYPE_ENTITY_NAME,
+                        Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME);
+        return ownershipTypeUrns.stream()
+                .collect(
+                        Collectors.toMap(
+                                k -> k,
+                                urn -> {
+                                    DataMap data = dataMap.get(urn);
+                                    return data != null ? new OwnershipTypeInfo(data).getName() : urn.toString();
+                                }));
+    }
 
   @Nullable
   private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {

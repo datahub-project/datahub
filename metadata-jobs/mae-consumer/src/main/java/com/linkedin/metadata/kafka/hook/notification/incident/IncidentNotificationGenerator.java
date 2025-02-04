@@ -5,7 +5,6 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +26,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.DownstreamSummary;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -55,7 +55,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final EventProducer eventProducer,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders,
       @Nonnull final FeatureFlags featureFlags) {
     super(
@@ -63,7 +63,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         eventProducer,
         entityClient,
         graphClient,
-        settingsProvider,
+        settingsService,
         notificationRecipientBuilders);
     _featureFlags = featureFlags;
   }

@@ -5,7 +5,6 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
@@ -33,6 +32,7 @@ import com.linkedin.metadata.kafka.hook.notification.NotificationRecipientsGener
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -142,7 +142,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull final EventProducer eventProducer,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final AssertionService assertionService,
       @Nonnull final NotificationRecipientBuilders recipientBuilders,
       @Nonnull final FeatureFlags featureFlags) {
@@ -151,7 +151,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         eventProducer,
         entityClient,
         graphClient,
-        settingsProvider,
+        settingsService,
         recipientBuilders);
     _entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);

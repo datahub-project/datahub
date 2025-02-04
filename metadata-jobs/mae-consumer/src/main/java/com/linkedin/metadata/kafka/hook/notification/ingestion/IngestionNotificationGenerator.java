@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook.notification.ingestion;
 
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -41,14 +41,14 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       @Nonnull final EventProducer eventProducer,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final SettingsService settingsService,
       @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders) {
     super(
         systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
-        settingsProvider,
+        settingsService,
         notificationRecipientBuilders);
   }
 

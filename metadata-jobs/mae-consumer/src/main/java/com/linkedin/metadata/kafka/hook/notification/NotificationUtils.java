@@ -72,6 +72,11 @@ public class NotificationUtils {
   }
 
   @Nonnull
+  public static List<String> generateEntityPaths(final List<Urn> entityUrns) {
+    return entityUrns.stream().map(NotificationUtils::generateEntityPath).collect(Collectors.toList());
+  }
+
+  @Nonnull
   public static SubscriptionInfo mapSubscriptionInfo(@Nonnull final EntityResponse entityResponse) {
     return new SubscriptionInfo(
         entityResponse.getAspects().get(SUBSCRIPTION_INFO_ASPECT_NAME).getValue().data());
