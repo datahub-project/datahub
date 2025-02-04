@@ -41,9 +41,10 @@ SchemaFieldInputType: TypeAlias = Union[
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,
 ]
-SchemaFieldsInputType: TypeAlias = (
-    List[SchemaFieldInputType] | models.SchemaMetadataClass
-)
+SchemaFieldsInputType: TypeAlias = Union[
+    List[SchemaFieldInputType],
+    models.SchemaMetadataClass,
+]
 
 UpstreamInputType: TypeAlias = Union[
     # Dataset upstream variants.
@@ -65,7 +66,7 @@ UpstreamLineageInputType: TypeAlias = Union[
 
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
-) -> models.UpstreamClass | models.FineGrainedLineageClass:
+) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
     if isinstance(upstream_input, models.UpstreamClass):
         return upstream_input
     elif isinstance(upstream_input, models.FineGrainedLineageClass):
