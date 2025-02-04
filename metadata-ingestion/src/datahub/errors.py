@@ -19,7 +19,7 @@ class SchemaFieldKeyError(SdkUsageError, KeyError):
     pass
 
 
-class HiddenEditWarning(Warning):
+class IngestionAttributionWarning(Warning):
     pass
 
 

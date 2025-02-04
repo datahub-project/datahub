@@ -26,7 +26,7 @@ warnings.warn(
     "Our typical backwards-compatibility and stability guarantees do not apply to this code. "
     "When it's promoted to stable, the import path will change to `from datahub import ...`.",
     ExperimentalWarning,
-    stacklevel=1,
+    stacklevel=2,
 )
 del warnings
 del ExperimentalWarning

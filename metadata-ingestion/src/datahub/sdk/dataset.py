@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
@@ -10,9 +9,14 @@ from typing_extensions import Self, TypeAlias, assert_never
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.errors import HiddenEditWarning, ItemNotFoundError, SchemaFieldKeyError
+from datahub.errors import (
+    IngestionAttributionWarning,
+    ItemNotFoundError,
+    SchemaFieldKeyError,
+)
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
+from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     ContainerInputType,
@@ -30,14 +34,6 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
-
-
-class DatasetEditMode(Enum):
-    OVERWRITE_UI = "OVERWRITE_UI"
-    DEFER_TO_UI = "DEFER_TO_UI"
-
-
-# TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
 SchemaFieldInputType: TypeAlias = Union[
     str,
@@ -157,10 +153,6 @@ class SchemaField:
         self._parent = parent
         self._field_path = field_path
 
-    @property
-    def _edit_mode(self) -> DatasetEditMode:
-        return self._parent._edit_mode
-
     def _base_schema_field(self) -> models.SchemaFieldClass:
         # This must exist - if it doesn't, we've got a larger bug.
         schema_dict = self._parent._schema_dict()
@@ -179,6 +171,12 @@ class SchemaField:
         return None
 
     def _ensure_editable_schema_field(self) -> models.EditableSchemaFieldInfoClass:
+        if is_ingestion_attribution():
+            warnings.warn(
+                "This method should not be used in ingestion mode.",
+                IngestionAttributionWarning,
+                stacklevel=2,
+            )
         editable_schema = self._parent._setdefault_aspect(
             models.EditableSchemaMetadataClass(editableSchemaFieldInfo=[])
         )
@@ -216,13 +214,13 @@ class SchemaField:
         )
 
     def set_description(self, description: str) -> None:
-        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+        if is_ingestion_attribution():
             editable_field = self._get_editable_schema_field()
             if editable_field and editable_field.description is not None:
                 warnings.warn(
                     "The field description will be hidden by UI-based edits. "
                     "Change the edit mode to OVERWRITE_UI to override this behavior.",
-                    category=HiddenEditWarning,
+                    category=IngestionAttributionWarning,
                     stacklevel=2,
                 )
 
@@ -249,15 +247,15 @@ class SchemaField:
     def set_tags(self, tags: TagsInputType) -> None:
         parsed_tags = [self._parent._parse_tag_association_class(tag) for tag in tags]
 
-        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+        if is_ingestion_attribution():
             editable_field = self._get_editable_schema_field()
             if editable_field and editable_field.globalTags:
                 warnings.warn(
-                    "Some tags were added via UI-based edits, and will not be removed. "
-                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
-                    category=HiddenEditWarning,
+                    "Overwriting non-ingestion tags from ingestion is an anti-pattern.",
+                    category=IngestionAttributionWarning,
                     stacklevel=2,
                 )
+                editable_field.globalTags = None
 
             self._base_schema_field().globalTags = models.GlobalTagsClass(
                 tags=parsed_tags
@@ -265,14 +263,7 @@ class SchemaField:
         else:
             base_field = self._base_schema_field()
             if base_field.globalTags:
-                # TODO: this warning is a bit strange, since we don't overwrite despite
-                # the edit mode being OVERWRITE_UI.
-                warnings.warn(
-                    "Some tags were added by ingestion, and will not be removed. "
-                    "Change the edit mode to DEFER_TO_UI to override this behavior.",
-                    category=HiddenEditWarning,
-                    stacklevel=2,
-                )
+                base_field.globalTags = None
 
             self._ensure_editable_schema_field().globalTags = models.GlobalTagsClass(
                 tags=parsed_tags
@@ -299,15 +290,15 @@ class SchemaField:
             self._parent._parse_glossary_term_association_class(term) for term in terms
         ]
 
-        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
+        if is_ingestion_attribution():
             editable_field = self._get_editable_schema_field()
             if editable_field and editable_field.glossaryTerms:
                 warnings.warn(
-                    "Some terms were added via UI-based edits, and will not be removed. "
-                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
-                    category=HiddenEditWarning,
+                    "Overwriting non-ingestion terms from ingestion is an anti-pattern.",
+                    category=IngestionAttributionWarning,
                     stacklevel=2,
                 )
+                editable_field.glossaryTerms = None
 
             self._base_schema_field().glossaryTerms = models.GlossaryTermsClass(
                 terms=parsed_terms,
@@ -316,12 +307,7 @@ class SchemaField:
         else:
             base_field = self._base_schema_field()
             if base_field.glossaryTerms:
-                warnings.warn(
-                    "Some terms were added by ingestion, and will not be removed. "
-                    "Change the edit mode to DEFER_TO_UI to override this behavior.",
-                    category=HiddenEditWarning,
-                    stacklevel=2,
-                )
+                base_field.glossaryTerms = None
 
             self._ensure_editable_schema_field().glossaryTerms = (
                 models.GlossaryTermsClass(
@@ -340,7 +326,7 @@ class Dataset(
     HasDomain,
     Entity,
 ):
-    __slots__ = ("_edit_mode",)
+    __slots__ = ()
 
     @classmethod
     def get_urn_type(cls) -> Type[DatasetUrn]:
@@ -354,8 +340,6 @@ class Dataset(
         name: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
-        # Settings.
-        edit_mode: Optional[DatasetEditMode] = None,
         # Dataset properties.
         description: Optional[str] = None,
         display_name: Optional[str] = None,
@@ -390,12 +374,6 @@ class Dataset(
                 instance=platform_instance,
             )
         )
-
-        if edit_mode is None:
-            # When created via the constructor, we're likely creating a new dataset.
-            # In this case, there's no UI changes yet, so it's fine to defer to the UI.
-            edit_mode = DatasetEditMode.DEFER_TO_UI
-        self._edit_mode = edit_mode
 
         if schema is not None:
             self._set_schema(schema)
@@ -437,7 +415,6 @@ class Dataset(
             platform=urn.platform,
             name=urn.name,
             env=urn.env,
-            edit_mode=DatasetEditMode.OVERWRITE_UI,
         )
         return entity._init_from_graph(current_aspects)
 
@@ -475,15 +452,16 @@ class Dataset(
         )
 
     def set_description(self, description: str) -> None:
-        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
-            editable_props = self._get_aspect(models.EditableDatasetPropertiesClass)
+        if is_ingestion_attribution():
+            editable_props = self._get_editable_props()
             if editable_props is not None and editable_props.description is not None:
                 warnings.warn(
-                    "The dataset description will be hidden by UI-based edits. "
-                    "Change the edit mode to OVERWRITE_UI to override this behavior.",
-                    category=HiddenEditWarning,
+                    "Overwriting non-ingestion description from ingestion is an anti-pattern.",
+                    category=IngestionAttributionWarning,
                     stacklevel=2,
                 )
+                # Force the ingestion description to show up.
+                editable_props.description = None
 
             self._ensure_dataset_props().description = description
         else:
