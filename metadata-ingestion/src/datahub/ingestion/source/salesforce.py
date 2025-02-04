@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -147,8 +148,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         return config_clean.remove_trailing_slashes(v)
 
 
+@dataclass
 class SalesforceSourceReport(SourceReport):
-    filtered: LossyList[str] = Field(default_factory=LossyList)
+    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
