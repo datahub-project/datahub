@@ -94,6 +94,7 @@ interface Props {
     browsePaths?: Maybe<BrowsePathV2> | undefined;
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated?: boolean;
+    linksDisabled?: boolean;
 }
 
 function ContextPath(props: Props) {
@@ -108,6 +109,7 @@ function ContextPath(props: Props) {
         isCompactView,
         contentRef,
         isContentTruncated = false,
+        linksDisabled,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
@@ -146,9 +148,10 @@ function ContextPath(props: Props) {
                     previewType={previewType}
                     contentRef={contentRef}
                     isContentTruncated={isContentTruncated}
+                    linksDisabled={linksDisabled}
                 />
             ) : (
-                <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
+                <ParentEntities parentEntities={parentEntities || []} numVisible={3} linksDisabled={linksDisabled} />
             )}
         </PlatformContentWrapper>
     );
