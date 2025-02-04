@@ -11,71 +11,93 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Introduction
 
-DataHub Iceberg Catalog provides integration with Apache Iceberg, allowing you to manage Iceberg tables through DataHub. This tutorial walks through setting up and using the DataHub Iceberg Catalog to create, read, and manage Iceberg tables. The catalog supports bi-directional sync of metadata and provides a secure way to manage Iceberg tables through DataHub's permissions model.
+DataHub Iceberg Catalog provides integration with Apache Iceberg, allowing you to manage Iceberg tables through DataHub. This tutorial walks through setting up and using the DataHub Iceberg Catalog to create, read, and manage Iceberg tables. The catalog provides a secure way to manage Iceberg tables through DataHub's permissions model  while also enabling discovery use-cases for humans instantly.
 
 ## Use Cases
 
 - Create and manage Iceberg tables through DataHub
 - Maintain consistent metadata across DataHub and Iceberg
-- Support data lineage tracking for Iceberg tables
 - Facilitate data discovery by exposing Iceberg table metadata in DataHub
 - Enable secure access to Iceberg tables through DataHub's permissions model
-- Streamline data operations with automated warehouse provisioning
-- Enhance data governance with policy tags and metadata synchronization
-- Support compliance efforts through automated tagging and access control
+
+## Conceptual Mapping
+
+| Iceberg Concept | DataHub Concept | Notes |
+|-----------------|-----------------|--------|
+| Overall platform | dataPlatform | `iceberg` platform |
+| Warehouse | dataPlatformInstance | Stores info such as storage credentials |
+| Namespace | container | Hierarchical containers of subtype "Namespace" |
+| Tables, Views | dataset | Dataset URN is UUID that persists across renames |
+| Table/View Names | platformResource | Points to dataset, changes with rename operations |
 
 ## Prerequisites
 
 Before starting, ensure you have:
 
-1. DataHub installed and running locally
-2. AWS credentials and appropriate permissions configured
+1. DataHub installed and running locally, and `datahub` cli is installed and setup to point to it. 
+2. AWS credentials and appropriate permissions configured.
 3. The following environment variables set:
    ```bash
-   ICEBREAKER_CLIENT_ID="your_client_id"
-   ICEBREAKER_CLIENT_SECRET="your_client_secret" 
-   ICEBREAKER_TEST_ROLE="arn:aws:iam::123456789012:role/your-role-name"  # Example format
-   ICEBREAKER_DATA_ROOT="s3://your-bucket/path"
+   DH_ICEBERG_CLIENT_ID="your_client_id"
+   DH_ICEBERG_CLIENT_SECRET="your_client_secret" 
+   DH_ICEBERG_AWS_ROLE="arn:aws:iam::123456789012:role/your-role-name"  # Example format
+   DH_ICEBERG_DATA_ROOT="s3://your-bucket/path"
+
    ```
+4. Configure pyiceberg to use your local datahub using one of its supported ways. For example, create `~/.pyiceberg.yaml` with
+```commandline
+catalog:
+  local_datahub:
+    uri: http://localhost:8080/iceberg
+    warehouse: arctic_warehouse
+```
 
 Note: The code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository.
 
 ### Required AWS Permissions
 
-The AWS role must have read and write permissions for the S3 location specified in `ICEBREAKER_DATA_ROOT`.
+The AWS role must have read and write permissions for the S3 location specified in `DH_ICEBERG_DATA_ROOT`.
 
-Note: These permissions must be granted for the specific S3 bucket and path prefix where your Iceberg tables will be stored (as specified in `ICEBREAKER_DATA_ROOT`). Additionally, the role must have a trust policy that allows it to be assumed using the AWS credentials provided in `ICEBREAKER_CLIENT_ID` and `ICEBREAKER_CLIENT_SECRET`.
+Note: These permissions must be granted for the specific S3 bucket and path prefix where your Iceberg tables will be stored (as specified in `DH_ICEBERG_DATA_ROOT`). Additionally, the role must have a trust policy that allows it to be assumed using the AWS credentials provided in `DH_ICEBERG_CLIENT_ID` and `DH_ICEBERG_CLIENT_SECRET`.
 
 ## Setup Instructions
 
 ### 1. Provision a Warehouse
 
-First, create an Iceberg warehouse in DataHub using the provided script:
+First, create an Iceberg warehouse in DataHub using the provided script (`provision_warehouse.py`):
 
 ```python
+import os
+
 from constants import warehouse
 
-# Verify environment variables are set
-assert os.environ.get("ICEBREAKER_CLIENT_ID"), "ICEBREAKER_CLIENT_ID not set"
-assert os.environ.get("ICEBREAKER_CLIENT_SECRET"), "ICEBREAKER_CLIENT_SECRET not set"
-assert os.environ.get("ICEBREAKER_TEST_ROLE"), "ICEBREAKER_TEST_ROLE not set"
-assert os.environ.get("ICEBREAKER_DATA_ROOT"), "ICEBREAKER_DATA_ROOT not set"
+# Assert that env variables are present
 
-# Create the warehouse
-os.system(f"datahub iceberg create --warehouse {warehouse} \
-    --data_root $ICEBREAKER_DATA_ROOT/{warehouse} \
-    --client_id $ICEBREAKER_CLIENT_ID \
-    --client_secret $ICEBREAKER_CLIENT_SECRET \
-    --region 'us-east-1' \
-    --role $ICEBREAKER_TEST_ROLE")
+assert os.environ.get("DH_ICEBERG_CLIENT_ID"), (
+   "DH_ICEBERG_CLIENT_ID variable is not present"
+)
+assert os.environ.get("DH_ICEBERG_CLIENT_SECRET"), (
+   "DH_ICEBERG_CLIENT_SECRET variable is not present"
+)
+assert os.environ.get("DH_ICEBERG_AWS_ROLE"), (
+   "DH_ICEBERG_AWS_ROLE variable is not present"
+)
+assert os.environ.get("DH_ICEBERG_DATA_ROOT"), (
+   "DH_ICEBERG_DATA_ROOT variable is not present"
+)
+
+assert os.environ.get("DH_ICEBERG_DATA_ROOT", "").startswith("s3://")
+
+os.system(
+   f"datahub iceberg create --warehouse {warehouse} --data_root $DH_ICEBERG_DATA_ROOT/{warehouse} --client_id $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region 'us-east-1' --role $DH_ICEBERG_AWS_ROLE"
+)
 ```
 
-After provisioning the warehouse, ensure your DataHub user has the following privileges, which were introduced with Iceberg support:
+After provisioning the warehouse, ensure your DataHub user has the following privileges to the resource type Data Platform Instance, which were introduced with Iceberg support:
 - `DATA_MANAGE_VIEWS_PRIVILEGE`
 - `DATA_MANAGE_TABLES_PRIVILEGE`
 - `DATA_MANAGE_NAMESPACES_PRIVILEGE`
 - `DATA_LIST_ENTITIES_PRIVILEGE`
-- `DATA_READ_WRITE`
 
 You can grant these privileges through the DataHub UI under the Policies section.
 
@@ -84,6 +106,8 @@ You can grant these privileges through the DataHub UI under the Policies section
 You can create Iceberg tables using PyIceberg with a defined schema. Here's an example creating a ski resort metrics table:
 
 ```python
+from constants import namespace, table_name, warehouse
+
 from pyiceberg.schema import Schema
 from pyiceberg.types import LongType, NestedField, StringType, TimestampType
 from pyiceberg.catalog import load_catalog
@@ -185,6 +209,10 @@ Reading data from an Iceberg table using DuckDB integration:
 ```python
 from pyiceberg.catalog import load_catalog
 
+# Get DataHub graph client for authentication
+graph = get_default_graph()
+
+
 catalog = load_catalog("local_datahub", warehouse=warehouse, token=graph.config.token)
 table = catalog.load_table(f"{namespace}.{table_name}")
 con = table.scan().to_duckdb(table_name=table_name)
@@ -196,91 +224,21 @@ for row in con.execute(f"SELECT * FROM {table_name}").fetchall():
     print(row)
 ```
 
-### 5. Manage S3 Storage
-
-The provided folder operations script helps manage S3 storage with features like listing contents and cleaning up data:
-
-```python
-def list_s3_contents(
-    s3_path: str,
-    client_id: str,
-    client_secret: str,
-    role_arn: str,
-    region: str = "us-east-1",
-    delimiter: Optional[str] = None,
-    nuke: bool = False,
-    dry_run: bool = False
-) -> None:
-    # List contents
-    list_s3_contents(
-        "s3://your-bucket/path",
-        client_id=client_id,
-        client_secret=client_secret,
-        role_arn=role_arn
-    )
-
-    # Preview deletions (dry run)
-    list_s3_contents(
-        "s3://your-bucket/path",
-        client_id=client_id,
-        client_secret=client_secret,
-        role_arn=role_arn,
-        dry_run=True
-    )
-
-    # Delete contents
-    list_s3_contents(
-        "s3://your-bucket/path",
-        client_id=client_id,
-        client_secret=client_secret,
-        role_arn=role_arn,
-        nuke=True
-    )
-```
-
-### 6. Clean Up Resources
-
-To remove tables and clean up resources:
-
-```python
-# Drop a table
-catalog.drop_table(f"{namespace}.{table_name}")
-
-# Clean up S3 storage
-list_s3_contents(
-    f"{ICEBREAKER_DATA_ROOT}/{warehouse}",
-    client_id=ICEBREAKER_CLIENT_ID,
-    client_secret=ICEBREAKER_CLIENT_SECRET,
-    role_arn=ICEBREAKER_TEST_ROLE,
-    nuke=True
-)
-```
-
-## Conceptual Mapping
-
-| Iceberg Concept | DataHub Concept | Notes |
-|-----------------|-----------------|--------|
-| Overall platform | dataPlatform | `iceberg` platform |
-| Warehouse | dataPlatformInstance | Stores info such as storage credentials |
-| Namespace | container | Hierarchical containers of subtype "Iceberg Namespace" |
-| Tables, Views | dataset | Dataset URN is UUID that persists across renames |
-| Table/View Names | platformResource | Points to dataset, changes with rename operations |
-
 ## Integration with Compute Engines
 
 ### Spark Integration
 
-You can connect to the DataHub Iceberg Catalog using Spark SQL:
+You can connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog:
 
 ```sql
-./bin/spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1 \
+spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1 \
     --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
     --conf spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
     --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
     --conf spark.sql.catalog.local.type=rest \
-    --conf spark.sql.catalog.local.uri=http://<GMS_HOST>:<GMS_PORT>/iceberg/ \
-    --conf spark.sql.catalog.local.warehouse=demoWarehouse \
-    --conf spark.sql.catalog.local.token=<USER_PAT> \
+    --conf spark.sql.catalog.local.uri=http://$GMS_HOST:$GMS_PORT/iceberg/ \
+    --conf spark.sql.catalog.local.warehouse=$WAREHOUSE \
+    --conf spark.sql.catalog.local.token=$USER_PAT \
     --conf spark.sql.catalog.local.header.X-Iceberg-Access-Delegation=vended-credentials \
     --conf spark.sql.defaultCatalog=local
 ```
@@ -297,7 +255,7 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
         {
             "Effect": "Allow",
             "Principal": {
-                "AWS": "arn:aws:iam::123456789012:user/icebreaker-user"  // The IAM user or role associated with your credentials
+                "AWS": "arn:aws:iam::123456789012:user/iceberg-user"  // The IAM user or role associated with your credentials
             },
             "Action": "sts:AssumeRole"
         }
@@ -328,11 +286,11 @@ The DataHub CLI provides several commands for managing Iceberg warehouses:
    ```
    datahub iceberg update \
      -w $WAREHOUSE_NAME \
-     -d $S3_DATA_ROOT \
-     -i $ICEBERG_CLIENT_ID \
-     --client_secret $ICEBERG_CLIENT_ID \
-     --region $S3_REGION \
-     --role $ICEBERG_ROLE
+     -d $DH_ICEBERG_DATA_ROOT \
+     -i $DH_ICEBERG_CLIENT_ID \
+     --client_secret $DH_ICEBERG_CLIENT_ID \
+     --region $DH_ICEBERG_REGION \
+     --role DH_ICEBERG_AWS_ROLE
    ```
 
 3. **Delete Warehouse**:
@@ -353,7 +311,7 @@ When migrating from another Iceberg catalog, you can register existing Iceberg t
 Example of registering an existing table:
 ```
 # REGISTER EXISTING ICEBERG TABLE 
-call system.register_table('barTable', 's3://my-s3-bucket/my-data-root/fooNs/barTable/metadata/00000-f9dbba67-df4f-4742-9ba5-745aa2bb4076.metadata.json');
+call system.register_table('barTable', 's3://my-s3-bucket/my-data-root/fooNs/barTable/metadata/00000-f9dbba67-df4f-4742-9ba5-123aa2bb4076.metadata.json');
 select * from barTable;
 ```
 
@@ -378,7 +336,8 @@ To configure access:
 
 2. Scope the policies by:
     - Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
-    - Selecting specific Datasets for table and view data access privileges
+    - Selecting specific DataSets for table and view data access privileges
+    - Selecting Tags that may be applied to DataSets or Data Platform Instances
 <p>
   <img width="70%"  src="https://raw.githubusercontent.com/chakru-r/static-assets/b569b7bc6805dd459640cdf44649eb2c75d8c846/imgs/iceberg-policy-privileges.png"/>
 </p>
@@ -386,6 +345,12 @@ To configure access:
 3. Assign the policies to relevant users or groups
 <p>
   <img width="70%"  src="https://raw.githubusercontent.com/chakru-r/static-assets/b569b7bc6805dd459640cdf44649eb2c75d8c846/imgs/iceberg-policy-users-groups.png"/>
+</p>
+
+### Iceberg tables in DataHub
+Once you create tables in iceberg, each of those tables show up in DataHub as a DataSet
+<p>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/76b213be0ae473524a7d8617eba6f34458f5edbd/imgs/iceberg-dataset-schema.png"/>
 </p>
 
 ## Troubleshooting
@@ -396,7 +361,7 @@ A: Check the DataHub UI under Data Platform Instances, or try creating and readi
 
 ### Q: What permissions are needed for S3 access?
 
-A: The role specified in `ICEBREAKER_TEST_ROLE` should have permissions to read and write to the S3 bucket specified in `ICEBREAKER_DATA_ROOT`.
+A: The role specified in `DH_ICEBERG_AWS_ROLE` should have permissions to read and write to the S3 bucket specified in `DH_ICEBERG_DATA_ROOT`.
 
 ### Q: How does my compute engine authenticate with DataHub?
 
@@ -414,10 +379,9 @@ A: Check that:
 
 - AWS S3 only support
 - Concurrency - supports single instance of GMS
-- Multi-table transactions are not yet supported by Spark integration
-- Table operations like purge are not yet implemented
+- Multi-table transactional `/commit` is not yet supported
+- Table operation purge is not yet implemented
 - Metric collection and credential refresh mechanisms are still in development
-- External tables have limited support for Policy Tags
 
 ## Future Enhancements
 
@@ -426,8 +390,9 @@ A: Check that:
 - Additional table APIs (scan, drop table purge)
 - Azure and GCP Support
 - Namespace permissions
-- Enhanced metrics and credential refresh
-- Unity Catalog API compatible implementation
+- Enhanced metrics
+- Credential refresh 
+- Proxy to another REST Catalog to use its capabilities while DataHub has real-time metadata updates.
 
 ## Related Documentation
 
