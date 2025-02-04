@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { TextButton } from './styledComponents';
+import { Button } from '@src/alchemy-components';
 // eslint-disable-next-line import/no-cycle
 import SelectedFilter from './SelectedFilter';
 import { FilterField, FilterPredicate } from './types';
@@ -140,9 +140,9 @@ export default function SearchFiltersBuilder({
                     {showAddFilter && !vertical && addFilter}
                 </Wrapper>
                 {showClearAll && (
-                    <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
-                        clear all
-                    </TextButton>
+                    <Button variant="text" onClick={onClearFilters} data-testid="clear-all-filters">
+                        Clear all
+                    </Button>
                 )}
             </FlexSpacer>
             {showUnionType && hydratedFilters?.length >= 2 && (

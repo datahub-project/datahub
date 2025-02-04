@@ -1,9 +1,22 @@
 import analytics, { EventType } from '@src/app/analytics';
-import { Button, Modal, message } from 'antd';
+import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
+import { Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import {
+    // Saas-only mutation
+    useProposeStructuredPropetiesMutation,
+    useUpsertStructuredPropertiesMutation,
+} from '../../../../../../graphql/structuredProperties.generated';
+import {
+    EntityType,
+    PropertyValueInput,
+    StructuredPropertyEntity,
+    SubResourceType,
+} from '../../../../../../types.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
@@ -104,19 +117,26 @@ export default function EditStructuredPropertyModal({
             open={isOpen}
             width={650}
             footer={
-                <>
-                    <Button onClick={closeModal} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={closeModal} color="gray">
                         Cancel
                     </Button>
                     <Button
-                        type="primary"
+                        variant="outline"
+                        onClick={proposeProperties}
+                        disabled={!selectedValues.length}
+                        data-testid="propose-update-structured-prop-on-entity-button"
+                    >
+                        Propose
+                    </Button>
+                    <Button
                         onClick={upsertProperties}
                         disabled={!selectedValues.length}
                         data-testid="add-update-structured-prop-on-entity-button"
                     >
                         {isAddMode ? 'Add' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             destroyOnClose
         >

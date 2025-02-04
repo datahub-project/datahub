@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
+import { message, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-
+import { Button } from '@src/alchemy-components';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
@@ -24,6 +24,7 @@ import { getModalDomContainer } from '../../../utils/focus';
 import ParentEntities from '../../search/filters/ParentEntities';
 import { getParentEntities } from '../../search/filters/utils';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ModalButtonContainer } from '../button/styledComponents';
 
 export enum OperationType {
     ADD,
@@ -465,12 +466,21 @@ export default function EditTagTermsModal({
             open={open}
             onCancel={onCloseModal}
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onCloseModal} color="gray">
                         Cancel
                     </Button>
+                    {showPropose && (
+                        <Button
+                            variant="outline"
+                            onClick={() => onOkProposal()}
+                            disabled={urns.length === 0 || urns.length > 1 || disableAction}
+                            data-testid="create-proposal-btn"
+                        >
+                            Propose
+                        </Button>
+                    )}
                     <Button
-                        type="primary"
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
@@ -478,7 +488,7 @@ export default function EditTagTermsModal({
                     >
                         Add
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
         >

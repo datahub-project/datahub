@@ -1,6 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Empty } from 'antd';
+import { Form, message, Modal, Select, Empty } from 'antd';
 import { getModalDomContainer } from '@src/utils/focus';
+import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import analytics, { EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -159,14 +165,22 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             open
             onCancel={onModalClose}
             footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" color="gray" onClick={onModalClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                    <Button
+                        variant="outline"
+                        onClick={proposeDomain}
+                        disabled={!selectedDomain}
+                        data-testid="propose-domain-on-entity-button"
+                    >
+                        Propose
+                    </Button>
+                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
                         Save
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
         >

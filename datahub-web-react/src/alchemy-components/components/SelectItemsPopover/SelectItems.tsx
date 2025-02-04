@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Button, Checkbox, Empty, Typography } from 'antd';
+import { Checkbox, Empty, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '@src/types.generated';
@@ -9,6 +9,7 @@ import { AcrylListSearch } from '@src/app/entityV2/shared/components/ListSearch/
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityOperations } from './hooks'; // Import your custom hook
 import { SelectItemCheckboxGroup } from './SelectItemCheckboxGroup';
+import { Button } from '../Button';
 
 export interface SelectItemsProps {
     entities: Entity[];
@@ -56,18 +57,9 @@ const StyledGroupSection = styled.div`
     }
 `;
 
-const StyledResetButton = styled(Button)`
-    background-color: ${REDESIGN_COLORS.ICON_ON_DARK};
-    border: 1px solid ${REDESIGN_COLORS.GREY_300};
-    color: ${REDESIGN_COLORS.GREY_300};
-    border-radius: 4px;
-`;
-
 const StyledUpdateButton = styled(Button)`
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    color: ${REDESIGN_COLORS.WHITE};
-    border-radius: 4px;
+    display: flex;
+    justify-content: center;
 `;
 
 const StyledCheckBoxContainer = styled.div`
@@ -201,9 +193,9 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
             )}
             <StyledFooter>
                 {hasExistingEntities && (
-                    <StyledResetButton onClick={() => handleUpdate({ isRemoveAll: true })}>
+                    <Button variant="outline" color="gray" onClick={() => handleUpdate({ isRemoveAll: true })}>
                         Remove All
-                    </StyledResetButton>
+                    </Button>
                 )}
                 <StyledUpdateButton
                     style={{ width: !hasExistingEntities ? '100%' : '' }}

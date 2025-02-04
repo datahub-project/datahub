@@ -1,9 +1,13 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
+import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
@@ -347,14 +351,22 @@ export const EditOwnersModal = ({
             onCancel={onModalClose}
             keyboard
             footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
+                <ModalButtonContainer>
+                    <Button color="gray" variant="text" onClick={onModalClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
+                    <Button
+                        variant="outline"
+                        onClick={proposeOwners}
+                        disabled={!selectedOwners?.length}
+                        data-testid="propose-owners-on-entity-button"
+                    >
+                        Propose
+                    </Button>
+                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
                         Add
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
         >
