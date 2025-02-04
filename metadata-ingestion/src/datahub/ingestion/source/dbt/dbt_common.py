@@ -360,7 +360,7 @@ class DBTCommonConfig(
     include_database_name: bool = Field(
         default=True,
         description="Whether to add database name to the table urn. "
-                    "Set to False to skip it for engines like AWS Athena where it's not required.",
+        "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
     @validator("target_platform")

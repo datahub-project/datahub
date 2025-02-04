@@ -494,6 +494,7 @@ def test_get_column_type_redshift():
         == "Got an unexpected column type. The column's parsed field type will not be populated."
     )
 
+
 def test_include_database_name_default():
     config_dict = {
         "manifest_path": "dummy_path",
@@ -503,9 +504,9 @@ def test_include_database_name_default():
     config = DBTCoreConfig.parse_obj({**config_dict})
     assert config.include_database_name is True
 
+
 @pytest.mark.parametrize(
-    ("include_database_name", "expected"),
-    [("false", False), ("true", True)]
+    ("include_database_name", "expected"), [("false", False), ("true", True)]
 )
 def test_include_database_name(include_database_name: str, expected: bool):
     config_dict = {
