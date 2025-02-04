@@ -959,7 +959,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         MetricUtils.counter(
                                 EntityServiceImpl.class, "batch_request_validation_exception")
                             .inc();
-                        throw new ValidationException(collectMetrics(exceptions).toString());
+                        collectMetrics(exceptions);
+                        throw new ValidationException(exceptions);
                       }
 
                       MetricUtils.counter(
