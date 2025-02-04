@@ -352,6 +352,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.sql_aggregator = self.aggregator.report
 
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        if sql_config.is_profiling_enabled():
+            sql_config.options.setdefault(
+                "max_overflow", sql_config.profiling.max_workers
+            )
+
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
@@ -521,10 +528,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
-            )
+        self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
             profiler = None

@@ -679,6 +679,12 @@ ORDER by DataBaseName, TableName;
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
 
+    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
+        """Add Teradata-specific default options"""
+        # Teradata does not support max_overflow, instead we use QueuePool when profiling
+        if sql_config.is_profiling_enabled():
+            sql_config.options.setdefault("poolclass", QueuePool)
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = TeradataConfig.parse_obj(config_dict)
@@ -706,11 +712,6 @@ ORDER by DataBaseName, TableName;
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url()
-
-        # Teradata does not support max_overflow, instead we use QueuePool when profiling data
-        if "max_overflow" in self.config.options:
-            self.config.options.pop("max_overflow")
-            self.config.options["poolclass"] = QueuePool
 
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
