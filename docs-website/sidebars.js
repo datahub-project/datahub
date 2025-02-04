@@ -551,6 +551,9 @@ module.exports = {
       ],
     },
     {
+      "Iceberg REST Catalog": ["docs/iceberg-catalog"],
+    },
+    {
       type: "html",
       value: "<div>Deployment</div>",
       defaultStyle: true,
