@@ -1322,14 +1322,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     context=",".join(
                         [
                             dataset.name
-                            for dataset in workspace.independent_datasets
+                            for dataset in workspace.independent_datasets.values()
                             if dataset.name
                         ]
                     ),
                 )
             return
 
-        for dataset in workspace.independent_datasets:
+        for dataset in workspace.independent_datasets.values():
             yield from auto_workunit(
                 stream=self.mapper.to_datahub_dataset(
                     dataset=dataset,
@@ -1440,7 +1440,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from auto_workunit(self.emit_app(workspace=workspace))
 
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             try:
                 # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -1459,7 +1459,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 if wu is not None:
                     yield wu
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace
             ):

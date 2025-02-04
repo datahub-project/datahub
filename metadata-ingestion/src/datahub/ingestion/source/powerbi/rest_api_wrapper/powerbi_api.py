@@ -193,15 +193,18 @@ class PowerBiAPI:
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
-    def get_reports(self, workspace: Workspace) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
         """
-        reports: List[Report] = []
+        reports: Dict[str, Report] = {}
         try:
-            reports = self._get_resolver().get_reports(workspace)
+            reports = {
+                report.id: report
+                for report in self._get_resolver().get_reports(workspace)
+            }
             # Fill Report dataset
-            for report in reports:
+            for report in reports.values():
                 if report.dataset_id:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:
@@ -222,7 +225,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.users = self.get_report_users(
                     workspace_id=workspace.id, report_id=report.id
                 )
@@ -234,7 +237,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
         fill_ownership()
@@ -270,12 +273,12 @@ class PowerBiAPI:
                 name=workspace[Constant.NAME],
                 type=workspace[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It will be populated in _fill_metadata_from_scan_result method
             )
             for workspace in groups
@@ -561,12 +564,12 @@ class PowerBiAPI:
                 name=workspace_metadata[Constant.NAME],
                 type=workspace_metadata[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It is getting set from scan-result
             )
             cur_workspace.scan_result = workspace_metadata
@@ -597,25 +600,28 @@ class PowerBiAPI:
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
         # Find out reachable datasets
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             for tile in dashboard.tiles:
                 if tile.dataset is not None:
                     reachable_datasets.append(tile.dataset.id)
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             if report.dataset is not None:
                 reachable_datasets.append(report.dataset.id)
 
         # Set datasets not present in reachable_datasets
         for dataset in workspace.datasets.values():
             if dataset.id not in reachable_datasets:
-                workspace.independent_datasets.append(dataset)
+                workspace.independent_datasets[dataset.id] = dataset
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = self._get_resolver().get_dashboards(workspace)
+            workspace.dashboards = {
+                dashboard.id: dashboard
+                for dashboard in self._get_resolver().get_dashboards(workspace)
+            }
             # set tiles of Dashboard
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
@@ -644,7 +650,7 @@ class PowerBiAPI:
                     "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false"
                 )
                 return
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
         if self.__config.extract_dashboards:

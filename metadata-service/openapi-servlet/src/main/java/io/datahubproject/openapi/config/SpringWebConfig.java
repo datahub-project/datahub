@@ -1,15 +1,7 @@
 package io.datahubproject.openapi.config;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import io.datahubproject.openapi.v3.OpenAPIV3Generator;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -18,29 +10,26 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
 import org.springdoc.core.models.GroupedOpenApi;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.format.FormatterRegistry;
-import org.springframework.http.converter.ByteArrayHttpMessageConverter;
-import org.springframework.http.converter.FormHttpMessageConverter;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.StringHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+@EnableWebMvc
 @OpenAPIDefinition(
     info = @Info(title = "DataHub OpenAPI", version = "2.0.0"),
     servers = {@Server(url = "/openapi/", description = "Default Server URL")})
+@Order(2)
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> OPERATIONS_PACKAGES =
@@ -52,34 +41,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
 
-  @Value("${datahub.gms.async.request-timeout-ms}")
-  private long asyncTimeoutMilliseconds;
-
-  @Override
-  public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
-    messageConverters.add(new StringHttpMessageConverter());
-    messageConverters.add(new ByteArrayHttpMessageConverter());
-    messageConverters.add(new FormHttpMessageConverter());
-
-    ObjectMapper objectMapper = new ObjectMapper();
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    objectMapper
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-    objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    MappingJackson2HttpMessageConverter jsonConverter =
-        new MappingJackson2HttpMessageConverter(objectMapper);
-    messageConverters.add(jsonConverter);
-  }
-
-  @Override
-  public void addFormatters(FormatterRegistry registry) {
-    registry.addConverter(new StringToChangeCategoryConverter());
-  }
+  @Autowired private TracingInterceptor tracingInterceptor;
 
   @Bean
   public GroupedOpenApi v3OpenApiGroup(
@@ -153,6 +115,13 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .build();
   }
 
+  @Override
+  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    registry
+        .addResourceHandler("/swagger-ui/**")
+        .addResourceLocations("classpath:/META-INF/resources/webjars/swagger-ui/");
+  }
+
   /** Concatenates two maps. */
   private <K, V> Map<K, V> concat(Supplier<Map<K, V>> a, Supplier<Map<K, V>> b) {
     return a.get() == null
@@ -169,8 +138,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   }
 
   @Override
-  public void configureAsyncSupport(@Nonnull AsyncSupportConfigurer configurer) {
-    WebMvcConfigurer.super.configureAsyncSupport(configurer);
-    configurer.setDefaultTimeout(asyncTimeoutMilliseconds);
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(tracingInterceptor).addPathPatterns("/**");
   }
 }
