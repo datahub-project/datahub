@@ -557,7 +557,9 @@ class SnowflakeV2Source(
             )
             return
 
-        self.discovered_datasets = discovered_tables + discovered_views + discovered_streams
+        self.discovered_datasets = (
+            discovered_tables + discovered_views + discovered_streams
+        )
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
