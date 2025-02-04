@@ -159,16 +159,14 @@ class HasOwnership(Entity):
         owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
         return owners
 
+    # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
+    # Ideally we'd also use first-class ownership type urns here, not strings.
     @property
     def owners(self) -> Optional[List[models.OwnerClass]]:
-        # TODO: Ideally we'd use first-class ownership type urns here, not strings.
         if owners_aspect := self._get_aspect(models.OwnershipClass):
             return owners_aspect.owners
         return None
 
-    # Due to https://github.com/python/mypy/issues/3004, we cannot use python setters directly.
-    # Otherwise, we'll get a bunch of complaints about type annotations, since the getter
-    # and setter would differ.
     def set_owners(self, owners: OwnersInputType) -> None:
         # TODO: add docs on the default parsing + default ownership type
         parsed_owners = [self._parse_owner_class(owner) for owner in owners]
@@ -275,6 +273,7 @@ class HasTags(Entity):
         tags = self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
         return tags
 
+    # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
     def tags(self) -> Optional[List[models.TagAssociationClass]]:
         if tags := self._get_aspect(models.GlobalTagsClass):
@@ -324,6 +323,7 @@ TermsInputType: TypeAlias = List[TermInputType]
 class HasTerms(Entity):
     __slots__ = ()
 
+    # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
     def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
         if glossary_terms := self._get_aspect(models.GlossaryTermsClass):
