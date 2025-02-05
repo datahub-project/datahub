@@ -290,7 +290,7 @@ class Tile:
     report_id: Optional[str]
     createdFrom: CreatedFrom
 
-    # In a first pass, `dataset_id` and/or `report_id` are filled in. 
+    # In a first pass, `dataset_id` and/or `report_id` are filled in.
     # In a subsequent pass, the objects are populated.
     dataset: Optional["PowerBIDataset"]
     report: Optional[Report]
