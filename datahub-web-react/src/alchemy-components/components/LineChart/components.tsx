@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { GlyphProps } from '@visx/xychart';
 import { GLYPH_DROP_SHADOW_FILTER } from './constants';
-import { GlyphPropsWithRef } from './types';
+import { Datum, GlyphPropsWithRef } from './types';
 
 export const ChartWrapper = styled.div`
     width: 100%;
@@ -12,7 +12,7 @@ export const ChartWrapper = styled.div`
     cursor: pointer;
 `;
 
-export const Glyph = <T extends object>({ x, y }: GlyphPropsWithRef<T>): React.ReactElement => {
+export const Glyph = ({ x, y }: GlyphPropsWithRef): React.ReactElement => {
     return (
         <g>
             <circle cx={x} cy={y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
@@ -21,7 +21,7 @@ export const Glyph = <T extends object>({ x, y }: GlyphPropsWithRef<T>): React.R
     );
 };
 
-export const TooltipGlyph = <T extends object>(props: GlyphProps<T>): React.ReactElement => {
+export const TooltipGlyph = (props: GlyphProps<Datum>): React.ReactElement => {
     const ref = useRef<SVGGElement>(null);
 
     // FYI: Change size of parent SVG to prevent showing window's horizontal scrolling

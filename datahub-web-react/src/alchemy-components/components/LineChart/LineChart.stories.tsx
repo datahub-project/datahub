@@ -23,12 +23,6 @@ const meta = {
         data: {
             description: 'Array of datum to show',
         },
-        xAccessor: {
-            description: 'A function to convert datum to value of X',
-        },
-        yAccessor: {
-            description: 'A function to convert datum to value of Y',
-        },
         maxYDomainForZeroData: {
             description:
                 'For the case where the data has only zero values, you can set the yScale domain to better display the chart',

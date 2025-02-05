@@ -9,7 +9,7 @@ import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Popover } from '../Popover';
 import { ChartWrapper, Glyph, TooltipGlyph } from './components';
-import { LineChartProps } from './types';
+import { Datum, LineChartProps } from './types';
 import { getMockedProps } from '../BarChart/utils';
 import useMergedProps from '../BarChart/hooks/useMergedProps';
 import { roundToEven } from './utils';
@@ -18,18 +18,16 @@ import { GLYPH_DROP_SHADOW_FILTER } from './constants';
 import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
 import useMaxDataValue from '../BarChart/hooks/useMaxDataValue';
 
-const commonTickLabelProps: TickLabelProps<any> = {
+const commonTickLabelProps: TickLabelProps<Datum> = {
     fontSize: 10,
     fontFamily: 'Mulish',
     fill: colors.gray[1700],
 };
 
-export const lineChartDefault: LineChartProps<any> = {
+export const lineChartDefault: LineChartProps = {
     data: [],
     isEmpty: false,
 
-    xAccessor: (datum) => datum?.x,
-    yAccessor: (datum) => datum?.y,
     xScale: { type: 'time' },
     yScale: { type: 'log', nice: true, round: true, base: 2 },
 
@@ -88,12 +86,10 @@ export const lineChartDefault: LineChartProps<any> = {
     renderGlyphOnSingleDataPoint: Glyph,
 };
 
-export function LineChart<DatumType extends object>({
+export function LineChart({
     data,
     isEmpty,
 
-    xAccessor = lineChartDefault.xAccessor,
-    yAccessor = lineChartDefault.yAccessor,
     xScale = lineChartDefault.xScale,
     yScale = lineChartDefault.yScale,
     maxYDomainForZeroData,
@@ -114,7 +110,7 @@ export function LineChart<DatumType extends object>({
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
     showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
     renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
-}: LineChartProps<DatumType>) {
+}: LineChartProps) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
     // FYI: additional margins to show left and bottom axises
@@ -125,21 +121,24 @@ export function LineChart<DatumType extends object>({
         left: (margin?.left ?? 0) + 50,
     };
 
+    const xAccessor = (datum: Datum) => datum.x;
+    const yAccessor = (datum: Datum) => datum.y;
     const maxDataValue = useMaxDataValue(data, yAccessor);
     const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
 
     const accessors = { xAccessor, yAccessor };
 
-    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps<DatumType>>(
+    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
         lineChartDefault.leftAxisProps,
     );
 
-    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<
-        AxisProps<DatumType>
-    >(bottomAxisProps, lineChartDefault.bottomAxisProps);
+    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
+        bottomAxisProps,
+        lineChartDefault.bottomAxisProps,
+    );
 
-    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps<DatumType>>(
+    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps>(
         gridProps,
         lineChartDefault.gridProps,
     );
@@ -206,7 +205,7 @@ export function LineChart<DatumType extends object>({
                                 />
                             )}
 
-                            <AreaSeries<AxisScale, AxisScale, DatumType>
+                            <AreaSeries<AxisScale, AxisScale, Datum>
                                 dataKey="line-chart-seria-01"
                                 data={data}
                                 fill={!isEmpty ? areaColor : 'transparent'}
@@ -216,7 +215,7 @@ export function LineChart<DatumType extends object>({
                             />
 
                             {showGlyphOnSingleDataPoint && data.length === 1 && (
-                                <GlyphSeries<AxisScale, AxisScale, DatumType>
+                                <GlyphSeries<AxisScale, AxisScale, Datum>
                                     dataKey="line-chart-seria-01"
                                     data={data}
                                     renderGlyph={renderGlyphOnSingleDataPoint}
@@ -224,7 +223,7 @@ export function LineChart<DatumType extends object>({
                                 />
                             )}
 
-                            <Tooltip<DatumType>
+                            <Tooltip<Datum>
                                 snapTooltipToDatumX
                                 snapTooltipToDatumY
                                 showVerticalCrosshair

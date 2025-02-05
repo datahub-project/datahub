@@ -12,7 +12,7 @@ import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import NoPermission from '../NoPermission';
 import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
-import useQueryCountData from './useQueryCountData';
+import useQueryCountData, { ChartData } from './useQueryCountData';
 import { SectionKeys } from '../../utils';
 
 const QueryCountChart = () => {
@@ -48,16 +48,14 @@ const QueryCountChart = () => {
         return (
             <BarChart
                 data={chartData}
-                xAccessor={(item) => item.time}
-                yAccessor={(item) => item.value}
                 yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
                 popoverRenderer={(datum) => (
                     <GraphPopover
-                        header={getPopoverTimeFormat(groupInterval, datum.time)}
-                        value={`${formatNumberWithoutAbbreviation(datum.value)} ${pluralize(datum.value, 'Query')}`}
-                        pills={<MonthOverMonthPill value={datum.mom} />}
+                        header={getPopoverTimeFormat(groupInterval, datum.x)}
+                        value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Query')}`}
+                        pills={<MonthOverMonthPill value={(datum as ChartData).mom} />}
                     />
                 )}
             />

@@ -15,7 +15,7 @@ import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 import NoPermission from '../NoPermission';
-import useRowCountData from './useRowCountData';
+import useRowCountData, { RowCountData } from './useRowCountData';
 
 export default function RowCountGraph() {
     const {
@@ -71,16 +71,14 @@ export default function RowCountGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    xAccessor={(d) => d.time}
-                    yAccessor={(d) => d.value}
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true }}
                     popoverRenderer={(datum) => (
                         <GraphPopover
-                            header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
-                            value={`${formatNumberWithoutAbbreviation(datum.value)} ${pluralize(datum.value, 'Row')}`}
-                            pills={<MonthOverMonthPill value={datum.mom} />}
+                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Row')}`}
+                            pills={<MonthOverMonthPill value={(datum as RowCountData).mom} />}
                         />
                     )}
                 />

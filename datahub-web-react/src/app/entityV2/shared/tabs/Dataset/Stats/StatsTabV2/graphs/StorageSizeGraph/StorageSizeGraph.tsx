@@ -12,7 +12,7 @@ import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 import NoPermission from '../NoPermission';
-import useStorageSizeData from './useStorageSizeData';
+import useStorageSizeData, { StorageSizeData } from './useStorageSizeData';
 import { SectionKeys } from '../../utils';
 
 export default function StorageSizeGraph() {
@@ -72,16 +72,14 @@ export default function StorageSizeGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    xAccessor={(d) => d.time}
-                    yAccessor={(d) => d.value}
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
                     popoverRenderer={(datum) => (
                         <GraphPopover
-                            header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
-                            value={bytesFormatter(datum.value)}
-                            pills={<MonthOverMonthPill value={datum.mom} />}
+                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            value={bytesFormatter(datum.y)}
+                            pills={<MonthOverMonthPill value={(datum as StorageSizeData).mom} />}
                         />
                     )}
                 />
