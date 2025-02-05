@@ -624,7 +624,9 @@ def test_kafka_connect_snowflake_sink_ingest(
         "http://localhost:28083/connectors/snowflake_sink1/topics": {
             "method": "GET",
             "status_code": 200,
-            "json": {"snowflake_sink1": {"topics": ["topic1", "_topic+2"]}},
+            "json": {
+                "snowflake_sink1": {"topics": ["topic1", "_topic+2", "extra_old_topic"]}
+            },
         },
     }
 
