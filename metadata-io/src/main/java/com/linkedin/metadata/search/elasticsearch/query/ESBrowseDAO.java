@@ -614,7 +614,7 @@ public class ESBrowseDAO {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
-                opContext.getEntityRegistry(),
+                opContext,
                 entitySpec,
                 searchConfiguration,
                 customSearchConfiguration,
@@ -655,7 +655,7 @@ public class ESBrowseDAO {
 
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
-                finalOpContext.getEntityRegistry(),
+                finalOpContext,
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,
