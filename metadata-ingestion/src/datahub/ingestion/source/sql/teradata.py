@@ -681,8 +681,10 @@ ORDER by DataBaseName, TableName;
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add Teradata-specific default options"""
-        # Teradata does not support max_overflow, instead we use QueuePool when profiling
+        super()._add_default_options(sql_config)
         if sql_config.is_profiling_enabled():
+            # By default, Teradata uses SingletonThreadPool, which is not supported by sqlalchemy
+            # QueuePool used for parallel connections when profiling is enabled
             sql_config.options.setdefault("poolclass", QueuePool)
 
     @classmethod

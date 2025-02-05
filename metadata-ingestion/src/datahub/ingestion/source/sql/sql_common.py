@@ -354,6 +354,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
@@ -526,8 +528,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
             sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
