@@ -479,7 +479,7 @@ class Dataset(
         self._ensure_dataset_props().externalUrl = external_url
 
     @property
-    def custom_properties(self) -> Optional[Dict[str, str]]:
+    def custom_properties(self) -> Dict[str, str]:
         return self._ensure_dataset_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:

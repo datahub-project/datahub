@@ -28,6 +28,7 @@ def assert_entity_golden(
         pytestconfig=pytestconfig,
         outputs=entity._as_mcps(),
         golden_path=golden_path,
+        ignore_order=False,
     )
 
 
@@ -51,7 +52,17 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     )
     assert str(d.urn) in repr(d)
 
+    # Check most attributes.
+    assert d.tags is None
+    assert d.terms is None
+    assert d.created is None
+    assert d.last_modified is None
+    assert d.description is None
+    assert d.custom_properties == {}
+    assert d.domain is None
+
     # TODO: The column descriptions should go in the editable fields, since we're not in ingestion mode.
+    assert len(d.schema) == 2
     assert d["field1"].description == "field1 description"
 
     with pytest.raises(SchemaFieldKeyError, match=r"Field .* not found"):
@@ -88,10 +99,11 @@ def _build_complex_dataset() -> Dataset:
         container=schema,
         subtype=DatasetSubTypes.TABLE,
         schema=[
-            ("field1", "string", "field1 description"),
+            ("field1", "string"),
             ("field2", "int64", "field2 description"),
         ],
         display_name="MY_TABLE",
+        qualified_name="MY_DB.MY_SCHEMA.MY_TABLE",
         created=created,
         last_modified=updated,
         custom_properties={
@@ -99,6 +111,7 @@ def _build_complex_dataset() -> Dataset:
             "key2": "value2",
         },
         description="test",
+        external_url="https://example.com",
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
@@ -111,10 +124,44 @@ def _build_complex_dataset() -> Dataset:
         ],
         domain=DomainUrn("Marketing"),
     )
+    assert d.description == "test"
+    assert d.display_name == "MY_TABLE"
+    assert d.qualified_name == "MY_DB.MY_SCHEMA.MY_TABLE"
+    assert d.external_url == "https://example.com"
     assert d.created == created
     assert d.last_modified == updated
     assert d.custom_properties == {"key1": "value1", "key2": "value2"}
-    assert d.description == "test"
+
+    # Check standard aspects.
+    assert d.domain == DomainUrn("Marketing")
+    assert d.tags is not None
+    assert len(d.tags) == 2
+    assert d.terms is not None
+    assert len(d.terms) == 1
+    assert d.owners is not None
+    assert len(d.owners) == 1
+
+    assert len(d.schema) == 2
+
+    # Schema field description.
+    assert d["field1"].description is None
+    assert d["field2"].description == "field2 description"
+    d["field1"].set_description("field1 description")
+    assert d["field1"].description == "field1 description"
+
+    # Schema field tags.
+    assert d["field1"].tags is None
+    d["field1"].set_tags([TagUrn("field1_tag1"), TagUrn("field1_tag2")])
+    assert d["field1"].tags is not None
+    assert len(d["field1"].tags) == 2
+
+    # Schema field terms.
+    assert d["field2"].terms is None
+    d["field2"].set_terms(
+        [GlossaryTermUrn("field2_term1"), GlossaryTermUrn("field2_term2")]
+    )
+    assert d["field2"].terms is not None
+    assert len(d["field2"].terms) == 2
 
     return d
 

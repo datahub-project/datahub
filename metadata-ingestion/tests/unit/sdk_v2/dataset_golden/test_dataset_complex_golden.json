@@ -15,15 +15,49 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
+    "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "tags": [
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
                 {
-                    "tag": "urn:li:tag:tag1"
+                    "fieldPath": "field1",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "tag": "urn:li:tag:tag2"
+                    "fieldPath": "field2",
+                    "nullable": false,
+                    "description": "field2 description",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -59,7 +93,9 @@
                 "key1": "value1",
                 "key2": "value2"
             },
+            "externalUrl": "https://example.com",
             "name": "MY_TABLE",
+            "qualifiedName": "MY_DB.MY_SCHEMA.MY_TABLE",
             "created": {
                 "time": 1735787045000
             },
@@ -98,72 +134,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "",
-            "platform": "urn:li:dataPlatform:snowflake",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.Schemaless": {}
-            },
-            "fields": [
-                {
-                    "fieldPath": "field1",
-                    "nullable": false,
-                    "description": "field1 description",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "field2",
-                    "nullable": false,
-                    "description": "field2 description",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NullType": {}
-                        }
-                    },
-                    "nativeDataType": "int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "domains",
-    "aspect": {
-        "json": {
-            "domains": [
-                "urn:li:domain:Marketing"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -175,6 +145,45 @@
                 {
                     "id": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
                     "urn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@datahubproject.io",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tag1"
+                },
+                {
+                    "tag": "urn:li:tag:tag2"
                 }
             ]
         }
@@ -203,20 +212,63 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "ownership",
+    "aspectName": "domains",
     "aspect": {
         "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@datahubproject.io",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
+            "domains": [
+                "urn:li:domain:Marketing"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "json": {
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
-            }
+            },
+            "editableSchemaFieldInfo": [
+                {
+                    "fieldPath": "field1",
+                    "description": "field1 description",
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:field1_tag1"
+                            },
+                            {
+                                "tag": "urn:li:tag:field1_tag2"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "fieldPath": "field2",
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:field2_term1"
+                            },
+                            {
+                                "urn": "urn:li:glossaryTerm:field2_term2"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:__ingestion"
+                        }
+                    }
+                }
+            ]
         }
     }
 }

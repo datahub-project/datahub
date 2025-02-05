@@ -70,7 +70,9 @@ class HasPlatformInstance(Entity):
             try:
                 instance = DataPlatformInstanceUrn.from_string(instance)
             except InvalidUrnError:
-                if not isinstance(instance, DataPlatformInstanceUrn):
+                if not isinstance(
+                    instance, DataPlatformInstanceUrn
+                ):  # redundant check to make mypy happy
                     instance = DataPlatformInstanceUrn(platform, instance)
         # At this point, instance is either None or a DataPlatformInstanceUrn.
 
