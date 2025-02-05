@@ -109,7 +109,7 @@ class ConnectorManifest:
 
     name: str
     type: str
-    config: Dict
+    config: Dict[str, str]
     tasks: Dict
     url: Optional[str] = None
     flow_property_bag: Optional[Dict[str, str]] = None

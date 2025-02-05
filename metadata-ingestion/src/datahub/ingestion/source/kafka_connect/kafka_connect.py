@@ -206,7 +206,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return response.json()
 
     def _get_connector_topics(
-        self, connector_name: str, config: Dict, connector_type: str
+        self, connector_name: str, config: Dict[str, str], connector_type: str
     ) -> List[str]:
         if connector_type == SINK and config.get("topics"):
             # Sink connectors may configure `topics` as List of topics to consume, separated by commas
