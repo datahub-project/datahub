@@ -25,6 +25,7 @@ from datahub.sdk._shared import (
     HasContainer,
     HasDomain,
     HasOwnership,
+    HasPlatformInstance,
     HasSubtype,
     HasTags,
     HasTerms,
@@ -319,6 +320,7 @@ class SchemaField:
 
 
 class Dataset(
+    HasPlatformInstance,
     HasSubtype,
     HasContainer,
     HasOwnership,
@@ -369,12 +371,7 @@ class Dataset(
         )
         super().__init__(urn)
 
-        self._set_aspect(
-            models.DataPlatformInstanceClass(
-                platform=urn.platform,
-                instance=platform_instance,
-            )
-        )
+        self._set_platform_instance(urn.platform, platform_instance)
 
         if schema is not None:
             self._set_schema(schema)
@@ -422,14 +419,6 @@ class Dataset(
     @property
     def urn(self) -> DatasetUrn:
         return self._urn  # type: ignore
-
-    @property
-    def platform_instance(self) -> Optional[str]:
-        # TODO: Move this to a HasPlatformInstance mixin
-        dataPlatformInstance = self._get_aspect(models.DataPlatformInstanceClass)
-        if dataPlatformInstance and dataPlatformInstance.instance:
-            return dataPlatformInstance.instance
-        return None
 
     def _ensure_dataset_props(self) -> models.DatasetPropertiesClass:
         return self._setdefault_aspect(models.DatasetPropertiesClass())

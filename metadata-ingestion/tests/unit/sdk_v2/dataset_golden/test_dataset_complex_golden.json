@@ -7,7 +7,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "my_instance"
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
         }
     }
 },

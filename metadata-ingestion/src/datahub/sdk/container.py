@@ -12,13 +12,17 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
 )
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
+from datahub.metadata.urns import (
+    ContainerUrn,
+    Urn,
+)
 from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
     DomainInputType,
     HasContainer,
     HasDomain,
     HasOwnership,
+    HasPlatformInstance,
     HasSubtype,
     HasTags,
     HasTerms,
@@ -31,7 +35,14 @@ from datahub.sdk._shared import (
 
 
 class Container(
-    HasSubtype, HasContainer, HasOwnership, HasTags, HasTerms, HasDomain, Entity
+    HasPlatformInstance,
+    HasSubtype,
+    HasContainer,
+    HasOwnership,
+    HasTags,
+    HasTerms,
+    HasDomain,
+    Entity,
 ):
     __slots__ = ()
 
@@ -70,14 +81,9 @@ class Container(
         # This needs to come first to ensure that the display name is registered.
         self._ensure_container_props(name=display_name)
 
+        # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
         if isinstance(container_key, ContainerKey):
-            # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
-            self._set_aspect(
-                models.DataPlatformInstanceClass(
-                    platform=DataPlatformUrn(container_key.platform).urn(),
-                    instance=container_key.instance,
-                )
-            )
+            self._set_platform_instance(container_key.platform, container_key.instance)
 
             self._set_container(container_key.parent_key())
 

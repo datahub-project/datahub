@@ -23,6 +23,8 @@ from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
     DataJobUrn,
+    DataPlatformInstanceUrn,
+    DataPlatformUrn,
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
@@ -31,6 +33,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._entity import Entity
+from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
@@ -52,6 +55,37 @@ def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
     if ts is None:
         return None
     return parse_ts_millis(ts.time)
+
+
+class HasPlatformInstance(Entity):
+    __slots__ = ()
+
+    def _set_platform_instance(
+        self,
+        platform: Union[str, DataPlatformUrn],
+        instance: Union[None, str, DataPlatformInstanceUrn],
+    ) -> None:
+        platform = DataPlatformUrn(platform)
+        if instance and not isinstance(instance, DataPlatformInstanceUrn):
+            try:
+                instance = DataPlatformInstanceUrn.from_string(instance)
+            except InvalidUrnError:
+                instance = DataPlatformInstanceUrn(platform, instance)
+        # At this point, instance is either None or a DataPlatformInstanceUrn.
+
+        self._set_aspect(
+            models.DataPlatformInstanceClass(
+                platform=platform.urn(),
+                instance=instance.urn() if instance else None,
+            )
+        )
+
+    @property
+    def platform_instance(self) -> Optional[DataPlatformInstanceUrn]:
+        dataPlatformInstance = self._get_aspect(models.DataPlatformInstanceClass)
+        if dataPlatformInstance and dataPlatformInstance.instance:
+            return DataPlatformInstanceUrn.from_string(dataPlatformInstance.instance)
+        return None
 
 
 class HasSubtype(Entity):
