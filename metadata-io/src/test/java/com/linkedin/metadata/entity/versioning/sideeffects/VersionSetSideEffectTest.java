@@ -5,21 +5,23 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
+import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
@@ -27,7 +29,6 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.versionset.VersionSetProperties;
 import com.linkedin.versionset.VersioningScheme;
 import io.datahubproject.metadata.context.RetrieverContext;
-import jakarta.json.JsonObject;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -70,12 +71,14 @@ public class VersionSetSideEffectTest {
         new VersionProperties()
             .setVersionSet(TEST_VERSION_SET_URN)
             .setIsLatest(false)
-            .setSortId("AAAAAAAA");
+            .setSortId("AAAAAAAA")
+            .setVersion(new VersionTag().setVersionTag("123"));
     VersionProperties previousLatestProperties =
         new VersionProperties()
             .setVersionSet(TEST_VERSION_SET_URN)
             .setIsLatest(true)
-            .setSortId("AAAAAAAB");
+            .setSortId("AAAAAAAB")
+            .setVersion(new VersionTag().setVersionTag("123"));
     Map<Urn, List<RecordTemplate>> data = new HashMap<>();
     data.put(NEW_LATEST_URN, Collections.singletonList(existingProperties));
     data.put(PREVIOUS_LATEST_URN, Collections.singletonList(previousLatestProperties));
@@ -107,6 +110,8 @@ public class VersionSetSideEffectTest {
 
     EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(VERSION_SET_ENTITY_NAME);
 
+    SystemAspect prevData = mock(SystemAspect.class);
+    when(prevData.getRecordTemplate()).thenReturn(previousProperties);
     // Create change item
     ChangeItemImpl changeItem =
         ChangeItemImpl.builder()
@@ -115,40 +120,29 @@ public class VersionSetSideEffectTest {
             .entitySpec(entitySpec)
             .aspectSpec(entitySpec.getAspectSpec(VERSION_SET_PROPERTIES_ASPECT_NAME))
             .recordTemplate(newProperties)
+            .previousSystemAspect(prevData)
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(mockAspectRetriever);
-
-    // Create MCL item with previous aspect
-    MCLItemImpl mclItem =
-        MCLItemImpl.builder()
-            .previousRecordTemplate(previousProperties)
-            .build(changeItem, previousProperties, null, retrieverContext.getAspectRetriever());
 
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
     assertEquals(sideEffectResults.size(), 2, "Expected two patch operations");
 
     // Verify patch for previous latest version
-    MCPItem previousPatch = sideEffectResults.get(0);
-    assertEquals(previousPatch.getUrn(), PREVIOUS_LATEST_URN);
-    JsonObject previousPatchOp =
-        ((PatchItemImpl) previousPatch).getPatch().toJsonArray().getJsonObject(0);
-    assertEquals(previousPatchOp.getString("op"), "add");
-    assertEquals(previousPatchOp.getString("path"), "/isLatest");
-    assertEquals(previousPatchOp.getBoolean("value"), false);
+    MCPItem patched = sideEffectResults.get(0);
+    assertEquals(patched.getUrn(), PREVIOUS_LATEST_URN);
+    VersionProperties versionProperties = patched.getAspect(VersionProperties.class);
+    assertEquals(versionProperties.isIsLatest(), false);
 
-    // Verify patch for new latest version
-    MCPItem newPatch = sideEffectResults.get(1);
-    assertEquals(newPatch.getUrn(), NEW_LATEST_URN);
-    JsonObject newPatchOp = ((PatchItemImpl) newPatch).getPatch().toJsonArray().getJsonObject(0);
-    assertEquals(newPatchOp.getString("op"), "add");
-    assertEquals(newPatchOp.getString("path"), "/isLatest");
-    assertEquals(newPatchOp.getBoolean("value"), true);
+    MCPItem patched2 = sideEffectResults.get(1);
+    assertEquals(patched2.getUrn(), NEW_LATEST_URN);
+    VersionProperties versionProperties2 = patched2.getAspect(VersionProperties.class);
+    assertEquals(versionProperties2.isIsLatest(), true);
   }
 
   @Test
@@ -175,28 +169,20 @@ public class VersionSetSideEffectTest {
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(mockAspectRetriever);
 
-    // Create MCL item with previous aspect
-    MCLItemImpl mclItem =
-        MCLItemImpl.builder()
-            .previousRecordTemplate(previousProperties)
-            .build(changeItem, null, null, retrieverContext.getAspectRetriever());
-
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results - should still get one patch to set isLatest=true on current latest
     assertEquals(sideEffectResults.size(), 1, "Expected one patch operation");
 
     // Verify patch operation
-    MCPItem patch = sideEffectResults.get(0);
-    assertEquals(patch.getUrn(), NEW_LATEST_URN);
-    JsonObject patchOp = ((PatchItemImpl) patch).getPatch().toJsonArray().getJsonObject(0);
-    assertEquals(patchOp.getString("op"), "add");
-    assertEquals(patchOp.getString("path"), "/isLatest");
-    assertEquals(patchOp.getBoolean("value"), true);
+    MCPItem patched = sideEffectResults.get(0);
+    assertEquals(patched.getUrn(), NEW_LATEST_URN);
+    VersionProperties versionProperties = patched.getAspect(VersionProperties.class);
+    assertEquals(versionProperties.isIsLatest(), true);
   }
 
   @Test

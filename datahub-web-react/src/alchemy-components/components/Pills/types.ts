@@ -1,15 +1,16 @@
-import { ColorOptions, SizeOptions, VariantOptions } from '@src/alchemy-components/theme/config';
+import { ColorOptions, SizeOptions, PillVariantOptions } from '@src/alchemy-components/theme/config';
 import { HTMLAttributes } from 'react';
 
-export interface PillStyleProps {
-    colorScheme?: ColorOptions; // need to keep colorScheme because HTMLAttributes also have color property
-    variant?: VariantOptions;
-    size?: SizeOptions;
-    clickable?: boolean;
+export interface PillPropsDefaults {
+    variant: PillVariantOptions;
+    size: SizeOptions;
+    color: ColorOptions;
+    clickable: boolean;
 }
 
-export interface PillProps extends HTMLAttributes<HTMLElement>, PillStyleProps {
+export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
     label: string;
+    color?: ColorOptions;
     rightIcon?: string;
     leftIcon?: string;
     customStyle?: React.CSSProperties;
@@ -18,3 +19,5 @@ export interface PillProps extends HTMLAttributes<HTMLElement>, PillStyleProps {
     onClickLeftIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onPillClick?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
 }
+
+export type PillStyleProps = PillPropsDefaults & Pick<PillProps, 'color'>;

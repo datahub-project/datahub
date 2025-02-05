@@ -1,10 +1,10 @@
 import itertools
 import logging
+import time
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
-    get_sys_time,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -48,6 +48,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeFK,
     SnowflakePK,
     SnowflakeSchema,
+    SnowflakeStream,
     SnowflakeTable,
     SnowflakeTag,
     SnowflakeView,
@@ -58,6 +59,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -70,11 +72,11 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     EXTERNAL_TABLE_DDL_LINEAGE,
+    LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
     GlobalTags,
     Status,
     SubTypes,
@@ -82,6 +84,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageTypeClass,
     DatasetProperties,
     ViewProperties,
 )
@@ -101,15 +104,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.metadata.urns import (
-    ContainerUrn,
-    DatasetUrn,
-    DataTypeUrn,
-    EntityTypeUrn,
     SchemaFieldUrn,
     StructuredPropertyUrn,
 )
@@ -191,7 +187,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.domain_registry: Optional[DomainRegistry] = domain_registry
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.tag_extractor = SnowflakeTagExtractor(
-            config, self.data_dictionary, self.report
+            config, self.data_dictionary, self.report, identifiers
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
@@ -217,6 +213,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return self.identifiers.snowflake_identifier(identifier)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.extract_tags_as_structured_properties:
+            logger.info("Creating structured property templates for tags")
+            yield from self.tag_extractor.create_structured_property_templates()
+            # We have to wait until cache invalidates to make sure the structured property template is available
+            logger.info(
+                f"Waiting for {self.config.structured_properties_template_cache_invalidation_interval} seconds for structured properties cache to invalidate"
+            )
+            time.sleep(
+                self.config.structured_properties_template_cache_invalidation_interval
+            )
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
@@ -418,72 +424,119 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags != TagOption.skip:
-            snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
-                schema_name=schema_name, db_name=db_name, domain="schema"
-            )
+            self._process_tags(snowflake_schema, schema_name, db_name, domain="schema")
 
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
-        # We need to do this first so that we can use it when fetching columns.
+        tables, views, streams = [], [], []
+
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
+            db_tables[schema_name] = tables
+            yield from self._process_tables(
+                tables, snowflake_schema, db_name, schema_name
+            )
+
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+            yield from self._process_views(
+                views, snowflake_schema, db_name, schema_name
+            )
 
-        if self.config.include_tables:
-            db_tables[schema_name] = tables
-
-            if self.config.include_technical_schema:
-                data_reader = self.make_data_reader()
-                for table in tables:
-                    table_wu_generator = self._process_table(
-                        table, snowflake_schema, db_name
-                    )
-
-                    yield from classification_workunit_processor(
-                        table_wu_generator,
-                        self.classification_handler,
-                        data_reader,
-                        [db_name, schema_name, table.name],
-                    )
-
-        if self.config.include_views:
-            if self.aggregator:
-                for view in views:
-                    view_identifier = self.identifiers.get_dataset_identifier(
-                        view.name, schema_name, db_name
-                    )
-                    if view.is_secure and not view.view_definition:
-                        view.view_definition = self.fetch_secure_view_definition(
-                            view.name, schema_name, db_name
-                        )
-                    if view.view_definition:
-                        self.aggregator.add_view_definition(
-                            view_urn=self.identifiers.gen_dataset_urn(view_identifier),
-                            view_definition=view.view_definition,
-                            default_db=db_name,
-                            default_schema=schema_name,
-                        )
-                    elif view.is_secure:
-                        self.report.num_secure_views_missing_definition += 1
-
-            if self.config.include_technical_schema:
-                for view in views:
-                    yield from self._process_view(view, snowflake_schema, db_name)
+        if self.config.include_streams:
+            self.report.num_get_streams_for_schema_queries += 1
+            streams = self.fetch_streams_for_schema(
+                snowflake_schema, db_name, schema_name
+            )
+            yield from self._process_streams(streams, snowflake_schema, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
-            for tag in snowflake_schema.tags:
-                yield from self._process_tag(tag)
+            yield from self._process_tags_in_schema(snowflake_schema)
 
-        if not snowflake_schema.views and not snowflake_schema.tables:
+        if (
+            not snowflake_schema.views
+            and not snowflake_schema.tables
+            and not snowflake_schema.streams
+        ):
             self.structured_reporter.info(
-                title="No tables/views found in schema",
-                message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
+                title="No tables/views/streams found in schema",
+                message="If objects exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
+
+    def _process_tags(self, snowflake_schema, schema_name, db_name, domain):
+        snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
+            schema_name=schema_name, db_name=db_name, domain=domain
+        )
+
+    def _process_tables(
+        self,
+        tables: List[SnowflakeTable],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.config.include_technical_schema:
+            data_reader = self.make_data_reader()
+            for table in tables:
+                table_wu_generator = self._process_table(
+                    table, snowflake_schema, db_name
+                )
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    data_reader,
+                    [db_name, schema_name, table.name],
+                )
+
+    def _process_views(
+        self,
+        views: List[SnowflakeView],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        schema_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.aggregator:
+            for view in views:
+                view_identifier = self.identifiers.get_dataset_identifier(
+                    view.name, schema_name, db_name
+                )
+                if view.is_secure and not view.view_definition:
+                    view.view_definition = self.fetch_secure_view_definition(
+                        view.name, schema_name, db_name
+                    )
+                if view.view_definition:
+                    self.aggregator.add_view_definition(
+                        view_urn=self.identifiers.gen_dataset_urn(view_identifier),
+                        view_definition=view.view_definition,
+                        default_db=db_name,
+                        default_schema=schema_name,
+                    )
+                elif view.is_secure:
+                    self.report.num_secure_views_missing_definition += 1
+
+        if self.config.include_technical_schema:
+            for view in views:
+                yield from self._process_view(view, snowflake_schema, db_name)
+
+    def _process_streams(
+        self,
+        streams: List[SnowflakeStream],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        for stream in streams:
+            yield from self._process_stream(stream, snowflake_schema, db_name)
+
+    def _process_tags_in_schema(
+        self, snowflake_schema: SnowflakeSchema
+    ) -> Iterable[MetadataWorkUnit]:
+        if snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
 
     def fetch_secure_view_definition(
         self, table_name: str, schema_name: str, db_name: str
@@ -698,6 +751,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         use_sp = self.config.extract_tags_as_structured_properties
+
         identifier = (
             self.snowflake_identifier(tag.structured_property_identifier())
             if use_sp
@@ -708,10 +762,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return
 
         self.report.report_tag_processed(identifier)
+
         if use_sp:
-            yield from self.gen_tag_as_structured_property_workunits(tag)
-        else:
-            yield from self.gen_tag_workunits(tag)
+            return
+
+        yield from self.gen_tag_workunits(tag)
 
     def _format_tags_as_structured_properties(
         self, tags: List[SnowflakeTag]
@@ -725,13 +780,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def gen_dataset_workunits(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         if table.tags:
             for tag in table.tags:
                 yield from self._process_tag(tag)
+
         for column_name in table.column_tags:
             for tag in table.column_tags[column_name]:
                 yield from self._process_tag(tag)
@@ -783,7 +839,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         subTypes = SubTypes(
             typeNames=(
-                [DatasetSubTypes.VIEW]
+                [DatasetSubTypes.SNOWFLAKE_STREAM]
+                if isinstance(table, SnowflakeStream)
+                else [DatasetSubTypes.VIEW]
                 if isinstance(table, SnowflakeView)
                 else [DatasetSubTypes.TABLE]
             )
@@ -838,27 +896,49 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def get_dataset_properties(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> DatasetProperties:
         custom_properties = {}
 
         if isinstance(table, SnowflakeTable):
-            if table.clustering_key:
-                custom_properties["CLUSTERING_KEY"] = table.clustering_key
-
-            if table.is_hybrid:
-                custom_properties["IS_HYBRID"] = "true"
-
-            if table.is_dynamic:
-                custom_properties["IS_DYNAMIC"] = "true"
-
-            if table.is_iceberg:
-                custom_properties["IS_ICEBERG"] = "true"
+            custom_properties.update(
+                {
+                    k: v
+                    for k, v in {
+                        "CLUSTERING_KEY": table.clustering_key,
+                        "IS_HYBRID": "true" if table.is_hybrid else None,
+                        "IS_DYNAMIC": "true" if table.is_dynamic else None,
+                        "IS_ICEBERG": "true" if table.is_iceberg else None,
+                    }.items()
+                    if v
+                }
+            )
 
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"
+
+        elif isinstance(table, SnowflakeStream):
+            custom_properties.update(
+                {
+                    k: v
+                    for k, v in {
+                        "SOURCE_TYPE": table.source_type,
+                        "TYPE": table.type,
+                        "STALE": table.stale,
+                        "MODE": table.mode,
+                        "INVALID_REASON": table.invalid_reason,
+                        "OWNER_ROLE_TYPE": table.owner_role_type,
+                        "TABLE_NAME": table.table_name,
+                        "BASE_TABLES": table.base_tables,
+                        "STALE_AFTER": table.stale_after.isoformat()
+                        if table.stale_after
+                        else None,
+                    }.items()
+                    if v
+                }
+            )
 
         return DatasetProperties(
             name=table.name,
@@ -903,31 +983,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             entityUrn=tag_urn, aspect=tag_properties_aspect
         ).as_workunit()
 
-    def gen_tag_as_structured_property_workunits(
-        self, tag: SnowflakeTag
-    ) -> Iterable[MetadataWorkUnit]:
-        identifier = self.snowflake_identifier(tag.structured_property_identifier())
-        urn = StructuredPropertyUrn(identifier).urn()
-        aspect = StructuredPropertyDefinition(
-            qualifiedName=identifier,
-            displayName=tag.name,
-            valueType=DataTypeUrn("datahub.string").urn(),
-            entityTypes=[
-                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
-            ],
-            lastModified=AuditStamp(
-                time=get_sys_time(), actor="urn:li:corpuser:datahub"
-            ),
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=aspect,
-        ).as_workunit()
-
     def gen_column_tags_as_structured_properties(
-        self, dataset_urn: str, table: Union[SnowflakeTable, SnowflakeView]
+        self,
+        dataset_urn: str,
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
@@ -940,7 +999,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def gen_schema_metadata(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> SchemaMetadata:
@@ -1231,4 +1290,159 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             self.structured_reporter.warning(
                 "External table ddl lineage extraction failed",
                 exc=e,
+            )
+
+    def fetch_streams_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeStream]:
+        try:
+            streams: List[SnowflakeStream] = []
+            for stream in self.get_streams_for_schema(schema_name, db_name):
+                stream_identifier = self.identifiers.get_dataset_identifier(
+                    stream.name, schema_name, db_name
+                )
+
+                self.report.report_entity_scanned(stream_identifier, "stream")
+
+                if not self.filters.is_dataset_pattern_allowed(
+                    stream_identifier, SnowflakeObjectDomain.STREAM
+                ):
+                    self.report.report_dropped(stream_identifier)
+                else:
+                    streams.append(stream)
+            snowflake_schema.streams = [stream.name for stream in streams]
+            return streams
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = f"Failed to get streams for schema {db_name}.{schema_name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    "Failed to get streams for schema",
+                    f"{db_name}.{schema_name}",
+                    exc=e,
+                )
+                return []
+
+    def get_streams_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeStream]:
+        streams = self.data_dictionary.get_streams_for_database(db_name)
+
+        return streams.get(schema_name, [])
+
+    def _process_stream(
+        self,
+        stream: SnowflakeStream,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_name = snowflake_schema.name
+
+        try:
+            # Retrieve and register the schema without metadata to prevent columns from mapping upstream
+            stream.columns = self.get_columns_for_stream(stream.table_name)
+            yield from self.gen_dataset_workunits(stream, schema_name, db_name)
+
+            if self.config.include_column_lineage:
+                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                    self.populate_stream_upstreams(stream, db_name, schema_name)
+
+        except Exception as e:
+            self.structured_reporter.warning(
+                "Failed to get columns for stream:", stream.name, exc=e
+            )
+
+    def get_columns_for_stream(
+        self,
+        source_object: str,  # Qualified name of source table/view
+    ) -> List[SnowflakeColumn]:
+        """
+        Get column information for a stream by getting source object columns and adding metadata columns.
+        Stream includes all columns from source object plus metadata columns like:
+        - METADATA$ACTION
+        - METADATA$ISUPDATE
+        - METADATA$ROW_ID
+        """
+        columns: List[SnowflakeColumn] = []
+
+        source_parts = split_qualified_name(source_object)
+
+        source_db, source_schema, source_name = source_parts
+
+        # Get columns from source object
+        source_columns = self.data_dictionary.get_columns_for_schema(
+            source_schema, source_db, itertools.chain([source_name])
+        ).get(source_name, [])
+
+        # Add all source columns
+        columns.extend(source_columns)
+
+        # Add standard stream metadata columns
+        metadata_columns = [
+            SnowflakeColumn(
+                name="METADATA$ACTION",
+                ordinal_position=len(columns) + 1,
+                is_nullable=False,
+                data_type="VARCHAR",
+                comment="Type of DML operation (INSERT/DELETE)",
+                character_maximum_length=10,
+                numeric_precision=None,
+                numeric_scale=None,
+            ),
+            SnowflakeColumn(
+                name="METADATA$ISUPDATE",
+                ordinal_position=len(columns) + 2,
+                is_nullable=False,
+                data_type="BOOLEAN",
+                comment="Whether row is from UPDATE operation",
+                character_maximum_length=None,
+                numeric_precision=None,
+                numeric_scale=None,
+            ),
+            SnowflakeColumn(
+                name="METADATA$ROW_ID",
+                ordinal_position=len(columns) + 3,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Unique row identifier",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=0,
+            ),
+        ]
+
+        columns.extend(metadata_columns)
+
+        return columns
+
+    def populate_stream_upstreams(
+        self, stream: SnowflakeStream, db_name: str, schema_name: str
+    ) -> None:
+        """
+        Populate Streams upstream tables
+        """
+        self.report.num_streams_with_known_upstreams += 1
+        if self.aggregator:
+            source_parts = split_qualified_name(stream.table_name)
+            source_db, source_schema, source_name = source_parts
+
+            dataset_identifier = self.identifiers.get_dataset_identifier(
+                stream.name, schema_name, db_name
+            )
+            dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+
+            upstream_identifier = self.identifiers.get_dataset_identifier(
+                source_name, source_schema, source_db
+            )
+            upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
+
+            logger.debug(
+                f"""upstream_urn: {upstream_urn}, downstream_urn: {dataset_urn}"""
+            )
+
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=upstream_urn,
+                downstream_urn=dataset_urn,
+                lineage_type=DatasetLineageTypeClass.COPY,
             )

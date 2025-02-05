@@ -64,17 +64,25 @@ interface Props {
     browsePaths?: Maybe<BrowsePathV2> | undefined;
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated: boolean;
+    linksDisabled?: boolean;
 }
 
-const BrowsePathSection = ({ path }: { path: BrowsePathEntry }) => {
+const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & Pick<Props, 'linksDisabled'>) => {
     if (!path.entity) {
         return <PlatFormTitle>{path.name}</PlatFormTitle>;
     }
-    return <ContextPathEntityLink key={path?.entity?.urn} entity={path?.entity} style={{ fontSize: '12px' }} />;
+    return (
+        <ContextPathEntityLink
+            key={path?.entity?.urn}
+            entity={path?.entity}
+            style={{ fontSize: '12px' }}
+            linkDisabled={linksDisabled}
+        />
+    );
 };
 
 function BrowsePaths(props: Props) {
-    const { previewType, browsePaths, contentRef, isContentTruncated } = props;
+    const { previewType, browsePaths, contentRef, isContentTruncated, linksDisabled } = props;
 
     const parentPath = browsePaths?.path?.[0];
     const remainingParentPaths = browsePaths?.path && browsePaths.path.slice(1, browsePaths.path.length);
@@ -91,7 +99,7 @@ function BrowsePaths(props: Props) {
                 <ParentNodesWrapper ref={contentRef}>
                     {parentPath && (
                         <PlatformText>
-                            <BrowsePathSection path={parentPath} />
+                            <BrowsePathSection path={parentPath} linksDisabled={linksDisabled} />
                             {remainingParentPaths && remainingParentPaths?.length > 0 && <ContextPathSeparator />}
                         </PlatformText>
                     )}
@@ -99,7 +107,7 @@ function BrowsePaths(props: Props) {
                         remainingParentPaths.map((container, index) => {
                             return (
                                 <PlatformText>
-                                    <BrowsePathSection path={container} />
+                                    <BrowsePathSection path={container} linksDisabled={linksDisabled} />
                                     {index < remainingParentPaths.length - 1 && <ContextPathSeparator />}
                                 </PlatformText>
                             );

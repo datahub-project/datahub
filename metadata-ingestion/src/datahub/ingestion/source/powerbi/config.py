@@ -132,6 +132,7 @@ class Constant:
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
+    REPORT_WEB_URL = "reportWebUrl"
 
 
 @dataclass
@@ -195,8 +196,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     dashboards_scanned: int = 0
     charts_scanned: int = 0
-    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
-    filtered_charts: List[str] = dataclass_field(default_factory=list)
+    filtered_dashboards: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered_charts: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
     m_query_parse_attempts: int = 0

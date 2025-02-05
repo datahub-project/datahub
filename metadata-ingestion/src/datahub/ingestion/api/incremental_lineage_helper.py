@@ -102,6 +102,10 @@ def convert_dashboard_info_to_patch(
     if aspect.datasets:
         patch_builder.add_datasets(aspect.datasets)
 
+    if aspect.dashboards:
+        for dashboard in aspect.dashboards:
+            patch_builder.add_dashboard(dashboard)
+
     if aspect.access:
         patch_builder.set_access(aspect.access)
 

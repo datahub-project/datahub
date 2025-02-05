@@ -111,11 +111,11 @@ record DashboardInfo includes CustomProperties, ExternalReference {
       "name": "DashboardContainsDashboard",
       "entityTypes": [ "dashboard" ],
       "isLineage": true,
-      "createdOn": "datasetEdges/*/created/time"
-      "createdActor": "datasetEdges/*/created/actor"
-      "updatedOn": "datasetEdges/*/lastModified/time"
-      "updatedActor": "datasetEdges/*/lastModified/actor"
-      "properties": "datasetEdges/*/properties"
+      "createdOn": "dashboards/*/created/time"
+      "createdActor": "dashboards/*/created/actor"
+      "updatedOn": "dashboards/*/lastModified/time"
+      "updatedActor": "dashboards/*/lastModified/actor"
+      "properties": "dashboards/*/properties"
     }
   }
   dashboards: array[Edge] = [ ]
