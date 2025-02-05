@@ -7,7 +7,10 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.sdk import Container, DataHubClient, Dataset, DatasetUrn, TagUrn
+from datahub.metadata.urns import DatasetUrn, TagUrn
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
+from datahub.sdk.main_client import DataHubClient
 from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "entity_client_goldens"

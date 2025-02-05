@@ -53,6 +53,7 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     assert str(d.urn) in repr(d)
 
     # Check most attributes.
+    assert d.platform_instance is None
     assert d.tags is None
     assert d.terms is None
     assert d.created is None
@@ -124,6 +125,12 @@ def _build_complex_dataset() -> Dataset:
         ],
         domain=DomainUrn("Marketing"),
     )
+    assert d.platform_instance is not None
+    assert (
+        str(d.platform_instance)
+        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
+    )
+    assert d.subtype == "Table"
     assert d.description == "test"
     assert d.display_name == "MY_TABLE"
     assert d.qualified_name == "MY_DB.MY_SCHEMA.MY_TABLE"

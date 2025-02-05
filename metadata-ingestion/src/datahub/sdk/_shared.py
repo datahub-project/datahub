@@ -163,10 +163,6 @@ class HasOwnership(Entity):
                 f"Invalid owner {owner}: {type(owner)} is not a valid owner type"
             )
 
-    def _ensure_owners(self) -> List[models.OwnerClass]:
-        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
-        return owners
-
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     # Ideally we'd also use first-class ownership type urns here, not strings.
     @property
@@ -247,10 +243,6 @@ TagsInputType: TypeAlias = List[TagInputType]
 
 class HasTags(Entity):
     __slots__ = ()
-
-    def _ensure_tags(self) -> List[models.TagAssociationClass]:
-        tags = self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
-        return tags
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
