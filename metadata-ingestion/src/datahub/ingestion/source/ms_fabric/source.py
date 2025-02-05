@@ -9,10 +9,10 @@ from datahub.ingestion.api.workunit import WorkUnit
 from datahub.ingestion.source.ms_fabric.config import AzureFabricSourceConfig
 from datahub.ingestion.source.ms_fabric.fabric_utils import set_session
 from datahub.ingestion.source.ms_fabric.lakehouse import LakehouseManager
+from datahub.ingestion.source.ms_fabric.lineage_state import DatasetLineageState
 from datahub.ingestion.source.ms_fabric.mirrored_database import (
     MirroredDatabasesManager,
 )
-from datahub.ingestion.source.ms_fabric.power_bi import PowerBIManager
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
 from datahub.ingestion.source.ms_fabric.semantic_model import SemanticModelManager
 from datahub.ingestion.source.ms_fabric.types import Workspace
@@ -35,6 +35,7 @@ class AzureFabricSource(Source):
         self.report = AzureFabricSourceReport()
         self.source_config = config
         self.session = set_session(requests.Session(), self.config.azure_config)
+        self.lineage_state = DatasetLineageState()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "AzureFabricSource":
@@ -44,17 +45,6 @@ class AzureFabricSource(Source):
     def get_workunits_internal(self) -> Iterable[WorkUnit]:
         """Generate work units for ingesting Azure Fabric metadata"""
         workspaces = self._get_workspaces()
-
-        # Process semantic_models
-        semantic_model_manager = SemanticModelManager(
-            azure_config=self.config.azure_config,
-            workspaces=workspaces,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            ctx=self.ctx,
-            report=self.report,
-        )
-        yield from semantic_model_manager.get_semantic_model_wus()
 
         # Process Warehouses
         warehouse_manager = WarehouseManager(
@@ -80,17 +70,30 @@ class AzureFabricSource(Source):
             workspaces=workspaces,
             ctx=self.ctx,
             report=self.report,
+            lineage_state=self.lineage_state,
         )
         yield from lakehouse_manager.get_lakehouse_wus()
 
-        # Process PowerBI Dashboards
-        powerbi_manager = PowerBIManager(
+        # Process semantic_models
+        semantic_model_manager = SemanticModelManager(
             azure_config=self.config.azure_config,
             workspaces=workspaces,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
             ctx=self.ctx,
             report=self.report,
+            lineage_state=self.lineage_state,
         )
-        yield from powerbi_manager.get_powerbi_wus()
+        yield from semantic_model_manager.get_semantic_model_wus()
+
+        # # Process PowerBI Dashboards
+        # powerbi_manager = PowerBIManager(
+        #     azure_config=self.config.azure_config,
+        #     workspaces=workspaces,
+        #     ctx=self.ctx,
+        #     report=self.report,
+        # )
+        # yield from powerbi_manager.get_powerbi_wus()
 
     def _get_workspaces(
         self, continuation_token: Optional[str] = None

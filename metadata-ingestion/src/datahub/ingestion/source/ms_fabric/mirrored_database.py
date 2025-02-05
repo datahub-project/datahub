@@ -8,7 +8,6 @@ from urllib import parse
 import msal
 import requests
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.ms_fabric.fabric_utils import set_session
@@ -18,7 +17,6 @@ from datahub.ingestion.source.sql.mssql import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
 )
-from datahub.metadata.schema_classes import ContainerPropertiesClass
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,9 @@ logger = logging.getLogger(__name__)
 class MirroredDatabasesManager:
     azure_config: AzureConnectionConfig
     fabric_session: requests.Session
-    mirrored_databases_map: Dict[str, Dict[str, Union[MirroredDatabase, Workspace]]]
+    mirrored_databases_map: Dict[
+        str, Dict[str, Union[List[MirroredDatabase], Workspace]]
+    ]
     ctx: PipelineContext
 
     def __init__(
@@ -46,12 +46,15 @@ class MirroredDatabasesManager:
         token_bytes = self._get_sql_server_authentication()
 
         for _, workspace_data in self.mirrored_databases_map.items():
-            workspace = workspace_data.get("workspace")
-            mirrored_databases = workspace_data.get("mirrored_databases")
+            workspace: Workspace = workspace_data.get("workspace")
+            mirrored_databases: List[MirroredDatabase] = workspace_data.get(
+                "mirrored_databases"
+            )
 
             for mirrored_database in mirrored_databases:
                 params = self.create_sql_server_connection_string(
-                    mirrored_database.properties.sql_endpoint_properties.connection_string
+                    mirrored_database.properties.sql_endpoint_properties.connection_string,
+                    mirrored_database.display_name,
                 )
 
                 sql_config = SQLServerConfig(
@@ -59,7 +62,7 @@ class MirroredDatabasesManager:
                     use_odbc=True,
                     include_jobs=False,
                     include_stored_procedures=False,
-                    platform_instance=f"{workspace.display_name}: {mirrored_database.display_name}",
+                    platform_instance=workspace.display_name,
                     stateful_ingestion=StatefulIngestionConfig(
                         enabled=True,
                     ),
@@ -68,38 +71,40 @@ class MirroredDatabasesManager:
 
                 try:
                     ctx_copy = copy.deepcopy(self.ctx)
+                    ctx_copy.pipeline_name = f"{workspace.id}.{mirrored_database.id}"
                     source = SQLServerSource(config=sql_config, ctx=ctx_copy)
-                    yield from (
-                        MetadataChangeProposalWrapper(
-                            entityUrn=wu.metadata.entityUrn,
-                            aspect=ContainerPropertiesClass(
-                                name=mirrored_database.display_name
-                                if not wu.metadata.aspect.name
-                                else wu.metadata.aspect.name,
-                                customProperties=wu.metadata.aspect.customProperties,
-                                externalUrl=wu.metadata.aspect.externalUrl,
-                                qualifiedName=wu.metadata.aspect.qualifiedName,
-                                description=wu.metadata.aspect.description,
-                                env=wu.metadata.aspect.env,
-                                created=wu.metadata.aspect.created,
-                                lastModified=wu.metadata.aspect.lastModified,
-                            ),
-                        ).as_workunit()
-                        if "containerProperties" in wu.id
-                        else wu
-                        for wu in source.get_workunits()
-                    )
+                    yield from source.get_workunits()
+                    # yield from (
+                    #     MetadataChangeProposalWrapper(
+                    #         entityUrn=wu.metadata.entityUrn,
+                    #         aspect=ContainerPropertiesClass(
+                    #             name=mirrored_database.display_name
+                    #             if not wu.metadata.aspect.name
+                    #             else wu.metadata.aspect.name,
+                    #             customProperties=wu.metadata.aspect.customProperties,
+                    #             externalUrl=wu.metadata.aspect.externalUrl,
+                    #             qualifiedName=wu.metadata.aspect.qualifiedName,
+                    #             description=wu.metadata.aspect.description,
+                    #             env=wu.metadata.aspect.env,
+                    #             created=wu.metadata.aspect.created,
+                    #             lastModified=wu.metadata.aspect.lastModified,
+                    #         ),
+                    #     ).as_workunit()
+                    #     if "containerProperties" in wu.id
+                    #     else wu
+                    #     for wu in source.get_workunits()
+                    # )
                 except Exception as e:
                     logger.error(
-                        f"Failed to process mirrored database {mirrored_databases.properties.connection_string}: {str(e)}"
+                        f"Failed to process mirrored database {mirrored_database.properties.connection_string}: {str(e)}"
                     )
                     continue
 
     def get_mirrored_databases(
         self, workspaces: List[Workspace]
-    ) -> Dict[str, Dict[str, Union[MirroredDatabase, Workspace]]]:
+    ) -> Dict[str, Dict[str, Union[List[MirroredDatabase], Workspace]]]:
         mirrored_databases_map: Dict[
-            str, Dict[str, Union[MirroredDatabase, Workspace]]
+            str, Dict[str, Union[List[MirroredDatabase], Workspace]]
         ] = {}
 
         for workspace in workspaces:
@@ -165,8 +170,6 @@ class MirroredDatabasesManager:
         encoded_bytes = bytes(chain.from_iterable(zip(token_as_bytes, repeat(0))))
         return struct.pack("<i", len(encoded_bytes)) + encoded_bytes
 
-    def create_sql_server_connection_string(self, server: str) -> str:
-        connection_string = (
-            f"driver={{ODBC Driver 18 for SQL Server}};Server={server},1433;"
-        )
+    def create_sql_server_connection_string(self, server: str, database: str) -> str:
+        connection_string = f"driver={{ODBC Driver 18 for SQL Server}};Server={server},1433;Database={database};Encrypt=yes;TrustServerCertificate=Yes;ssl=True"
         return parse.quote(connection_string)

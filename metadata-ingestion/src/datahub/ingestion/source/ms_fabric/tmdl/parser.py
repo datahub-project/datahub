@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -406,15 +407,18 @@ class TMDLParser:
     def _parse_partition(self, content_lines: List[str]) -> Optional[Partition]:
         """Parse partition definition."""
         try:
-            # Extract partition name - handle quotes properly
+            # Extract partition name
             first_line = content_lines[0].strip()
             name_parts = first_line.split("=", 1)
             name = name_parts[0].strip().strip("'")  # Remove quotes and whitespace
 
             mode = "import"
-            source_lines = []
-            capture_source = False
+            entity_name = None
+            schema_name = None
+            expression_source = None
+            source_expr = None
 
+            # Parse the partition content
             for line in content_lines[1:]:
                 stripped = line.strip()
                 if not stripped:
@@ -422,21 +426,36 @@ class TMDLParser:
 
                 if stripped.startswith("mode:"):
                     mode = stripped.split(":", 1)[1].strip()
-                elif stripped == "source =":
-                    capture_source = True
-                elif capture_source:
-                    if (
-                        stripped and stripped != "source"
-                    ):  # Skip empty lines and 'source' keyword
-                        source_lines.append(line.strip())
+                elif stripped == "source":
+                    continue
+                elif stripped.startswith("entityName:"):
+                    entity_name = stripped.split(":", 1)[1].strip()
+                elif stripped.startswith("schemaName:"):
+                    schema_name = stripped.split(":", 1)[1].strip()
+                elif stripped.startswith("expressionSource:"):
+                    expression_source = stripped.split(":", 1)[1].strip()
 
-            # Combine source lines into complete M expression
-            source_expr = (
-                "\n".join(source_lines)
-                if source_lines
-                else "let Source = null in Source"
-            )
-            source_expr = source_expr.strip()
+            # For DirectLake mode, use the DatabaseQuery information
+            if (
+                mode == "directLake"
+                and self._db_query
+                and expression_source == "DatabaseQuery"
+            ):
+                # We need to keep the raw Sql.Database call in the expression for lineage detection
+                server = self._extract_server_from_query(self._db_query)
+                database = self._extract_database_from_query(self._db_query)
+                source_expr = (
+                    f"let\n"
+                    f'    Source = Sql.Database("{server}", "{database}"),\n'
+                    f"    Entity = Source{{\n"
+                    f'        [Schema]="{schema_name}",\n'
+                    f'        [Item]="{entity_name}"\n'
+                    f"    }}[Data]\n"
+                    f"in\n"
+                    f"    Entity"
+                )
+            else:
+                source_expr = "let Source = null in Source"
 
             source = Expression(expression_type="M", expression=source_expr)
 
@@ -450,6 +469,28 @@ class TMDLParser:
             logger.error(f"Error parsing partition: {str(e)}")
             logger.error(f"Content lines: {content_lines}")
             return None
+
+    def _extract_server_from_query(self, query: str) -> str:
+        """Extract server from DatabaseQuery expression."""
+        try:
+            server_pattern = r'Sql\.Database\("([^"]+)"'
+            match = re.search(server_pattern, query)
+            if match:
+                return match.group(1)
+        except Exception as e:
+            logger.warning(f"Failed to extract server from query: {str(e)}")
+        return ""
+
+    def _extract_database_from_query(self, query: str) -> str:
+        """Extract database GUID from DatabaseQuery expression."""
+        try:
+            guid_pattern = r'Sql\.Database\([^,]+,\s*"([^"]+)"'
+            match = re.search(guid_pattern, query)
+            if match:
+                return match.group(1)
+        except Exception as e:
+            logger.warning(f"Failed to extract database GUID from query: {str(e)}")
+        return ""
 
     def _extract_database_query(self, content_lines: List[str]) -> Optional[str]:
         """Extract DatabaseQuery expression from content."""

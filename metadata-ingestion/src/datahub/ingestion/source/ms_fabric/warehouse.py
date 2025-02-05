@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class WarehouseManager:
     azure_config: AzureConnectionConfig
     fabric_session: requests.Session
-    warehouse_map: Dict[str, Dict[str, Union[Warehouse, Workspace]]]
+    warehouse_map: Dict[str, Dict[str, Union[List[Warehouse], Workspace]]]
     ctx: PipelineContext
 
     def __init__(
@@ -46,13 +46,12 @@ class WarehouseManager:
         token_bytes = self._get_sql_server_authentication()
 
         for _, workspace_data in self.warehouse_map.items():
-            workspace = workspace_data.get("workspace")
-            warehouses = workspace_data.get("warehouses")
+            workspace: Workspace = workspace_data.get("workspace")
+            warehouses: List[Warehouse] = workspace_data.get("warehouses")
 
             for warehouse in warehouses:
-                logger.error(warehouse.id)
                 params = self.create_sql_server_connection_string(
-                    warehouse.properties.connection_string
+                    warehouse.properties.connection_string, warehouse.display_name
                 )
 
                 sql_config = SQLServerConfig(
@@ -60,7 +59,7 @@ class WarehouseManager:
                     use_odbc=True,
                     include_jobs=False,
                     include_stored_procedures=False,
-                    platform_instance=f"{workspace.display_name}: {warehouse.display_name}",
+                    platform_instance=workspace.display_name,
                     stateful_ingestion=StatefulIngestionConfig(
                         enabled=True,
                     ),
@@ -69,6 +68,7 @@ class WarehouseManager:
 
                 try:
                     ctx_copy = copy.deepcopy(self.ctx)
+                    ctx_copy.pipeline_name = f"{workspace.id}.{warehouse.id}"
                     source = SQLServerSource(config=sql_config, ctx=ctx_copy)
                     yield from (
                         MetadataChangeProposalWrapper(
@@ -98,8 +98,8 @@ class WarehouseManager:
 
     def get_warhouses(
         self, workspaces: List[Workspace]
-    ) -> Dict[str, Dict[str, Union[Warehouse, Workspace]]]:
-        warehouses_map: Dict[str, Dict[str, Union[Warehouse, Workspace]]] = {}
+    ) -> Dict[str, Dict[str, Union[List[Warehouse], Workspace]]]:
+        warehouses_map: Dict[str, Dict[str, Union[List[Warehouse], Workspace]]] = {}
 
         for workspace in workspaces:
             warehouses_map[workspace.id] = {
@@ -159,9 +159,6 @@ class WarehouseManager:
         encoded_bytes = bytes(chain.from_iterable(zip(token_as_bytes, repeat(0))))
         return struct.pack("<i", len(encoded_bytes)) + encoded_bytes
 
-    def create_sql_server_connection_string(self, server: str) -> str:
-        logger.error(server)
-        connection_string = (
-            f"driver={{ODBC Driver 18 for SQL Server}};Server={server},1433;"
-        )
+    def create_sql_server_connection_string(self, server: str, database: str) -> str:
+        connection_string = f"driver={{ODBC Driver 18 for SQL Server}};Server={server},1433;Database={database};Encrypt=yes;TrustServerCertificate=Yes;ssl=True"
         return parse.quote(connection_string)

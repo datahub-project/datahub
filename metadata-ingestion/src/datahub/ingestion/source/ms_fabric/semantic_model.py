@@ -25,6 +25,7 @@ from datahub.ingestion.source.ms_fabric.fabric_utils import (
     flatten_dict,
     set_session,
 )
+from datahub.ingestion.source.ms_fabric.lineage_state import DatasetLineageState
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
 from datahub.ingestion.source.ms_fabric.tmdl.models.table import (
     Column,
@@ -69,6 +70,7 @@ class SemanticModelManager:
         env: str,
         ctx: PipelineContext,
         report: AzureFabricSourceReport,
+        lineage_state: DatasetLineageState,
     ):
         self.fabric_session = set_session(requests.Session(), azure_config)
         self.semantic_model_map = self.get_semantic_models(workspaces)
@@ -77,6 +79,7 @@ class SemanticModelManager:
         self.ctx = ctx
         self.report = report
         self.processed_datasets = set()
+        self.lineage_state = lineage_state
 
     def get_semantic_model_wus(self) -> Iterable[MetadataWorkUnit]:
         processed_workspaces: List[Workspace] = []
@@ -215,8 +218,6 @@ class SemanticModelManager:
             )
 
             model = self._parse_tmdl_content(tmdl_content)
-            logger.error(tmdl_content)
-            logger.error(model)
 
             for table in model.tables:
                 if not self._should_process_table(table.name):
@@ -384,16 +385,42 @@ class SemanticModelManager:
         self,
         workspace: Workspace,
         semantic_model: SemanticModel,
-        table,
+        table: Table,
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Process and emit lineage information."""
-        upstreams = self._process_partition_lineage(table)
-        fine_grained_lineages = self._process_column_lineage(
-            workspace, semantic_model, table, dataset_urn
+        """Process and emit lineage information using shared state."""
+        # Get upstream SQL tables
+        upstream_tables = self.lineage_state.get_upstream_datasets(
+            table.name, platform="mssql"
         )
 
-        if upstreams or fine_grained_lineages:
+        fine_grained_lineages = []
+        upstreams = []
+
+        for upstream in upstream_tables:
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream["urn"], type=DatasetLineageTypeClass.TRANSFORMED
+                )
+            )
+
+            # Create column-level lineage
+            for column in table.columns:
+                if column.name in upstream["columns"]:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=[
+                                make_schema_field_urn(upstream["urn"], column.name)
+                            ],
+                            downstreams=[
+                                make_schema_field_urn(dataset_urn, column.name)
+                            ],
+                        )
+                    )
+
+        if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
@@ -407,9 +434,7 @@ class SemanticModelManager:
     def _process_partition_lineage(self, table: Table) -> List[UpstreamClass]:
         """Process partition source lineage."""
         upstreams = []
-        logger.error(table)
         for partition in table.partitions:
-            logger.error(partition)
             if partition.source and partition.source.expression:
                 source_tables = self._extract_source_tables(partition.source.expression)
                 for source_table in source_tables:
