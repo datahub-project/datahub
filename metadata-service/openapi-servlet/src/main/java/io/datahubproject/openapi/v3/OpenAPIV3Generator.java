@@ -725,13 +725,16 @@ public class OpenAPIV3Generator {
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE));
 
-    entityRegistry
-        .getAspectSpecs()
-        .values()
-        .forEach(
-            aspect ->
-                result.addProperty(
-                    PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspect.getName())));
+    // Create a list of reference schemas for each aspect
+    List<Schema> aspectRefs =
+        entityRegistry.getAspectSpecs().values().stream()
+            .map(aspect -> new Schema<>().$ref(PATH_DEFINITIONS + toUpperFirst(aspect.getName())))
+            .distinct()
+            .collect(Collectors.toList());
+
+    // Add the value property with oneOf constraint
+    result.addProperty(PROPERTY_VALUE, new Schema<>().oneOf(aspectRefs));
+
     result.addProperty(
         NAME_SYSTEM_METADATA,
         new Schema<>()
