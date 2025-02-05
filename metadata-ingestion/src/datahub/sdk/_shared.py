@@ -66,11 +66,12 @@ class HasPlatformInstance(Entity):
         instance: Union[None, str, DataPlatformInstanceUrn],
     ) -> None:
         platform = DataPlatformUrn(platform)
-        if instance and not isinstance(instance, DataPlatformInstanceUrn):
+        if instance is not None:
             try:
                 instance = DataPlatformInstanceUrn.from_string(instance)
             except InvalidUrnError:
-                instance = DataPlatformInstanceUrn(platform, instance)
+                if not isinstance(instance, DataPlatformInstanceUrn):
+                    instance = DataPlatformInstanceUrn(platform, instance)
         # At this point, instance is either None or a DataPlatformInstanceUrn.
 
         self._set_aspect(
