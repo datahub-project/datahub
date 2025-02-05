@@ -44,8 +44,7 @@ class Entity:
 
     @classmethod
     @abc.abstractmethod
-    def get_urn_type(cls) -> Type[_SpecificUrn]:
-        pass
+    def get_urn_type(cls) -> Type[_SpecificUrn]: ...
 
     @property
     def urn(self) -> _SpecificUrn:
