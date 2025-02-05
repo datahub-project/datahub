@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, overload
 
-from datahub.errors import ItemNotFoundError, SdkUsageError
+from datahub.errors import ItemNotFoundError, MultipleItemsFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
     CorpUserUrn,
@@ -73,7 +73,9 @@ class ResolverClient:
             # TODO: In auto methods, should we just create the user/domain/etc if it doesn't exist?
             raise ItemNotFoundError(f"User {filter_explanation} not found")
         elif len(users) > 1:
-            raise SdkUsageError(f"Multiple users found {filter_explanation}: {users}")
+            raise MultipleItemsFoundError(
+                f"Multiple users found {filter_explanation}: {users}"
+            )
         else:
             return CorpUserUrn.from_string(users[0])
 

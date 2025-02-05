@@ -15,6 +15,10 @@ class ItemNotFoundError(SdkUsageError):
     pass
 
 
+class MultipleItemsFoundError(SdkUsageError):
+    pass
+
+
 class SchemaFieldKeyError(SdkUsageError, KeyError):
     pass
 
