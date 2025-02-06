@@ -157,24 +157,26 @@ _TABLE_NAME_NORMALIZATION_RULES = {
         r"\b(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}\b", re.IGNORECASE
     ): r"\1abcdefgh",
     # Date-suffixed table names (e.g. _20210101)
-    re.compile(r"\b(\w+)(19|20)\d{4}\b"): r"\1YYYYMM",
-    re.compile(r"\b(\w+)(19|20)\d{6}\b"): r"\1YYYYMMDD",
-    re.compile(r"\b(\w+)(19|20)\d{8}\b"): r"\1YYYYMMDDHH",
-    re.compile(r"\b(\w+)(19|20)\d{10}\b"): r"\1YYYYMMDDHHMM",
+    re.compile(r"\b(\w+_?)(19|20)\d{4}\b"): r"\1YYYYMM",
+    re.compile(r"\b(\w+_?)(19|20)\d{6}\b"): r"\1YYYYMMDD",
+    re.compile(r"\b(\w+_?)(19|20)\d{8}\b"): r"\1YYYYMMDDHH",
+    re.compile(r"\b(\w+_?)(19|20)\d{10}\b"): r"\1YYYYMMDDHHMM",
+    re.compile(r"\b(\w+_?)(19|20)\d{12}\b"): r"\1YYYYMMDDHHMMSS",
+    re.compile(r"\b(\w+_?)(19|20)\d{18}\b"): r"\1YYYYMMDDHHMMSSffffff",
 }
 
 
 def generalize_query_fast(
     expression: sqlglot.exp.ExpOrStr,
     dialect: DialectOrStr,
-    change_table_names: bool = False,
+    table_name_normalization_rules: Optional[Dict[re.Pattern, str]] = None,
 ) -> str:
     """Variant of `generalize_query` that only does basic normalization.
 
     Args:
         expression: The SQL query to generalize.
         dialect: The SQL dialect to use.
-        change_table_names: If True, replace table names with placeholders. Note
+        table_name_normalization_rules: If Set, replace table names with placeholders. Note
             that this should only be used for query filtering purposes, as it
             violates the general assumption that the queries with the same fingerprint
             have the same lineage/usage/etc.
@@ -189,7 +191,7 @@ def generalize_query_fast(
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,
-        **(_TABLE_NAME_NORMALIZATION_RULES if change_table_names else {}),
+        **(table_name_normalization_rules if table_name_normalization_rules else {}),
     }
 
     for pattern, replacement in REGEX_REPLACEMENTS.items():
@@ -197,7 +199,11 @@ def generalize_query_fast(
     return query_text
 
 
-def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+def generalize_query(
+    expression: sqlglot.exp.ExpOrStr,
+    dialect: DialectOrStr,
+    table_name_normalization_rules: Optional[Dict[re.Pattern, str]] = None,
+) -> str:
     """
     Generalize/normalize a SQL query.
 
@@ -222,6 +228,7 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     # https://tobikodata.com/are_these_sql_queries_the_same.html
     # which is used to determine if queries are functionally equivalent.
 
+    # TODO: apply table name normalization rules here
     dialect = get_dialect(dialect)
     expression = sqlglot.maybe_parse(expression, dialect=dialect)
 
@@ -260,14 +267,23 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    table_name_normalization_rules: Optional[Dict[re.Pattern, str]] = None,
+    fast: bool = False,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
             dialect = get_dialect(platform)
-            expression_sql = generalize_query(expression, dialect=dialect)
+            expression_sql = generalize_query(
+                expression, dialect, table_name_normalization_rules
+            )
         else:
-            expression_sql = generalize_query_fast(expression, dialect=platform)
+            expression_sql = generalize_query_fast(
+                expression,
+                dialect=platform,
+                table_name_normalization_rules=table_name_normalization_rules,
+            )
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
             raise
@@ -284,7 +300,10 @@ def get_query_fingerprint_debug(
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    table_name_normalization_rules: Optional[Dict[re.Pattern, str]] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -306,7 +325,12 @@ def get_query_fingerprint(
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
+    return get_query_fingerprint_debug(
+        expression,
+        platform,
+        fast=fast,
+        table_name_normalization_rules=(table_name_normalization_rules or {}),
+    )[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)

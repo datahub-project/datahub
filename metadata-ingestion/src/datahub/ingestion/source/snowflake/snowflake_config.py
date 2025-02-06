@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
@@ -300,6 +301,18 @@ class SnowflakeV2Config(
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
+    table_name_normalization_rules: Dict[re.Pattern, str] = pydantic.Field(
+        default={},
+        description="[Advanced] Regex patterns for table names to normalize in lineage ingestion. "
+        "Specify key as regex to match the table name as it appears in query. "
+        "The value is the normalized table name. "
+        "Defaults are to set in such a way to normalize the staging tables created by known ETL tools."
+        "The tables identified by these rules should typically be temporary or transient tables "
+        "and should not be used directly in other tools. DataHub will not be able to detect cross"
+        "-platform lineage for such tables.",
+        # "Only applicable if `use_queries_v2` is enabled.",
+    )
+
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
@@ -324,6 +337,15 @@ class SnowflakeV2Config(
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
     )
+
+    @validator("table_name_normalization_rules")
+    def validate_pattern(cls, pattern):
+        if isinstance(pattern, re.Pattern):  # Already compiled, good
+            return pattern
+        try:
+            return re.compile(pattern)  # Attempt compilation
+        except re.error as e:
+            raise ValueError(f"Invalid regular expression: {e}")
 
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):

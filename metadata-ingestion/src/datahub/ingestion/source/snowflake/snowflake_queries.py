@@ -96,6 +96,17 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
+    table_name_normalization_rules: Dict[re.Pattern, str] = pydantic.Field(
+        default={},
+        description="[Advanced] Regex patterns for table names to normalize in lineage ingestion. "
+        "Specify key as regex to match the table name as it appears in query. "
+        "The value is the normalized table name. "
+        "Defaults are to set in such a way to normalize the staging tables created by known ETL tools."
+        "The tables identified by these rules should typically be temporary or transient tables "
+        "and should not be used directly in other tools. DataHub will not be able to detect cross"
+        "-platform lineage for such tables.",
+    )
+
     local_temp_path: Optional[pathlib.Path] = pydantic.Field(
         default=None,
         description="Local path to store the audit log.",
@@ -109,6 +120,15 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_usage_statistics: bool = True
     include_query_usage_statistics: bool = True
     include_operations: bool = True
+
+    @pydantic.validator("table_name_normalization_rules")
+    def validate_pattern(cls, pattern):
+        if isinstance(pattern, re.Pattern):  # Already compiled, good
+            return pattern
+        try:
+            return re.compile(pattern)  # Attempt compilation
+        except re.error as e:
+            raise ValueError(f"Invalid regular expression: {e}")
 
 
 class SnowflakeQueriesSourceConfig(
@@ -435,7 +455,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
                 query_hash=get_query_fingerprint(
-                    res["query_text"], self.identifiers.platform, fast=True
+                    res["query_text"],
+                    self.identifiers.platform,
+                    fast=True,
+                    table_name_normalization_rules=self.config.table_name_normalization_rules,
                 ),
             )
 
@@ -514,7 +537,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
             # here
             query_id=get_query_fingerprint(
-                res["query_text"], self.identifiers.platform, fast=True
+                res["query_text"],
+                self.identifiers.platform,
+                fast=True,
+                table_name_normalization_rules=self.config.table_name_normalization_rules,
             ),
             query_text=res["query_text"],
             upstreams=upstreams,

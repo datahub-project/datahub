@@ -573,6 +573,7 @@ class SnowflakeV2Source(
                     config=SnowflakeQueriesExtractorConfig(
                         window=self.config,
                         temporary_tables_pattern=self.config.temporary_tables_pattern,
+                        table_name_normalization_rules=self.config.table_name_normalization_rules,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_stats,
                         include_operations=self.config.include_operational_stats,
