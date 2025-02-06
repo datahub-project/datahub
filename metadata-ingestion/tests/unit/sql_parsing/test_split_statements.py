@@ -2,6 +2,7 @@ from datahub.sql_parsing.split_statements import split_statements
 
 
 def test_split_statements_complex() -> None:
+    # Purposely leaving the preceding whitespace on every line to test that we ignore it.
     test_sql = """
         CREATE TABLE Users (Id INT);
         -- Comment here
@@ -52,7 +53,7 @@ SET     DocTotal = NewDocTotal"""
 
 
 def test_split_statement_drop() -> None:
-    test_sql = """
+    test_sql = """\
 DROP TABLE #temp1
 select 'foo' into #temp1
 drop table #temp1
@@ -75,11 +76,11 @@ SELECT
         WHEN a = 2 THEN 'two'
         ELSE 'other'
     END AS c,
-    ROW_NUMBER() as d,
+    ROW_NUMBER()
     OVER (
         PARTITION BY a
         ORDER BY b ASC
-    ) AS e
+    ) AS d
 INTO #temp1
 FROM foo
 LEFT JOIN
