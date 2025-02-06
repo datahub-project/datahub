@@ -735,7 +735,7 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 | [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md)                | _no additional dependencies_                               | Business Glossary File source           |
-| [dbt](./generated/ingestion/sources/dbt.md)                                                    | _no additional dependencies_                               | dbt source                              |
+| [dbt](./generated/ingestion/sources/dbt.md)                                                    | `pip install 'acryl-datahub[dbt]'`                         | dbt source                              |
 | [dremio](./generated/ingestion/sources/dremio.md)                                              | `pip install 'acryl-datahub[dremio]'`                      | Dremio Source                           |
 | [druid](./generated/ingestion/sources/druid.md)                                                | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
 | [feast](./generated/ingestion/sources/feast.md)                                                | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)                   |
