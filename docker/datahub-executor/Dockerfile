@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 ARG BASE_IMAGE=acryldata/datahub-ingestion
-ARG DOCKER_VERSION=head-slim
+ARG DOCKER_VERSION=head
 ARG PIP_MIRROR_URL=null
 ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 
@@ -10,23 +10,6 @@ FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 USER 0
 
 FROM base AS build
-
-COPY ./datahub-executor /datahub-executor
-COPY ./metadata-ingestion /metadata-ingestion
-COPY ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
-COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
-COPY ./docker/datahub-executor/health_status.py /health_status
-COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
-RUN chmod a+x /start_datahub_executor.sh
-RUN chmod a+x /health_status
-
-WORKDIR /datahub-executor
-
-ARG DOCKER_VERSION
-RUN chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
-
-ARG PIP_MIRROR_URL
-RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
 # Install JRE in the prod image
 RUN apt-get update -y && \
@@ -94,6 +77,20 @@ RUN if [ $(arch) = "x86_64" ]; then \
     sh -c "echo /opt/oracle/instantclient_19_10 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
     ldconfig; \
     fi;
+
+COPY ./datahub-executor /datahub-executor
+COPY ./metadata-ingestion /metadata-ingestion
+COPY ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
+COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY ./docker/datahub-executor/health_status.py /health_status
+COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+RUN chmod a+x /start_datahub_executor.sh
+RUN chmod a+x /health_status
+
+WORKDIR /datahub-executor
+
+ARG DOCKER_VERSION
+RUN chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
 
 # Embed build info into the image
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
