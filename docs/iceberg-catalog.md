@@ -1,4 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # DataHub Iceberg Catalog
 
@@ -44,7 +46,7 @@ Before starting, ensure you have:
    DH_ICEBERG_DATA_ROOT="s3://your-bucket/path"
 
    ```
-4. Configure pyiceberg to use your local datahub using one of its supported ways. For example, create `~/.pyiceberg.yaml` with
+4. If using pyiceberg, configure pyiceberg to use your local datahub using one of its supported ways. For example, create `~/.pyiceberg.yaml` with
 ```commandline
 catalog:
   local_datahub:
@@ -52,7 +54,9 @@ catalog:
     warehouse: arctic_warehouse
 ```
 
-Note: The python code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
+Note: 
+The python code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
+For the spark examples, the tested version of spark is 3.5.3_2.12
 
 ### Required AWS Permissions
 
@@ -64,9 +68,19 @@ Note: These permissions must be granted for the specific S3 bucket and path pref
 
 ### 1. Provision a Warehouse
 
-First, create an Iceberg warehouse in DataHub using the provided script (`provision_warehouse.py`):
+Create an Iceberg warehouse in DataHub
+
+<Tabs>
+<TabItem value="cli" label="cli" default>
+
+```
+datahub iceberg create -w arctic_warehouse -d $DH_ICEBERG_DATA_ROOT -i $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region "us-east-1" --role $DH_ICEBERG_AWS_ROLE
+```
+</TabItem>
+<TabItem value="python" label="python">
 
 ```python
+# File: provision_warehouse.py
 import os
 
 from constants import warehouse
@@ -92,6 +106,8 @@ os.system(
    f"datahub iceberg create --warehouse {warehouse} --data_root $DH_ICEBERG_DATA_ROOT/{warehouse} --client_id $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region 'us-east-1' --role $DH_ICEBERG_AWS_ROLE"
 )
 ```
+</TabItem>
+</Tabs>
 
 After provisioning the warehouse, ensure your DataHub user has the following privileges to the resource type Data Platform Instance, which were introduced with Iceberg support:
 - `DATA_MANAGE_VIEWS_PRIVILEGE`
@@ -104,6 +120,45 @@ You can grant these privileges through the DataHub UI under the Policies section
 ### 2. Create a Table
 
 You can create Iceberg tables using PyIceberg with a defined schema. Here's an example creating a ski resort metrics table:
+
+<Tabs>
+<TabItem value="spark" label="spark-sql" default>
+
+Connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog:
+When datahub is running locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`. 
+For this example, set `WAREHOUSE` to `arctic_warehouse`
+
+```cli
+
+spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1 \
+    --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+    --conf spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
+    --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+    --conf spark.sql.catalog.local.type=rest \
+    --conf spark.sql.catalog.local.uri=http://$GMS_HOST:$GMS_PORT/iceberg/ \
+    --conf spark.sql.catalog.local.warehouse=$WAREHOUSE \
+    --conf spark.sql.catalog.local.token=$USER_PAT \
+    --conf spark.sql.catalog.local.rest-metrics-reporting-enabled=false \
+    --conf spark.sql.catalog.local.header.X-Iceberg-Access-Delegation=vended-credentials \
+    --conf spark.sql.defaultCatalog=local
+
+```
+
+Use the following SQL via spark-sql
+
+```sql
+CREATE NAMESPACE alpine_db;
+CREATE TABLE alpine_db.ski_resorts (
+    resort_id BIGINT NOT NULL COMMENT 'Unique identifier for each ski resort',
+    resort_name STRING NOT NULL COMMENT 'Official name of the ski resort',
+    daily_snowfall BIGINT COMMENT 'Amount of new snow in inches during the last 24 hours',
+    conditions STRING COMMENT 'Current snow conditions description',
+    last_updated TIMESTAMP COMMENT 'Timestamp of when the snow report was last updated'
+);
+```
+
+</TabItem>
+<TabItem value="python" label="python">
 
 ```python
 from constants import namespace, table_name, warehouse
@@ -161,7 +216,24 @@ catalog.create_namespace(namespace)
 catalog.create_table(f"{namespace}.{table_name}", schema)
 ```
 
+</TabItem>
+</Tabs>
+
 ### 3. Write Data
+
+<Tabs>
+<TabItem value="spark" label="spark-sql" default>
+
+```sql
+INSERT INTO alpine_db.ski_resorts (resort_id, resort_name, daily_snowfall, conditions, last_updated)
+VALUES 
+    (1, 'Snowpeak Resort', 12, 'Powder', CURRENT_TIMESTAMP()),
+    (2, 'Alpine Valley', 8, 'Packed', CURRENT_TIMESTAMP()),
+    (3, 'Glacier Heights', 15, 'Fresh Powder', CURRENT_TIMESTAMP());
+```
+
+</TabItem>
+<TabItem value="python" label="python">
 
 You can write data to your Iceberg table using PyArrow. Note the importance of matching the schema exactly:
 
@@ -202,7 +274,19 @@ table.overwrite(sample_data)
 table.refresh()
 ```
 
+</TabItem>
+</Tabs>
+
 ### 4. Read Data
+
+<Tabs>
+<TabItem value="spark" label="spark-sql" default>
+```sql
+SELECT * from alpine_db.resort_metrics;
+```
+
+</TabItem>
+<TabItem value="python" label="python">
 
 Reading data from an Iceberg table using DuckDB integration:
 
@@ -224,24 +308,10 @@ for row in con.execute(f"SELECT * FROM {table_name}").fetchall():
     print(row)
 ```
 
-## Integration with Compute Engines
+</TabItem>
 
-### Spark Integration
 
-You can connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog:
-
-```sql
-spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1 \
-    --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
-    --conf spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
-    --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
-    --conf spark.sql.catalog.local.type=rest \
-    --conf spark.sql.catalog.local.uri=http://$GMS_HOST:$GMS_PORT/iceberg/ \
-    --conf spark.sql.catalog.local.warehouse=$WAREHOUSE \
-    --conf spark.sql.catalog.local.token=$USER_PAT \
-    --conf spark.sql.catalog.local.header.X-Iceberg-Access-Delegation=vended-credentials \
-    --conf spark.sql.defaultCatalog=local
-```
+</Tabs>
 
 ## Reference Information
 
