@@ -255,6 +255,17 @@ public class SearchDocumentTransformer {
       return;
     }
 
+    if (fieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()) {
+      String modifiedAtFieldName =
+          fieldSpec
+              .getSearchableAnnotation()
+              .getSystemModifiedAtFieldName()
+              .orElse(String.format("%sSystemModifiedAt", fieldName));
+      searchDocument.set(
+          modifiedAtFieldName,
+          JsonNodeFactory.instance.numberNode((Long) System.currentTimeMillis()));
+    }
+
     if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
