@@ -11,7 +11,7 @@ const MAX_NUM_DAYS_PER_QUARTER = 95;
 export interface ChartData {
     x: number;
     y: number;
-    mom: number | null;
+    mom?: number | null;
 }
 
 // Filter out the buckets items or values with null or undefined values

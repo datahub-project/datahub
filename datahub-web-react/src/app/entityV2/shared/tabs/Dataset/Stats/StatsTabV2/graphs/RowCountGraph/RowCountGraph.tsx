@@ -74,11 +74,11 @@ export default function RowCountGraph() {
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true }}
-                    popoverRenderer={(datum) => (
+                    popoverRenderer={(datum: RowCountData) => (
                         <GraphPopover
                             header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
                             value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Row')}`}
-                            pills={<MonthOverMonthPill value={(datum as RowCountData).mom} />}
+                            pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}
                 />

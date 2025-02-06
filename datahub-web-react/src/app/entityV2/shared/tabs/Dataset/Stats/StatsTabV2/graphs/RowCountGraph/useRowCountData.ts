@@ -7,7 +7,7 @@ import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
 export interface RowCountData extends Datum {
-    mom: number | null;
+    mom?: number | null;
 }
 
 interface Response {

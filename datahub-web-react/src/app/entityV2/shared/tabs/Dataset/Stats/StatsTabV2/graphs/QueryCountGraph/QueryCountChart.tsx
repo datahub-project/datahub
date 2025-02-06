@@ -51,11 +51,11 @@ const QueryCountChart = () => {
                 yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
-                popoverRenderer={(datum) => (
+                popoverRenderer={(datum: ChartData) => (
                     <GraphPopover
                         header={getPopoverTimeFormat(groupInterval, datum.x)}
                         value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Query')}`}
-                        pills={<MonthOverMonthPill value={(datum as ChartData).mom} />}
+                        pills={<MonthOverMonthPill value={datum.mom} />}
                     />
                 )}
             />

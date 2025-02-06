@@ -75,11 +75,11 @@ export default function StorageSizeGraph() {
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
-                    popoverRenderer={(datum) => (
+                    popoverRenderer={(datum: StorageSizeData) => (
                         <GraphPopover
                             header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
                             value={bytesFormatter(datum.y)}
-                            pills={<MonthOverMonthPill value={(datum as StorageSizeData).mom} />}
+                            pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}
                 />
