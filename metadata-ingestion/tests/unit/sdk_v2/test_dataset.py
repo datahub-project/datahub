@@ -14,22 +14,10 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
-from datahub.sdk._entity import Entity
 from datahub.sdk.dataset import Dataset
-from tests.test_helpers import mce_helpers
+from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "dataset_golden"
-
-
-def assert_entity_golden(
-    pytestconfig: pytest.Config, entity: Entity, golden_path: pathlib.Path
-) -> None:
-    mce_helpers.check_goldens_stream(
-        pytestconfig=pytestconfig,
-        outputs=entity._as_mcps(),
-        golden_path=golden_path,
-        ignore_order=False,
-    )
 
 
 def test_dataset_basic(pytestconfig: pytest.Config) -> None:
