@@ -360,6 +360,12 @@ public class OpenAPIV3Generator {
                 .$ref(
                     String.format(
                         "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -534,7 +540,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m")),
+                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
