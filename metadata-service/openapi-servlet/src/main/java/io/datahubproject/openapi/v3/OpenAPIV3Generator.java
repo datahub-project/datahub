@@ -360,6 +360,12 @@ public class OpenAPIV3Generator {
                 .$ref(
                     String.format(
                         "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -534,7 +540,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m")),
+                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -725,13 +731,16 @@ public class OpenAPIV3Generator {
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE));
 
-    entityRegistry
-        .getAspectSpecs()
-        .values()
-        .forEach(
-            aspect ->
-                result.addProperty(
-                    PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspect.getName())));
+    // Create a list of reference schemas for each aspect
+    List<Schema> aspectRefs =
+        entityRegistry.getAspectSpecs().values().stream()
+            .map(aspect -> new Schema<>().$ref(PATH_DEFINITIONS + toUpperFirst(aspect.getName())))
+            .distinct()
+            .collect(Collectors.toList());
+
+    // Add the value property with oneOf constraint
+    result.addProperty(PROPERTY_VALUE, new Schema<>().oneOf(aspectRefs));
+
     result.addProperty(
         NAME_SYSTEM_METADATA,
         new Schema<>()

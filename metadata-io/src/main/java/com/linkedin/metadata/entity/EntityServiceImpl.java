@@ -959,7 +959,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         MetricUtils.counter(
                                 EntityServiceImpl.class, "batch_request_validation_exception")
                             .inc();
-                        throw new ValidationException(collectMetrics(exceptions).toString());
+                        collectMetrics(exceptions);
+                        throw new ValidationException(exceptions);
                       }
 
                       MetricUtils.counter(
@@ -1031,7 +1032,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (!upsertResults.isEmpty()) {
                       // commit upserts prior to retention or kafka send, if supported by impl
                       if (txContext != null) {
-                        txContext.commitAndContinue();
+                        try {
+                          txContext.commitAndContinue();
+                        } catch (EntityNotFoundException e) {
+                          if (e.getMessage() != null
+                              && e.getMessage().contains("No rows updated")) {
+                            log.debug("Ignoring no rows updated condition for metadata update", e);
+                            MetricUtils.counter(EntityServiceImpl.class, "no_rows_updated").inc();
+                            return TransactionResult.rollback();
+                          }
+                          throw e;
+                        }
                       }
 
                       // Retention optimization and tx
