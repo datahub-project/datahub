@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Generator, List, Tuple
+from typing import Iterator, List, Tuple
 
 CONTROL_FLOW_KEYWORDS = [
     "GO",
@@ -9,17 +9,27 @@ CONTROL_FLOW_KEYWORDS = [
     "BEGIN",
     r"END\w+TRY",
     r"END\w+CATCH",
-    "END",
+    "IF",  # This isn't strictly correct, but we assume that IF | (condition) | (block) should all be split up
+    # This mainly ensures that IF statements don't get tacked onto the previous statement incorrectly
+    # "ELSE",  # else is also valid in CASE, so we we can't use it here.
+    # "END",  # for things like CASE, END does not mean the end of a statement
 ]
 
 # There's an exception to this rule, which is when the statement
-# is preceeded by a CTE.
-FORCE_NEW_STATEMENT_KEYWORDS = [
+# is preceded by a CTE.
+SELECT_KEYWORD = "SELECT"
+NEW_STATEMENT_KEYWORDS = [
     # SELECT is used inside queries as well, so we can't include it here.
+    "CREATE",
     "INSERT",
     "UPDATE",
     "DELETE",
     "MERGE",
+]
+STRICT_NEW_STATEMENT_KEYWORDS = [
+    # For these keywords, a SELECT following it does indicate a new statement.
+    "DROP",
+    "TRUNCATE",
 ]
 
 
@@ -62,7 +72,9 @@ def _look_ahead_for_keywords(
     return False, "", 0
 
 
-def split_statements(sql: str) -> Generator[str, None, None]:
+# TODO: This is a full state machine implementation.
+# We should probably refactor this into a class-based implementation.
+def split_statements(sql: str) -> Iterator[str]:  # noqa: C901
     """
     Split T-SQL code into individual statements, handling various SQL constructs.
     """
@@ -70,14 +82,18 @@ def split_statements(sql: str) -> Generator[str, None, None]:
         return
 
     current_statement: List[str] = []
+    does_select_mean_new_statement = False
     state = ParserState.NORMAL
     i = 0
 
-    def yield_if_complete() -> Generator[str, None, None]:
+    def yield_if_complete() -> Iterator[str]:
         statement = "".join(current_statement).strip()
         if statement:
             yield statement
             current_statement.clear()
+
+        nonlocal does_select_mean_new_statement
+        does_select_mean_new_statement = False
 
     prev_real_char = "\0"  # the most recent non-whitespace, non-comment character
     while i < len(sql):
@@ -113,6 +129,21 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                     # Yield keyword as its own statement
                     yield keyword
                     i += keyword_len
+                    does_select_mean_new_statement = True
+                    continue
+
+                (
+                    is_strict_new_statement_keyword,
+                    keyword,
+                    keyword_len,
+                ) = _look_ahead_for_keywords(
+                    sql, i, keywords=STRICT_NEW_STATEMENT_KEYWORDS
+                )
+                if is_strict_new_statement_keyword:
+                    yield from yield_if_complete()
+                    current_statement.append(keyword)
+                    i += keyword_len
+                    does_select_mean_new_statement = True
                     continue
 
                 (
@@ -120,7 +151,12 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                     keyword,
                     keyword_len,
                 ) = _look_ahead_for_keywords(
-                    sql, i, keywords=FORCE_NEW_STATEMENT_KEYWORDS
+                    sql,
+                    i,
+                    keywords=(
+                        NEW_STATEMENT_KEYWORDS
+                        + ([SELECT_KEYWORD] if does_select_mean_new_statement else [])
+                    ),
                 )
                 if (
                     is_force_new_statement_keyword and most_recent_real_char != ")"
