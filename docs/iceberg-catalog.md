@@ -343,6 +343,42 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
    --conf spark.sql.catalog.local.default-namespace=<default-namespace>
    ```
 
+### Public access of Iceberg Tables
+
+It is possible to enable public read-only access of specific Iceberg tables if needed.
+Enabling public access requires the following steps.
+1. Ensure that the DATA ROOT folder in s3 has public read access policy set to enable the files with that prefix to be read without AWS credentials.
+2. Update the GMS Configuration to enable public access, ensure the GMS service is run with the the following environment variables set.
+   - Set the env var `ENABLE_PUBLIC_READ` to `true`  to enable the capability. If unset, this is by default `false`.
+   - Set the env var `PUBLICLY_READABLE_TAG` to a specific Tag name that indicates public access when applied to an Iceberg DataSet. If unset, this defaults to the tag `PUBLICLY_READABLE`
+   
+   Alternatively, these can be set in metadata-service/configuration/src/main/resources/application.yaml under `icebergCatalog` key. The defaults are populated under that key.
+3. With the capability being enabled by #2, the tag defined for public access must be applied on the DataSets that should be made accessible without authentication.
+
+Once enabled, to access these tables that have public access, start the spark-sql with the following settings
+```commandline
+spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1\
+    --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+    --conf spark.sql.catalog.spark_catalog=org.apache.iceberg.spark.SparkSessionCatalog \
+    --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+    --conf spark.sql.catalog.local.type=rest \
+    --conf spark.sql.catalog.local.uri=http://${GMS_HOST}:${GMS_PORT}/public-iceberg/ \
+    --conf spark.sql.catalog.local.warehouse=arctic_warehouse \
+    --conf spark.sql.catalog.local.header.X-Iceberg-Access-Delegation=false \
+    --conf spark.sql.catalog.local.rest-metrics-reporting-enabled=false \
+    --conf spark.sql.catalog.local.client.region=us-east-1 \
+    --conf spark.sql.catalog.local.client.credentials-provider=software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider \
+    --conf spark.sql.defaultCatalog=local \
+    --conf spark.sql.catalog.local.default-namespace=alpine_db
+```
+Note the specific differences from the authenticated access:
+- The REST Catalog URI is gms_host:port/<b>public-iceberg/</b>
+- The DATA ROOT AWS s3 region is specified via `spark.sql.catalog.local.client.region`
+- The `X-Iceberg-Access-Delegation` header is set to <b>`false`</b> instead of `vended-credentials`
+- The `credentials-provider` is set to `credentials-provider=software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider` and no Personal Access Token is provided. 
+
+In such unauthenticated sessions, attempts to access tables that do not have access will fail with  a NoSuchTableException error instead of an authorization failure.
+
 ### DataHub Iceberg CLI
 
 The DataHub CLI provides several commands for managing Iceberg warehouses:
