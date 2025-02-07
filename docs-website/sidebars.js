@@ -1,13 +1,16 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
-  // users
-  // architects
-  // modelers
+  // getting started
+  // integrations
+  // APIs & SDKs
+  // admin
+  // deployment
   // developers
-  // operators
+  // community
 
   overviewSidebar: [
+    // Getting Started.
     {
       type: "html",
       value: "<div>Getting Started</div>",
@@ -401,6 +404,7 @@ module.exports = {
         },
       ],
     },
+    // Integrations.
     {
       type: "html",
       value: "<div>Integrations</div>",
@@ -550,37 +554,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
       ],
     },
-    {
-      type: "html",
-      value: "<div>Deployment</div>",
-      defaultStyle: true,
-    },
-    {
-      type: "category",
-      label: "Deployment Guides",
-      link: {
-        type: "generated-index",
-        title: "Deployment Guides",
-        description:
-          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
-      },
-      items: [
-        "docs/deploy/aws",
-        "docs/deploy/gcp",
-        "docs/deploy/azure",
-        "docker/README",
-        "docs/deploy/kubernetes",
-      ],
-    },
-    {
-      type: "category",
-      label: "Advanced Guides",
-      items: [
-        "docs/deploy/confluent-cloud",
-        "docs/deploy/environment-vars",
-        "docs/how/extract-container-logs",
-      ],
-    },
+    // Admin.
     {
       type: "html",
       value: "<div>Admin</div>",
@@ -632,6 +606,39 @@ module.exports = {
         "docs/how/jattach-guide",
       ],
     },
+    // Deployment.
+    {
+      type: "html",
+      value: "<div>Deployment</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      label: "Deployment Guides",
+      link: {
+        type: "generated-index",
+        title: "Deployment Guides",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+      },
+      items: [
+        "docs/deploy/aws",
+        "docs/deploy/gcp",
+        "docs/deploy/azure",
+        "docker/README",
+        "docs/deploy/kubernetes",
+      ],
+    },
+    {
+      type: "category",
+      label: "Advanced Guides",
+      items: [
+        "docs/deploy/confluent-cloud",
+        "docs/deploy/environment-vars",
+        "docs/how/extract-container-logs",
+      ],
+    },
+    // Developers.
     {
       type: "html",
       value: "<div>Developers</div>",
@@ -705,6 +712,7 @@ module.exports = {
         "docs/advanced/api-tracing",
       ],
     },
+    // APIs & SDKs.
     {
       type: "html",
       value: "<div>API & SDKs</div>",
@@ -959,6 +967,7 @@ module.exports = {
         },
       ],
     },
+    // Community.
     {
       type: "html",
       value: "<div>Community</div>",
