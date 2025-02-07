@@ -55,7 +55,7 @@ catalog:
 ```
 
 Note: 
-The python code snippets in this tutorial are available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
+The python code snippets in this tutorial are based on the code available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
 For the spark examples, the tested version of spark is 3.5.3_2.12
 
 ### Required AWS Permissions
@@ -71,13 +71,13 @@ Note: These permissions must be granted for the specific S3 bucket and path pref
 Create an Iceberg warehouse in DataHub
 
 <Tabs>
-<TabItem value="cli" label="cli" default>
+<TabItem value="cli" label="CLI" default>
 
 ```
 datahub iceberg create -w arctic_warehouse -d $DH_ICEBERG_DATA_ROOT -i $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region "us-east-1" --role $DH_ICEBERG_AWS_ROLE
 ```
 </TabItem>
-<TabItem value="python" label="python">
+<TabItem value="python" label="Python (pyiceberg)">
 
 ```python
 # File: provision_warehouse.py
@@ -158,7 +158,7 @@ CREATE TABLE alpine_db.ski_resorts (
 ```
 
 </TabItem>
-<TabItem value="python" label="python">
+<TabItem value="python" label="Python (pyiceberg)">
 
 ```python
 from constants import namespace, table_name, warehouse
@@ -233,13 +233,20 @@ VALUES
 ```
 
 </TabItem>
-<TabItem value="python" label="python">
+<TabItem value="python" label="Python (pyiceberg)">
 
 You can write data to your Iceberg table using PyArrow. Note the importance of matching the schema exactly:
 
 ```python
+from constants import namespace, table_name, warehouse
+from pyiceberg.catalog import load_catalog
+from datahub.ingestion.graph.client import get_default_graph
+
 import pyarrow as pa
 from datetime import datetime
+
+graph = get_default_graph()
+catalog = load_catalog("local_datahub", warehouse=warehouse, token=graph.config.token)
 
 # Create PyArrow schema to match Iceberg schema
 pa_schema = pa.schema([
@@ -281,21 +288,24 @@ table.refresh()
 
 <Tabs>
 <TabItem value="spark" label="spark-sql" default>
+
 ```sql
 SELECT * from alpine_db.resort_metrics;
 ```
 
 </TabItem>
-<TabItem value="python" label="python">
+<TabItem value="python" label="Python (pyiceberg)">
 
 Reading data from an Iceberg table using DuckDB integration:
 
 ```python
 from pyiceberg.catalog import load_catalog
+from constants import namespace, table_name, warehouse
+
+from datahub.ingestion.graph.client import get_default_graph
 
 # Get DataHub graph client for authentication
 graph = get_default_graph()
-
 
 catalog = load_catalog("local_datahub", warehouse=warehouse, token=graph.config.token)
 table = catalog.load_table(f"{namespace}.{table_name}")
@@ -348,14 +358,15 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
 It is possible to enable public read-only access of specific Iceberg tables if needed.
 Enabling public access requires the following steps.
 1. Ensure that the DATA ROOT folder in s3 has public read access policy set to enable the files with that prefix to be read without AWS credentials.
-2. Update the GMS Configuration to enable public access, ensure the GMS service is run with the the following environment variables set.
+2. Update the GMS Configuration to enable public access, ensure the GMS service is run with the following environment variables set.
    - Set the env var `ENABLE_PUBLIC_READ` to `true`  to enable the capability. If unset, this is by default `false`.
    - Set the env var `PUBLICLY_READABLE_TAG` to a specific Tag name that indicates public access when applied to an Iceberg DataSet. If unset, this defaults to the tag `PUBLICLY_READABLE`
    
    Alternatively, these can be set in metadata-service/configuration/src/main/resources/application.yaml under `icebergCatalog` key. The defaults are populated under that key.
-3. With the capability being enabled by #2, the tag defined for public access must be applied on the DataSets that should be made accessible without authentication.
+3. Once GMS is started with enabling the public read capability, apply the Tag defined for public access on each Dataset that should be accessible without authentication.
 
-Once enabled, to access these tables that have public access, start the spark-sql with the following settings
+To access these tables that have public access, start the spark-sql with the following settings
+
 ```commandline
 spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1\
     --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
@@ -371,6 +382,7 @@ spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org
     --conf spark.sql.defaultCatalog=local \
     --conf spark.sql.catalog.local.default-namespace=alpine_db
 ```
+
 Note the specific differences from the authenticated access:
 - The REST Catalog URI is gms_host:port/<b>public-iceberg/</b>
 - The DATA ROOT AWS s3 region is specified via `spark.sql.catalog.local.client.region`
@@ -383,12 +395,12 @@ In such unauthenticated sessions, attempts to access tables that do not have acc
 
 The DataHub CLI provides several commands for managing Iceberg warehouses:
 
-1. **List Warehouses**:
+1. List Warehouses:
    ```
    datahub iceberg list
    ```
 
-2. **Update Warehouse Configuration**:
+2. Update Warehouse Configuration:
    ```
    datahub iceberg update \
      -w $WAREHOUSE_NAME \
@@ -399,7 +411,7 @@ The DataHub CLI provides several commands for managing Iceberg warehouses:
      --role DH_ICEBERG_AWS_ROLE
    ```
 
-3. **Delete Warehouse**:
+3. Delete Warehouse:
    ```
    datahub iceberg delete -w $WAREHOUSE_NAME
    ```
@@ -416,9 +428,10 @@ When migrating from another Iceberg catalog, you can register existing Iceberg t
 
 Example of registering an existing table:
 ```
-# REGISTER EXISTING ICEBERG TABLE 
-call system.register_table('barTable', 's3://my-s3-bucket/my-data-root/fooNs/barTable/metadata/00000-f9dbba67-df4f-4742-9ba5-123aa2bb4076.metadata.json');
-select * from barTable;
+call system.register_table('myTable', 's3://my-s3-bucket/my-data-root/myNamespace/myTable/metadata/00000-f9dbba67-df4f-4742-9ba5-123aa2bb4076.metadata.json');
+
+-- Read from newly registered table
+select * from myTable;
 ```
 
 ### Security and Permissions
