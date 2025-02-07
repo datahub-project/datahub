@@ -125,6 +125,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
             SnowflakeObjectDomain.STREAM,
+            SnowflakeObjectDomain.PROCEDURE,
         ):
             return False
         if _is_sys_table(dataset_name):

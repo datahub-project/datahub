@@ -47,6 +47,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeFK,
     SnowflakePK,
+    SnowflakeProcedure,
     SnowflakeSchema,
     SnowflakeStream,
     SnowflakeTable,
@@ -429,7 +430,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
-        tables, views, streams = [], [], []
+        tables, views, streams, procedures = [], [], [], []
 
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
@@ -453,6 +454,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             yield from self._process_streams(streams, snowflake_schema, db_name)
 
+        if self.config.include_procedures:
+            self.report.num_get_procedures_for_schema_queries += 1
+            procedures = self.fetch_procedures_for_schema(
+                snowflake_schema, db_name, schema_name
+            )
+            yield from self._process_procedures(procedures, snowflake_schema, db_name)
+
         if self.config.include_technical_schema and snowflake_schema.tags:
             yield from self._process_tags_in_schema(snowflake_schema)
 
@@ -460,9 +468,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             not snowflake_schema.views
             and not snowflake_schema.tables
             and not snowflake_schema.streams
+            and not snowflake_schema.procedures
         ):
             self.structured_reporter.info(
-                title="No tables/views/streams found in schema",
+                title="No tables/views/streams/procedures found in schema",
                 message="If objects exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
@@ -530,6 +539,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         for stream in streams:
             yield from self._process_stream(stream, snowflake_schema, db_name)
+
+    def _process_procedures(
+        self,
+        procedures: List[SnowflakeProcedure],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        for procedure in procedures:
+            yield from self._process_procedure(procedure, snowflake_schema, db_name)
 
     def _process_tags_in_schema(
         self, snowflake_schema: SnowflakeSchema
@@ -844,6 +862,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 else [DatasetSubTypes.VIEW]
                 if isinstance(table, SnowflakeView)
                 else [DatasetSubTypes.TABLE]
+                if isinstance(table, SnowflakeTable)
+                else [DatasetSubTypes.SNOWFLAKE_PROCEDURE]
             )
         )
 
@@ -896,7 +916,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def get_dataset_properties(
         self,
-        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
+        table: Union[
+            SnowflakeTable, SnowflakeView, SnowflakeStream, SnowflakeProcedure
+        ],
         schema_name: str,
         db_name: str,
     ) -> DatasetProperties:
@@ -935,6 +957,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         "STALE_AFTER": table.stale_after.isoformat()
                         if table.stale_after
                         else None,
+                    }.items()
+                    if v
+                }
+            )
+
+        elif isinstance(table, SnowflakeProcedure):
+            custom_properties.update(
+                {
+                    k: v
+                    for k, v in {
+                        "PROCEDURE_DEFINITION": table.procedure_definition,
+                        "PROCEDURE_LANGUAGE": table.language,
+                        "PROCEDURE_OWNER": table.owner,
+                        "PROCEDURE_CATALOG": table.database_name,
+                        "PROCEDURE_SCHEMA": table.schema_name,
+                        "PROCEDURE_NAME": table.name,
+                        "LAST_ALTERED": table.last_altered.isoformat()
+                        if table.last_altered
+                        else None,
+                        "COMMENT": table.comment,
+                        "EXTERNAL_ACCESS_INTEGRATIONS": table.external_access_integrations,
+                        "SECRETS": table.secrets,
                     }.items()
                     if v
                 }
@@ -1446,3 +1490,77 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 downstream_urn=dataset_urn,
                 lineage_type=DatasetLineageTypeClass.COPY,
             )
+
+    def fetch_procedures_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeProcedure]:
+        try:
+            procedures: List[SnowflakeProcedure] = []
+            for procedure in self.get_procedures_for_schema(schema_name, db_name):
+                procedure_identifier = self.identifiers.get_dataset_identifier(
+                    procedure.name, schema_name, db_name
+                )
+
+                self.report.report_entity_scanned(procedure_identifier, "procedure")
+
+                if not self.filters.is_dataset_pattern_allowed(
+                    procedure_identifier, SnowflakeObjectDomain.PROCEDURE
+                ):
+                    self.report.report_dropped(procedure_identifier)
+                else:
+                    procedures.append(procedure)
+            snowflake_schema.procedures = [procedure.name for procedure in procedures]
+            return procedures
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = f"Failed to get procedures for schema {db_name}.{schema_name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    "Failed to get procedures for schema",
+                    f"{db_name}.{schema_name}",
+                    exc=e,
+                )
+                return []
+
+    def get_procedures_for_schema(
+        self,
+        schema_name: str,
+        db_name: str,
+    ) -> List[SnowflakeProcedure]:
+        procedures = self.data_dictionary.get_procedures_for_database(db_name)
+
+        return procedures.get(schema_name, [])
+
+    def _process_procedure(
+        self,
+        procedure: SnowflakeProcedure,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_name = snowflake_schema.name
+
+        try:
+            yield from self.gen_dataset_workunits(procedure, schema_name, db_name)
+
+            if self.config.include_procedure_lineage:
+                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                    self.generate_procedure_lineage(
+                        procedure=procedure,
+                        procedure_job_urn=self.identifiers.gen_dataset_urn(procedure.name),
+                        is_temp_table=lambda _: False,
+                        raise_=True,
+                    )
+        except Exception as e:
+            self.structured_reporter.warning(
+                "Failed to process procedure:", procedure.name, exc=e
+            )
+
+    def _process_procedures(
+        self,
+        procedures: List[SnowflakeProcedure],
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        for procedure in procedures:
+            yield from self._process_procedure(procedure, snowflake_schema, db_name)

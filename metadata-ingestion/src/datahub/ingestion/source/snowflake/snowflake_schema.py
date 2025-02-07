@@ -119,6 +119,7 @@ class SnowflakeSchema:
     tables: List[str] = field(default_factory=list)
     views: List[str] = field(default_factory=list)
     streams: List[str] = field(default_factory=list)
+    procedures: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
 
@@ -153,6 +154,33 @@ class SnowflakeStream:
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     last_altered: Optional[datetime] = None
+
+
+@dataclass
+class SnowflakeProcedure:
+    name: str  # PROCEDURE_NAME
+    database_name: str  # PROCEDURE_CATALOG
+    schema_name: str  # PROCEDURE_SCHEMA
+    owner: str  # PROCEDURE_OWNER
+    argument_signature: Optional[str]  # ARGUMENT_SIGNATURE
+    data_type: Optional[str]  # DATA_TYPE
+    character_maximum_length: Optional[int]  # CHARACTER_MAXIMUM_LENGTH
+    character_octet_length: Optional[int]  # CHARACTER_OCTET_LENGTH
+    numeric_precision: Optional[int]  # NUMERIC_PRECISION
+    numeric_precision_radix: Optional[int]  # NUMERIC_PRECISION_RADIX
+    numeric_scale: Optional[int]  # NUMERIC_SCALE
+    language: str  # PROCEDURE_LANGUAGE
+    procedure_definition: Optional[str]  # PROCEDURE_DEFINITION
+    created: datetime  # CREATED
+    last_altered: Optional[datetime]  # LAST_ALTERED
+    comment: Optional[str]  # COMMENT
+    external_access_integrations: Optional[str]  # EXTERNAL_ACCESS_INTEGRATIONS
+    secrets: Optional[str]  # SECRETS
+    columns: List[SnowflakeColumn] = field(
+        default_factory=list
+    )  # Procedures do not have columns, but we need to satisfy the type checker
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
 
 
 class _SnowflakeTagCache:
@@ -233,6 +261,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_views_for_database,
             self.get_columns_for_schema,
             self.get_streams_for_database,
+            self.get_procedures_for_database,
             self.get_pk_constraints_for_schema,
             self.get_fk_constraints_for_schema,
         ]
@@ -705,3 +734,42 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 stream_pagination_marker = stream_name
 
         return streams
+
+    @serialized_lru_cache(maxsize=1)
+    def get_procedures_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeProcedure]]:
+        procedures: Dict[str, List[SnowflakeProcedure]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.procedures_for_database(db_name),
+        )
+        for procedure in cur:
+            logger.info(f"Procedure: {procedure['PROCEDURE_NAME']}")
+            if procedure["PROCEDURE_SCHEMA"] not in procedures:
+                procedures[procedure["PROCEDURE_SCHEMA"]] = []
+            procedures[procedure["PROCEDURE_SCHEMA"]].append(
+                SnowflakeProcedure(
+                    name=procedure["PROCEDURE_NAME"],
+                    database_name=procedure["PROCEDURE_CATALOG"],
+                    schema_name=procedure["PROCEDURE_SCHEMA"],
+                    owner=procedure["PROCEDURE_OWNER"],
+                    argument_signature=procedure["ARGUMENT_SIGNATURE"],
+                    data_type=procedure["DATA_TYPE"],
+                    character_maximum_length=procedure["CHARACTER_MAXIMUM_LENGTH"],
+                    character_octet_length=procedure["CHARACTER_OCTET_LENGTH"],
+                    numeric_precision=procedure["NUMERIC_PRECISION"],
+                    numeric_precision_radix=procedure["NUMERIC_PRECISION_RADIX"],
+                    numeric_scale=procedure["NUMERIC_SCALE"],
+                    language=procedure["PROCEDURE_LANGUAGE"],
+                    procedure_definition=procedure["PROCEDURE_DEFINITION"],
+                    created=procedure["CREATED"],
+                    last_altered=procedure["LAST_ALTERED"],
+                    comment=procedure["COMMENT"],
+                    external_access_integrations=procedure[
+                        "EXTERNAL_ACCESS_INTEGRATIONS"
+                    ],
+                    secrets=procedure["SECRETS"],
+                )
+            )
+
+        return procedures

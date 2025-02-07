@@ -10,6 +10,7 @@ from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+SHOW_PROCEDURES_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
@@ -982,3 +983,25 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
+
+    # @staticmethod
+    # def procedures_for_database(
+    #     db_name: str,
+    #     limit: int = SHOW_PROCEDURES_MAX_PAGE_SIZE,
+    #     procedure_pagination_marker: Optional[str] = None,
+    # ) -> str:
+    #     # SHOW PROCEDURES can return a maximum of 10000 rows.
+    #     # https://docs.snowflake.com/en/sql-reference/sql/show-procedures#usage-notes
+    #     assert limit <= SHOW_PROCEDURES_MAX_PAGE_SIZE
+
+    #     # To work around this, we paginate through the results using the FROM clause.
+    #     from_clause = (
+    #         f"""FROM '{procedure_pagination_marker}'"""
+    #         if procedure_pagination_marker
+    #         else ""
+    #     )
+    #     return f"""SHOW PROCEDURES IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
+
+    @staticmethod
+    def procedures_for_database(db_name: str) -> str:
+        return f"""SELECT * FROM {db_name}.INFORMATION_SCHEMA.PROCEDURES;"""
