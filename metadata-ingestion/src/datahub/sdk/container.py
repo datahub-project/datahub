@@ -147,7 +147,7 @@ class Container(
         return self._ensure_container_props().name
 
     def set_display_name(self, value: str) -> None:
-        self._ensure_container_props().name = value
+        self._ensure_container_props(name=value).name = value
 
     @property
     def description(self) -> Optional[str]:
