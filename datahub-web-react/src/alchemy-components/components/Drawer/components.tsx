@@ -17,3 +17,7 @@ export const TitleContainer = styled.div`
     flex-direction: row;
     justify-content: space-between;
 `;
+
+export const TitleLeftContainer = styled.div`
+    display: flex;
+`;
