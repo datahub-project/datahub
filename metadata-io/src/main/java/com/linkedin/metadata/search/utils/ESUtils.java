@@ -20,10 +20,12 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
@@ -187,6 +189,13 @@ public class ESUtils {
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
+    }
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
+      BoolQueryBuilder filterNonLatestVersions =
+          ESUtils.buildFilterNonLatestEntities(
+              opContext, queryFilterRewriteChain, searchableFieldTypes);
+      finalQueryBuilder.must(filterNonLatestVersions);
     }
     if (!finalQueryBuilder.should().isEmpty()) {
       finalQueryBuilder.minimumShouldMatch(1);
@@ -494,6 +503,8 @@ public class ESUtils {
 
     return skipKeywordSuffix
             || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.stream()
+                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
             || PATH_HIERARCHY_FIELDS.contains(fieldName)
             || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
         ? fieldName
@@ -865,8 +876,35 @@ public class ESUtils {
                                         || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
       }
       if (!removedInOrFilter) {
-        filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+        filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
       }
     }
+  }
+
+  public static BoolQueryBuilder buildFilterNonLatestEntities(
+      OperationContext opContext,
+      QueryFilterRewriteChain queryFilterRewriteChain,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    ConjunctiveCriterion isLatestCriterion = new ConjunctiveCriterion();
+    CriterionArray isLatestCriterionArray = new CriterionArray();
+    isLatestCriterionArray.add(
+        CriterionUtils.buildCriterion(IS_LATEST_FIELD_NAME, Condition.EQUAL, "true"));
+    isLatestCriterion.setAnd(isLatestCriterionArray);
+    BoolQueryBuilder isLatest =
+        ESUtils.buildConjunctiveFilterQuery(
+            isLatestCriterion, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
+    ConjunctiveCriterion isNotVersionedCriterion = new ConjunctiveCriterion();
+    CriterionArray isNotVersionedCriterionArray = new CriterionArray();
+    isNotVersionedCriterionArray.add(
+        CriterionUtils.buildCriterion(IS_LATEST_FIELD_NAME, Condition.EXISTS, true));
+    isNotVersionedCriterion.setAnd(isNotVersionedCriterionArray);
+    BoolQueryBuilder isNotVersioned =
+        ESUtils.buildConjunctiveFilterQuery(
+            isNotVersionedCriterion,
+            false,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
+    return QueryBuilders.boolQuery().should(isLatest).should(isNotVersioned).minimumShouldMatch(1);
   }
 }

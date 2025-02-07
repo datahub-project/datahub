@@ -88,6 +88,22 @@ public class QueryUtils {
   }
 
   @Nonnull
+  public static Filter newDisjunctiveFilter(@Nonnull ConjunctiveCriterion... orCriterion) {
+    return new Filter()
+        .setOr(
+            Arrays.stream(orCriterion)
+                .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+  }
+
+  @Nonnull
+  public static Filter newConjunctiveFilter(@Nonnull Criterion... andCriterion) {
+    ConjunctiveCriterionArray orCriteria = new ConjunctiveCriterionArray();
+    orCriteria.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(Arrays.asList(andCriterion))));
+    return new Filter().setOr(orCriteria);
+  }
+
+  @Nonnull
   public static ConjunctiveCriterion add(
       @Nonnull ConjunctiveCriterion conjunctiveCriterion, @Nonnull Criterion element) {
     conjunctiveCriterion.getAnd().add(element);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { CorpUser, PlatformPrivileges } from '../../types.generated';
+import { CustomUserContextState, DEFAULT_CUSTOM_STATE } from './CustomUserContext';
 
 /**
  * Local State is persisted to local storage.
@@ -22,6 +23,7 @@ export type State = {
         loadedPersonalDefaultViewUrn: boolean;
         hasSetDefaultView: boolean;
     };
+    customState?: CustomUserContextState;
 };
 
 /**
@@ -51,6 +53,7 @@ export const DEFAULT_STATE: State = {
         loadedPersonalDefaultViewUrn: false,
         hasSetDefaultView: false,
     },
+    customState: DEFAULT_CUSTOM_STATE,
 };
 
 export const DEFAULT_CONTEXT = {

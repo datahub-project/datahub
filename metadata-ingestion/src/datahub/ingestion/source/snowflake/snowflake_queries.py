@@ -49,6 +49,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    ObservedQuery,
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
@@ -61,6 +62,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -240,7 +242,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         queries: FileBackedList[
-            Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
         ]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
@@ -251,7 +259,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+            entry: Union[
+                KnownLineageMapping,
+                PreparsedQuery,
+                TableRename,
+                TableSwap,
+                ObservedQuery,
+            ]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
@@ -328,7 +342,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self, users: UsersMapping
-    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
+    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -361,7 +375,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
+    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -397,6 +411,34 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 pass
             else:
                 return None
+
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
+
+        # Use direct_objects_accessed instead objects_modified
+        # objects_modified returns $SYS_VIEW_X with no mapping
+        has_stream_objects = any(
+            obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
+        )
+
+        # If a stream is used, default to query parsing.
+        if has_stream_objects:
+            logger.debug("Found matching stream object")
+            return ObservedQuery(
+                query=res["query_text"],
+                session_id=res["session_id"],
+                timestamp=res["query_start_time"].astimezone(timezone.utc),
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
+                query_hash=get_query_fingerprint(
+                    res["query_text"], self.identifiers.platform, fast=True
+                ),
+            )
+
         upstreams = []
         column_usage = {}
 
@@ -459,12 +501,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     )
                 )
 
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
-
         timestamp: datetime = res["query_start_time"]
         timestamp = timestamp.astimezone(timezone.utc)
 
@@ -475,10 +511,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         entry = PreparsedQuery(
             # Despite having Snowflake's fingerprints available, our own fingerprinting logic does a better
-            # job at eliminating redundant / repetitive queries. As such, we don't include the fingerprint
-            # here so that the aggregator auto-generates one.
-            # query_id=res["query_fingerprint"],
-            query_id=None,
+            # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
+            # here
+            query_id=get_query_fingerprint(
+                res["query_text"], self.identifiers.platform, fast=True
+            ),
             query_text=res["query_text"],
             upstreams=upstreams,
             downstream=downstream,
@@ -621,7 +658,7 @@ fingerprinted_queries as (
         query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
         AND execution_status = 'SUCCESS'
-        AND {users_filter or 'TRUE'}
+        AND {users_filter or "TRUE"}
 )
 , deduplicated_queries as (
     SELECT
@@ -649,7 +686,7 @@ fingerprinted_queries as (
     WHERE
         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        AND {users_filter or 'TRUE'}
+        AND {users_filter or "TRUE"}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )

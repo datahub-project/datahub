@@ -167,7 +167,7 @@ class DataJobEntity:
 class DataProcessCleanupReport(SourceReport):
     num_aspects_removed: int = 0
     num_aspect_removed_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
-    sample_removed_aspects_by_type: TopKDict[str, LossyList[str]] = field(
+    sample_soft_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
     num_data_flows_found: int = 0
@@ -286,9 +286,9 @@ class DataProcessCleanup:
         self.report.num_aspect_removed_by_type[type] = (
             self.report.num_aspect_removed_by_type.get(type, 0) + 1
         )
-        if type not in self.report.sample_removed_aspects_by_type:
-            self.report.sample_removed_aspects_by_type[type] = LossyList()
-        self.report.sample_removed_aspects_by_type[type].append(urn)
+        if type not in self.report.sample_soft_deleted_aspects_by_type:
+            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList()
+        self.report.sample_soft_deleted_aspects_by_type[type].append(urn)
 
         if self.dry_run:
             logger.info(

@@ -23,7 +23,7 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
 };
 
 const clickOnNewPost = () => {
-  cy.get('[id="posts-create-post"]').click({ force: true });
+  cy.get('[data-testid="posts-create-post"]').click({ force: true });
 };
 
 const clickOnMoreOption = () => {

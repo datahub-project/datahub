@@ -194,20 +194,20 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
 
 _DBT_FIELDS_BY_TYPE = {
     "models": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     dependsOn
     materializedType
 """,
     "seeds": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
 """,
     "sources": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
     identifier
     sourceName
     sourceDescription
@@ -218,9 +218,9 @@ _DBT_FIELDS_BY_TYPE = {
     loader
 """,
     "snapshots": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     parentsSources {{
       uniqueId
     }}
@@ -229,7 +229,7 @@ _DBT_FIELDS_BY_TYPE = {
     }}
 """,
     "tests": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
     state
     columnName
     status
@@ -315,7 +315,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             res = response.json()
             if "errors" in res:
                 raise ValueError(
-                    f'Unable to fetch metadata from dbt Cloud: {res["errors"]}'
+                    f"Unable to fetch metadata from dbt Cloud: {res['errors']}"
                 )
             data = res["data"]
         except JSONDecodeError as e:

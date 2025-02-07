@@ -58,7 +58,7 @@ import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -775,7 +775,8 @@ public class JavaEntityClient implements EntityClient {
 
     List<String> updatedUrns = new ArrayList<>();
     Iterators.partition(
-            metadataChangeProposals.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
+            metadataChangeProposals.iterator(),
+            Math.max(1, entityClientConfig.getBatchIngestSize()))
         .forEachRemaining(
             batch -> {
               AspectsBatch aspectsBatch =

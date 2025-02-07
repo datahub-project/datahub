@@ -1115,6 +1115,10 @@
       "name" : "versionTag",
       "type" : "string",
       "optional" : true
+    }, {
+      "name" : "metadataAttribution",
+      "type" : "MetadataAttribution",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -3550,12 +3554,48 @@
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
-      "doc" : "Properties associated with a ML Model\r",
-      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
+      "doc" : "Properties associated with a ML Model",
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
+        "type" : "record",
+        "name" : "MLModelLineageInfo",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
+        "fields" : [ {
+          "name" : "trainingJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "name" : "TrainedBy"
+            }
+          }
+        }, {
+          "name" : "downstreamJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) that use the model or group.",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "isUpstream" : false,
+              "name" : "UsedBy"
+            }
+          }
+        } ]
+      } ],
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "Display name of the MLModel\r",
+        "doc" : "Display name of the MLModel",
         "optional" : true,
         "Searchable" : {
           "boostScore" : 10.0,
@@ -3566,7 +3606,7 @@
       }, {
         "name" : "description",
         "type" : "string",
-        "doc" : "Documentation of the MLModel\r",
+        "doc" : "Documentation of the MLModel",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT",
@@ -3575,28 +3615,28 @@
       }, {
         "name" : "date",
         "type" : "com.linkedin.common.Time",
-        "doc" : "Date when the MLModel was developed\r",
+        "doc" : "Date when the MLModel was developed",
         "optional" : true,
         "deprecated" : true
       }, {
         "name" : "created",
         "type" : "com.linkedin.common.TimeStamp",
-        "doc" : "Audit stamp containing who created this and when\r",
+        "doc" : "Audit stamp containing who created this and when",
         "optional" : true
       }, {
         "name" : "lastModified",
         "type" : "com.linkedin.common.TimeStamp",
-        "doc" : "Date when the MLModel was last modified\r",
+        "doc" : "Date when the MLModel was last modified",
         "optional" : true
       }, {
         "name" : "version",
         "type" : "com.linkedin.common.VersionTag",
-        "doc" : "Version of the MLModel\r",
+        "doc" : "Version of the MLModel",
         "optional" : true
       }, {
         "name" : "type",
         "type" : "string",
-        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
+        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT_PARTIAL"
@@ -3612,7 +3652,7 @@
             "ref" : [ "string", "int", "float", "double", "boolean" ]
           }
         },
-        "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
+        "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
         "optional" : true
       }, {
         "name" : "hyperParams",
@@ -3647,7 +3687,7 @@
             }
           }
         },
-        "doc" : "Hyperparameters of the MLModel\r",
+        "doc" : "Hyperparameters of the MLModel",
         "optional" : true
       }, {
         "name" : "trainingMetrics",
@@ -3682,7 +3722,7 @@
             }
           }
         },
-        "doc" : "Metrics of the MLModel used in training\r",
+        "doc" : "Metrics of the MLModel used in training",
         "optional" : true
       }, {
         "name" : "onlineMetrics",
@@ -3690,7 +3730,7 @@
           "type" : "array",
           "items" : "MLMetric"
         },
-        "doc" : "Metrics of the MLModel used in production\r",
+        "doc" : "Metrics of the MLModel used in production",
         "optional" : true
       }, {
         "name" : "mlFeatures",
@@ -3698,7 +3738,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.MLFeatureUrn"
         },
-        "doc" : "List of features used for MLModel training\r",
+        "doc" : "List of features used for MLModel training",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -3713,7 +3753,7 @@
           "type" : "array",
           "items" : "string"
         },
-        "doc" : "Tags for the MLModel\r",
+        "doc" : "Tags for the MLModel",
         "default" : [ ]
       }, {
         "name" : "deployments",
@@ -3721,7 +3761,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Deployments for the MLModel\r",
+        "doc" : "Deployments for the MLModel",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -3730,43 +3770,12 @@
           }
         }
       }, {
-        "name" : "trainingJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) used to train the model. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob", "dataProcessInstance" ],
-            "isLineage" : true,
-            "name" : "TrainedBy"
-          }
-        }
-      }, {
-        "name" : "downstreamJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) that use the model\r",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "isUpstream" : false,
-            "name" : "UsedBy"
-          }
-        }
-      }, {
         "name" : "groups",
         "type" : {
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Groups the model belongs to\r",
+        "doc" : "Groups the model belongs to",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -3943,6 +3952,10 @@
       "name" : "aspect",
       "type" : "com.linkedin.entity.Aspect",
       "optional" : true
+    }, {
+      "name" : "telemetryTraceId",
+      "type" : "string",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -4002,7 +4015,7 @@
         }
       }
     } ]
-  }, "com.linkedin.metadata.run.UnsafeEntityInfo", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.metadata.run.UnsafeEntityInfo", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelLineageInfo", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "runs",
     "namespace" : "com.linkedin.entity",

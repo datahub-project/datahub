@@ -6,14 +6,14 @@ from unittest.mock import MagicMock, Mock, patch
 from uuid import UUID
 
 import pytest
-from datahub.api.entities.datajob import DataJob
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 from prefect.client.schemas import FlowRun, TaskRun, Workspace
 from prefect.futures import PrefectFuture
 from prefect.server.schemas.core import Flow
 from prefect.task_runners import SequentialTaskRunner
 from requests.models import Response
 
+from datahub.api.entities.datajob import DataJob
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset, _Entity
 

@@ -337,4 +337,15 @@ public class OwnerUtils {
     final String typeName = SYSTEM_ID + type.toLowerCase();
     return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName).toString();
   }
+
+  public static boolean isAuthorizedToUpdateOwners(@Nonnull QueryContext context, Urn resourceUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
+    return AuthorizationUtils.isAuthorized(
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
+  }
 }

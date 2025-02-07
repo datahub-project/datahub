@@ -368,6 +368,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_8",
             "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
@@ -701,6 +702,7 @@ module.exports = {
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
         "docs/advanced/bootstrap-mcps",
+        "docs/advanced/api-tracing",
       ],
     },
     {
@@ -779,6 +781,11 @@ module.exports = {
                   type: "doc",
                   label: "Getting Started With GraphQL",
                   id: "docs/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
                 },
                 {
                   type: "doc",
@@ -913,6 +920,11 @@ module.exports = {
       ],
     },
     {
+      type: "doc",
+      id: "docs/iceberg-catalog",
+      label: "DataHub Iceberg REST Catalog",
+    },
+    {
       "API & SDK Guides": [
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
@@ -926,7 +938,16 @@ module.exports = {
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
-        "docs/api/tutorials/ml",
+        {
+          type: "doc",
+          id: "docs/api/tutorials/ml",
+          label: "AI/ML Integration",
+        },
+        {
+          type: "doc",
+          id: "docs/api/tutorials/ml_feature_store",
+          label: "Feature Store",
+        },
         "docs/api/tutorials/owners",
         "docs/api/tutorials/structured-properties",
         "docs/api/tutorials/tags",

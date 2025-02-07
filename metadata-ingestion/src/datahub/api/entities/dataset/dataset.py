@@ -266,7 +266,8 @@ class Dataset(BaseModel):
             if self.schema_metadata.fields:
                 for field in self.schema_metadata.fields:
                     field_urn = field.urn or make_schema_field_urn(
-                        self.urn, field.id  # type: ignore[arg-type]
+                        self.urn,  # type: ignore[arg-type]
+                        field.id,  # type: ignore[arg-type]
                     )
                     assert field_urn.startswith("urn:li:schemaField:")
 
