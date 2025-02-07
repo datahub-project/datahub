@@ -684,7 +684,7 @@ ORDER by DataBaseName, TableName;
         super()._add_default_options(sql_config)
         if sql_config.is_profiling_enabled():
             # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
-            # SingletonThreadPool does not support parellel connections.
+            # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
             # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
             # https://github.com/Teradata/sqlalchemy-teradata/issues/96
             sql_config.options.setdefault("poolclass", QueuePool)
