@@ -1547,7 +1547,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
                     self.generate_procedure_lineage(
                         procedure=procedure,
-                        procedure_job_urn=self.identifiers.gen_dataset_urn(procedure.name),
+                        procedure_job_urn=self.identifiers.gen_dataset_urn(
+                            procedure.name
+                        ),
                         is_temp_table=lambda _: False,
                         raise_=True,
                     )

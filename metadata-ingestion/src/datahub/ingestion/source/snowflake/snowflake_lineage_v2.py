@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeProcedure
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
@@ -22,6 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeProcedure
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeFilter,
@@ -30,9 +30,11 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
-from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
-from datahub.sql_parsing.datajob import to_datajob_input_output
-from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    DatasetLineageTypeClass,
+    UpstreamClass,
+)
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.split_statements import split_statements
@@ -549,7 +551,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def close(self) -> None:
         pass
 
-    def parse_procedure_code(self,
+    def parse_procedure_code(
+        self,
         *,
         schema_resolver: SchemaResolver,
         default_db: Optional[str],
@@ -591,9 +594,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             ignore_extra_mcps=True,
         )
 
-
     # Is procedure handling generic enough to be added to SqlParsingAggregator?
-    def generate_procedure_lineage(self,
+    def generate_procedure_lineage(
+        self,
         *,
         schema_resolver: SchemaResolver,
         procedure: SnowflakeProcedure,
