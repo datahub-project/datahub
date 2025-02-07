@@ -94,7 +94,7 @@ describe("create, edit and remove metadata test", () => {
     cy.get('[role="dialog"] [type="search"]').eq(2).click();
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
     cy.get(".rc-virtual-list").find("div").contains("TagToPropose").click();
-    cy.get("body").click();
+    cy.get(".ant-modal-content").click();
     // test conditions, verify that test fails
     cy.clickOptionWithText("Test Conditions");
     clickFilterAndFacet();
