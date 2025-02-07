@@ -54,6 +54,7 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
                     }
                     contentRef={contentRef}
                     isContentTruncated={isContentTruncated}
+                    linksDisabled
                 />
             </TextWrapper>
         </Wrapper>

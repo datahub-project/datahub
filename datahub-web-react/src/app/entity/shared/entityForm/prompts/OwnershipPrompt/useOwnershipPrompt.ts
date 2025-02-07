@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useEntityData } from '../../../EntityContext';
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
+import { useEntityData } from '../../../EntityContext';
+import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
 import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
 import { FormView, useEntityFormContext } from '../../EntityFormContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
-import { getPromptAssociation } from '../../../containers/profile/sidebar/FormInfo/utils';
+import { getDefaultOwnerEntities, getDefaultOwnershipTypeUrn } from './utils';
 
 interface Props {
     prompt: FormPrompt;
@@ -24,29 +25,31 @@ export default function useOwnershipPrompt({ prompt, submitResponse, field }: Pr
 
     const initialEntities = useMemo(
         () =>
-            formView === FormView.BY_ENTITY || formView === FormView.BULK_VERIFY
-                ? promptAssociation?.response?.ownershipResponse?.owners || []
+            formView === FormView.BY_ENTITY
+                ? promptAssociation?.response?.ownershipResponse?.owners ||
+                  getDefaultOwnerEntities(entityData, prompt) ||
+                  []
                 : [],
-        [formView, promptAssociation?.response?.ownershipResponse?.owners],
+        [formView, promptAssociation?.response?.ownershipResponse?.owners, entityData, prompt],
     );
+
     const initialValues = useMemo(
         () =>
             formView === FormView.BY_ENTITY || formView === FormView.BULK_VERIFY
-                ? promptAssociation?.response?.ownershipResponse?.owners.map((o) => o.urn) || []
+                ? initialEntities.map((o) => o.urn) || []
                 : [],
-        [formView, promptAssociation?.response?.ownershipResponse?.owners],
+        [formView, initialEntities],
     );
-    const defaultOwnershipTypeUrn =
-        prompt.ownershipParams?.allowedOwnershipTypes && prompt.ownershipParams.allowedOwnershipTypes.length === 1
-            ? prompt.ownershipParams.allowedOwnershipTypes[0].urn
-            : undefined;
-    const initialOwnershipTypeUrn = useMemo(
-        () =>
-            formView === FormView.BY_ENTITY || formView === FormView.BULK_VERIFY
-                ? promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn || defaultOwnershipTypeUrn
-                : defaultOwnershipTypeUrn,
-        [formView, promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn, defaultOwnershipTypeUrn],
-    );
+
+    const initialOwnershipTypeUrn = useMemo(() => {
+        if (formView !== FormView.BY_ENTITY) {
+            return undefined;
+        }
+        return (
+            promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn ||
+            getDefaultOwnershipTypeUrn(entityData, prompt, initialValues)
+        );
+    }, [formView, promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn, prompt, entityData, initialValues]);
 
     const [selectedValues, setSelectedValues] = useState<any[]>(initialValues);
     const [selectedOwnerTypeUrn, setSelectedOwnerTypeUrn] = useState<string | undefined>(initialOwnershipTypeUrn);

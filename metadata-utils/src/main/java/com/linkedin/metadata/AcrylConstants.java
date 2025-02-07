@@ -75,10 +75,11 @@ public class AcrylConstants {
       "dataHubRemoteExecutorGlobalConfig";
   public static final String REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG_ASPECT_NAME =
       "dataHubRemoteExecutorPoolGlobalConfig";
-  public static final String REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG_PLATFORM_RESOURCE_URN =
+  public static final String REMOTE_EXECUTOR_POOL_GLOBAL_CONFIG_SINGLETON_URN =
       "urn:li:dataHubRemoteExecutorGlobalConfig:primary";
   public static final String REMOTE_EXECUTOR_POOL_ENTITY_NAME = "dataHubRemoteExecutorPool";
-  public static final String REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME = "dataHubRemoteExecutorInfo";
+  public static final String REMOTE_EXECUTOR_POOL_INFO_ASPECT_NAME =
+      "dataHubRemoteExecutorPoolInfo";
   public static final String REMOTE_EXECUTOR_ENTITY_NAME = "dataHubRemoteExecutor";
   public static final String REMOTE_EXECUTOR_STATUS_ASPECT_NAME = "dataHubRemoteExecutorStatus";
 

@@ -315,6 +315,11 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
+                        if form_id not in form_assigned_dates:
+                            logger.warning(
+                                f"Form {form_id} not found in form_assigned_dates"
+                            )
+                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
@@ -344,6 +349,11 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
+                        if form_id not in form_assigned_dates:
+                            logger.warning(
+                                f"Form {form_id} not found in form_assigned_dates"
+                            )
+                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
@@ -403,7 +413,9 @@ class DataHubFormReportingData(FormData):
                     for p in search_row.completedFormsIncompletePromptIds
                     for p in form_prompts
                 ]:
-                    logger.warning("Unexpected incomplete prompt in completed form")
+                    logger.warning(
+                        f"Unexpected incomplete prompt {prompt_id} in completed form {form_id}"
+                    )
                     for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
@@ -438,6 +450,11 @@ class DataHubFormReportingData(FormData):
                     if p in form_prompts
                 ]:
                     for owner in assignees:
+                        if form_id not in form_assigned_dates:
+                            logger.warning(
+                                f"Form {form_id} not found in form_assigned_dates"
+                            )
+                            continue
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],

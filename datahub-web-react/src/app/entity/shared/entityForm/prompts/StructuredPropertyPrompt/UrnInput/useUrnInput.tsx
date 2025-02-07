@@ -1,15 +1,16 @@
 import { Tag } from 'antd';
+import { isEqual } from 'lodash';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Entity, EntityType } from '../../../../../../../types.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../../../../../../graphql/search.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
+import usePrevious from '../../../../../../shared/usePrevious';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import SelectedEntity from './SelectedEntity';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import usePrevious from '../../../../../../shared/usePrevious';
 
 const StyleTag = styled(Tag)`
     margin: 2px;
@@ -69,11 +70,13 @@ export default function useUrnInput({
     );
 
     const previousEntityUrn = usePrevious(entityData?.urn);
+    const previousInitial = usePrevious(initialEntities);
+
     useEffect(() => {
-        if (entityData?.urn !== previousEntityUrn) {
+        if (entityData?.urn !== previousEntityUrn || !isEqual(previousInitial, initialEntities)) {
             setSelectedEntities(initialEntities || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialEntities]);
+    }, [entityData?.urn, previousEntityUrn, initialEntities, previousInitial]);
 
     function handleSearch(query: string) {
         setSearchValue(query);

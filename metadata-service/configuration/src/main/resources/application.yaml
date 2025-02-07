@@ -790,6 +790,7 @@ subscriptions:
     consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 executors:
+  backendRevision: 1
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
 

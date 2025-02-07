@@ -8,10 +8,10 @@ import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 const MAX_NUM_DAYS_PER_MONTH = 31;
 const MAX_NUM_DAYS_PER_QUARTER = 95;
 
-interface ChartData {
-    time: string | number;
-    value: number;
-    mom: number | null;
+export interface ChartData {
+    x: number;
+    y: number;
+    mom?: number | null;
 }
 
 // Filter out the buckets items or values with null or undefined values
@@ -83,7 +83,12 @@ export default function useQueryCountData(urn: string | undefined, timeRange?: T
             const updatedBuckets = (aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets;
             const normalizedData: UsageAggregation[] = normalizeData(updatedBuckets || []);
             const processedData = getChartData(normalizedData, groupInterval);
-            setChartData(processedData);
+            const convertedData = processedData.map((datum) => ({
+                x: datum.time,
+                y: datum.value,
+                mom: datum.mom,
+            }));
+            setChartData(convertedData);
         }
     }, [aggregationData, groupInterval, canViewDatasetUsage]);
 

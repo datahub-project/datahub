@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -45,9 +46,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 
 @Slf4j
-public class AutocompleteRequestHandler {
+public class AutocompleteRequestHandler extends BaseRequestHandler {
 
-  private final List<Pair> _defaultAutocompleteFields;
+  private final List<Pair<String, String>> _defaultAutocompleteFields;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler>
@@ -58,8 +59,10 @@ public class AutocompleteRequestHandler {
   private final EntitySpec entitySpec;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final SearchConfiguration searchConfiguration;
+  @Nonnull private final HighlightBuilder highlights;
 
   public AutocompleteRequestHandler(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
@@ -79,6 +82,7 @@ public class AutocompleteRequestHandler {
                                 Double.toString(searchableAnnotation.getBoostScore()))),
                 Stream.of(Pair.of("urn", "1.0")))
             .collect(Collectors.toList());
+    this.highlights = getDefaultHighlights(systemOperationContext);
     searchableFieldTypes =
         fieldSpecs.stream()
             .collect(
@@ -98,6 +102,7 @@ public class AutocompleteRequestHandler {
   }
 
   public static AutocompleteRequestHandler getBuilder(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
@@ -106,6 +111,7 @@ public class AutocompleteRequestHandler {
         entitySpec,
         k ->
             new AutocompleteRequestHandler(
+                systemOperationContext,
                 entitySpec,
                 customSearchConfiguration,
                 queryFilterRewriteChain,
@@ -165,7 +171,8 @@ public class AutocompleteRequestHandler {
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
 
     // wire inner non-scored query
-    searchSourceBuilder.highlighter(getHighlights(field));
+    searchSourceBuilder.highlighter(
+        field == null || field.isEmpty() ? highlights : getHighlights(opContext, List.of(field)));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
@@ -181,7 +188,7 @@ public class AutocompleteRequestHandler {
   public BoolQueryBuilder getQuery(
       @Nonnull ObjectMapper objectMapper,
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
-      List<Pair> autocompleteFields,
+      List<Pair<String, String>> autocompleteFields,
       @Nonnull String query) {
 
     BoolQueryBuilder finalQuery =
@@ -201,7 +208,7 @@ public class AutocompleteRequestHandler {
 
   private Optional<QueryBuilder> getAutocompleteQuery(
       @Nullable AutocompleteConfiguration customConfig,
-      List<Pair> autocompleteFields,
+      List<Pair<String, String>> autocompleteFields,
       @Nonnull String query) {
     Optional<QueryBuilder> result = Optional.empty();
 
@@ -212,7 +219,8 @@ public class AutocompleteRequestHandler {
     return result;
   }
 
-  private BoolQueryBuilder defaultQuery(List<Pair> autocompleteFields, @Nonnull String query) {
+  private BoolQueryBuilder defaultQuery(
+      List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Search for exact matches with higher boost and ngram matches
@@ -248,38 +256,25 @@ public class AutocompleteRequestHandler {
     return finalQuery;
   }
 
-  // Get HighlightBuilder to highlight the matched field
-  private HighlightBuilder getHighlights(@Nullable String field) {
-    HighlightBuilder highlightBuilder =
-        new HighlightBuilder()
-            // Don't set tags to get the original field value
-            .preTags("")
-            .postTags("")
-            .numOfFragments(1);
-    // Check for each field name and any subfields
-    getAutocompleteFields(field)
-        .forEach(
-            pair -> {
-              final String fieldName = (String) pair.getLeft();
-              highlightBuilder
-                  .field(fieldName)
-                  .field(fieldName + ".*")
-                  .field(fieldName + ".ngram")
-                  .field(fieldName + ".delimited");
-              if (!fieldName.equalsIgnoreCase("urn")) {
-                highlightBuilder.field(fieldName + ".keyword");
-              }
-            });
-
-    // set field match req false for ngram
-    highlightBuilder.fields().stream()
-        .filter(f -> f.name().contains("ngram"))
-        .forEach(f -> f.requireFieldMatch(false).noMatchSize(200));
-
-    return highlightBuilder;
+  @Override
+  public Collection<String> getDefaultQueryFieldNames() {
+    return _defaultAutocompleteFields.stream().map(Pair::getKey).collect(Collectors.toList());
   }
 
-  private List<Pair> getAutocompleteFields(@Nullable String field) {
+  @Override
+  protected Collection<String> getValidQueryFieldNames() {
+    return searchableFieldTypes.keySet();
+  }
+
+  @Override
+  protected Stream<String> highlightFieldExpansion(
+      @Nonnull OperationContext opContext, @Nonnull String fieldName) {
+    return Stream.concat(
+        Stream.of(fieldName, fieldName + ".*", fieldName + ".ngram", fieldName + ".delimited"),
+        Stream.of(ESUtils.toKeywordField(fieldName, false, opContext.getAspectRetriever())));
+  }
+
+  private List<Pair<String, String>> getAutocompleteFields(@Nullable String field) {
     if (field != null && !field.isEmpty() && !field.equalsIgnoreCase("urn")) {
       return ImmutableList.of(Pair.of(field, "10.0"));
     }

@@ -12,7 +12,7 @@ import {
     toLocalTimeString,
 } from '../../../../../../../shared/time/timeUtils';
 
-interface Props {
+export interface StatsProps {
     properties: {
         expandedField: SchemaField;
         fieldProfile: DatasetFieldProfile | undefined;
@@ -39,7 +39,7 @@ const StyledLoading = styled(LoadingOutlined)`
 
 export default function StatsSidebarView({
     properties: { expandedField, fieldProfile, profiles, fetchDataWithLookbackWindow, profilesDataLoading },
-}: Props) {
+}: StatsProps) {
     const [viewType, setViewType] = useState(StatsViewType.LATEST);
     const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
 
