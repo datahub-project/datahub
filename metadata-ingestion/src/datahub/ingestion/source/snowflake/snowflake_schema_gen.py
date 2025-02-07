@@ -21,7 +21,6 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
-    DatasetSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -843,17 +842,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if dpi_aspect:
             yield dpi_aspect
 
-        subTypes = SubTypes(
-            typeNames=(
-                [DatasetSubTypes.SNOWFLAKE_STREAM]
-                if isinstance(table, SnowflakeStream)
-                else (
-                    [DatasetSubTypes.VIEW]
-                    if isinstance(table, SnowflakeView)
-                    else [DatasetSubTypes.TABLE]
-                )
-            )
-        )
+        subTypes = SubTypes(typeNames=[table.get_subtype()])
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subTypes
