@@ -564,8 +564,8 @@ module.exports = {
     {
       type: "category",
       label: "Metadata Standards",
+      link: { type: "doc", id: "docs/metadata-standards" },
       items: [
-        // TODO: Add new overview doc here.
         {
           type: "doc",
           id: "docs/iceberg-catalog",
