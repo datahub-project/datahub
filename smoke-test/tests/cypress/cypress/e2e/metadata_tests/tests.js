@@ -37,10 +37,11 @@ describe("create, edit and remove metadata test", () => {
     setTestsConfigFlag(true);
     cy.loginWithCredentials();
     cy.goToTestsList();
+    cy.wait(1000); // Page seems to refresh otherwise and close create modal
     cy.clickOptionWithText("Create");
     cy.waitTextVisible("New Metadata Test");
     // select data assets
-    cy.contains("Datasets, Dashboards, Charts...").prev().click();
+    cy.get('[data-testid="entity-type-select"] > .ant-select-selector').click();
     cy.get(".rc-virtual-list").find("div").contains("Datasets").click();
     cy.get("body").click();
     cy.clickOptionWithText("+ Add");
