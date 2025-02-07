@@ -22,6 +22,10 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
+from datahub.testing.pytest_hooks import (  # noqa: E402
+    load_golden_flags,
+    register_golden_flags,
+)
 from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,
     docker_compose_runner,
@@ -55,12 +59,11 @@ def mock_time(monkeypatch):
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--update-golden-files",
-        action="store_true",
-        default=False,
-    )
-    parser.addoption("--copy-output-files", action="store_true", default=False)
+    register_golden_flags(parser)
+
+
+# It's an autouse fixture, so importing it is sufficient.
+assert load_golden_flags is not None
 
 
 def pytest_collection_modifyitems(
