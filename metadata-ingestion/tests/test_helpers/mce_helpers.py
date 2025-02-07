@@ -100,7 +100,6 @@ def check_golden_file(
 
 
 def check_goldens_stream(
-    pytestconfig: pytest.Config,
     outputs: List,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
@@ -109,8 +108,7 @@ def check_goldens_stream(
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
 
-        check_golden_file(
-            pytestconfig=pytestconfig,
+        assert_metadata_files_equal(
             output_path=f.name,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
