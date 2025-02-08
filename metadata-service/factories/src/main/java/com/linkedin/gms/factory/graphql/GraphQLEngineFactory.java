@@ -257,6 +257,7 @@ public class GraphQLEngineFactory {
         configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
+    args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
     args.setEntityVersioningService(entityVersioningService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);

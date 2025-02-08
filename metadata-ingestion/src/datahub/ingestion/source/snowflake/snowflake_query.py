@@ -9,6 +9,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
@@ -36,6 +37,7 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.VIEW.capitalize(),
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
+        SnowflakeObjectDomain.STREAM.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
@@ -44,7 +46,8 @@ class SnowflakeQuery:
     ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
         "("
         f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}'"
+        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
+        f"'{SnowflakeObjectDomain.STREAM.capitalize()}',"
         ")"
     )
 
@@ -158,6 +161,17 @@ class SnowflakeQuery:
         where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
         order by table_schema, table_name"""
+
+    @staticmethod
+    def get_all_tags():
+        return """
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        FROM snowflake.account_usage.tag_references
+        GROUP BY TAG_DATABASE , TAG_SCHEMA, tag_name
+        ORDER BY TAG_DATABASE, TAG_SCHEMA, TAG_NAME  ASC;
+        """
 
     @staticmethod
     def get_all_tags_on_object_with_propagation(
@@ -952,3 +966,19 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     @staticmethod
     def get_all_users() -> str:
         return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
+
+    @staticmethod
+    def streams_for_database(
+        db_name: str,
+        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
+        stream_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # SHOW STREAMS can return a maximum of 10000 rows.
+        # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
+        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
+
+        # To work around this, we paginate through the results using the FROM clause.
+        from_clause = (
+            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
+        )
+        return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""

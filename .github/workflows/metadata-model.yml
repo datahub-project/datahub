@@ -60,4 +60,5 @@ jobs:
         env:
           DATAHUB_SERVER: ${{ secrets.DataHubServer }}
           DATAHUB_TOKEN: ${{ secrets.DataHubToken }}
+          DATAHUB_TELEMETRY_ENABLED: false
         run: ./gradlew :metadata-ingestion:modelDocUpload

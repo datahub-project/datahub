@@ -21,6 +21,7 @@ from tests.utils import (
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"
+INCIDENT_DATA_FILENAME = "incidents_test.json"
 TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
 TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
@@ -140,6 +141,9 @@ def ingest_data(auth_session, graph_client):
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
     ingest_time_lineage(graph_client)
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
     print_now()
     print("completed ingesting test data")
 
@@ -161,6 +165,9 @@ def ingest_cleanup_data(auth_session, graph_client):
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
     delete_urns(graph_client, get_time_lineage_urns())
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
 
     print_now()
     print("deleting onboarding data file")
