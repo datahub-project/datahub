@@ -1,0 +1,52 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e476e4c36434ae8a7ea78e467e5b59d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "database": "my_bq_project"
+            },
+            "name": "my_bq_project"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e476e4c36434ae8a7ea78e467e5b59d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e476e4c36434ae8a7ea78e467e5b59d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e476e4c36434ae8a7ea78e467e5b59d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    }
+}
+]
