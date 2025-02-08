@@ -52,13 +52,13 @@ describe("create and manage freshness assertion", () => {
     cy.ensureTextNotPresent("Created!");
     // verifyAssertionCount("add");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
-    cy.get(".ant-table-row-level-0").last().click();
+    clickElement(".acryl-assertions-table-row");
     cy.waitTextVisible("Freshness check results over time");
     cy.waitTextVisible("Runs at 0 minutes past the hour, every 6 hours.");
     // stop the monitor, verify that assertion stopped successfully
     clickElement("body");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
-    cy.get(".ant-table-cell").find("button").first().click();
+    clickElement('[data-testid="assertion-start-stop-action"]');
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
     cy.get(".ant-tooltip-inner").contains("Start").should("be.visible");
@@ -69,12 +69,12 @@ describe("create and manage freshness assertion", () => {
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Started!");
     cy.ensureTextNotPresent("Started!");
-    cy.get(".ant-table-cell").find("button").first().trigger("mouseover");
+    cy.get('[data-testid="assertion-start-stop-action"]').trigger("mouseover");
     cy.get(".ant-tooltip-inner").contains("Stop").should("be.visible");
     cy.get(".ant-tooltip-inner").contains("Start").should("not.exist");
 
     // manage the assertion and save result
-    cy.get(".ant-table-row-level-0").last().click();
+    cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
     cy.get('[aria-label="edit"]').last().click();
@@ -83,7 +83,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
     clickElement("body");
-    cy.get(".ant-table-row-level-0").last().click();
+    cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
     cy.get('[aria-label="edit"]').last().click();
@@ -95,7 +95,7 @@ describe("create and manage freshness assertion", () => {
     // remove assertion
     clickElement("body");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours ");
-    cy.get(".ant-table-cell").find("button").last().click();
+    cy.get(".acryl-assertions-table-row").find("button").last().click();
     cy.get(".ant-dropdown-menu-item")
       .find(".anticon-delete")
       .closest(".ant-dropdown-menu-item") // Traverse back up to the parent Menu.Item
