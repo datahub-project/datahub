@@ -31,6 +31,7 @@ import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -255,12 +256,8 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (fieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()) {
-      String modifiedAtFieldName =
-          fieldSpec
-              .getSearchableAnnotation()
-              .getSystemModifiedAtFieldName()
-              .orElse(String.format("%sSystemModifiedAt", fieldName));
+    if (ESUtils.getSystemModifiedAtFieldName(fieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(fieldSpec).get();
       searchDocument.set(
           modifiedAtFieldName,
           JsonNodeFactory.instance.numberNode((Long) System.currentTimeMillis()));

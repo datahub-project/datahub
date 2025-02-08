@@ -278,13 +278,8 @@ public class MappingsBuilder {
         .ifPresent(
             fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
 
-    final String fieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
-    if (searchableFieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()) {
-      String modifiedAtFieldName =
-          searchableFieldSpec
-              .getSearchableAnnotation()
-              .getSystemModifiedAtFieldName()
-              .orElse(String.format("%sSystemModifiedAt", fieldName));
+    if (ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).get();
       mappings.put(modifiedAtFieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE));
     }
 
