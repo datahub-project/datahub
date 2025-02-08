@@ -10,4 +10,11 @@ public class ExecutorConfiguration {
 
   /** The customer id we will use to filter customer SQS queues */
   public String executorCustomerId;
+
+  /**
+   * Backend revision number. This allows RE clients to know which features are vailable on the
+   * server when making API calls. Every time a breaking change is introduced on the server side,
+   * this should be incremented, and a corresponding check added on the client. *
+   */
+  public int backendRevision;
 }

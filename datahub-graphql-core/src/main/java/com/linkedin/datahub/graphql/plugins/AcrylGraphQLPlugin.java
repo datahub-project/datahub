@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.DefaultRemoteExecutorPoolResult;
 import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
@@ -112,8 +113,11 @@ import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.CreateRemoteExecutorPoolResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorPoolsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorsResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
@@ -500,7 +504,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new StopActionPipelineResolver(this.entityClient, this.integrationsService))
                 .dataFetcher(
                     "startActionPipeline",
-                    new StartActionPipelineResolver(this.entityClient, this.integrationsService)));
+                    new StartActionPipelineResolver(this.entityClient, this.integrationsService))
+                .dataFetcher(
+                    "updateDefaultRemoteExecutorPool",
+                    new UpdateDefaultRemoteExecutorPoolResolver(this.entityClient))
+                .dataFetcher(
+                    "createRemoteExecutorPool",
+                    new CreateRemoteExecutorPoolResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -539,7 +549,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         this.entityClient, this.integrationsService, this.featureFlags))
                 .dataFetcher(
                     "listRemoteExecutorPools",
-                    new ListRemoteExecutorPoolsResolver(this.entityClient)));
+                    new ListRemoteExecutorPoolsResolver(this.entityClient))
+                .dataFetcher(
+                    "defaultRemoteExecutorPool",
+                    new GetDefaultRemoteExecutorPoolResolver(this.entityClient)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
@@ -1051,6 +1064,17 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                                 .getRemoteExecutorPools().stream()
                                     .map(RemoteExecutorPool::getUrn)
                                     .collect(Collectors.toList()))))
+        .type(
+            "DefaultRemoteExecutorPoolResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "pool",
+                    new LoadableTypeResolver<>(
+                        remoteExecutorPoolType,
+                        (env) ->
+                            ((DefaultRemoteExecutorPoolResult) env.getSource())
+                                .getPool()
+                                .getUrn())))
         .type(
             "RemoteExecutorPool",
             typeWiring ->

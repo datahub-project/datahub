@@ -1,5 +1,7 @@
 namespace com.linkedin.executorpool
 
+import com.linkedin.common.Urn
+
 
 @Aspect = {
   "name": "dataHubRemoteExecutorPoolInfo"
@@ -14,5 +16,10 @@ record RemoteExecutorPoolInfo {
     "queryByDefault": false
   }
   createdAt: long
+
+  /**
+   * The creator of this pool
+   */
+  creator: Urn
 
 }

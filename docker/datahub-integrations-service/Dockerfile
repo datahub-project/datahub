@@ -20,24 +20,6 @@ USER 0
 # RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 # ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
-RUN apt-get update && apt-get install -y -qq \
-    python3-ldap \
-    libldap2-dev \
-    libsasl2-dev \
-    libsasl2-modules \
-    libaio1 \
-    libsasl2-modules-gssapi-mit \
-    krb5-user \
-    wget \
-    zip \
-    unzip \
-    ldap-utils \
-    unixodbc \
-    libodbc2 \
-    vim \
-    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
-
 COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 
 # Create a symbolic link for CA certificates. This is a workaround

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { YAccessor } from '../types';
+import { BaseDatum, YAccessor } from '../types';
 
-export default function useMaxDataValue<T>(data: T[], yAccessor: YAccessor<T>): number {
+export default function useMaxDataValue(data: BaseDatum[], yAccessor: YAccessor): number {
     return useMemo(() => Math.max(...data.map(yAccessor)) ?? 0, [data, yAccessor]);
 }

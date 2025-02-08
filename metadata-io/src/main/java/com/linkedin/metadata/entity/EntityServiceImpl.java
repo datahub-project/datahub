@@ -1,10 +1,6 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
@@ -1435,20 +1431,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
-    if (preProcessHooks.isUiEnabled()) {
-      if (metadataChangeLog.getSystemMetadata() != null) {
-        if (metadataChangeLog.getSystemMetadata().getProperties() != null) {
-          String eventAppSource =
-              metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE);
-          if (applySyncMclForSources.getOrDefault(eventAppSource, false)) {
-            // Pre-process the update indices hook for UI updates to avoid perceived lag from Kafka
-            if (updateIndicesService != null) {
-              updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
-            }
-            return true;
-          }
-        }
-      }
+    return preprocessEvent(opContext, metadataChangeLog, false);
+  }
+
+  private boolean preprocessEvent(
+      @Nonnull OperationContext opContext,
+      MetadataChangeLog metadataChangeLog,
+      boolean forcePreProcessIndices) {
+    // Deletes cannot rely on System Metadata being passed through so can't always be determined by
+    // system metadata,
+    // for all other types of events should use system metadata rather than the boolean param.
+    if (updateIndicesService != null
+        && (preProcessHooks.isUiEnabled()
+                && metadataChangeLog.getSystemMetadata() != null
+                && metadataChangeLog.getSystemMetadata().getProperties() != null
+                && UI_SOURCE.equals(
+                    metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))
+            || forcePreProcessIndices)) {
+      updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
+      return true;
     }
     return false;
   }
@@ -1793,6 +1794,47 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
+      @Nullable final AspectSpec aspectSpec,
+      @Nonnull final MetadataChangeLog metadataChangeLog,
+      boolean forcePreProcessHooks) {
+    Future<?> future = producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
+    return Pair.of(future, preprocessEvent(opContext, metadataChangeLog, forcePreProcessHooks));
+  }
+
+  @Override
+  public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate oldAspectValue,
+      @Nullable final RecordTemplate newAspectValue,
+      @Nullable final SystemMetadata oldSystemMetadata,
+      @Nullable final SystemMetadata newSystemMetadata,
+      @Nonnull AuditStamp auditStamp,
+      @Nonnull final ChangeType changeType,
+      boolean forcePreProcessHooks) {
+    final MetadataChangeLog metadataChangeLog =
+        constructMCL(
+            null,
+            entityName,
+            urn,
+            changeType,
+            aspectName,
+            auditStamp,
+            newAspectValue,
+            newSystemMetadata,
+            oldAspectValue,
+            oldSystemMetadata);
+    return alwaysProduceMCLAsync(
+        opContext, urn, aspectSpec, metadataChangeLog, forcePreProcessHooks);
+  }
+
+  @Override
+  public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable final AspectSpec aspectSpec,
@@ -2045,7 +2087,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       String runId,
       boolean hardDelete) {
     return rollbackWithConditions(
-        opContext, aspectRows, Collections.singletonMap("runId", runId), hardDelete);
+        opContext, aspectRows, Collections.singletonMap("runId", runId), hardDelete, false);
   }
 
   @Override
@@ -2053,7 +2095,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete) {
+      boolean hardDelete,
+      boolean preProcessHooks) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     List<RollbackResult> removedAspectResults = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);

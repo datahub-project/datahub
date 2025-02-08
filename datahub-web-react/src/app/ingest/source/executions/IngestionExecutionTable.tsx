@@ -1,8 +1,9 @@
 import React from 'react';
 import { Empty, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { StyledTable } from '../../../entity/shared/components/styled/StyledTable';
-import { ExecutionRequest } from '../../../../types.generated';
+import { EntityType, ExecutionRequest } from '../../../../types.generated';
 import { ButtonsColumn, SourceColumn, StatusColumn, TimeColumn } from './IngestionExecutionTableColumns';
 import { SUCCESS, getIngestionSourceStatus } from '../utils';
 import { formatDuration } from '../../../shared/formatDuration';
@@ -54,6 +55,7 @@ export default function IngestionExecutionTable({
     lastResultIndex,
     page,
 }: Props) {
+    const entityRegistry = useEntityRegistry();
     const tableColumns = [
         {
             title: 'Requested At',
@@ -85,8 +87,18 @@ export default function IngestionExecutionTable({
             title: 'Source',
             dataIndex: 'source',
             key: 'source',
-            render: SourceColumn,
+            render: (_, record: any) => (
+                <SourceColumn
+                    source={record.source}
+                    actor={{
+                        actorUrn: record.actorUrn,
+                        displayName: record?.actorUrn?.split(':')?.slice(-1)?.[0] || '',
+                        displayUrl: entityRegistry.getEntityUrl(EntityType.CorpUser, record.actorUrn),
+                    }}
+                />
+            ),
         },
+
         {
             title: '',
             dataIndex: '',
@@ -107,6 +119,7 @@ export default function IngestionExecutionTable({
 
     const tableData = executionRequests.map((execution) => ({
         urn: execution.urn,
+        actorUrn: execution.input.actorUrn,
         id: execution.id,
         source: execution.input.source.type,
         requestedAt: execution.input?.requestedAt,

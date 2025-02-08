@@ -3,11 +3,11 @@ import { YAccessor } from '../types';
 
 export const DEFAULT_MIN_VALUE = 0.1;
 
-export default function useAdaptYAccessorToZeroValue<T>(
-    yAccessor: YAccessor<T>,
+export default function useAdaptYAccessorToZeroValue(
+    yAccessor: YAccessor,
     maxDataValue: number,
     minimalValue: number | undefined,
-): YAccessor<T> {
+): YAccessor {
     return useMemo(() => {
         // Data contains non zero values, skip adaptation
         if (maxDataValue > 0) return yAccessor;

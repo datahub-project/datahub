@@ -3,6 +3,7 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { AssertionType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
@@ -14,7 +15,7 @@ import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 import NoPermission from '../NoPermission';
-import useRowCountData from './useRowCountData';
+import useRowCountData, { RowCountData } from './useRowCountData';
 
 export default function RowCountGraph() {
     const {
@@ -55,7 +56,6 @@ export default function RowCountGraph() {
             emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
             loading={loading}
             graphHeight="290px"
-            width="70%"
             renderControls={() => (
                 <>
                     <AddAssertionButton assertionType={AssertionType.Volume} />
@@ -71,15 +71,13 @@ export default function RowCountGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    xAccessor={(d) => d.time}
-                    yAccessor={(d) => d.value}
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true }}
-                    popoverRenderer={(datum) => (
+                    popoverRenderer={(datum: RowCountData) => (
                         <GraphPopover
-                            header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
-                            value={`${datum.value} ${pluralize(datum.value, 'Row')}`}
+                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Row')}`}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}

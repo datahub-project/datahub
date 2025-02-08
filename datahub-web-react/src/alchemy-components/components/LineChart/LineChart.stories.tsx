@@ -23,12 +23,6 @@ const meta = {
         data: {
             description: 'Array of datum to show',
         },
-        xAccessor: {
-            description: 'A function to convert datum to value of X',
-        },
-        yAccessor: {
-            description: 'A function to convert datum to value of Y',
-        },
         maxYDomainForZeroData: {
             description:
                 'For the case where the data has only zero values, you can set the yScale domain to better display the chart',
@@ -57,8 +51,14 @@ const meta = {
         leftAxisProps: {
             description: 'The props for the left axis',
         },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
+        },
         bottomAxisProps: {
             description: 'The props for the bottom axis',
+        },
+        showBottomAxisLine: {
+            description: 'Enable to show bottom horizontal line',
         },
         gridProps: {
             description: 'The props for the grid',
@@ -71,6 +71,15 @@ const meta = {
         },
         renderTooltipGlyph: {
             description: 'A function to render a glyph',
+        },
+        showGlyphOnSingleDataPoint: {
+            description: 'Whether to show the glyph when there is only one data point',
+            control: {
+                type: 'boolean',
+            },
+        },
+        renderGlyphOnSingleDataPoint: {
+            description: 'A function to render a glyph for a single data point',
         },
     },
 

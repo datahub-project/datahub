@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import styled from 'styled-components';
 
 import { InputProps } from './types';
 
@@ -24,6 +25,10 @@ export const inputDefaults: InputProps = {
     errorOnHover: false,
     type: 'text',
 };
+
+const SearchIcon = styled(Icon)`
+    margin-left: 8px;
+`;
 
 export const Input = ({
     value = inputDefaults.value,
@@ -54,6 +59,7 @@ export const Input = ({
 
     // Input base props
     const inputBaseProps = {
+        type,
         label,
         isSuccess,
         error,
@@ -70,7 +76,7 @@ export const Input = ({
                 </Label>
             )}
             <InputContainer {...inputBaseProps}>
-                {icon && <Icon icon={icon} size="lg" />}
+                {icon && <SearchIcon icon={icon.name} source={icon.source} variant={icon.variant} size="xl" />}
                 <InputField
                     value={value}
                     onChange={(e) => setValue?.(e.target.value)}
@@ -80,6 +86,7 @@ export const Input = ({
                     disabled={isDisabled}
                     required={isRequired}
                     id={id}
+                    style={{ paddingLeft: icon ? '8px' : '' }}
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>

@@ -20,7 +20,7 @@ const FlexRow = styled.div`
 `;
 
 const Controls = styled(FlexRow)`
-    justify-content: flex-end;
+    justify-content: flex-start;
 `;
 
 const ControlWrapper = styled.div`
@@ -86,9 +86,12 @@ export const ChangeHistoryDrawer = ({
     const initialSelectedUsers = useMemo(() => usersSelectOptions.map((option) => option.value), [usersSelectOptions]);
 
     return (
-        <Drawer title="Change History Details" open={open} onClose={onClose} maskTransparent>
+        <Drawer title="Change History Details" open={open} onClose={onClose} width={542} maskTransparent>
             <DrawerContent>
                 <Controls>
+                    <ControlWrapper>
+                        <DateSwitcher value={selectedDate} setValue={(v) => setSelectedDate?.(v)} />
+                    </ControlWrapper>
                     <ControlWrapper>
                         <UsersSelect
                             options={usersSelectOptions}
@@ -107,9 +110,6 @@ export const ChangeHistoryDrawer = ({
                             onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
                             loading={loading}
                         />
-                    </ControlWrapper>
-                    <ControlWrapper>
-                        <DateSwitcher value={selectedDate} setValue={(v) => setSelectedDate?.(v)} />
                     </ControlWrapper>
                 </Controls>
 

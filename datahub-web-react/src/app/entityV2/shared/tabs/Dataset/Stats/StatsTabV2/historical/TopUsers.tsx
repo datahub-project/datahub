@@ -14,7 +14,12 @@ import { getMockTopUsersData, getUserOrGroupAvatarUrl, SectionKeys } from '../ut
 
 const CardWrapper = styled.div`
     display: flex;
-    width: 30%;
+    min-width: 30%;
+
+    @media screen and (max-width: 2300px) {
+        // align with highlights cards (1255 + 8px gap)
+        width: calc(100% - 1233px);
+    }
 `;
 
 interface Props {

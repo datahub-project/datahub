@@ -6,6 +6,7 @@ import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS } from './constant';
+import { useSetFilterFromURLParams } from './hooks';
 
 interface FilterItem {
     name: string;
@@ -103,6 +104,9 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         setSelectedGroupBy(filter.groupBy);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter, filterOptions]);
+
+    // set the filter if there is any url filter object presents
+    useSetFilterFromURLParams(filter, setFilters);
 
     return (
         <>

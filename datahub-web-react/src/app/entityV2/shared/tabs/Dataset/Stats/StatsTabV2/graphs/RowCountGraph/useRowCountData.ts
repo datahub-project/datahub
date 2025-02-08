@@ -2,10 +2,20 @@ import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/ut
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 import { useEffect, useMemo, useState } from 'react';
+import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
-export default function useRowCountData(urn: string | undefined, lookbackWindow) {
+export interface RowCountData extends Datum {
+    mom?: number | null;
+}
+
+interface Response {
+    data: RowCountData[];
+    loading: boolean;
+}
+
+export default function useRowCountData(urn: string | undefined, lookbackWindow): Response {
     const {
         permissions: { canViewDatasetProfile },
     } = useStatsSectionsContext();
@@ -41,10 +51,12 @@ export default function useRowCountData(urn: string | undefined, lookbackWindow)
             (values) => Math.max(...values),
         );
 
+        const convertedData = groupedData.map((datum) => ({ x: datum.time, y: datum.value }));
+
         return addMonthOverMonthValue(
-            groupedData,
-            (d) => d.time,
-            (d) => d.value,
+            convertedData,
+            (d) => d.x,
+            (d) => d.y,
         );
     }, [rawData]);
 

@@ -1,5 +1,5 @@
 import { GraphCard, LineChart } from '@components';
-import { formatBytes } from '@src/app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
@@ -12,7 +12,7 @@ import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 import NoPermission from '../NoPermission';
-import useStorageSizeData from './useStorageSizeData';
+import useStorageSizeData, { StorageSizeData } from './useStorageSizeData';
 import { SectionKeys } from '../../utils';
 
 export default function StorageSizeGraph() {
@@ -48,8 +48,8 @@ export default function StorageSizeGraph() {
     }, [rangeType, setLookbackWindow]);
 
     const bytesFormatter = (num: number) => {
-        const formattedBytes = formatBytes(num);
-        return `${formattedBytes.number} ${formattedBytes.unit}`;
+        const formattedBytes = formatBytes(num, 2, 'B');
+        return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
     };
 
     return (
@@ -72,15 +72,13 @@ export default function StorageSizeGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    xAccessor={(d) => d.time}
-                    yAccessor={(d) => d.value}
                     yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
-                    popoverRenderer={(datum) => (
+                    popoverRenderer={(datum: StorageSizeData) => (
                         <GraphPopover
-                            header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
-                            value={bytesFormatter(datum.value)}
+                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            value={bytesFormatter(datum.y)}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}

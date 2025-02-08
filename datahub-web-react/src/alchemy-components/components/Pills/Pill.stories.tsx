@@ -1,3 +1,5 @@
+import { PillProps } from '@components/components/Pills/types';
+import { ColorValues, getSizeName, PillVariantValues, SizeValues } from '@components/theme/config';
 import React from 'react';
 
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
@@ -5,9 +7,16 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { AVAILABLE_ICONS } from '../Icon';
-import { Pill, pillDefault } from './Pill';
+import { Pill, SUPPORTED_CONFIGURATIONS } from './Pill';
 
-const meta = {
+const defaults: PillProps = {
+    label: 'Label',
+    size: 'md',
+    variant: 'filled',
+    clickable: true,
+};
+
+const meta: Meta = {
     title: 'Components / Pill',
     component: Pill,
 
@@ -25,7 +34,7 @@ const meta = {
         label: {
             description: 'Label for the Pill.',
             table: {
-                defaultValue: { summary: pillDefault.label },
+                defaultValue: { summary: defaults.label },
             },
             control: {
                 type: 'text',
@@ -49,9 +58,9 @@ const meta = {
         },
         size: {
             description: 'The size of the pill.',
-            options: ['sm', 'md', 'lg', 'xl'],
+            options: Object.values(SizeValues),
             table: {
-                defaultValue: { summary: pillDefault.size },
+                defaultValue: { summary: defaults.size },
             },
             control: {
                 type: 'select',
@@ -59,19 +68,19 @@ const meta = {
         },
         variant: {
             description: 'The size of the Pill.',
-            options: ['filled', 'outline'],
+            options: Object.values(PillVariantValues),
             table: {
-                defaultValue: { summary: pillDefault.variant },
+                defaultValue: { summary: defaults.variant },
             },
             control: {
                 type: 'select',
             },
         },
-        colorScheme: {
+        color: {
             description: 'The color of the Pill.',
-            options: ['violet', 'green', 'red', 'blue', 'gray'],
+            options: Object.values(ColorValues),
             table: {
-                defaultValue: { summary: pillDefault.color },
+                defaultValue: { summary: defaults.color },
             },
             control: {
                 type: 'select',
@@ -81,11 +90,11 @@ const meta = {
 
     // Define defaults
     args: {
-        label: pillDefault.label,
-        leftIcon: pillDefault.leftIcon,
-        rightIcon: pillDefault.rightIcon,
-        size: pillDefault.size,
-        variant: pillDefault.variant,
+        label: defaults.label,
+        leftIcon: defaults.leftIcon,
+        rightIcon: defaults.rightIcon,
+        size: defaults.size,
+        variant: defaults.variant,
     },
 } satisfies Meta<typeof Pill>;
 
@@ -95,25 +104,41 @@ type Story = StoryObj<typeof meta>;
 
 export const sandbox: Story = {
     tags: ['dev'],
-    render: (props) => <Pill {...props} />,
+    render: (props) => <Pill label={defaults.label} {...props} />,
 };
 
 export const sizes = () => (
     <GridList>
         <Pill label="Default" />
-        <Pill label="small" size="sm" />
-        <Pill label="large" size="lg" />
+        {Object.values(SizeValues).map((size) => (
+            <Pill key={size} label={getSizeName(size)} size={size} />
+        ))}
     </GridList>
 );
 
-export const colors = () => (
+export const filled = () => (
     <GridList>
-        <Pill label="Default" />
-        <Pill label="Violet" colorScheme="violet" />
-        <Pill label="Green" colorScheme="green" />
-        <Pill label="Red" colorScheme="red" />
-        <Pill label="Blue" colorScheme="blue" />
-        <Pill label="Gray" colorScheme="gray" />
+        <Pill label="Default" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.filled].map((color) => (
+            <Pill key={color} label={color} color={color} clickable />
+        ))}
+    </GridList>
+);
+
+export const outline = () => (
+    <GridList>
+        <Pill label="Default" variant="outline" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.outline].map((color) => (
+            <Pill key={color} label={color} color={color} variant="outline" clickable />
+        ))}
+    </GridList>
+);
+
+export const versionPills = () => (
+    <GridList>
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.version].map((color) => (
+            <Pill key={color} label={color} color={color} variant="version" clickable />
+        ))}
     </GridList>
 );
 

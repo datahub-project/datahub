@@ -62,6 +62,7 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -1175,6 +1176,28 @@ public class FormService extends BaseService {
   private MetadataChangeProposal buildAssignFormChange(
       @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn)
       throws Exception {
+
+    final EntityResponse response =
+        entityClient.getV2(
+            opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(FORMS_ASPECT_NAME));
+
+    Forms formsAspect = new Forms();
+    formsAspect.setIncompleteForms(new FormAssociationArray());
+    formsAspect.setCompletedForms(new FormAssociationArray());
+    if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
+      formsAspect = new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data());
+    }
+
+    // if this form is already assigned to this entity, leave it and move on
+    Optional<FormAssociation> formAssociation =
+        Stream.concat(
+                formsAspect.getCompletedForms().stream(), formsAspect.getIncompleteForms().stream())
+            .filter(form -> form.getUrn().equals(formUrn))
+            .findAny();
+
+    if (formAssociation.isPresent()) {
+      return null;
+    }
 
     // add this form to the entity's incomplete form associations.
     FormAssociation newAssociation = new FormAssociation();

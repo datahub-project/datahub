@@ -22,9 +22,10 @@ export const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor'
         ...commonLabelProps,
         textAnchor: 'end',
     },
+    showLeftAxisLine: false,
     bottomAxisLabelProps: {
         ...commonLabelProps,
-        textAnchor: 'middle',
+        textAnchor: 'start',
     },
     maxHeight: 350,
     showPopover: true,
@@ -38,6 +39,7 @@ export function CalendarChart<ValueType = any>({
     showPopover = calendarChartDefault.showPopover,
     popoverRenderer,
     leftAxisLabelProps = calendarChartDefault.leftAxisLabelProps,
+    showLeftAxisLine = calendarChartDefault.showLeftAxisLine,
     bottomAxisLabelProps = calendarChartDefault.bottomAxisLabelProps,
     margin,
     maxHeight = calendarChartDefault.maxHeight,
@@ -66,7 +68,10 @@ export function CalendarChart<ValueType = any>({
                             onDayClick={onDayClick}
                         >
                             <CalendarContainer>
-                                <AxisLeftWeekdays<ValueType> labelProps={leftAxisLabelProps} />
+                                <AxisLeftWeekdays<ValueType>
+                                    labelProps={leftAxisLabelProps}
+                                    showLeftAxisLine={showLeftAxisLine}
+                                />
                                 <AxisBottomMonths<ValueType> labelProps={bottomAxisLabelProps} />
 
                                 <Calendar<ValueType> data={preparedData} />

@@ -27,6 +27,14 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
                 median
                 stdev
                 sampleValues
+                quantiles {
+                    quantile
+                    value
+                }
+                distinctValueFrequencies {
+                    value
+                    frequency
+                }
             }
         }
     }

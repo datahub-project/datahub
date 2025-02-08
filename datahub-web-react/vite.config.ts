@@ -5,30 +5,51 @@ import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+const injectMeticulous = () => {
+    return {
+        name: 'inject-meticulous',
+        transformIndexHtml: {
+            transform(html) {
+                const scriptTag = `
+                    <script
+                        data-recording-token=${process.env.REACT_APP_METICULOUS_PROJECT_TOKEN}
+                        src="https://snippet.meticulous.ai/v1/meticulous.js">
+                    </script>
+                `;
+
+                return html.replace('</head>', `${scriptTag}\n</head>`);
+            },
+        },
+    };
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-	// Via https://stackoverflow.com/a/66389044.
-	const env = loadEnv(mode, process.cwd(), '');
-	process.env = { ...process.env, ...env };
+    // Via https://stackoverflow.com/a/66389044.
+    const env = loadEnv(mode, process.cwd(), '');
+    process.env = { ...process.env, ...env };
 
-	// eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-	const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
+    // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+    const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
 
-	// Setup proxy to the datahub-frontend service.
-	const frontendProxy = {
-		target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
-		changeOrigin: true,
-	};
-	const proxyOptions = {
-		'/logIn': frontendProxy,
-		'/authenticate': frontendProxy,
-		'/api/v2/graphql': frontendProxy,
-		'/track': frontendProxy,
-	};
+    // Setup proxy to the datahub-frontend service.
+    const frontendProxy = {
+        target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
+        changeOrigin: true,
+    };
+    const proxyOptions = {
+        '/logIn': frontendProxy,
+        '/authenticate': frontendProxy,
+        '/api/v2/graphql': frontendProxy,
+        '/track': frontendProxy,
+    };
+
+    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
 
     return {
         appType: 'spa',
         plugins: [
+            ...devPlugins,
             react(),
             svgr(),
             macrosPlugin(),
@@ -98,8 +119,8 @@ export default defineConfig(({ mode }) => {
             // reporters: ['verbose'],
             coverage: {
                 enabled: true,
-				provider: 'v8',
-				reporter: ['text', 'json', 'html'],
+                provider: 'v8',
+                reporter: ['text', 'json', 'html'],
                 include: ['src/**/*'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],

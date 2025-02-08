@@ -1,53 +1,59 @@
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import React, { useCallback, useContext, useState } from 'react';
-import { Alert } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
+import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
+import LineageGraph from '@app/lineageV2/LineageGraph';
 import useEntityState from '@src/app/entity/shared/useEntityState';
-import styled from 'styled-components/macro';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Alert } from 'antd';
+import React, { useCallback, useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import styled from 'styled-components/macro';
+import { PageRoutes } from '../../../../../conf/Global';
 
 import { EntityType, Exact } from '../../../../../types.generated';
+import analytics, { EventType } from '../../../../analytics';
+import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
+import { EntityContext } from '../../../../entity/shared/EntityContext';
+import {
+    DrawerType,
+    EntitySubHeaderSection,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../../../entity/shared/types';
+import LineageExplorer from '../../../../lineage/LineageExplorer';
+import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
+    LINEAGE_GRAPH_INTRO_ID,
+    LINEAGE_GRAPH_TIME_FILTER_ID,
+} from '../../../../onboarding/config/LineageGraphOnboardingConfig';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
+import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
+import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
+import CompactContext from '../../../../shared/CompactContext';
+import { EntityHead } from '../../../../shared/EntityHead';
+import { ErrorSection } from '../../../../shared/error/ErrorSection';
+import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
+import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EntityActionItem } from '../../entity/EntityActions';
+import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
+import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
+import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
+import { EntityHeader } from './header/EntityHeader';
+import { EntityTabs } from './header/EntityTabs';
+import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
+import useGetDataForProfile from './useGetDataForProfile';
+import {
+    defaultTabDisplayConfig,
     getEntityPath,
     getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
-    defaultTabDisplayConfig,
 } from './utils';
-import { EntityHeader } from './header/EntityHeader';
-import { EntityTabs } from './header/EntityTabs';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import CompactContext from '../../../../shared/CompactContext';
-import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
-import analytics, { EventType } from '../../../../analytics';
-import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
-import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
-import { EntityActionItem } from '../../entity/EntityActions';
-import { ErrorSection } from '../../../../shared/error/ErrorSection';
-import { EntityHead } from '../../../../shared/EntityHead';
-import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
-import useGetDataForProfile from './useGetDataForProfile';
-import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
-import {
-    LINEAGE_GRAPH_INTRO_ID,
-    LINEAGE_GRAPH_TIME_FILTER_ID,
-} from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
-import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
-import { PageRoutes } from '../../../../../conf/Global';
-import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
-import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
-import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
-import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
-import { EntityContext } from '../../../../entity/shared/EntityContext';
-import { EntitySubHeaderSection, GenericEntityProperties, GenericEntityUpdate } from '../../../../entity/shared/types';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
 
 type Props<T, U> = {
     urn: string;
@@ -212,6 +218,7 @@ export const EntityProfile = <T, U>({
     const [showAlert, setShowAlert] = useState(true);
     const entityState = useEntityState();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [drawer, setDrawer] = useState<DrawerType | undefined>(undefined);
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
@@ -353,6 +360,7 @@ export const EntityProfile = <T, U>({
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
                 entityState,
+                setDrawer,
             }}
         >
             {entityData?.status?.removed && (
@@ -423,6 +431,12 @@ export const EntityProfile = <T, U>({
                     </ContentContainer>
                 )}
             </Wrapper>
+            {!!entityData?.versionProperties?.versionSet && (
+                <VersionsDrawer
+                    versionSetUrn={entityData.versionProperties?.versionSet.urn}
+                    open={drawer === DrawerType.VERSIONS}
+                />
+            )}
         </EntityContext.Provider>
     );
 };

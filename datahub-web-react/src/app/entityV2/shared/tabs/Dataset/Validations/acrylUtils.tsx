@@ -25,6 +25,7 @@ import {
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
 import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { toProperTitleCase } from '../../../utils';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -148,7 +149,7 @@ ASSERTION_INFO.forEach((info) => {
 });
 
 export const getAssertionGroupName = (type: string): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
 };
 
 export const getAssertionGroupTypeIcon = (type: string) => {

@@ -1,9 +1,19 @@
+import { ColorValues, FontSizeValues } from '@components/theme/config';
 import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { Icon, iconDefaults, AVAILABLE_ICONS } from '.';
+import { Icon, iconDefaults, AVAILABLE_ICONS, IconProps } from '.';
+
+const storyMaterialDefaults: Pick<IconProps, 'icon' | 'source'> = {
+    icon: 'AccountCircle',
+    source: 'material',
+};
+const storyDefaults: Pick<IconProps, 'icon' | 'source'> = {
+    icon: 'Activity',
+    source: 'phosphor',
+};
 
 // Auto Docs
 const meta = {
@@ -71,7 +81,8 @@ const meta = {
 
     // Define defaults for required args
     args: {
-        icon: iconDefaults.icon,
+        icon: 'Activity',
+        source: 'phosphor',
     },
 } satisfies Meta<typeof Icon>;
 
@@ -97,28 +108,33 @@ export const filled = () => (
 );
 
 export const sizes = () => (
-    <GridList>
-        <Icon icon={iconDefaults.icon} size="xs" />
-        <Icon icon={iconDefaults.icon} size="sm" />
-        <Icon icon={iconDefaults.icon} size="md" />
-        <Icon icon={iconDefaults.icon} size="lg" />
-        <Icon icon={iconDefaults.icon} size="xl" />
-        <Icon icon={iconDefaults.icon} size="2xl" />
-        <Icon icon={iconDefaults.icon} size="3xl" />
-        <Icon icon={iconDefaults.icon} size="4xl" />
-    </GridList>
+    <>
+        <GridList>
+            {Object.values(FontSizeValues).map((size) => (
+                <Icon key={size} {...storyDefaults} size={size} />
+            ))}
+        </GridList>
+        <GridList>
+            {Object.values(FontSizeValues).map((size) => (
+                <Icon key={size} {...storyMaterialDefaults} size={size} />
+            ))}
+        </GridList>
+    </>
 );
 
 export const colors = () => (
-    <GridList>
-        <Icon icon={iconDefaults.icon} color="white" />
-        <Icon icon={iconDefaults.icon} color="black" />
-        <Icon icon={iconDefaults.icon} color="violet" />
-        <Icon icon={iconDefaults.icon} color="green" />
-        <Icon icon={iconDefaults.icon} color="red" />
-        <Icon icon={iconDefaults.icon} color="blue" />
-        <Icon icon={iconDefaults.icon} color="gray" />
-    </GridList>
+    <>
+        <GridList>
+            {Object.values(ColorValues).map((color) => (
+                <Icon key={color} {...storyDefaults} color={color} />
+            ))}
+        </GridList>
+        <GridList>
+            {Object.values(ColorValues).map((color) => (
+                <Icon key={color} {...storyMaterialDefaults} color={color} />
+            ))}
+        </GridList>
+    </>
 );
 
 export const rotation = () => (

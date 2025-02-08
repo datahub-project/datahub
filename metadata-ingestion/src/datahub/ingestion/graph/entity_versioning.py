@@ -1,7 +1,7 @@
 import uuid
-from typing import Optional
+from typing import Dict, Optional, Protocol, Type
 
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.emitter.mce_builder import Aspect
 from datahub.metadata.schema_classes import (
     VersionPropertiesClass,
     VersionSetPropertiesClass,
@@ -10,16 +10,39 @@ from datahub.metadata.urns import VersionSetUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
 
-class EntityVersioningAPI(DataHubGraph):
+class DataHubGraphProtocol(Protocol):
+    def execute_graphql(
+        self,
+        query: str,
+        variables: Optional[Dict],
+        operation_name: Optional[str] = None,
+        format_exception: bool = True,
+    ) -> Dict:
+        ...
+
+    def get_aspect(
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        version: int = 0,
+    ) -> Optional[Aspect]:
+        ...
+
+
+class EntityVersioningAPI(DataHubGraphProtocol):
     LINK_VERSION_MUTATION = """
         mutation($input: LinkVersionInput!) {
-            linkAssetVersion(input: $input)
+            linkAssetVersion(input: $input) {
+                urn
+            }
         }
     """
 
     UNLINK_VERSION_MUTATION = """
         mutation($input: UnlinkVersionInput!) {
-            unlinkAssetVersion(input: $input)
+            unlinkAssetVersion(input: $input) {
+                urn
+            }
         }
     """
 
@@ -30,9 +53,8 @@ class EntityVersioningAPI(DataHubGraph):
         label: str,
         *,
         comment: Optional[str] = None,
-    ) -> str:
+    ) -> Optional[str]:
         """Sets an entity as the latest version of a version set.
-
         Can also be used to create a new version set, with `asset_urn` as the first version.
 
         Args:
@@ -42,7 +64,8 @@ class EntityVersioningAPI(DataHubGraph):
             comment: Comment about the version.
 
         Returns:
-            URN of the version set to which `asset_urn` was linked.
+            URN of the version set to which `asset_urn` was linked,
+            or None if the `asset_urn` was already linked to `version_set_urn`.
         """
 
         entity_type = guess_entity_type(asset_urn)
@@ -52,10 +75,13 @@ class EntityVersioningAPI(DataHubGraph):
             raise ValueError(f"Expected version set URN, got {version_set_urn}")
 
         entity_version = self.get_aspect(asset_urn, VersionPropertiesClass)
-        if entity_version:
-            raise ValueError(
-                f"Asset {asset_urn} is already a version of {entity_version.versionSet}"
-            )
+        if entity_version and entity_version.versionSet:
+            if entity_version.versionSet == version_set_urn:
+                return None
+            else:
+                raise ValueError(
+                    f"Asset {asset_urn} is already a version of {entity_version.versionSet}"
+                )
 
         variables = {
             "input": {
@@ -65,8 +91,11 @@ class EntityVersioningAPI(DataHubGraph):
                 "comment": comment,
             }
         }
-        self.execute_graphql(self.LINK_VERSION_MUTATION, variables)
-        return version_set_urn
+        response = self.execute_graphql(self.LINK_VERSION_MUTATION, variables)
+        try:
+            return response["linkAssetVersion"]["urn"]
+        except KeyError:
+            raise ValueError(f"Unexpected response: {response}")
 
     def link_asset_to_versioned_asset(
         self,
@@ -75,7 +104,7 @@ class EntityVersioningAPI(DataHubGraph):
         label: str,
         *,
         comment: Optional[str] = None,
-    ) -> str:
+    ) -> Optional[str]:
         """Sets an entity as the latest version of an existing versioned entity.
 
         Args:
@@ -85,7 +114,8 @@ class EntityVersioningAPI(DataHubGraph):
             comment: Comment about the version.
 
         Returns:
-            URN of the version set to which `new_asset_urn` was linked.
+            URN of the version set to which `new_asset_urn` was linked,
+            or None if the `new_asset_urn` was already linked to `old_asset_urn`.
         """
 
         new_entity_type = guess_entity_type(new_asset_urn)
@@ -95,20 +125,22 @@ class EntityVersioningAPI(DataHubGraph):
                 f"Expected URNs of the same type, got {new_entity_type} and {old_entity_type}"
             )
 
-        new_entity_version = self.get_aspect(new_asset_urn, VersionPropertiesClass)
-        if new_entity_version:
-            raise ValueError(
-                f"Asset {new_asset_urn} is already a version of {new_entity_version.versionSet}"
-            )
         old_entity_version = self.get_aspect(old_asset_urn, VersionPropertiesClass)
         if not old_entity_version:
             raise ValueError(f"Asset {old_asset_urn} is not versioned")
 
-        version_set_urn = old_entity_version.versionSet
-        self.link_asset_to_version_set(
-            new_asset_urn, version_set_urn, label, comment=comment
+        new_entity_version = self.get_aspect(new_asset_urn, VersionPropertiesClass)
+        if new_entity_version:
+            if new_entity_version.versionSet == old_entity_version.versionSet:
+                return None
+            else:
+                raise ValueError(
+                    f"Asset {new_asset_urn} is already a version of {new_entity_version.versionSet}"
+                )
+
+        return self.link_asset_to_version_set(
+            new_asset_urn, old_entity_version.versionSet, label, comment=comment
         )
-        return version_set_urn
 
     def unlink_asset_from_version_set(self, asset_urn: str) -> Optional[str]:
         """Unlinks an entity from its version set.
@@ -117,12 +149,13 @@ class EntityVersioningAPI(DataHubGraph):
             asset_urn: URN of the entity to unlink from its version set.
 
         Returns:
-            If successful, the URN of the version set from which `asset_urn` was unlinked.
+            If successful, the URN of the version set from which `asset_urn` was unlinked,
+            or None if `asset_urn` was not linked to any version set.
         """
 
         entity_version = self.get_aspect(asset_urn, VersionPropertiesClass)
         if not entity_version:
-            raise ValueError(f"Asset {asset_urn} is not versioned")
+            return None
 
         variables = {
             "input": {
@@ -130,10 +163,11 @@ class EntityVersioningAPI(DataHubGraph):
                 "unlinkedEntity": asset_urn,
             }
         }
-        if self.execute_graphql(self.UNLINK_VERSION_MUTATION, variables):
-            return entity_version.versionSet
-        else:
-            return None
+        response = self.execute_graphql(self.UNLINK_VERSION_MUTATION, variables)
+        try:
+            return response["unlinkAssetVersion"]["urn"]
+        except KeyError:
+            raise ValueError(f"Unexpected response: {response}")
 
     def unlink_latest_asset_from_version_set(
         self, version_set_urn: str
@@ -144,7 +178,8 @@ class EntityVersioningAPI(DataHubGraph):
             version_set_urn: URN of the version set.
 
         Returns:
-            If successful, the URN of the entity that was unlinked from `version_set_urn`.
+            If successful, the URN of the entity that was unlinked from `version_set_urn`,
+            or None if no entity was unlinked.
         """
 
         version_set_properties = self.get_aspect(
@@ -161,7 +196,8 @@ class EntityVersioningAPI(DataHubGraph):
                 "unlinkedEntity": version_set_properties.latest,
             }
         }
-        if self.execute_graphql(self.UNLINK_VERSION_MUTATION, variables):
-            return version_set_properties.latest
-        else:
-            return None
+        response = self.execute_graphql(self.UNLINK_VERSION_MUTATION, variables)
+        try:
+            return response["unlinkAssetVersion"]["urn"]
+        except KeyError:
+            raise ValueError(f"Unexpected response: {response}")

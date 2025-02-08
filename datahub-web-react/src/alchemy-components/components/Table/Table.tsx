@@ -126,11 +126,12 @@ export const Table = <T,>({
                     {sortedData.map((row: any, index) => {
                         const isExpanded = expandable?.expandedRowKeys?.includes(row?.name); // Check if row is expanded
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
-
+                        const rowKey = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
                         return (
                             <>
                                 {/* Render the main row */}
                                 <TableRow
+                                    key={rowKey}
                                     canExpand={canExpand}
                                     onClick={() => {
                                         if (canExpand) onExpand?.(row); // Handle row expansion

@@ -67,8 +67,10 @@ const PreviewCardFooterRightSection = ({
                 {showLineageBadge && (
                     <>
                         <LineageBadge
-                            upstreamTotal={previewData?.upstream?.total}
-                            downstreamTotal={previewData?.downstream?.total}
+                            upstreamTotal={(previewData?.upstream?.total || 0) - (previewData?.upstream?.filtered || 0)}
+                            downstreamTotal={
+                                (previewData?.downstream?.total || 0) - (previewData?.downstream?.filtered || 0)
+                            }
                             entityRegistry={entityRegistry}
                             entityType={entityType}
                             urn={urn}

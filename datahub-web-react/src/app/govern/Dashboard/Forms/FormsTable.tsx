@@ -238,7 +238,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                     <StatusContainer data-testid={`${record.entity.urn}-status-${status.toLowerCase()}`}>
                         <Pill
                             label={status.charAt(0) + status.slice(1).toLowerCase()}
-                            colorScheme={colorScheme}
+                            color={colorScheme}
                             clickable={false}
                         />
                     </StatusContainer>

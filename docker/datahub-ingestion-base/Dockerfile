@@ -50,6 +50,7 @@ RUN apt-get update && apt-get upgrade -y \
     ldap-utils \
     unixodbc \
     libodbc2 \
+    vim \
     && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/

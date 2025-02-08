@@ -16,7 +16,6 @@ import { AssertionTable, AssertionListFilter, EntityStagedForAssertion } from '.
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
-import { useSetFilterFromURLParams } from './hooks';
 import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
 import { useOpenAssertionBuilder } from '../assertion/builder/hooks';
 
@@ -37,7 +36,6 @@ export const AcrylAssertionList = () => {
     });
     // TODO we need to create setter function to set the filter as per the filter component
     const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
-    useSetFilterFromURLParams(filter, setFilters);
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 

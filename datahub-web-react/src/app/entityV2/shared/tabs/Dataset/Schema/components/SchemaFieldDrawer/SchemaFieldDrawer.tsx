@@ -22,7 +22,7 @@ import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
 import { SchemaFieldDrawerTabs, TABS_WIDTH } from './SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from './StatsSidebarView';
+import StatsTabWrapper from './StatsTabWrapper';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -202,7 +202,7 @@ export default function SchemaFieldDrawer({
         {
             name: 'Statistics',
             icon: QueryStatsOutlinedIcon,
-            component: StatsSidebarView,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,
@@ -238,6 +238,7 @@ export default function SchemaFieldDrawer({
         <>
             {!openTimelineDrawer && (
                 <StyledDrawer
+                    push={false}
                     open={!!expandedDrawerFieldPath}
                     onClose={() => setExpandedDrawerFieldPath(null)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}

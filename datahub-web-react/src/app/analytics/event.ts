@@ -159,6 +159,9 @@ export enum EventType {
     ProposeStructuredPropertiesMutation,
     ProposeDomainMutation,
     ProposeOwnersMutation,
+    LinkAssetVersionEvent,
+    UnlinkAssetVersionEvent,
+    ShowAllVersionsEvent,
 }
 
 /**
@@ -1157,6 +1160,30 @@ export interface SSOConfigurationEvent extends BaseEvent {
     isAdvancedVisible?: boolean; // true if advanced section is opened when user is hitting save
 }
 
+export interface LinkAssetVersionEvent extends BaseEvent {
+    type: EventType.LinkAssetVersionEvent;
+    newAssetUrn: string;
+    oldAssetUrn?: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface UnlinkAssetVersionEvent extends BaseEvent {
+    type: EventType.UnlinkAssetVersionEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface ShowAllVersionsEvent extends BaseEvent {
+    type: EventType.ShowAllVersionsEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+    numVersions?: number;
+    uiLocation: 'preview' | 'more-options';
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1288,7 +1315,11 @@ export type Event =
     | ApplyStructuredPropertyEvent
     | UpdateStructuredPropertyOnAssetEvent
     | RemoveStructuredPropertyEvent
+    | ProposeStructuredPropertyEvent
     | SSOConfigurationEvent
     | ProposeStructuredPropertyEvent
     | ProposeDomainEvent
-    | ProposeOwnersEvent;
+    | ProposeOwnersEvent
+    | LinkAssetVersionEvent
+    | UnlinkAssetVersionEvent
+    | ShowAllVersionsEvent;

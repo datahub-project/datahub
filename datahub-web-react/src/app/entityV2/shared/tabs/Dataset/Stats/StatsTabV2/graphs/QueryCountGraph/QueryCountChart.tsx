@@ -2,6 +2,7 @@ import { BarChart, GraphCard } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
+import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
@@ -11,7 +12,7 @@ import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import NoPermission from '../NoPermission';
 import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
-import useQueryCountData from './useQueryCountData';
+import useQueryCountData, { ChartData } from './useQueryCountData';
 import { SectionKeys } from '../../utils';
 
 const QueryCountChart = () => {
@@ -47,15 +48,13 @@ const QueryCountChart = () => {
         return (
             <BarChart
                 data={chartData}
-                xAccessor={(item) => item.time}
-                yAccessor={(item) => item.value}
                 yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
-                popoverRenderer={(datum) => (
+                popoverRenderer={(datum: ChartData) => (
                     <GraphPopover
-                        header={getPopoverTimeFormat(groupInterval, datum.time)}
-                        value={`${datum.value} ${pluralize(datum.value, 'Query')}`}
+                        header={getPopoverTimeFormat(groupInterval, datum.x)}
+                        value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Query')}`}
                         pills={<MonthOverMonthPill value={datum.mom} />}
                     />
                 )}

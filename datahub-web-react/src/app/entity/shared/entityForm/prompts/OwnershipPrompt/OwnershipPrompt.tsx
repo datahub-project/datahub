@@ -127,7 +127,8 @@ export default function OwnershipPrompt({
     });
 
     const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0 && selectedOwnerTypeUrn;
-    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
+    const showConfirmButton =
+        !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0 && selectedOwnerTypeUrn;
     const allowedOwners = prompt.ownershipParams?.allowedOwners || [];
 
     return (
