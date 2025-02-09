@@ -15,6 +15,7 @@ NUM_STREAMS = 1
 NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
+NUM_PROCEDURES = 1
 
 
 def is_secure(view_idx):
@@ -181,6 +182,7 @@ def default_query_results(  # noqa: C901
     num_cols=NUM_COLS,
     num_ops=NUM_OPS,
     num_usages=NUM_USAGE,
+    num_procedures=NUM_PROCEDURES,
 ):
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
@@ -338,6 +340,30 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
             for stream_idx in range(1, num_streams + 1)
+        ]
+    elif query == SnowflakeQuery.procedures_for_database("TEST_DB"):
+        return [
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": f"PROCEDURE_{procedure_idx}",
+                "PROCEDURE_OWNER": "ACCOUNTADMIN",
+                "ARGUMENT_SIGNATURE": "() RETURN VARCHAR",
+                "DATA_TYPE": "VARCHAR",
+                "CHARACTER_MAXIMUM_LENGTH": 16777216,
+                "CHARACTER_OCTET_LENGTH": 16777216,
+                "NUMERIC_PRECISION": None,
+                "NUMERIC_PRECISION_RADIX": None,
+                "NUMERIC_SCALE": None,
+                "PROCEDURE_LANGUAGE": "SQL",
+                "PROCEDURE_DEFINITION": f"CREATE PROCEDURE PROCEDURE_{procedure_idx}() RETURNS VARCHAR LANGUAGE SQL AS SELECT 1",
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "COMMENT": f"Comment for Procedure {procedure_idx}",
+                "EXTERNAL_ACCESS_INTEGRATIONS": None,
+                "SECRETS": None,
+            }
+            for procedure_idx in range(1, num_procedures + 1)
         ]
     elif query in (
         SnowflakeQuery.use_database("TEST_DB"),

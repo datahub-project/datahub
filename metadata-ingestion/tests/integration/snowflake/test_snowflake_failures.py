@@ -137,20 +137,15 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
 
-        # Error in listing databases
-        no_tables_fn = query_permission_response_override(
+        # Mock all queries to return empty results
+        sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
-            [],
-        )
-        no_views_fn = query_permission_response_override(
-            no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
-            [],
-        )
-        sf_cursor.execute.side_effect = query_permission_response_override(
-            no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"),
+                SnowflakeQuery.show_views_for_database("TEST_DB"),
+                SnowflakeQuery.streams_for_database("TEST_DB"),
+                SnowflakeQuery.procedures_for_database("TEST_DB"),
+            ],
             [],
         )
         pipeline = Pipeline(snowflake_pipeline_config)

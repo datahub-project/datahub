@@ -1543,16 +1543,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             yield from self.gen_dataset_workunits(procedure, schema_name, db_name)
 
-            if self.config.include_procedure_lineage:
-                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
-                    self.generate_procedure_lineage(
-                        procedure=procedure,
-                        procedure_job_urn=self.identifiers.gen_dataset_urn(
-                            procedure.name
-                        ),
-                        is_temp_table=lambda _: False,
-                        raise_=True,
-                    )
         except Exception as e:
             self.structured_reporter.warning(
                 "Failed to process procedure:", procedure.name, exc=e

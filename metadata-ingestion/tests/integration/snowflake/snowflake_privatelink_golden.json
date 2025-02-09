@@ -4472,6 +4472,139 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_db.test_schema.procedure_1",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "PROCEDURE_1"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Comment for Procedure 1"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1623110400000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1623110400000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "TEST_DB.TEST_SCHEMA.PROCEDURE_1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_DEFINITION",
+                "value": "CREATE PROCEDURE PROCEDURE_1() RETURNS VARCHAR LANGUAGE SQL AS SELECT 1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_LANGUAGE",
+                "value": "SQL"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_OWNER",
+                "value": "ACCOUNTADMIN"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_CATALOG",
+                "value": "TEST_DB"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_SCHEMA",
+                "value": "TEST_SCHEMA"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/PROCEDURE_NAME",
+                "value": "PROCEDURE_1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/LAST_ALTERED",
+                "value": "2021-06-08T00:00:00+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COMMENT",
+                "value": "Comment for Procedure 1"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
     "changeType": "UPSERT",
@@ -4496,6 +4629,22 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4595,6 +4744,70 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Snowflake Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.procedure_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+                },
+                {
+                    "id": "urn:li:container:900b1327253068cb1537b1b3c807ddab",
+                    "urn": "urn:li:container:900b1327253068cb1537b1b3c807ddab"
+                },
+                {
+                    "id": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f",
+                    "urn": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-9p8aie",
         "lastRunId": "no-run-id-provided"
     }
 },
