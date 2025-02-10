@@ -49,6 +49,16 @@ const meta = {
                 type: 'number',
             },
         },
+        axisLabel: {
+            description: 'Optional label of the axis',
+            table: {
+                defaultValue: { summary: 'undefined' },
+                type: { summary: 'string' },
+            },
+            control: {
+                type: 'text',
+            },
+        },
         renderTooltip: {
             description: 'Rendering function to customize tolltip',
         },

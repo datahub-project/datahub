@@ -7,7 +7,12 @@ import { BoxPlot } from '@visx/stats';
 import { useTooltip } from '@visx/tooltip';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { DEFAULT_BOX_SIZE, DEFAULT_GAP_BETWEEN_WHISKERS } from './constants';
+import {
+    AXIS_LABEL_MARGIN_OFFSET,
+    AXIS_LABEL_PROPS,
+    DEFAULT_BOX_SIZE,
+    DEFAULT_GAP_BETWEEN_WHISKERS,
+} from './constants';
 import { whiskerChartDefaults } from './defaults';
 import { InternalWhiskerChartProps, WhiskerChartProps, WhiskerTooltipDatum } from './types';
 import { computeWhiskerOffset } from './utils';
@@ -25,10 +30,12 @@ function InternalWhiskerChart({
     tooltip,
     boxSize = whiskerChartDefaults.boxSize,
     gap = whiskerChartDefaults.gap,
+    axisLabel,
     renderTooltip = whiskerChartDefaults.renderTooltip,
     renderWhisker = whiskerChartDefaults.renderWhisker,
 }: InternalWhiskerChartProps) {
-    const margin = { left: 10, top: 0, right: 10, bottom: 20 };
+    const axisLabelMarginOffset = axisLabel !== undefined ? AXIS_LABEL_MARGIN_OFFSET : 0;
+    const margin = { left: 10, top: 0, right: 10, bottom: 20 + axisLabelMarginOffset };
 
     const finalBoxSize = boxSize ?? DEFAULT_BOX_SIZE;
     const finalGap = gap ?? DEFAULT_GAP_BETWEEN_WHISKERS;
@@ -104,6 +111,8 @@ function InternalWhiskerChart({
                     fontFamily: 'Mulish',
                     fill: colors.gray[1700],
                 }}
+                label={axisLabel}
+                labelProps={AXIS_LABEL_PROPS}
             />
 
             {tooltip.tooltipOpen &&

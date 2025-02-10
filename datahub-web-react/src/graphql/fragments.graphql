@@ -2292,6 +2292,14 @@ fragment datasetProfileFields on DatasetProfile {
         median
         stdev
         sampleValues
+        quantiles {
+            quantile
+            value
+        }
+        distinctValueFrequencies {
+            value
+            frequency
+        }
     }
 }
 
