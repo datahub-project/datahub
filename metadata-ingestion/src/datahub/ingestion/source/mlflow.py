@@ -53,10 +53,6 @@ from datahub.metadata.urns import (
     DataProcessInstanceUrn,
     DataPlatformInstanceUrn,
 )
-from datahub.api.entities.dataprocess.dataprocess_instance import (
-    DataProcessInstance,
-    InstanceRunResult,
-)
 
 T = TypeVar("T")
 
@@ -264,13 +260,8 @@ class MLflowSource(Source):
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
     ) -> List[MetadataWorkUnit]:
-        experiment_key = ContainerKeyWithId(
-            platform=str(DataPlatformUrn.create_from_id("mlflow")), id=experiment.name
-        )
 
-        data_process_instance = DataProcessInstance.from_container(
-            container_key=experiment_key, id=run.info.run_name
-        )  # TODO: this generates a urn as guid, should we change this to use run.info.run_id?
+        dpi_urn = f"urn:li:dataProcessInstance:{run.info.run_id}"
         workunits = []
 
         run_custom_props = self._get_run_custom_properties(run)
@@ -281,7 +272,7 @@ class MLflowSource(Source):
 
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=DataProcessInstancePropertiesClass(
                     name=run.info.run_name or run.info.run_id,
                     created=AuditStampClass(
@@ -297,11 +288,10 @@ class MLflowSource(Source):
         # get model from run
         model_versions = self.get_mlflow_model_versions_from_run(run.info.run_id)
         model_version_urn = self._make_ml_model_urn(model_versions[0])
-        model_version_urn = "urn:li:dataset:(urn:li:dataPlatform:mlflow,sk-learn-random-forest-reg_1,PROD)"
         if model_versions:
             workunits.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
+                    entityUrn=dpi_urn,
                     aspect=DataProcessInstanceOutputClass(outputs=[model_version_urn]),
                 ).as_workunit()
             )
@@ -310,7 +300,7 @@ class MLflowSource(Source):
         hyperparams = self._get_run_params(run)
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=MLTrainingRunPropertiesClass(
                     hyperParams=hyperparams,
                     trainingMetrics=metrics,
@@ -328,7 +318,7 @@ class MLflowSource(Source):
         if run.info.end_time:
             workunits.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
+                    entityUrn=dpi_urn,
                     aspect=DataProcessInstanceRunEventClass(
                         status=DataProcessRunStatusClass.COMPLETE,
                         timestampMillis=run.info.end_time,
@@ -343,7 +333,7 @@ class MLflowSource(Source):
 
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=str(DataPlatformUrn.create_from_id("mlflow"))
                 ),
@@ -352,7 +342,7 @@ class MLflowSource(Source):
 
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=DataProcessInstancePropertiesClass(  # Changed from RunEventClass
                     name=run.info.run_name or run.info.run_id,
                     created=AuditStampClass(
@@ -365,7 +355,7 @@ class MLflowSource(Source):
 
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=str(DataPlatformUrn.create_from_id("mlflow"))
                 ),
@@ -374,7 +364,7 @@ class MLflowSource(Source):
 
         workunits.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
+                entityUrn=dpi_urn,
                 aspect=SubTypesClass(typeNames=["ML Training Run"]),
             ).as_workunit()
         )
@@ -510,9 +500,11 @@ class MLflowSource(Source):
             # Use the same metrics and hyperparams from the run
             hyperparams = self._get_run_params(run)
             training_metrics = self._get_run_metrics(run)
+            training_jobs = [str(DataProcessInstanceUrn.create_from_id(run.info.run_id))] # assume DPI URN is the same as run_id
         else:
             hyperparams = None
             training_metrics = None
+            training_jobs = []
 
         created_time = model_version.creation_timestamp
         created_actor = (
@@ -538,6 +530,7 @@ class MLflowSource(Source):
             trainingMetrics=training_metrics,
             tags=list(model_version.tags.keys()),
             groups=[str(ml_model_group_urn)],
+            trainingJobs=training_jobs
         )
         wu = self._create_workunit(urn=ml_model_urn, aspect=ml_model_properties)
         return wu
