@@ -1,5 +1,5 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
-import { pathMatchesNewPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { pathMatchesExact } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { findFieldPathProposal } from '@src/app/shared/tags/utils/proposalUtils';
 import { ActionRequest, EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.generated';
 
@@ -8,7 +8,7 @@ export default function useExtractFieldTagsInfo(editableSchemaMetadata: Editable
 
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
         const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
-            pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+            pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         )?.globalTags;
 
         const uneditableTags = defaultUneditableTags || record?.globalTags;
