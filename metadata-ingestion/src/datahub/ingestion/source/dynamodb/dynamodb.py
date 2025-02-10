@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 MAX_ITEMS_TO_RETRIEVE = 100
@@ -120,7 +121,7 @@ class DynamoDBConfig(
 
 @dataclass
 class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)

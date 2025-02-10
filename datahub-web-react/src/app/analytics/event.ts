@@ -111,6 +111,9 @@ export enum EventType {
     SearchLineageColumnsEvent,
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
+    LinkAssetVersionEvent,
+    UnlinkAssetVersionEvent,
+    ShowAllVersionsEvent,
 }
 
 /**
@@ -816,6 +819,30 @@ export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAsset
     type: EventType.RemoveStructuredPropertyEvent;
 }
 
+export interface LinkAssetVersionEvent extends BaseEvent {
+    type: EventType.LinkAssetVersionEvent;
+    newAssetUrn: string;
+    oldAssetUrn?: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface UnlinkAssetVersionEvent extends BaseEvent {
+    type: EventType.UnlinkAssetVersionEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface ShowAllVersionsEvent extends BaseEvent {
+    type: EventType.ShowAllVersionsEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+    numVersions?: number;
+    uiLocation: 'preview' | 'more-options';
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -914,4 +941,7 @@ export type Event =
     | ApplyStructuredPropertyEvent
     | UpdateStructuredPropertyOnAssetEvent
     | RemoveStructuredPropertyEvent
-    | ClickDocRequestCTA;
+    | ClickDocRequestCTA
+    | LinkAssetVersionEvent
+    | UnlinkAssetVersionEvent
+    | ShowAllVersionsEvent;

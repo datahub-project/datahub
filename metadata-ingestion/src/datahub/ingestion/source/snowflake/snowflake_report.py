@@ -12,6 +12,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyDict
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -66,7 +67,7 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_external_table_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
-    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+    upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
@@ -103,6 +104,7 @@ class SnowflakeV2Report(
     schemas_scanned: int = 0
     databases_scanned: int = 0
     tags_scanned: int = 0
+    streams_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -112,6 +114,7 @@ class SnowflakeV2Report(
     table_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
     num_tables_with_known_upstreams: int = 0
+    num_streams_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
@@ -129,6 +132,8 @@ class SnowflakeV2Report(
     # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.
     num_get_tags_for_object_queries: int = 0
     num_get_tags_on_columns_for_table_queries: int = 0
+
+    num_get_streams_for_schema_queries: int = 0
 
     rows_zero_objects_modified: int = 0
 
@@ -156,6 +161,8 @@ class SnowflakeV2Report(
                 return
             self._scanned_tags.add(name)
             self.tags_scanned += 1
+        elif ent_type == "stream":
+            self.streams_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 

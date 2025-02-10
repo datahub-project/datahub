@@ -1,13 +1,14 @@
-import { InputHTMLAttributes } from 'react';
+import { IconSource } from '@components/components/Icon/types';
+import React, { InputHTMLAttributes } from 'react';
 
-import { IconNames } from '../Icon';
+import { IconNames, MaterialIconVariant } from '../Icon';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     value?: string | number | readonly string[] | undefined;
     setValue?: React.Dispatch<React.SetStateAction<string>>;
     label: string;
     placeholder?: string;
-    icon?: IconNames;
+    icon?: { name: IconNames; source: IconSource; variant?: MaterialIconVariant };
     error?: string;
     warning?: string;
     isSuccess?: boolean;
