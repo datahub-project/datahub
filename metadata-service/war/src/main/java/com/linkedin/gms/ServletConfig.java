@@ -143,7 +143,8 @@ public class ServletConfig implements WebMvcConfigurer {
         "/relationships/*",
         "/analytics/*",
         "/operations/*",
-        "/runs/*");
+        "/runs/*",
+        "/test/*");
     registration.setLoadOnStartup(2);
     registration.setOrder(Integer.MAX_VALUE); // lowest priority
     return registration;
