@@ -81,9 +81,9 @@ class _TableName(_FrozenModel):
     def from_sqlglot_table(
         cls,
         table: sqlglot.exp.Table,
+        dialect: sqlglot.Dialect,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-        dialect: sqlglot.Dialect = None,
     ) -> "_TableName":
         if isinstance(table.this, sqlglot.exp.Dot):
             # For tables that are more than 3 parts, the extra parts will be in a Dot.
