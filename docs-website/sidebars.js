@@ -575,7 +575,7 @@ module.exports = {
           id: "docs/lineage/openlineage",
           label: "OpenLineage",
         },
-      ]
+      ],
     },
     {
       type: "doc",
@@ -726,7 +726,7 @@ module.exports = {
             },
           ],
         },
-      ]
+      ],
     },
     {
       type: "doc",
