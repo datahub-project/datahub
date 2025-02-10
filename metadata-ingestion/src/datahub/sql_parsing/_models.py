@@ -98,7 +98,7 @@ class _TableName(_FrozenModel):
         elif (
             is_dialect_instance(dialect, DIALECTS_WITH_DELTALAKE_TVF_SUPPORT)
             and table.this.name == "table_changes"
-            and re.match(r"TABLE_CHANGES\s*\([^)]*\)", table.this)
+            and re.match(r"TABLE_CHANGES\s*\([^)]*\)", str(table.this))
         ):
             table_name = table.this.expressions[0].alias_or_name
         else:

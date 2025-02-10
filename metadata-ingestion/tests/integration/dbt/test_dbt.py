@@ -224,6 +224,19 @@ class DbtTestConfig:
                 # "entities_enabled": {"sources": "NO"},
             },
         ),
+        DbtTestConfig(
+            "dbt-delta-lake-tvf",
+            "sample_dbt_delta_lake_tvf_run_result.json",
+            "sample_dbt_delta_lake_tvf_run_result_golden.json",
+            catalog_file="sample_dbt_delta_lake_tvf_catalog.json",
+            manifest_file="sample_dbt_delta_lake_tvf_manifest.json",
+            source_config_modifiers={
+                "target_platform": "hive",
+                "prefer_sql_parser_lineage": True,
+                "skip_sources_in_lineage": True,
+                "entities_enabled": {"sources": "NO"},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
