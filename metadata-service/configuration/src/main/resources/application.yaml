@@ -624,6 +624,7 @@ featureFlags:
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
+  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

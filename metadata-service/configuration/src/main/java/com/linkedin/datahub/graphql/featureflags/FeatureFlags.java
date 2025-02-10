@@ -55,4 +55,5 @@ public class FeatureFlags {
   private boolean requestMinimalSlackPermissions = false;
   private boolean entityVersioning = false;
   private boolean dataProcessInstanceEntityEnabled = true;
+  private boolean showTaskCenterRedesign = false;
 }
