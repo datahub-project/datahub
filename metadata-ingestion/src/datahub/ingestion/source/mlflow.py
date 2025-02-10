@@ -227,12 +227,7 @@ class MLflowSource(Source):
             description=experiment.tags.get("mlflow.note.content"),
         )  # TODO: this generates a urn as guid, should we change this to use experiment.id?
 
-        print(
-            "experiment.key.id:", experiment.key.id
-        )  # this should be same as container key as urn
-        print("experiment.key.as_urn(): ", experiment.key.as_urn())
-
-        workunits = [mcp.as_workunit() for mcp in experiment.generate_mcp()]
+        workunits = [mcp.as_workunit() for mcp in experiment_container.generate_mcp()]
         return workunits
 
     def _get_run_custom_properties(self, run: Run):
