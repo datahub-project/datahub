@@ -122,7 +122,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -178,7 +179,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -267,7 +269,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -331,7 +334,11 @@ public class AspectsBatchImplTest {
             .build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()).getSecond().size(),
+        testBatch
+            .toUpsertBatchItems(
+                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+            .getSecond()
+            .size(),
         1,
         "Expected 1 valid mcp to be passed through.");
   }

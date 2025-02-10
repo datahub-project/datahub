@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -67,7 +68,7 @@ public class BootstrapMCPUtil {
   }
 
   static AspectsBatch generateAspectBatch(
-      OperationContext opContext, BootstrapMCPConfigFile.MCPTemplate mcpTemplate)
+      OperationContext opContext, BootstrapMCPConfigFile.MCPTemplate mcpTemplate, String runId)
       throws IOException {
 
     final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
@@ -91,6 +92,7 @@ public class BootstrapMCPUtil {
                                 convenienceConversions(opContext, mcp.getAspectName(), aspect));
                     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(jsonAspect);
                     mcp.setAspect(genericAspect);
+                    mcp.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata(runId));
                   } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                   }
