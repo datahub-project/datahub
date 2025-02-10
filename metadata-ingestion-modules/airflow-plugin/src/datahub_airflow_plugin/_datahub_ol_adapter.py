@@ -1,7 +1,8 @@
 import logging
 
-import datahub.emitter.mce_builder as builder
 from openlineage.client.run import Dataset as OpenLineageDataset
+
+import datahub.emitter.mce_builder as builder
 
 logger = logging.getLogger(__name__)
 

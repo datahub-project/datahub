@@ -40,7 +40,6 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
-    group_s3_objects_by_dirname,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
@@ -73,6 +72,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -866,18 +866,31 @@ class S3Source(StatefulIngestionSourceBase):
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
+
+        def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
+            allowed = path_spec_.allowed(s3_uri)
+            if not allowed:
+                logger.debug(f"File {s3_uri} not allowed and skipping")
+                self.report.report_file_dropped(s3_uri)
+            return allowed
+
+        s3_objects = (
+            obj
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+            if _is_allowed_path(path_spec, f"s3://{obj.bucket_name}/{obj.key}")
+        )
+
         partitions: List[Folder] = []
-        s3_objects = bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
-        for key, group in group_s3_objects_by_dirname(s3_objects).items():
+        grouped_s3_objects_by_dirname = groupby_unsorted(
+            s3_objects,
+            key=lambda obj: obj.key.rsplit("/", 1)[0],
+        )
+        for key, group in grouped_s3_objects_by_dirname:
             file_size = 0
             creation_time = None
             modification_time = None
 
             for item in group:
-                file_path = self.create_s3_path(item.bucket_name, item.key)
-                if not path_spec.allowed(file_path):
-                    logger.debug(f"File {file_path} not allowed and skipping")
-                    continue
                 file_size += item.size
                 if creation_time is None or item.last_modified < creation_time:
                     creation_time = item.last_modified
@@ -1124,7 +1137,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():

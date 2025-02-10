@@ -9,6 +9,7 @@ import static com.linkedin.metadata.aspect.patch.builder.PatchUtil.createEdgeVal
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.Edge;
 import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
@@ -19,6 +20,7 @@ public class DashboardInfoPatchBuilder
     extends AbstractMultiFieldPatchBuilder<DashboardInfoPatchBuilder> {
   private static final String CHART_EDGES_PATH_START = "/chartEdges/";
   private static final String DATASET_EDGES_PATH_START = "/datasetEdges/";
+  private static final String DASHBOARDS_PATH_START = "/dashboards/";
 
   // Simplified with just Urn
   public DashboardInfoPatchBuilder addChartEdge(@Nonnull ChartUrn urn) {
@@ -36,6 +38,7 @@ public class DashboardInfoPatchBuilder
     return this;
   }
 
+  // Simplified with just Urn
   public DashboardInfoPatchBuilder addDatasetEdge(@Nonnull DatasetUrn urn) {
     ObjectNode value = createEdgeValue(urn);
 
@@ -49,6 +52,22 @@ public class DashboardInfoPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), DATASET_EDGES_PATH_START + urn, null));
+    return this;
+  }
+
+  // Simplified with just Urn
+  public DashboardInfoPatchBuilder addDashboard(@Nonnull DashboardUrn urn) {
+    ObjectNode value = createEdgeValue(urn);
+
+    pathValues.add(
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), DASHBOARDS_PATH_START + urn, value));
+    return this;
+  }
+
+  public DashboardInfoPatchBuilder removeDashboard(@Nonnull DashboardUrn urn) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(), DASHBOARDS_PATH_START + urn, null));
     return this;
   }
 
@@ -85,6 +104,10 @@ public class DashboardInfoPatchBuilder
 
     if (CHART_ENTITY_NAME.equals(destinationUrn.getEntityType())) {
       return CHART_EDGES_PATH_START + destinationUrn;
+    }
+
+    if (DASHBOARD_ENTITY_NAME.equals(destinationUrn.getEntityType())) {
+      return DASHBOARDS_PATH_START + destinationUrn;
     }
 
     // TODO: Output Data Jobs not supported by aspect, add here if this changes

@@ -3,23 +3,26 @@ package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLHyperParamMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLMetricMapper;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
+import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.ml.metadata.MLTrainingRunProperties;
@@ -69,7 +72,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     mappingHelper.mapToResult(
         DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
         (dataProcessInstance, dataMap) ->
-            mapDataProcessProperties(context, dataProcessInstance, dataMap, entityUrn));
+            mapDataProcessInstanceProperties(context, dataProcessInstance, dataMap, entityUrn));
     mappingHelper.mapToResult(
         ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME,
         (dataProcessInstance, dataMap) ->
@@ -78,12 +81,10 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         (dataProcessInstance, dataMap) -> {
           DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(dataMap);
-          dataProcessInstance.setDataPlatformInstance(
-              DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
-          DataPlatform dataPlatform = new DataPlatform();
-          dataPlatform.setUrn(dataPlatformInstance.getPlatform().toString());
-          dataPlatform.setType(EntityType.DATA_PLATFORM);
-          dataProcessInstance.setPlatform(dataPlatform);
+          com.linkedin.datahub.graphql.generated.DataPlatformInstance value =
+              DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance);
+          dataProcessInstance.setPlatform(value.getPlatform());
+          dataProcessInstance.setDataPlatformInstance(value);
         });
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
@@ -92,6 +93,14 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     mappingHelper.mapToResult(
         CONTAINER_ASPECT_NAME,
         (dataProcessInstance, dataMap) -> mapContainers(context, dataProcessInstance, dataMap));
+    mappingHelper.mapToResult(
+        STATUS_ASPECT_NAME,
+        (dataProcessInstance, dataMap) ->
+            dataProcessInstance.setStatus(StatusMapper.map(context, new Status(dataMap))));
+    mappingHelper.mapToResult(
+        DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME,
+        (dataProcessInstance, dataMap) ->
+            mapDataProcessInstanceRelationships(context, dataProcessInstance, dataMap));
 
     return mappingHelper.getResult();
   }
@@ -129,8 +138,8 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     dpi.setMlTrainingRunProperties(properties);
   }
 
-  private void mapDataProcessProperties(
-      @Nonnull QueryContext context,
+  private void mapDataProcessInstanceProperties(
+      @Nullable QueryContext context,
       @Nonnull DataProcessInstance dpi,
       @Nonnull DataMap dataMap,
       @Nonnull Urn entityUrn) {
@@ -151,9 +160,20 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
           CustomPropertiesMapper.map(
               dataProcessInstanceProperties.getCustomProperties(), entityUrn));
     }
-    if (dataProcessInstanceProperties.hasCreated()) {
-      dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
-    }
+    dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
+    properties.setCreated(
+        AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
     dpi.setProperties(properties);
+  }
+
+  private void mapDataProcessInstanceRelationships(
+      @Nullable QueryContext context, @Nonnull DataProcessInstance dpi, @Nonnull DataMap dataMap) {
+    DataProcessInstanceRelationships dataProcessInstanceRelationships =
+        new DataProcessInstanceRelationships(dataMap);
+
+    if (dataProcessInstanceRelationships.getParentTemplate() != null) {
+      dpi.setParentTemplate(
+          UrnToEntityMapper.map(context, dataProcessInstanceRelationships.getParentTemplate()));
+    }
   }
 }

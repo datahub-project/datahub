@@ -77,9 +77,6 @@ public class EntityTypeUrnMapper {
           .put(
               Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
               "urn:li:entityType:datahub.businessAttribute")
-          .put(
-              Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
-              "urn:li:entityType:datahub.dataProcessInstance")
           .build();
 
   private static final Map<String, String> ENTITY_TYPE_URN_TO_NAME =
@@ -113,5 +110,9 @@ public class EntityTypeUrnMapper {
       throw new IllegalArgumentException("Unknown entity name: " + name);
     }
     return ENTITY_NAME_TO_ENTITY_TYPE_URN.get(name);
+  }
+
+  public static boolean isValidEntityType(String entityTypeUrn) {
+    return ENTITY_TYPE_URN_TO_NAME.containsKey(entityTypeUrn);
   }
 }

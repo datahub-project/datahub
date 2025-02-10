@@ -7,7 +7,12 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    SchemaKey,
+)
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -156,7 +161,7 @@ class MSSQLDataJob:
     entity: Union[StoredProcedure, JobStep]
     type: str = "dataJob"
     source: str = "mssql"
-    external_url: str = ""
+    external_url: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     incoming: List[str] = field(default_factory=list)
@@ -171,11 +176,7 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
-            platform_instance=(
-                self.entity.flow.platform_instance
-                if self.entity.flow.platform_instance
-                else None
-            ),
+            platform_instance=self.entity.flow.platform_instance,
         )
 
     def add_property(
@@ -222,13 +223,33 @@ class MSSQLDataJob:
             )
         return None
 
+    @property
+    def as_container_aspect(self) -> ContainerClass:
+        key_args = dict(
+            platform=self.entity.flow.orchestrator,
+            instance=self.entity.flow.platform_instance,
+            env=self.entity.flow.env,
+            database=self.entity.flow.db,
+        )
+        container_key = (
+            SchemaKey(
+                schema=self.entity.schema,
+                **key_args,
+            )
+            if isinstance(self.entity, StoredProcedure)
+            else DatabaseKey(
+                **key_args,
+            )
+        )
+        return ContainerClass(container=container_key.as_urn())
+
 
 @dataclass
 class MSSQLDataFlow:
     entity: Union[MSSQLJob, MSSQLProceduresContainer]
     type: str = "dataFlow"
     source: str = "mssql"
-    external_url: str = ""
+    external_url: Optional[str] = None
     flow_properties: Dict[str, str] = field(default_factory=dict)
 
     def add_property(
@@ -244,9 +265,7 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
-            platform_instance=(
-                self.entity.platform_instance if self.entity.platform_instance else None
-            ),
+            platform_instance=self.entity.platform_instance,
         )
 
     @property
@@ -267,3 +286,13 @@ class MSSQLDataFlow:
                 ),
             )
         return None
+
+    @property
+    def as_container_aspect(self) -> ContainerClass:
+        databaseKey = DatabaseKey(
+            platform=self.entity.orchestrator,
+            instance=self.entity.platform_instance,
+            env=self.entity.env,
+            database=self.entity.db,
+        )
+        return ContainerClass(container=databaseKey.as_urn())

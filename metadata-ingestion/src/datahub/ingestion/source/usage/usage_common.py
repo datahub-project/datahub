@@ -89,7 +89,7 @@ def make_usage_workunit(
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
         if top_n_queries < len(query_freq):
-            logger.warn(
+            logger.warning(
                 f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
             )
             query_freq = query_freq[0:top_n_queries]

@@ -137,9 +137,9 @@ class BigQueryCredential(ConfigModel):
     @root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("client_x509_cert_url") is None:
-            values[
-                "client_x509_cert_url"
-            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
+            values["client_x509_cert_url"] = (
+                f"https://www.googleapis.com/robot/v1/metadata/x509/{values['client_email']}"
+            )
         return values
 
     def create_credential_temp_file(self) -> str:
@@ -611,9 +611,9 @@ class BigQueryV2Config(
         cls, v: Optional[List[str]], values: Dict
     ) -> Optional[List[str]]:
         if values.get("use_exported_bigquery_audit_metadata"):
-            assert (
-                v and len(v) > 0
-            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            assert v and len(v) > 0, (
+                "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            )
 
         return v
 

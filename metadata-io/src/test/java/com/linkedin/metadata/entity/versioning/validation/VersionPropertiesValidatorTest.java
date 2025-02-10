@@ -1,8 +1,14 @@
 package com.linkedin.metadata.entity.versioning.validation;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.when;
 
 import com.linkedin.common.VersionProperties;
+import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -11,6 +17,8 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.key.VersionSetKey;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
@@ -42,6 +50,9 @@ public class VersionPropertiesValidatorTest {
   @BeforeMethod
   public void setup() {
     mockSearchRetriever = Mockito.mock(SearchRetriever.class);
+    when(mockSearchRetriever.scroll(
+            anyList(), any(), nullable(String.class), anyInt(), anyList(), any()))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
     mockGraphRetriever = Mockito.mock(GraphRetriever.class);
 
     // Create version set key and properties
@@ -69,6 +80,7 @@ public class VersionPropertiesValidatorTest {
     VersionProperties properties = new VersionProperties();
     properties.setVersionSet(TEST_VERSION_SET_URN);
     properties.setSortId("ABCDEFGH"); // Valid 8-char uppercase alpha
+    properties.setVersion(new VersionTag().setVersionTag("123"));
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
@@ -83,6 +95,7 @@ public class VersionPropertiesValidatorTest {
     VersionProperties properties = new VersionProperties();
     properties.setVersionSet(TEST_VERSION_SET_URN);
     properties.setSortId("123"); // Invalid - not 8 chars, not alpha
+    properties.setVersion(new VersionTag().setVersionTag("123"));
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
@@ -135,6 +148,7 @@ public class VersionPropertiesValidatorTest {
     VersionProperties properties = new VersionProperties();
     properties.setVersionSet(TEST_VERSION_SET_URN);
     properties.setSortId("ABCDEFGH");
+    properties.setVersion(new VersionTag().setVersionTag("123"));
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(

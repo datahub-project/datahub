@@ -113,6 +113,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -218,8 +219,9 @@ class GlueSourceConfig(
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
+    catalog_id: Optional[str] = None
     tables_scanned = 0
-    filtered: List[str] = dataclass_field(default_factory=list)
+    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
 
     num_job_script_location_missing: int = 0
@@ -315,6 +317,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
+        self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
@@ -521,7 +524,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # otherwise, a node represents a transformation
         else:
             node_urn = mce_builder.make_data_job_urn_with_flow(
-                flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
+                flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
             )
 
         return {
@@ -679,7 +682,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
         )
 
-        return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
+        return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
 
     def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
         logger.debug("Getting all databases")
@@ -738,11 +741,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
     ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
         all_databases = [*self.get_all_databases()]
-        all_tables = [
-            tables
-            for database in all_databases
-            for tables in self.get_tables_from_database(database)
-        ]
+        all_tables = []
+        for database in all_databases:
+            try:
+                for tables in self.get_tables_from_database(database):
+                    all_tables.append(tables)
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to get tables from database",
+                    context=database["Name"],
+                    exc=e,
+                )
         return all_databases, all_tables
 
     def get_lineage_if_enabled(
@@ -750,13 +759,13 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_s3_lineage:
             # extract dataset properties aspect
-            dataset_properties: Optional[
-                DatasetPropertiesClass
-            ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            dataset_properties: Optional[DatasetPropertiesClass] = (
+                mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            )
             # extract dataset schema aspect
-            schema_metadata: Optional[
-                SchemaMetadataClass
-            ] = mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+            schema_metadata: Optional[SchemaMetadataClass] = (
+                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+            )
 
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
@@ -765,9 +774,9 @@ class GlueSource(StatefulIngestionSourceBase):
                         location, self.source_config.env
                     )
                     assert self.ctx.graph
-                    schema_metadata_for_s3: Optional[
-                        SchemaMetadataClass
-                    ] = self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+                    schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
+                        self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+                    )
 
                     if self.source_config.glue_s3_lineage_direction == "upstream":
                         fine_grained_lineages = None

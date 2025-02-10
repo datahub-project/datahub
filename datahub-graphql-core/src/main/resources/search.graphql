@@ -172,6 +172,11 @@ input  SearchFlags {
   Whether or not to fetch and request for structured property facets when doing a search
   """
   includeStructuredPropertyFacets: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """
@@ -824,7 +829,7 @@ type EntityPath {
     """
     Path of entities between source and destination nodes
     """
-    path: [Entity]
+    path: [Entity]!
 }
 
 
@@ -906,6 +911,11 @@ type AggregationMetadata {
   Entity corresponding to the facet field
   """
   entity: Entity
+
+  """
+  Optional display name to show in the UI for this filter value
+  """
+  displayName: String
 }
 
 """

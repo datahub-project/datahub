@@ -116,7 +116,7 @@ public class TestMCP implements ChangeMCP {
 
   private Urn urn;
   private RecordTemplate recordTemplate;
-  private SystemMetadata systemMetadata;
+  @Setter private SystemMetadata systemMetadata;
   private AuditStamp auditStamp;
   private ChangeType changeType;
   @Nonnull private final EntitySpec entitySpec;
