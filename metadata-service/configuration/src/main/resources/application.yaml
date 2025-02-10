@@ -645,6 +645,7 @@ featureFlags:
   showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:false} # If turned on, show the re-designed Stats tab on the entity page
   requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
+  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

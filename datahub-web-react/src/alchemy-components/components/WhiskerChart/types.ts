@@ -43,6 +43,7 @@ export interface WhiskerChartProps {
     data: WhiskerDatum[];
     boxSize?: number;
     gap?: number;
+    axisLabel?: string;
     renderTooltip?: (props: TooltipRendererProps) => React.ReactNode;
     renderWhisker?: (props: WhiskerRenderProps) => React.ReactNode;
 }

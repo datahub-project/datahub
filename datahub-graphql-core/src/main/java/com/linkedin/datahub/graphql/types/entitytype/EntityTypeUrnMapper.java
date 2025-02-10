@@ -111,4 +111,8 @@ public class EntityTypeUrnMapper {
     }
     return ENTITY_NAME_TO_ENTITY_TYPE_URN.get(name);
   }
+
+  public static boolean isValidEntityType(String entityTypeUrn) {
+    return ENTITY_TYPE_URN_TO_NAME.containsKey(entityTypeUrn);
+  }
 }

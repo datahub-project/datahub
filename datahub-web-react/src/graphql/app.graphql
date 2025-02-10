@@ -119,6 +119,7 @@ query appConfig {
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions
+            showTaskCenterRedesign
         }
         chromeExtensionConfig {
             enabled

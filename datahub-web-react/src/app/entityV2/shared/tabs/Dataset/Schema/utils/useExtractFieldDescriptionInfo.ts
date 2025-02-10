@@ -1,4 +1,4 @@
-import { pathMatchesNewPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { pathMatchesExact } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { useIsDocumentationInferenceEnabled } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import { EditableSchemaMetadata, SchemaField } from '@src/types.generated';
 import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
@@ -11,7 +11,7 @@ export default function useExtractFieldDescriptionInfo(
 
     return (record: SchemaField, description: string | undefined | null = null) => {
         const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
-            pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+            pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { displayedDescription, isPropagated, isInferred, sourceDetail } = getFieldDescriptionDetails({
             schemaFieldEntity: record.schemaFieldEntity,
