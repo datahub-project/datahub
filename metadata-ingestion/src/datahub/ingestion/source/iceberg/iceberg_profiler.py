@@ -204,7 +204,9 @@ class IcebergProfiler:
                         )
                     dataset_profile.fieldProfiles.append(column_profile)
             time_taken = timer.elapsed_seconds()
-            self.report.report_table_profiling_time(time_taken)
+            self.report.report_table_profiling_time(
+                time_taken, dataset_name, table.metadata_location
+            )
             LOGGER.debug(
                 f"Finished profiling of dataset: {dataset_name} in {time_taken}"
             )

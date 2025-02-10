@@ -6,12 +6,12 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.20 AS binary
+FROM golang:1-alpine3.21 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION=v0.6.1
+ENV DOCKERIZE_VERSION=v0.9.1
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.20 AS base
+FROM alpine:3.21 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
@@ -34,7 +34,7 @@ ARG MAVEN_CENTRAL_REPO_URL
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
 # Upgrade Alpine and base packages
-ENV JMX_VERSION=0.18.0
+ENV JMX_VERSION=0.20.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl bash sqlite libc6-compat snappy \

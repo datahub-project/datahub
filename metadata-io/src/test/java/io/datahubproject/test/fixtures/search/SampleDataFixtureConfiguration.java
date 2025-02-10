@@ -137,7 +137,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "longTailOperationContext")
@@ -148,7 +148,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   protected EntityIndexBuilders entityIndexBuildersHelper(OperationContext opContext) {

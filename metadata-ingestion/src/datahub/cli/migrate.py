@@ -179,7 +179,7 @@ def dataplatform2instance_func(
 
     if not force and not dry_run:
         # get a confirmation from the operator before proceeding if this is not a dry run
-        sampled_urns_to_migrate = random.choices(
+        sampled_urns_to_migrate = random.sample(
             urns_to_migrate, k=min(10, len(urns_to_migrate))
         )
         sampled_new_urns: List[str] = [
@@ -193,7 +193,7 @@ def dataplatform2instance_func(
             if key
         ]
         click.echo(
-            f"Will migrate {len(urns_to_migrate)} urns such as {random.choices(urns_to_migrate, k=min(10, len(urns_to_migrate)))}"
+            f"Will migrate {len(urns_to_migrate)} urns such as {random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))}"
         )
         click.echo(f"New urns will look like {sampled_new_urns}")
         click.confirm("Ok to proceed?", abort=True)
@@ -426,9 +426,9 @@ def batch_get_ids(
             entities_yielded += 1
             log.debug(f"yielding {x}")
             yield x
-        assert (
-            entities_yielded == num_entities
-        ), "Did not delete all entities, try running this command again!"
+        assert entities_yielded == num_entities, (
+            "Did not delete all entities, try running this command again!"
+        )
     else:
         log.error(f"Failed to execute batch get with {str(response.content)}")
         response.raise_for_status()

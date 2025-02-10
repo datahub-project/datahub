@@ -51,7 +51,7 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -145,7 +145,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       throws URISyntaxException {
     log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -195,7 +195,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         endTimeMillis,
         limit);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -305,11 +305,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
-    return RestliUtils.toTask(() -> {
+    return RestliUtils.toTask(systemOperationContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
-                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get(),
+                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation())
                 .build();
 
@@ -342,7 +342,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   public Task<Integer> getCount(
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication authentication = AuthenticationContext.getAuthentication();
@@ -374,7 +374,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication authentication = AuthenticationContext.getAuthentication();

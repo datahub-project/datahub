@@ -30,6 +30,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -42,6 +43,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -121,23 +123,32 @@ public class UpdateIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl batch =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
+          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext());
 
       for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
-          handleUpdateChangeEvent(opContext, mclItem);
+          // non-system metadata
+          handleUpdateChangeEvent(opContext, mclItem, false);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleUpdateChangeEvent(opContext, mclItem, true);
         } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(opContext, mclItem);
-        }
+          Pair<EntitySpec, AspectSpec> specPair = extractSpecPair(mclItem);
+          boolean isDeletingKey = isDeletingKey(specPair);
 
-        // graph update
-        updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // non-system metadata
+          handleNonSystemMetadataDeleteChangeEvent(opContext, specPair, mclItem, isDeletingKey);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleSystemMetadataDeleteChangeEvent(mclItem.getUrn(), specPair, isDeletingKey);
+        }
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -154,7 +165,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param event the change event to be processed.
    */
   private void handleUpdateChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) throws IOException {
+      @Nonnull OperationContext opContext, @Nonnull final MCLItem event, boolean forSystemMetadata)
+      throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -163,32 +175,34 @@ public class UpdateIndicesService implements SearchIndicesService {
     RecordTemplate aspect = event.getRecordTemplate();
     RecordTemplate previousAspect = event.getPreviousRecordTemplate();
 
-    // Step 0. If the aspect is timeseries, add to its timeseries index.
-    if (aspectSpec.isTimeseries()) {
-      updateTimeseriesFields(
-          opContext,
-          urn.getEntityType(),
-          event.getAspectName(),
-          urn,
-          aspect,
-          aspectSpec,
-          event.getSystemMetadata());
-    } else {
+    if (!forSystemMetadata) {
+      // Step 0. If the aspect is timeseries, add to its timeseries index.
+      if (aspectSpec.isTimeseries()) {
+        updateTimeseriesFields(
+            opContext,
+            urn.getEntityType(),
+            event.getAspectName(),
+            urn,
+            aspect,
+            aspectSpec,
+            event.getSystemMetadata());
+      }
+
+      try {
+        // Step 1. Handle StructuredProperties Index Mapping changes
+        updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+      } catch (Exception e) {
+        log.error("Issue with updating index mappings for structured property change", e);
+      }
+
+      // Step 2. For all aspects, attempt to update Search
+      updateSearchService(opContext, event);
+    } else if (forSystemMetadata && !aspectSpec.isTimeseries()) {
       // Inject into the System Metadata Index when an aspect is non-timeseries only.
       // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
       // without impacting rollbacks.
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
-
-    try {
-      // Step 1. Handle StructuredProperties Index Mapping changes
-      updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
-    } catch (Exception e) {
-      log.error("Issue with updating index mappings for structured property change", e);
-    }
-
-    // Step 2. For all aspects, attempt to update Search
-    updateSearchService(opContext, event);
   }
 
   public void updateIndexMappings(
@@ -232,21 +246,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
-  /**
-   * This very important method processes {@link MetadataChangeLog} deletion events to cleanup the
-   * Metadata Graph when an aspect or entity is removed.
-   *
-   * <p>In particular, it handles updating the Search, Graph, Timeseries, and System Metadata stores
-   * to reflect the deletion of a particular aspect.
-   *
-   * <p>Note that if an entity's key aspect is deleted, the entire entity will be purged from
-   * search, graph, timeseries, etc.
-   *
-   * @param event the change event to be processed.
-   */
-  private void handleDeleteChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) {
-
+  private static Pair<EntitySpec, AspectSpec> extractSpecPair(@Nonnull final MCLItem event) {
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();
 
@@ -258,12 +258,56 @@ public class UpdateIndicesService implements SearchIndicesService {
               urn.getEntityType(), event.getAspectName()));
     }
 
-    RecordTemplate aspect = event.getRecordTemplate();
-    Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
+    return Pair.of(entitySpec, aspectSpec);
+  }
 
-    if (!aspectSpec.isTimeseries()) {
-      deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-      deleteSearchData(opContext, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+  private static boolean isDeletingKey(Pair<EntitySpec, AspectSpec> specPair) {
+    return specPair.getSecond().getName().equals(specPair.getFirst().getKeyAspectName());
+  }
+
+  /**
+   * This very important method processes {@link MetadataChangeLog} deletion events to cleanup the
+   * Metadata Graph when an aspect or entity is removed.
+   *
+   * <p>In particular, it handles updating the Search, Graph, Timeseries, and System Metadata stores
+   * to reflect the deletion of a particular aspect.
+   *
+   * <p>Note that if an entity's key aspect is deleted, the entire entity will be purged from
+   * search, graph, timeseries, etc.
+   *
+   * @param opContext operation's context
+   * @param specPair entity & aspect spec
+   * @param event the change event to be processed.
+   * @param isDeletingKey whether the key aspect is being deleted
+   */
+  private void handleNonSystemMetadataDeleteChangeEvent(
+      @Nonnull OperationContext opContext,
+      Pair<EntitySpec, AspectSpec> specPair,
+      @Nonnull final MCLItem event,
+      boolean isDeletingKey) {
+
+    if (!specPair.getSecond().isTimeseries()) {
+      deleteSearchData(
+          opContext,
+          event.getUrn(),
+          specPair.getFirst().getName(),
+          specPair.getSecond(),
+          event.getRecordTemplate(),
+          isDeletingKey);
+    }
+  }
+
+  /**
+   * Handle the system metadata separately for tracing
+   *
+   * @param urn delete urn
+   * @param specPair entity & aspect spec
+   * @param isDeletingKey whether the key aspect is being deleted
+   */
+  private void handleSystemMetadataDeleteChangeEvent(
+      @Nonnull Urn urn, Pair<EntitySpec, AspectSpec> specPair, boolean isDeletingKey) {
+    if (!specPair.getSecond().isTimeseries()) {
+      deleteSystemMetadata(urn, specPair.getSecond(), isDeletingKey);
     }
   }
 
@@ -400,7 +444,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       Urn urn,
       String entityName,
       AspectSpec aspectSpec,
-      RecordTemplate aspect,
+      @Nullable RecordTemplate aspect,
       Boolean isKeyAspect) {
     String docId;
     try {

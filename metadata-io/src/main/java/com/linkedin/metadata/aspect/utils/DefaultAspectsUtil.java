@@ -133,11 +133,15 @@ public class DefaultAspectsUtil {
               return defaultAspects.stream()
                   .map(
                       entry ->
-                          ChangeItemImpl.ChangeItemImplBuilder.build(
-                              getProposalFromAspectForDefault(
-                                  entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
-                              templateItem.getAuditStamp(),
-                              opContext.getAspectRetrieverOpt().get()))
+                          ChangeItemImpl.builder()
+                              .build(
+                                  getProposalFromAspectForDefault(
+                                      entry.getKey(),
+                                      entry.getValue(),
+                                      entityKeyAspect,
+                                      templateItem),
+                                  templateItem.getAuditStamp(),
+                                  opContext.getAspectRetriever()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());

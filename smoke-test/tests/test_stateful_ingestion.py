@@ -1,5 +1,8 @@
 from typing import Any, Dict, Optional, cast
 
+from sqlalchemy import create_engine
+from sqlalchemy.sql import text
+
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
@@ -8,9 +11,6 @@ from datahub.ingestion.source.state.entity_removal_state import GenericCheckpoin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
-from sqlalchemy import create_engine
-from sqlalchemy.sql import text
-
 from tests.utils import get_mysql_password, get_mysql_url, get_mysql_username
 
 
@@ -36,7 +36,7 @@ def test_stateful_ingestion(auth_session):
 
     def validate_all_providers_have_committed_successfully(pipeline: Pipeline) -> None:
         provider_count: int = 0
-        for name, provider in pipeline.ctx.get_committables():
+        for _, provider in pipeline.ctx.get_committables():
             provider_count += 1
             assert isinstance(provider, StatefulCommittable)
             stateful_committable = cast(StatefulCommittable, provider)

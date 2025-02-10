@@ -16,7 +16,7 @@ node {
   }
 
   // Version of node to use.
-  version = '21.2.0'
+  version = '22.12.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.22'
@@ -79,7 +79,7 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // Explicitly runs in non-watch mode.
-  args = ['run', 'test', 'run']
+  args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -93,7 +93,6 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  environment = [NODE_OPTIONS: "--max-old-space-size=3072 --openssl-legacy-provider"]
   args = ['run', 'build']
 
   outputs.cacheIf { true }

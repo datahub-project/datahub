@@ -224,9 +224,9 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
     def __post_init__(self) -> None:
-        assert (
-            self.cache_eviction_batch_size > 0
-        ), "cache_eviction_batch_size must be positive"
+        assert self.cache_eviction_batch_size > 0, (
+            "cache_eviction_batch_size must be positive"
+        )
 
         for reserved_column in ("key", "value", "rowid"):
             if reserved_column in self.extra_columns:
@@ -243,7 +243,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             # This was added in 3.24.0 from 2018-06-04.
             # See https://www.sqlite.org/lang_conflict.html
             if OVERRIDE_SQLITE_VERSION_REQUIREMENT:
-                self.use_sqlite_on_conflict = False
+                self._use_sqlite_on_conflict = False
             else:
                 raise RuntimeError("SQLite version 3.24.0 or later is required")
 
@@ -261,7 +261,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 rowid INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE,
                 value BLOB
-                {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
+                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns.keys())}
             )"""
         )
 
@@ -316,12 +316,12 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 f"""INSERT INTO {self.tablename} (
                     key,
                     value
-                    {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
                 )
-                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})
+                VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})
                 ON CONFLICT (key) DO UPDATE SET
                     value = excluded.value
-                    {''.join(f', {column_name} = excluded.{column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name} = excluded.{column_name}" for column_name in self.extra_columns.keys())}
                 """,
                 items_to_write,
             )
@@ -332,16 +332,16 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                         f"""INSERT INTO {self.tablename} (
                             key,
                             value
-                            {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name}" for column_name in self.extra_columns.keys())}
                         )
-                        VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                        VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})""",
                         item,
                     )
                 except sqlite3.IntegrityError:
                     self._conn.execute(
                         f"""UPDATE {self.tablename} SET
                             value = ?
-                            {''.join(f', {column_name} = ?' for column_name in self.extra_columns.keys())}
+                            {"".join(f", {column_name} = ?" for column_name in self.extra_columns.keys())}
                         WHERE key = ?""",
                         (*item[1:], item[0]),
                     )

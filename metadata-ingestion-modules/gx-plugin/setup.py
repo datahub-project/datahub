@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_gx_plugin/__init__.py") as fp:
+with open("./src/datahub_gx_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -58,12 +58,8 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=6.0.0",
-    "flake8-tidy-imports>=4.3.0",
-    "flake8-bugbear==23.3.12",
-    "isort>=5.7.0",
+    "ruff==0.9.1",
     "mypy>=1.4.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
@@ -118,9 +114,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

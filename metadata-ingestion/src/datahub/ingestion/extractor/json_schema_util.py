@@ -131,9 +131,9 @@ class FieldPath:
             for i, schema_type in enumerate(p.schema_types):
                 if schema_type == schema_str:
                     # return the corresponding type for the schema that's a match
-                    assert (
-                        len(p.type) > i
-                    ), f"p.type({len(p.type)})) and p.schema_types({len(p.schema_types)}) should have the same length"
+                    assert len(p.type) > i, (
+                        f"p.type({len(p.type)})) and p.schema_types({len(p.schema_types)}) should have the same length"
+                    )
                     return p.type[i]
         return None
 

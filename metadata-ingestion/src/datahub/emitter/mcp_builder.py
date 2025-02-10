@@ -4,8 +4,8 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import (
+    ALL_ENV_TYPES,
     Aspect,
     datahub_guid,
     make_container_urn,
@@ -25,16 +25,18 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
     EmbedClass,
-    FabricTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import StructuredPropertyUrn
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
@@ -87,6 +89,25 @@ class ContainerKey(DatahubKey):
 
     def as_urn(self) -> str:
         return make_container_urn(guid=self.guid())
+
+    def parent_key(self) -> Optional["ContainerKey"]:
+        # Find the immediate base class of self.
+        # This is a bit of a hack, but it works.
+        base_classes = self.__class__.__bases__
+        if len(base_classes) != 1:
+            # TODO: Raise a more specific error.
+            raise ValueError(
+                f"Unable to determine parent key for {self.__class__}: {self}"
+            )
+        base_class = base_classes[0]
+        if base_class is DatahubKey or base_class is ContainerKey:
+            return None
+
+        # We need to use `__dict__` instead of `pydantic.BaseModel.dict()`
+        # in order to include "excluded" fields e.g. `backcompat_env_as_instance`.
+        # Tricky: this only works because DatahubKey is a BaseModel and hence
+        # allows extra fields.
+        return base_class(**self.__dict__)
 
 
 # DEPRECATION: Keeping the `PlatformKey` name around for backwards compatibility.
@@ -188,12 +209,31 @@ def add_tags_to_entity_wu(
     ).as_workunit()
 
 
+def add_structured_properties_to_entity_wu(
+    entity_urn: str, structured_properties: Dict[StructuredPropertyUrn, str]
+) -> Iterable[MetadataWorkUnit]:
+    aspect = StructuredPropertiesClass(
+        properties=[
+            StructuredPropertyValueAssignmentClass(
+                propertyUrn=urn.urn(),
+                values=[value],
+            )
+            for urn, value in structured_properties.items()
+        ]
+    )
+    yield MetadataChangeProposalWrapper(
+        entityUrn=entity_urn,
+        aspect=aspect,
+    ).as_workunit()
+
+
 def gen_containers(
     container_key: KeyType,
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[ContainerKey] = None,
     extra_properties: Optional[Dict[str, str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -206,11 +246,7 @@ def gen_containers(
     # Extra validation on the env field.
     # In certain cases (mainly for backwards compatibility), the env field will actually
     # have a platform instance name.
-    env = (
-        container_key.env
-        if container_key.env in get_enum_options(FabricTypeClass)
-        else None
-    )
+    env = container_key.env if container_key.env in ALL_ENV_TYPES else None
 
     container_urn = container_key.as_urn()
 
@@ -285,6 +321,11 @@ def gen_containers(
             entity_type="container",
             entity_urn=container_urn,
             tags=sorted(tags),
+        )
+
+    if structured_properties:
+        yield from add_structured_properties_to_entity_wu(
+            entity_urn=container_urn, structured_properties=structured_properties
         )
 
 

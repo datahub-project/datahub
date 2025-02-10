@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -86,8 +88,10 @@ public class GmsGraphQLEngineArgs {
   int graphQLQueryDepthLimit;
   boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
+  ChromeExtensionConfiguration chromeExtensionConfiguration;
   ConnectionService connectionService;
   AssertionService assertionService;
+  EntityVersioningService entityVersioningService;
 
   // any fork specific args should go below this line
 }

@@ -5,9 +5,9 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
 
 import { ButtonBase } from './components';
-import { ButtonProps } from './types';
+import { ButtonProps, ButtonPropsDefaults } from './types';
 
-export const buttonDefaults: ButtonProps = {
+export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
     color: 'violet',
     size: 'md',
@@ -24,6 +24,7 @@ export const Button = ({
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
+    iconSize,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
     isDisabled = buttonDefaults.isDisabled,
@@ -31,7 +32,7 @@ export const Button = ({
     children,
     ...props
 }: ButtonProps) => {
-    const sharedProps = {
+    const styleProps = {
         variant,
         color,
         size,
@@ -39,22 +40,21 @@ export const Button = ({
         isLoading,
         isActive,
         isDisabled,
-        disabled: isDisabled,
     };
 
     if (isLoading) {
         return (
-            <ButtonBase {...sharedProps} {...props}>
+            <ButtonBase {...styleProps} {...props}>
                 <LoadingOutlined rotate={10} /> {!isCircle && children}
             </ButtonBase>
         );
     }
 
     return (
-        <ButtonBase {...sharedProps} {...props}>
-            {icon && iconPosition === 'left' && <Icon icon={icon} size={size} />}
+        <ButtonBase {...styleProps} {...props}>
+            {icon && iconPosition === 'left' && <Icon icon={icon} size={iconSize || size} />}
             {!isCircle && children}
-            {icon && iconPosition === 'right' && <Icon icon={icon} size={size} />}
+            {icon && iconPosition === 'right' && <Icon icon={icon} size={iconSize || size} />}
         </ButtonBase>
     );
 };
