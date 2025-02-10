@@ -108,7 +108,7 @@ yarn install && yarn start
 ```
 The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
 
-### Refreshing the GMS
+### Refreshing GMS
 
 To refresh the GMS (Generalized Metadata Service) with local changes:
 ```shell
