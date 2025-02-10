@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -221,13 +222,14 @@ public class BootstrapMCPUtilTest {
             .getTemplates()
             .get(0);
 
-    AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(OP_CONTEXT, template);
+    AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(OP_CONTEXT, template, "testMCPBatch");
     assertEquals(batch.getMCPItems().size(), 1);
 
     MCPItem item = batch.getMCPItems().get(0);
     assertEquals(item.getUrn(), UrnUtils.getUrn("urn:li:dataHubIngestionSource:datahub-test"));
     assertEquals(item.getAspectName(), "dataHubIngestionSourceInfo");
     assertEquals(item.getChangeType(), ChangeType.UPSERT);
+    assertNotNull(item.getSystemMetadata());
 
     DataHubIngestionSourceInfo ingestionSource = item.getAspect(DataHubIngestionSourceInfo.class);
 
