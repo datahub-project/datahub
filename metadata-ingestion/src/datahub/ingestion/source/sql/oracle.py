@@ -469,7 +469,7 @@ class OracleInspectorObjectWrapper:
             logger.error(
                 f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}"
             )
-            self.report.report_exc(
+            self.report.warning(
                 message="Error processing primary key constraints",
                 title="pk_constraint_error",
                 context=f"{schema}.{table_name}",
