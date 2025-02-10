@@ -146,6 +146,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
+                },
+                {
                     "id": "urn:li:container:37d6500021cda2a0aa7ae1900eab5a9c",
                     "urn": "urn:li:container:37d6500021cda2a0aa7ae1900eab5a9c"
                 },

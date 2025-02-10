@@ -212,6 +212,13 @@ class HasContainer(Entity):
             while parent_key is not None:
                 browse_path_reversed.append(parent_key.as_urn())
                 parent_key = parent_key.parent_key()
+            if container.instance is not None:
+                browse_path_reversed.append(
+                    DataPlatformInstanceUrn(
+                        container.platform, container.instance
+                    ).urn()
+                )
+
             browse_path = list(reversed(browse_path_reversed))
         else:
             container_urn = None
