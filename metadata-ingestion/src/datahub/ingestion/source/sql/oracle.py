@@ -468,8 +468,11 @@ class OracleInspectorObjectWrapper:
                 f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}"
             )
             self.report.warning(
-                message="Error processing primary key constraints",
-                title="pk_constraint_error",
+                title="Failed to Process Primary Keys",
+                message=(
+                    f"Unable to process primary key constraints for {schema}.{table_name}. "
+                    "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS.",
+                ),
                 context=f"{schema}.{table_name}",
                 level=StructuredLogLevel.ERROR,
                 exc=e,
@@ -534,8 +537,13 @@ class OracleInspectorObjectWrapper:
                         "proper rights to the table?"
                     )
                     self.report.warning(
-                        message="Missing Table Permissions"
-                        f"Unable to query table_name from dba_cons_columns{dblink}.",
+                        title="Missing Table Permissions",
+                        message=(
+                            f"Unable to query table_name from dba_cons_columns{dblink}. "
+                            "This usually indicates insufficient permissions on the target table. "
+                            f"Foreign key relationships will not be detected for {schema}.{table_name}. "
+                            "Please ensure the user has SELECT privileges on dba_cons_columns."
+                        ),
                         context=f"{schema}.{table_name}",
                     )
 
