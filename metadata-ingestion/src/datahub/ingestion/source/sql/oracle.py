@@ -139,7 +139,7 @@ class OracleInspectorObjectWrapper:
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
             logger.error("Error fetching DB name: " + str(e))
-            self.report.report_exc(
+            self.report.failure(
                 title="Error fetching database name using sys_context.",
                 message="database_fetch_error",
                 context=db_name,
