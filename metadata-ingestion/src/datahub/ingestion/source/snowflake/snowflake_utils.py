@@ -89,7 +89,12 @@ class SnowsightUrlBuilder:
         table_name: str,
         schema_name: str,
         db_name: str,
-        domain: Literal[SnowflakeObjectDomain.TABLE, SnowflakeObjectDomain.VIEW],
+        domain: Literal[
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.STREAM,
+            SnowflakeObjectDomain.PROCEDURE,
+        ],
     ) -> Optional[str]:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
 

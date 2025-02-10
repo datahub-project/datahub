@@ -157,11 +157,18 @@ class SnowflakeStream:
 
 
 @dataclass
+class SnowflakeProcedureContainer:
+    name: str
+    database_name: str
+    schema_name: str
+
+@dataclass
 class SnowflakeProcedure:
     name: str  # PROCEDURE_NAME
     database_name: str  # PROCEDURE_CATALOG
     schema_name: str  # PROCEDURE_SCHEMA
     owner: str  # PROCEDURE_OWNER
+    entity: SnowflakeProcedureContainer
     argument_signature: Optional[str]  # ARGUMENT_SIGNATURE
     data_type: Optional[str]  # DATA_TYPE
     character_maximum_length: Optional[int]  # CHARACTER_MAXIMUM_LENGTH
@@ -181,6 +188,7 @@ class SnowflakeProcedure:
     )  # Procedures do not have columns, but we need to satisfy the type checker
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    type: str = "STORED_PROCEDURE"
 
 
 class _SnowflakeTagCache:
@@ -753,6 +761,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     database_name=procedure["PROCEDURE_CATALOG"],
                     schema_name=procedure["PROCEDURE_SCHEMA"],
                     owner=procedure["PROCEDURE_OWNER"],
+                    entity=SnowflakeProcedureContainer(
+                        name=procedure["PROCEDURE_NAME"],
+                        database_name=procedure["PROCEDURE_CATALOG"],
+                        schema_name=procedure["PROCEDURE_SCHEMA"],
+                    ),
                     argument_signature=procedure["ARGUMENT_SIGNATURE"],
                     data_type=procedure["DATA_TYPE"],
                     character_maximum_length=procedure["CHARACTER_MAXIMUM_LENGTH"],
