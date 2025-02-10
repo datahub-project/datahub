@@ -1896,6 +1896,7 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                logger.warning(f"Skipping Custom SQL table {csql_id}")
                 return
 
             dataset_properties = DatasetPropertiesClass(
@@ -2335,7 +2336,7 @@ class TableauSiteSource:
 
         browse_path = self._get_project_browse_path_name(datasource)
         if not is_embedded_ds and self._get_published_datasource_project_luid(datasource) is None:
-            logger.info("Skip ingesting published datasource because of filtered project")
+            logger.info(f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project")
             return
 
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
