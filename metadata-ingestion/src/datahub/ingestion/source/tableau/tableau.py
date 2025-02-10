@@ -1896,6 +1896,7 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                return
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
@@ -2333,6 +2334,10 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
+        if not is_embedded_ds and self._get_published_datasource_project_luid(datasource) is None:
+            logger.info("Skip ingesting published datasource because of filtered project")
+            return
+
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2551,6 +2556,9 @@ class TableauSiteSource:
             c.DATABASE_TABLES_CONNECTION,
             tables_filter,
         ):
+            if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
+                logger.warning(f"Skipping table due to filtered out published datasource")
+                continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
             ]
@@ -2605,6 +2613,7 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
+            return
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
