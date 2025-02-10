@@ -77,37 +77,58 @@ We suggest partially compiling DataHub according to your needs:
   ./gradlew :docs-website:serve
   ```
 
-## Deploying Local Versions
+##  Deploying Local Versions
+This guide explains how to set up and deploy DataHub locally for development purposes.
 
-Run just once to have the local `datahub` cli tool installed in your $PATH
+###  Initial Setup
+Before you begin, you'll need to install the local `datahub` CLI tool:
 
 ```shell
-cd smoke-test/
+cd metadata-ingestion/
 python3 -m venv venv
 source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
 cd ../
 ```
 
-Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
+### Deploying the Full Stack
 
+Deploy the entire system using docker-compose:
 ```shell
-./gradlew quickstart
+./gradlew quickstartDebug
 ```
 
-Replace whatever container you want in the existing deployment.
-I.e, replacing datahub's backend (GMS):
+Access the DataHub UI at `http://localhost:9002`
 
+### Refreshing the Frontend
+
+To run and update the frontend with local changes, open a new terminal and run:
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
+cd datahub-web-react
+yarn install && yarn start
+```
+The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
+
+### Refreshing the GMS
+
+To refresh the GMS (Generalized Metadata Service) with local changes:
+```shell
+./gradlew :metadata-service:war:build -x test --parallel && docker restart datahub-datahub-gms-debug-1
 ```
 
-Running the local version of the frontend
+### Refreshing Other Components
 
+To refresh other components with local changes:
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
+cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose \
+    -p datahub \
+    -f docker-compose-without-neo4j.yml \
+    -f docker-compose-without-neo4j.override.yml \
+    -f docker-compose.dev.yml \
+    up -d --no-deps --force-recreate --build <container_name>
 ```
+
+Replace `<container_name>` with the name of the component you want to update.
+
 
 ## IDE Support
 
