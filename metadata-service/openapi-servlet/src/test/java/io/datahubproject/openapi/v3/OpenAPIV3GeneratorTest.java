@@ -6,6 +6,8 @@ import static org.junit.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -36,8 +38,10 @@ public class OpenAPIV3GeneratorTest {
             OpenAPIV3GeneratorTest.class
                 .getClassLoader()
                 .getResourceAsStream("entity-registry.yml"));
+    ConfigurationProvider configurationProvider = new ConfigurationProvider();
+    configurationProvider.setFeatureFlags(new FeatureFlags());
 
-    OpenAPI openAPI = OpenAPIV3Generator.generateOpenApiSpec(er);
+    OpenAPI openAPI = OpenAPIV3Generator.generateOpenApiSpec(er, configurationProvider);
     String openapiYaml = Yaml.pretty(openAPI);
     Files.write(
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
@@ -101,5 +105,30 @@ public class OpenAPIV3GeneratorTest {
             entry ->
                 assertEquals(
                     "#/components/schemas/BatchGetRequestBody", entry.getValue().get$ref()));
+
+    // Assert aspect response schemas have value property with oneOf references
+    Schema<?> aspectResponseSchema =
+        openAPI.getComponents().getSchemas().get("AspectsAspectResponse_v3");
+    Schema<?> valueProperty = aspectResponseSchema.getProperties().get("value");
+    assertTrue(
+        valueProperty.getOneOf() != null && !valueProperty.getOneOf().isEmpty(),
+        "value property should use oneOf");
+
+    // Check each reference has proper format and capitalization
+    valueProperty
+        .getOneOf()
+        .forEach(
+            schema -> {
+              String ref = schema.get$ref();
+              assertTrue(
+                  ref != null && ref.startsWith("#/components/schemas/"),
+                  "reference should start with '#/components/schemas/': " + ref);
+
+              // Extract the last part after the last slash and check first character
+              String refName = ref.substring(ref.lastIndexOf('/') + 1);
+              assertTrue(
+                  Character.isUpperCase(refName.charAt(0)),
+                  "schema reference should start with capital letter: " + name);
+            });
   }
 }

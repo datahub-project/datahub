@@ -16,7 +16,7 @@ node {
   }
 
   // Version of node to use.
-  version = '21.2.0'
+  version = '22.12.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.22'
@@ -73,17 +73,16 @@ task installDev(type: Exec) {
 task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff tests/ && " +
-        "isort --check --diff tests/ && " +
-        "ruff --statistics tests/ && " +
+        "ruff check tests/ && " +
+        "ruff format --check tests/ && " +
         "mypy tests/"
 }
+
 task pythonLintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black tests/ && " +
-        "isort tests/ && " +
-        "ruff --fix tests/ && " +
+        "ruff check --fix tests/ && " +
+        "ruff format tests/ && " +
         "mypy tests/"
 }
 
@@ -91,9 +90,15 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
  * The following tasks assume an already running quickstart.
  * ./gradlew quickstart (or another variation `quickstartDebug`)
  */
-task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+//  ./gradlew :smoke-test:pytest -PbatchNumber=2 (default 0)
+task pytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    // Get BATCH_NUMBER from command line argument with default value of 0
+    def batchNumber = project.hasProperty('batchNumber') ? project.property('batchNumber') : '0'
+
     environment 'RUN_QUICKSTART', 'false'
-    environment 'TEST_STRATEGY', 'no_cypress_suite0'
+    environment 'TEST_STRATEGY', 'pytests'
+    environment 'BATCH_COUNT', 5
+    environment 'BATCH_NUMBER', batchNumber
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -101,29 +106,15 @@ task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:in
             "./smoke.sh"
 }
 
-task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+//  ./gradlew :smoke-test:cypressTest -PbatchNumber=2 (default 0)
+task cypressTest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    // Get BATCH_NUMBER from command line argument with default value of 0
+    def batchNumber = project.hasProperty('batchNumber') ? project.property('batchNumber') : '0'
+
     environment 'RUN_QUICKSTART', 'false'
-    environment 'TEST_STRATEGY', 'no_cypress_suite1'
-
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-            "source ${venv_name}/bin/activate && set -x && " +
-                    "./smoke.sh"
-}
-
-task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
-    environment 'RUN_QUICKSTART', 'false'
-    environment 'TEST_STRATEGY', 'cypress_suite1'
-
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-            "source ${venv_name}/bin/activate && set -x && " +
-                    "./smoke.sh"
-}
-
-task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
-    environment 'RUN_QUICKSTART', 'false'
-    environment 'TEST_STRATEGY', 'cypress_rest'
+    environment 'TEST_STRATEGY', 'cypress'
+    environment 'BATCH_COUNT', 11
+    environment 'BATCH_NUMBER', batchNumber
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
@@ -163,3 +154,19 @@ task lint {
 task lintFix {
     dependsOn pythonLintFix
 }
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-c',
+    "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
+}
+clean.dependsOn cleanPythonCache

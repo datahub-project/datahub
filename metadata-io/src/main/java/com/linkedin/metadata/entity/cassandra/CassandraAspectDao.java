@@ -30,12 +30,14 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.TransactionContext;
+import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -110,7 +113,14 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    Map<String, Long> result = getMaxVersions(urn, ImmutableSet.of(aspectName));
+    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
+    return result.get(aspectName).getSecond();
+  }
+
+  @Override
+  @Nonnull
+  public Pair<Long, Long> getVersionRange(@Nonnull String urn, @Nonnull String aspectName) {
+    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
     return result.get(aspectName);
   }
 
@@ -148,15 +158,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return rs.one() != null;
   }
 
-  private Map<String, Long> getMaxVersions(
+  private Map<String, Pair<Long, Long>> getVersionRanges(
       @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
             .selectors(
                 Selector.column(CassandraAspect.URN_COLUMN),
                 Selector.column(CassandraAspect.ASPECT_COLUMN),
+                Selector.function("min", Selector.column(CassandraAspect.VERSION_COLUMN))
+                    .as("min_version"),
                 Selector.function("max", Selector.column(CassandraAspect.VERSION_COLUMN))
-                    .as(CassandraAspect.VERSION_COLUMN))
+                    .as("max_version"))
             .whereColumn(CassandraAspect.URN_COLUMN)
             .isEqualTo(literal(urn))
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
@@ -168,21 +180,21 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-    Map<String, Long> aspectVersions =
+    Map<String, Pair<Long, Long>> aspectVersionRanges =
         rs.all().stream()
             .collect(
                 Collectors.toMap(
                     row -> row.getString(CassandraAspect.ASPECT_COLUMN),
-                    row -> row.getLong(CassandraAspect.VERSION_COLUMN)));
+                    row -> Pair.of(row.getLong("min_version"), row.getLong("max_version"))));
 
-    // For each requested aspect that didn't come back from DB, add a version -1
+    // For each requested aspect that didn't come back from DB, add a version range of (-1, -1)
     for (String aspect : aspectNames) {
-      if (!aspectVersions.containsKey(aspect)) {
-        aspectVersions.put(aspect, -1L);
+      if (!aspectVersionRanges.containsKey(aspect)) {
+        aspectVersionRanges.put(aspect, Pair.of(-1L, -1L));
       }
     }
 
-    return aspectVersions;
+    return aspectVersionRanges;
   }
 
   @Override
@@ -198,7 +210,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     return keys.stream()
         .map(this::getAspect)
@@ -284,17 +296,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
   }
 
-  @Override
   @Nonnull
-  public <T> T runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry) {
+  @Override
+  public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
     validateConnection();
     TransactionContext txContext = TransactionContext.empty(maxTransactionRetry);
     do {
       try {
         // TODO: Try to bend this code to make use of Cassandra batches. This method is called from
         // single-urn operations, so perf should not suffer much
-        return block.apply(txContext);
+        return block.apply(txContext).getResults();
       } catch (DriverException exception) {
         txContext.addException(exception);
       }
@@ -551,11 +563,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     Map<String, Map<String, Long>> result = new HashMap<>();
 
     for (Map.Entry<String, Set<String>> aspectNames : urnAspectMap.entrySet()) {
-      Map<String, Long> maxVersions = getMaxVersions(aspectNames.getKey(), aspectNames.getValue());
+      Map<String, Pair<Long, Long>> maxVersions =
+          getVersionRanges(aspectNames.getKey(), aspectNames.getValue());
       Map<String, Long> nextVersions = new HashMap<>();
 
       for (String aspectName : aspectNames.getValue()) {
-        long latestVersion = maxVersions.get(aspectName);
+        long latestVersion = maxVersions.get(aspectName).getSecond();
         long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
         nextVersions.put(aspectName, nextVal);
       }

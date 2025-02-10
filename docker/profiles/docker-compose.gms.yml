@@ -54,7 +54,7 @@ x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
 #################################
 x-datahub-system-update-service: &datahub-system-update-service
   hostname: datahub-system-update
-  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_UPDATE_VERSION:-${DATAHUB_VERSION:-head}}
   command:
     - -u
     - SystemUpdate
@@ -67,12 +67,13 @@ x-datahub-system-update-service: &datahub-system-update-service
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
-  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_VERSION:-debug}
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_UPDATE_VERSION:-${DATAHUB_VERSION:-debug}}
   ports:
     - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
   environment: &datahub-system-update-dev-env
@@ -80,6 +81,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     SKIP_ELASTICSEARCH_CHECK: false
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
@@ -90,7 +92,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
 #################################
 x-datahub-gms-service: &datahub-gms-service
   hostname: datahub-gms
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_GMS_VERSION:-${DATAHUB_VERSION:-head}}
   ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
   env_file:
@@ -99,9 +101,9 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
-    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:-search_config.yaml}
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -116,7 +118,7 @@ x-datahub-gms-service: &datahub-gms-service
 
 x-datahub-gms-service-dev: &datahub-gms-service-dev
   <<: *datahub-gms-service
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-debug}
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_GMS_VERSION:-${DATAHUB_VERSION:-debug}}
   ports:
     - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
@@ -126,17 +128,15 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
-    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:-search_config.yaml}
     SKIP_ELASTICSEARCH_CHECK: false
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
-    BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: false
+    BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:-false}
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-    - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
-    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
@@ -148,7 +148,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
 #################################
 x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   hostname: datahub-mae-consumer
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-head}}
   ports:
     - 9091:9091
   env_file:
@@ -157,12 +157,14 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-debug}
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
     - ../../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
@@ -174,7 +176,7 @@ x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
 #################################
 x-datahub-mce-consumer-service: &datahub-mce-consumer-service
   hostname: datahub-mce-consumer
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-head}}
   ports:
     - 9090:9090
   env_file:
@@ -185,12 +187,14 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-debug}
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
+    ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin

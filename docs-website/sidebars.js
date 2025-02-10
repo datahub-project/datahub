@@ -1,13 +1,8 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
-  // users
-  // architects
-  // modelers
-  // developers
-  // operators
-
   overviewSidebar: [
+    // Getting Started.
     {
       type: "html",
       value: "<div>Getting Started</div>",
@@ -36,7 +31,6 @@ module.exports = {
           label: "Adoption Stories",
           href: "/adoption-stories",
         },
-        "docs/what-is-datahub/datahub-concepts",
       ],
     },
     {
@@ -368,6 +362,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_8",
             "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
@@ -400,6 +395,7 @@ module.exports = {
         },
       ],
     },
+    // Integrations.
     {
       type: "html",
       value: "<div>Integrations</div>",
@@ -505,11 +501,6 @@ module.exports = {
         },
         {
           type: "doc",
-          id: "docs/lineage/openlineage",
-          label: "OpenLineage",
-        },
-        {
-          type: "doc",
           id: "docs/lineage/prefect",
           label: "Prefect",
         },
@@ -541,6 +532,7 @@ module.exports = {
         },
 
         "docs/platform-instances",
+        "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
         "metadata-ingestion/docs/dev_guides/classification",
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
@@ -548,106 +540,15 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
       ],
     },
+    // APIs & SDKs.
     {
       type: "html",
-      value: "<div>Deployment</div>",
+      value: "<div>API & SDKs</div>",
       defaultStyle: true,
     },
     {
-      type: "category",
-      label: "Deployment Guides",
-      link: {
-        type: "generated-index",
-        title: "Deployment Guides",
-        description:
-          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
-      },
-      items: [
-        "docs/deploy/aws",
-        "docs/deploy/gcp",
-        "docs/deploy/azure",
-        "docker/README",
-        "docs/deploy/kubernetes",
-      ],
-    },
-    {
-      type: "category",
-      label: "Advanced Guides",
-      items: [
-        "docs/deploy/confluent-cloud",
-        "docs/deploy/environment-vars",
-        "docs/how/extract-container-logs",
-      ],
-    },
-    {
-      type: "html",
-      value: "<div>Admin</div>",
-      defaultStyle: true,
-    },
-    {
-      Authentication: [
-        "docs/authentication/README",
-        "docs/authentication/concepts",
-        "docs/authentication/changing-default-credentials",
-        "docs/authentication/guides/add-users",
-        {
-          "Frontend Authentication": [
-            "docs/authentication/guides/jaas",
-            "docs/authentication/guides/sso/initialize-oidc",
-            "docs/authentication/guides/sso/configure-oidc-react",
-            "docs/authentication/guides/sso/configure-oidc-behind-proxy",
-          ],
-        },
-        "docs/authentication/introducing-metadata-service-authentication",
-        "docs/authentication/personal-access-tokens",
-      ],
-    },
-    {
-      Authorization: [
-        "docs/authorization/README",
-        "docs/authorization/roles",
-        "docs/authorization/policies",
-        "docs/authorization/groups",
-      ],
-    },
-    {
-      "Advanced Guides": [
-        "docs/how/delete-metadata",
-        "docs/how/configuring-authorization-with-apache-ranger",
-        {
-          "SCIM Provisioning": [
-            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
-            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
-          ],
-        },
-        "docs/how/backup-datahub",
-        "docs/how/restore-indices",
-        "docs/advanced/db-retention",
-        "docs/advanced/monitoring",
-        "docs/deploy/telemetry",
-        "docs/how/kafka-config",
-        "docs/advanced/no-code-upgrade",
-        "docs/how/jattach-guide",
-      ],
-    },
-    {
-      type: "html",
-      value: "<div>Developers</div>",
-      defaultStyle: true,
-    },
-    {
-      Architecture: [
-        "docs/architecture/architecture",
-        "docs/components",
-        "docs/architecture/metadata-ingestion",
-        "docs/architecture/metadata-serving",
-        "docs/architecture/docker-containers",
-      ],
-    },
-    {
-      "Metadata Model": [
+      "DataHub's Open Metadata Standard": [
         "docs/modeling/metadata-model",
-        "docs/modeling/extending-the-metadata-model",
         "docs/what/mxe",
         {
           Entities: [
@@ -659,58 +560,26 @@ module.exports = {
         },
       ],
     },
+    "docs/what-is-datahub/datahub-concepts",
     {
-      "Developing on DataHub": [
-        "docs/developers",
-        "docs/docker/development",
-        "metadata-ingestion/developing",
-        "docs/api/graphql/graphql-endpoint-development",
+      type: "category",
+      label: "Metadata Standards",
+      link: { type: "doc", id: "docs/metadata-standards" },
+      items: [
         {
-          Modules: [
-            "datahub-web-react/README",
-            "datahub-frontend/README",
-            "datahub-graphql-core/README",
-            "metadata-service/README",
-            "metadata-jobs/mae-consumer-job/README",
-            "metadata-jobs/mce-consumer-job/README",
-          ],
+          type: "doc",
+          id: "docs/iceberg-catalog",
         },
         {
-          Troubleshooting: [
-            "docs/troubleshooting/quickstart",
-            "docs/troubleshooting/build",
-            "docs/troubleshooting/general",
-          ],
+          type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
         },
       ],
-    },
-    {
-      "Advanced Guides": [
-        "metadata-ingestion/docs/dev_guides/reporting_telemetry",
-        "docs/advanced/mcp-mcl",
-        "docker/datahub-upgrade/README",
-        "docs/advanced/no-code-modeling",
-        "datahub-web-react/src/app/analytics/README",
-        "docs/how/migrating-graph-service-implementation",
-        "docs/advanced/field-path-spec-v2",
-        "metadata-ingestion/adding-source",
-        "docs/how/add-custom-ingestion-source",
-        "docs/how/add-custom-data-platform",
-        "docs/advanced/browse-paths-upgrade",
-        "docs/browseV2/browse-paths-v2",
-        "docs/plugins",
-        "docs/advanced/bootstrap-mcps",
-      ],
-    },
-    {
-      type: "html",
-      value: "<div>API & SDKs</div>",
-      defaultStyle: true,
     },
     {
       type: "doc",
       id: "docs/api/datahub-apis",
-      label: "Overview",
     },
     {
       type: "category",
@@ -781,6 +650,11 @@ module.exports = {
                 },
                 {
                   type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
+                },
+                {
+                  type: "doc",
                   label: "Access Token Management",
                   id: "docs/api/graphql/token-management",
                 },
@@ -841,27 +715,23 @@ module.exports = {
     },
     {
       type: "category",
-      label: "SDK",
+      label: "Python SDK",
       items: [
+        "metadata-ingestion/as-a-library",
         {
-          "Python SDK": [
-            "metadata-ingestion/as-a-library",
+          "Python SDK Reference": [
             {
-              "Python SDK Reference": [
-                {
-                  type: "autogenerated",
-                  dirName: "python-sdk",
-                },
-              ],
+              type: "autogenerated",
+              dirName: "python-sdk",
             },
           ],
         },
-        {
-          type: "doc",
-          label: "Java SDK",
-          id: "metadata-integration/java/as-a-library",
-        },
       ],
+    },
+    {
+      type: "doc",
+      label: "Java SDK",
+      id: "metadata-integration/java/as-a-library",
     },
     {
       type: "category",
@@ -925,7 +795,16 @@ module.exports = {
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
-        "docs/api/tutorials/ml",
+        {
+          type: "doc",
+          id: "docs/api/tutorials/ml",
+          label: "AI/ML Integration",
+        },
+        {
+          type: "doc",
+          id: "docs/api/tutorials/ml_feature_store",
+          label: "Feature Store",
+        },
         "docs/api/tutorials/owners",
         "docs/api/tutorials/structured-properties",
         "docs/api/tutorials/tags",
@@ -937,6 +816,151 @@ module.exports = {
         },
       ],
     },
+    // Admin.
+    {
+      type: "html",
+      value: "<div>Admin</div>",
+      defaultStyle: true,
+    },
+    {
+      Authentication: [
+        "docs/authentication/README",
+        "docs/authentication/concepts",
+        "docs/authentication/changing-default-credentials",
+        "docs/authentication/guides/add-users",
+        {
+          "Frontend Authentication": [
+            "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/initialize-oidc",
+            "docs/authentication/guides/sso/configure-oidc-react",
+            "docs/authentication/guides/sso/configure-oidc-behind-proxy",
+          ],
+        },
+        "docs/authentication/introducing-metadata-service-authentication",
+        "docs/authentication/personal-access-tokens",
+      ],
+    },
+    {
+      Authorization: [
+        "docs/authorization/README",
+        "docs/authorization/roles",
+        "docs/authorization/policies",
+        "docs/authorization/groups",
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "docs/how/delete-metadata",
+        "docs/how/configuring-authorization-with-apache-ranger",
+        {
+          "SCIM Provisioning": [
+            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+          ],
+        },
+        "docs/how/backup-datahub",
+        "docs/how/restore-indices",
+        "docs/advanced/db-retention",
+        "docs/advanced/monitoring",
+        "docs/deploy/telemetry",
+        "docs/how/kafka-config",
+        "docs/advanced/no-code-upgrade",
+        "docs/how/jattach-guide",
+      ],
+    },
+    // Deployment.
+    {
+      type: "html",
+      value: "<div>Deployment</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      label: "Deployment Guides",
+      link: {
+        type: "generated-index",
+        title: "Deployment Guides",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+      },
+      items: [
+        "docs/deploy/aws",
+        "docs/deploy/gcp",
+        "docs/deploy/azure",
+        "docker/README",
+        "docs/deploy/kubernetes",
+      ],
+    },
+    {
+      type: "category",
+      label: "Advanced Guides",
+      items: [
+        "docs/deploy/confluent-cloud",
+        "docs/deploy/environment-vars",
+        "docs/how/extract-container-logs",
+      ],
+    },
+    // Developers.
+    {
+      type: "html",
+      value: "<div>Developers</div>",
+      defaultStyle: true,
+    },
+    {
+      Architecture: [
+        "docs/architecture/architecture",
+        "docs/components",
+        "docs/architecture/metadata-ingestion",
+        "docs/architecture/metadata-serving",
+        "docs/architecture/docker-containers",
+      ],
+    },
+    {
+      "Developing on DataHub": [
+        "docs/developers",
+        "docs/docker/development",
+        "metadata-ingestion/developing",
+        "docs/api/graphql/graphql-endpoint-development",
+        {
+          Modules: [
+            "datahub-web-react/README",
+            "datahub-frontend/README",
+            "datahub-graphql-core/README",
+            "metadata-service/README",
+            "metadata-jobs/mae-consumer-job/README",
+            "metadata-jobs/mce-consumer-job/README",
+          ],
+        },
+        {
+          Troubleshooting: [
+            "docs/troubleshooting/quickstart",
+            "docs/troubleshooting/build",
+            "docs/troubleshooting/general",
+          ],
+        },
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "docs/advanced/mcp-mcl",
+        "docs/modeling/extending-the-metadata-model",
+        "docs/advanced/no-code-modeling",
+        "docs/advanced/api-tracing",
+        "datahub-web-react/src/app/analytics/README",
+        "docker/datahub-upgrade/README",
+        "metadata-ingestion/adding-source",
+        "docs/how/add-custom-ingestion-source",
+        "docs/how/add-custom-data-platform",
+        "docs/how/migrating-graph-service-implementation",
+        "docs/advanced/field-path-spec-v2",
+        "docs/advanced/browse-paths-upgrade",
+        "docs/browseV2/browse-paths-v2",
+        "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+        "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
+      ],
+    },
+    // Community.
     {
       type: "html",
       value: "<div>Community</div>",

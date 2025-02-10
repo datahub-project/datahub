@@ -9,4 +9,9 @@ record CorpUserAppearanceSettings {
    * who have less operational use cases for the datahub tool.
    */
   showSimplifiedHomepage: optional boolean
+
+  /**
+   * Flag controlling whether the V2 UI for DataHub is shown.
+   */
+  showThemeV2: optional boolean
 }

@@ -73,7 +73,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v2/entity")
+@RequestMapping("/openapi/v2/entity")
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
@@ -203,7 +203,7 @@ public class EntityController
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
+            items.add(builder.build(opContext.getAspectRetriever()));
           }
         }
       }
@@ -211,7 +211,7 @@ public class EntityController
 
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 
@@ -219,13 +219,14 @@ public class EntityController
   protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
       Collection<Urn> requestedUrns,
-      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
+
     Map<Urn, List<EnvelopedAspect>> aspects =
         entityService.getEnvelopedVersionedAspects(
-            opContext, resolveAspectNames(urnAspectVersions, 0L, true), true);
+            opContext, aspectSpecsToAspectNames(urnAspectVersions, false), true);
 
     return urnAspectVersions.keySet().stream()
         .map(

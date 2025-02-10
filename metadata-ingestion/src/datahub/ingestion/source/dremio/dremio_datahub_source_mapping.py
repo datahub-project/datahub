@@ -31,6 +31,7 @@ class DremioToDataHubSourceTypeMapping:
         "SNOWFLAKE": "snowflake",
         "SYNAPSE": "mssql",
         "TERADATA": "teradata",
+        "VERTICA": "vertica",
     }
 
     DATABASE_SOURCE_TYPES = {
@@ -52,6 +53,7 @@ class DremioToDataHubSourceTypeMapping:
         "SNOWFLAKE",
         "SYNAPSE",
         "TERADATA",
+        "VERTICA",
     }
 
     FILE_OBJECT_STORAGE_TYPES = {
@@ -99,9 +101,9 @@ class DremioToDataHubSourceTypeMapping:
         Add a new source type if not in the map (e.g., Dremio ARP).
         """
         dremio_source_type = dremio_source_type.upper()
-        DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING[
-            dremio_source_type
-        ] = datahub_source_type
+        DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING[dremio_source_type] = (
+            datahub_source_type
+        )
 
         if category:
             if category.lower() == "file_object_storage":

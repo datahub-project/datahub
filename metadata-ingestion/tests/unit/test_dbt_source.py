@@ -1,4 +1,3 @@
-import doctest
 from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
@@ -10,7 +9,12 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
-from datahub.ingestion.source.dbt.dbt_common import DBTNode
+from datahub.ingestion.source.dbt.dbt_common import (
+    DBTNode,
+    DBTSourceReport,
+    NullTypeClass,
+    get_column_type,
+)
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
@@ -22,6 +26,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
@@ -442,7 +447,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
 
 
 def test_infer_metadata_endpoint() -> None:
-    assert doctest.testmod(dbt_cloud, raise_on_error=True).attempted > 0
+    assert_doctest(dbt_cloud)
 
 
 def test_dbt_time_parsing() -> None:
@@ -461,3 +466,30 @@ def test_dbt_time_parsing() -> None:
         assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(
             timestamp
         ) == timedelta(0)
+
+
+def test_get_column_type_redshift():
+    report = DBTSourceReport()
+    dataset_name = "test_dataset"
+
+    # Test 'super' type which should not show any warnings/errors
+    result_super = get_column_type(report, dataset_name, "super", "redshift")
+    assert isinstance(result_super.type, NullTypeClass)
+    assert len(report.infos) == 0, (
+        "No warnings should be generated for known SUPER type"
+    )
+
+    # Test unknown type, which generates a warning but resolves to NullTypeClass
+    unknown_type = "unknown_type"
+    result_unknown = get_column_type(report, dataset_name, unknown_type, "redshift")
+    assert isinstance(result_unknown.type, NullTypeClass)
+
+    # exact warning message for an unknown type
+    expected_context = f"{dataset_name} - {unknown_type}"
+    messages = [info for info in report.infos if expected_context in str(info.context)]
+    assert len(messages) == 1
+    assert messages[0].title == "Unable to map column types to DataHub types"
+    assert (
+        messages[0].message
+        == "Got an unexpected column type. The column's parsed field type will not be populated."
+    )

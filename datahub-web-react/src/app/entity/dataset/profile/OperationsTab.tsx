@@ -137,7 +137,10 @@ export const OperationsTab = () => {
     const [page, setPage] = useState(1);
 
     // Fetch data across all siblings.
-    const allUrns = [urn, ...(entityData?.siblings?.siblings || []).map((sibling) => sibling?.urn).filter(notEmpty)];
+    const allUrns = [
+        urn,
+        ...(entityData?.siblingsSearch?.searchResults || []).map((sibling) => sibling.entity.urn).filter(notEmpty),
+    ];
     const loadings: boolean[] = [];
     const datas: GetDatasetRunsQuery[] = [];
     allUrns.forEach((entityUrn) => {
@@ -195,8 +198,8 @@ export const OperationsTab = () => {
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
             duration: run?.state?.[0]?.durationMillis,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));

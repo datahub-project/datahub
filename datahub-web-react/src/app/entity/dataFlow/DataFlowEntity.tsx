@@ -92,7 +92,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataFlow) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -184,6 +184,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };

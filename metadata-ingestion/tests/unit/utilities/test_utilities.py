@@ -1,10 +1,12 @@
-import doctest
 import re
 from typing import List
 
+import datahub.utilities.logging_manager
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.testing.doctest import assert_doctest
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -328,16 +330,19 @@ JOIN `admin-table` a on d.`column-date` = a.`column-admin`
     assert sorted(SqlLineageSQLParser(sql_query).get_columns()) == expected_columns
 
 
-def test_logging_name_extraction():
-    import datahub.utilities.logging_manager
-
-    assert (
-        doctest.testmod(
-            datahub.utilities.logging_manager, raise_on_error=True
-        ).attempted
-        > 0
-    )
+def test_logging_name_extraction() -> None:
+    assert_doctest(datahub.utilities.logging_manager)
 
 
 def test_is_pytest_running() -> None:
     assert is_pytest_running()
+
+
+def test_groupby_unsorted():
+    grouped = groupby_unsorted("ABCAC", key=lambda x: x)
+
+    assert list(grouped) == [
+        ("A", ["A", "A"]),
+        ("B", ["B"]),
+        ("C", ["C", "C"]),
+    ]

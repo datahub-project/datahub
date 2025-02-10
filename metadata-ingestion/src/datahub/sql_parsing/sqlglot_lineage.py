@@ -66,6 +66,7 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
@@ -365,10 +366,11 @@ def _prepare_query_columns(
 
             return node
 
-        # logger.debug(
-        #     "Prior to case normalization sql %s",
-        #     statement.sql(pretty=True, dialect=dialect),
-        # )
+        if SQL_PARSER_TRACE:
+            logger.debug(
+                "Prior to case normalization sql %s",
+                statement.sql(pretty=True, dialect=dialect),
+            )
         statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
         # logger.debug(
         #     "Sql after casing normalization %s",
@@ -440,9 +442,9 @@ def _create_table_ddl_cll(
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
-    assert (
-        output_table is not None
-    ), "output_table must be set for create DDL statements"
+    assert output_table is not None, (
+        "output_table must be set for create DDL statements"
+    )
 
     create_schema: sqlglot.exp.Schema = statement.this
     sqlglot_columns = create_schema.expressions
@@ -562,7 +564,7 @@ def _select_statement_cll(  # noqa: C901
                 )
             )
 
-        # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
+        # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
@@ -1022,6 +1024,14 @@ def _sqlglot_lineage_inner(
     logger.debug(
         f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
+    if SQL_PARSER_TRACE:
+        for qualified_table, schema_info in table_name_schema_mapping.items():
+            logger.debug(
+                "Table name %s resolved to %s with schema %s",
+                qualified_table,
+                table_name_urn_mapping[qualified_table],
+                schema_info,
+            )
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
@@ -1181,6 +1191,45 @@ def sqlglot_lineage(
         )
 
 
+@functools.lru_cache(maxsize=128)
+def create_and_cache_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    return create_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=graph,
+        platform_instance=platform_instance,
+        schema_aware=schema_aware,
+    )
+
+
+def create_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    if graph and schema_aware:
+        return graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+    return SchemaResolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=None,
+    )
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1191,21 +1240,17 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
     if graph and schema_aware:
         needs_close = False
-        schema_resolver = graph._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-    else:
-        needs_close = True
-        schema_resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=None,
-        )
 
     try:
         return sqlglot_lineage(

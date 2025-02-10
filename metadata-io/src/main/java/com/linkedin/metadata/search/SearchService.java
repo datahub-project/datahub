@@ -2,7 +2,6 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -215,20 +214,18 @@ public class SearchService {
    */
   public List<String> getEntitiesToSearch(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> inputEntities, int size) {
-    List<String> nonEmptyEntities;
     List<String> lowercaseEntities =
         inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
 
     if (lowercaseEntities.isEmpty()) {
-      try (Timer.Context ignored =
-          MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities(opContext);
-      }
-    } else {
-      nonEmptyEntities = lowercaseEntities;
+      return opContext.withSpan(
+          "getNonEmptyEntities",
+          () -> _entityDocCountCache.getNonEmptyEntities(opContext),
+          MetricUtils.DROPWIZARD_NAME,
+          MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
 
-    return nonEmptyEntities;
+    return lowercaseEntities;
   }
 
   /**

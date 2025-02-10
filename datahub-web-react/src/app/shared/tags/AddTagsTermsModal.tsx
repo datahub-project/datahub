@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
+import { message, Button, Modal, Select, Typography, Tag as CustomTag, Form, Empty } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import {
@@ -22,6 +23,7 @@ import { ENTER_KEY_CODE } from '../constants';
 import { getModalDomContainer } from '../../../utils/focus';
 import ParentEntities from '../../search/filters/ParentEntities';
 import { getParentEntities } from '../../search/filters/utils';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 export enum OperationType {
     ADD,
@@ -38,10 +40,6 @@ type EditTagsModalProps = {
     onOkOverride?: (result: string[]) => void;
 };
 
-const TagSelect = styled(Select)`
-    width: 480px;
-`;
-
 const StyleTag = styled(CustomTag)`
     margin: 2px;
     display: flex;
@@ -53,7 +51,13 @@ const StyleTag = styled(CustomTag)`
     line-height: 16px;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
+export const BrowserWrapper = styled.div<{
+    isHidden: boolean;
+    width?: string;
+    maxHeight?: number;
+    minWidth?: number;
+    maxWidth?: number;
+}>`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
@@ -61,7 +65,9 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; ma
     overflow: auto;
     position: absolute;
     transition: opacity 0.2s;
-    width: ${(props) => (props.width ? props.width : '480px')};
+    width: ${(props) => (props.width ? props.width : '100%')};
+    ${(props) => props.minWidth !== undefined && `min-width: ${props.minWidth}px;`}
+    ${(props) => props.maxWidth !== undefined && `max-width: ${props.maxWidth}px;`}
     z-index: 1051;
     ${(props) =>
         props.isHidden &&
@@ -75,6 +81,18 @@ const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
+`;
+
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
@@ -121,9 +139,11 @@ export default function EditTagTermsModal({
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchRemoveTermsMutation] = useBatchRemoveTermsMutation();
 
-    const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
+    const [tagTermSearch, { data: tagsSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
+
+    const tagSearchResults: Array<Entity> = tagsSearchData?.autoComplete?.entities || [];
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.Tag]);
+    const loading = (recommendationsLoading as boolean) || searchLoading;
     const inputEl = useRef(null);
 
     const handleSearch = (text: string) => {
@@ -133,8 +153,7 @@ export default function EditTagTermsModal({
                     input: {
                         type,
                         query: text,
-                        start: 0,
-                        count: 10,
+                        limit: 10,
                     },
                 },
             });
@@ -236,7 +255,7 @@ export default function EditTagTermsModal({
         setUrns(newUrns);
         setSelectedTerms([
             ...selectedTerms,
-            { urn, component: <TagTermLabel termName={selectedSearchOption?.props.name} /> },
+            { urn, component: <TagTermLabel termName={selectedSearchOption?.props?.name} /> },
         ]);
         setSelectedTags([
             ...selectedTags,
@@ -451,50 +470,74 @@ export default function EditTagTermsModal({
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
                         disabled={urns.length === 0 || disableAction}
                     >
-                        Done
+                        Add
                     </Button>
                 </>
             }
             getContainer={getModalDomContainer}
         >
-            <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                <TagSelect
-                    data-testid="tag-term-modal-input"
-                    autoFocus
-                    defaultOpen
-                    mode="multiple"
-                    ref={inputEl}
-                    filterOption={false}
-                    placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                    showSearch
-                    defaultActiveFirstOption={false}
-                    onSelect={(asset: any) => onSelectValue(asset)}
-                    onDeselect={(asset: any) => onDeselectValue(asset)}
-                    onSearch={(value: string) => {
-                        // eslint-disable-next-line react/prop-types
-                        handleSearch(value.trim());
-                        // eslint-disable-next-line react/prop-types
-                        setInputValue(value.trim());
-                    }}
-                    tagRender={tagRender}
-                    value={urns}
-                    onClear={clearInput}
-                    onFocus={() => setIsFocusedOnInput(true)}
-                    onBlur={handleBlur}
-                    onInputKeyDown={handleKeyDown}
-                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-                >
-                    {tagSearchOptions}
-                </TagSelect>
-                <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
-                </BrowserWrapper>
-            </ClickOutside>
+            <Form component={false}>
+                <Form.Item>
+                    <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
+                        <Select
+                            data-testid="tag-term-modal-input"
+                            autoFocus
+                            defaultOpen
+                            mode="multiple"
+                            ref={inputEl}
+                            filterOption={false}
+                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                            showSearch
+                            defaultActiveFirstOption={false}
+                            onSelect={(asset: any) => onSelectValue(asset)}
+                            onDeselect={(asset: any) => onDeselectValue(asset)}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            style={{ width: '100%' }}
+                            tagRender={tagRender}
+                            value={urns}
+                            onClear={clearInput}
+                            onFocus={() => setIsFocusedOnInput(true)}
+                            onBlur={handleBlur}
+                            onInputKeyDown={handleKeyDown}
+                            dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+                            loading={loading}
+                            notFoundContent={
+                                !loading ? (
+                                    <Empty
+                                        description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        style={{ color: ANTD_GRAY[7] }}
+                                    />
+                                ) : null
+                            }
+                        >
+                            {loading ? (
+                                <Select.Option value="loading">
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                </Select.Option>
+                            ) : (
+                                tagSearchOptions
+                            )}
+                        </Select>
+                        <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
+                            <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
+                        </BrowserWrapper>
+                    </ClickOutside>
+                </Form.Item>
+            </Form>
         </Modal>
     );
 }

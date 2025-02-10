@@ -133,7 +133,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_staging,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                    "query": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b"
                 }
             ],
             "fineGrainedLineages": [
@@ -147,7 +147,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                    "query": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -159,7 +159,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                    "query": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -171,7 +171,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),c)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c"
+                    "query": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b"
                 }
             ]
         }
@@ -179,13 +179,13 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c",
+    "entityUrn": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "ALTER TABLE dev.public.foo_staging RENAME TO foo",
+                "value": "ALTER TABLE dev.public.foo_staging RENAME TO foo /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -202,7 +202,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c",
+    "entityUrn": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -229,7 +229,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:a30d42497a737321ece461fa17344c3ba3588fdee736016acb59a00cec955a0c",
+    "entityUrn": "urn:li:query:07a307ad99d3c4a7e54d20c004a4f2d52496f3f5283b33013f80e6323700d97b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

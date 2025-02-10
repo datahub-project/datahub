@@ -112,7 +112,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataJob) => {
-                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -205,6 +205,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };

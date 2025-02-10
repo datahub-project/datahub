@@ -6,9 +6,11 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.util.Pair;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -43,7 +45,7 @@ public interface AspectDao {
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys);
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
@@ -155,18 +157,29 @@ public interface AspectDao {
 
   long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
 
+  /**
+   * Return the min/max version for the given URN & aspect
+   *
+   * @param urn the urn
+   * @param aspectName the aspect
+   * @return the range of versions, if they do not exist -1 is returned
+   */
+  @Nonnull
+  Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
+
   void setWritable(boolean canWrite);
 
   @Nonnull
-  <T> T runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry);
+  <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
+      final int maxTransactionRetry);
 
   @Nonnull
-  default <T> List<T> runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block,
+  default <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       AspectsBatch batch,
       final int maxTransactionRetry) {
-    return List.of(runInTransactionWithRetry(block, maxTransactionRetry));
+    return runInTransactionWithRetry(block, maxTransactionRetry);
   }
 
   default void incrementWriteMetrics(String aspectName, long count, long bytes) {

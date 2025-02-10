@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Dict,
@@ -14,7 +13,7 @@ from typing import (
 )
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn, parse_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -49,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 def auto_workunit(
-    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
+    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
 ) -> Iterable[MetadataWorkUnit]:
     """Convert a stream of MCEs and MCPs to a stream of :class:`MetadataWorkUnit`s."""
 
@@ -150,7 +149,7 @@ def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Itera
         report.report_workunit(wu)
         yield wu
 
-    if report.events_produced == 0:
+    if report.event_not_produced_warn and report.events_produced == 0:
         report.warning(
             title="No metadata was produced by the source",
             message="Please check the source configuration, filters, and permissions.",
@@ -479,10 +478,7 @@ def auto_empty_dataset_usage_statistics(
     if invalid_timestamps:
         logger.warning(
             f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
-            ", ".join(
-                str(datetime.fromtimestamp(ts / 1000, tz=timezone.utc))
-                for ts in invalid_timestamps
-            )
+            ", ".join(str(parse_ts_millis(ts)) for ts in invalid_timestamps)
         )
 
     for bucket in bucket_timestamps:

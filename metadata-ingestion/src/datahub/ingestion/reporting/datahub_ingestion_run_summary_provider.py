@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from datahub import nice_version_name
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -146,12 +146,55 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             aspect_value=source_info_aspect,
         )
 
+    @staticmethod
+    def _convert_sets_to_lists(obj: Any) -> Any:
+        """
+        Recursively converts all sets to lists in a Python object.
+        Works with nested dictionaries, lists, and sets.
+
+        Args:
+            obj: Any Python object that might contain sets
+
+        Returns:
+            The object with all sets converted to lists
+        """
+        if isinstance(obj, dict):
+            return {
+                key: DatahubIngestionRunSummaryProvider._convert_sets_to_lists(value)
+                for key, value in obj.items()
+            }
+        elif isinstance(obj, list):
+            return [
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
+                for element in obj
+            ]
+        elif isinstance(obj, set):
+            return [
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
+                for element in obj
+            ]
+        elif isinstance(obj, tuple):
+            return tuple(
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
+                for element in obj
+            )
+        else:
+            return obj
+
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
             return ""
         else:
-            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
+            redacted_recipe = redact_raw_config(ctx.pipeline_config.get_raw_dict())
+            # This is required otherwise json dumps will fail
+            # with a TypeError: Object of type set is not JSON serializable
+            converted_recipe = (
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(
+                    redacted_recipe
+                )
+            )
+            return json.dumps(converted_recipe)
 
     def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
         self.sink.write_record_async(

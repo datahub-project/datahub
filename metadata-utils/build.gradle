@@ -10,6 +10,7 @@ dependencies {
   implementation externalDependency.commonsLang
   api externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
+  implementation externalDependency.opentelemetrySdk
   api externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   api externalDependency.neo4jJavaDriver
@@ -26,6 +27,7 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.javaxMail
 
   annotationProcessor externalDependency.lombok
 
@@ -39,6 +41,9 @@ dependencies {
       }
       implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.javaxMail) {
+      because("previous versions are vulnerable")
     }
   }
   implementation externalDependency.logbackClassic

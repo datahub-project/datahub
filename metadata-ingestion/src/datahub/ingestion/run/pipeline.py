@@ -15,7 +15,7 @@ import click
 import humanfriendly
 import psutil
 
-import datahub
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     IgnorableError,
@@ -76,8 +76,9 @@ class LoggingCallback(WriteCallback):
         failure_metadata: dict,
     ) -> None:
         logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {failure_exception} and info {failure_metadata}"
+            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}",
+            extra={"failure_metadata": failure_metadata},
+            exc_info=failure_exception,
         )
 
 
@@ -108,9 +109,9 @@ class DeadLetterQueueCallback(WriteCallback):
                         mcp.systemMetadata.properties = {}
                     if "workunit_id" not in mcp.systemMetadata.properties:
                         # update the workunit id
-                        mcp.systemMetadata.properties[
-                            "workunit_id"
-                        ] = record_envelope.metadata["workunit_id"]
+                        mcp.systemMetadata.properties["workunit_id"] = (
+                            record_envelope.metadata["workunit_id"]
+                        )
                 record_envelope.record = mcp
         self.file_sink.write_record_async(record_envelope, self.logging_callback)
 
@@ -143,8 +144,8 @@ def _add_init_error_context(step: str) -> Iterator[None]:
 
 @dataclass
 class CliReport(Report):
-    cli_version: str = datahub.nice_version_name()
-    cli_entry_location: str = datahub.__file__
+    cli_version: str = nice_version_name()
+    cli_entry_location: str = __file__
     models_version: str = model_version_name()
     py_version: str = sys.version
     py_exec_path: str = sys.executable
@@ -221,7 +222,7 @@ class Pipeline:
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
-        report_to: Optional[str] = None,
+        report_to: Optional[str] = "datahub",
         no_progress: bool = False,
     ):
         self.config = config
@@ -700,7 +701,7 @@ class Pipeline:
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_failures_source+num_failures_sink} failures"
+                    status=f"with at least {num_failures_source + num_failures_sink} failures"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=True, warnings=False
@@ -718,7 +719,7 @@ class Pipeline:
             num_warn_global = len(global_warnings)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_warn_source+num_warn_sink+num_warn_global} warnings"
+                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True

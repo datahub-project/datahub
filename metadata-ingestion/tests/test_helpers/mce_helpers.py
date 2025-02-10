@@ -300,9 +300,9 @@ def assert_for_each_entity(
     for urn, aspect_val in aspect_map.items():
         if aspect_val is not None:
             for f in aspect_field_matcher:
-                assert aspect_field_matcher[f] == _get_element(
-                    aspect_val, [f]
-                ), f"urn: {urn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                assert aspect_field_matcher[f] == _get_element(aspect_val, [f]), (
+                    f"urn: {urn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                )
             success.append(urn)
         elif urn not in exception_urns:
             print(f"Adding {urn} to failures")
@@ -361,9 +361,9 @@ def assert_entity_mcp_aspect(
             assert mcp.aspect
             aspect_val = mcp.aspect.to_obj()
             for f in aspect_field_matcher:
-                assert aspect_field_matcher[f] == _get_element(
-                    aspect_val, [f]
-                ), f"urn: {mcp.entityUrn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                assert aspect_field_matcher[f] == _get_element(aspect_val, [f]), (
+                    f"urn: {mcp.entityUrn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                )
                 matches = matches + 1
     return matches
 

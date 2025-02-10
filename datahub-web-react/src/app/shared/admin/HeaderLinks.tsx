@@ -70,8 +70,8 @@ export function HeaderLinks(props: Props) {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;

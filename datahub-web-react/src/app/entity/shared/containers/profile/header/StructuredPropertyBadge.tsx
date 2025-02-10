@@ -41,8 +41,8 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
 
     if (!badgeStructuredProperty) return null;
 
-    const propertyValue = propRow?.values[0].value;
-    const relatedDescription = propRow?.structuredProperty.definition.allowedValues?.find(
+    const propertyValue = propRow?.values[0]?.value;
+    const relatedDescription = propRow?.structuredProperty?.definition?.allowedValues?.find(
         (v) => getStructuredPropertyValue(v.value) === propertyValue,
     )?.description;
 
@@ -56,7 +56,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                     <Text color="gray" size="sm" weight="bold">
                         Value
                     </Text>
-                    <Text color="gray">{propRow?.values[0].value}</Text>
+                    <Text color="gray">{propRow?.values[0]?.value}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
@@ -78,12 +78,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
             overlayInnerStyle={{ width: 250, padding: 16 }}
         >
             <BadgeContainer>
-                <Pill
-                    label={propRow?.values[0].value?.toString() || ''}
-                    size="sm"
-                    colorScheme="violet"
-                    clickable={false}
-                />
+                <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="violet" clickable={false} />
             </BadgeContainer>
         </StyledTooltip>
     );
