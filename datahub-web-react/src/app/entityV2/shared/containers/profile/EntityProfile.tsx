@@ -1,3 +1,4 @@
+import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import React, { useCallback, useContext, useState } from 'react';
 import { Alert } from 'antd';
@@ -44,7 +45,12 @@ import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
 import { EntityContext } from '../../../../entity/shared/EntityContext';
-import { EntitySubHeaderSection, GenericEntityProperties, GenericEntityUpdate } from '../../../../entity/shared/types';
+import {
+    DrawerType,
+    EntitySubHeaderSection,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../../../entity/shared/types';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
 
 type Props<T, U> = {
@@ -209,6 +215,7 @@ export const EntityProfile = <T, U>({
     const [showAlert, setShowAlert] = useState(true);
     const entityState = useEntityState();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [drawer, setDrawer] = useState<DrawerType | undefined>(undefined);
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
@@ -347,6 +354,7 @@ export const EntityProfile = <T, U>({
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
                 entityState,
+                setDrawer,
             }}
         >
             {entityData?.status?.removed && (
@@ -417,6 +425,12 @@ export const EntityProfile = <T, U>({
                     </ContentContainer>
                 )}
             </Wrapper>
+            {!!entityData?.versionProperties?.versionSet && (
+                <VersionsDrawer
+                    versionSetUrn={entityData.versionProperties?.versionSet.urn}
+                    open={drawer === DrawerType.VERSIONS}
+                />
+            )}
         </EntityContext.Provider>
     );
 };

@@ -503,6 +503,8 @@ public class ESUtils {
 
     return skipKeywordSuffix
             || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.stream()
+                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
             || PATH_HIERARCHY_FIELDS.contains(fieldName)
             || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
         ? fieldName

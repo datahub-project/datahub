@@ -301,6 +301,8 @@ abs_base = {
 data_lake_profiling = {
     "pydeequ>=1.1.0",
     "pyspark~=3.5.0",
+    # cachetools is used by the profiling config
+    *cachetools_lib,
 }
 
 delta_lake = {
@@ -448,6 +450,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
+    "iceberg-catalog": aws_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -484,9 +487,9 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
-    "s3": {*s3_base, *data_lake_profiling, *cachetools_lib},
+    "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
-    "abs": {*abs_base, *data_lake_profiling, *cachetools_lib},
+    "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce", *cachetools_lib},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
@@ -631,6 +634,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast",
             "iceberg",
+            "iceberg-catalog",
             "mlflow",
             "json-schema",
             "ldap",
@@ -693,6 +697,7 @@ full_test_dev_requirements = {
             "hana",
             "hive",
             "iceberg",
+            "iceberg-catalog",
             "kafka-connect",
             "ldap",
             "mongodb",

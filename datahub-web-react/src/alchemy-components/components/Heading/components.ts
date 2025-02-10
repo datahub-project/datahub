@@ -2,7 +2,7 @@ import styled from 'styled-components';
 
 import { typography, colors } from '@components/theme';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { HeadingProps } from './types';
+import { HeadingStyleProps } from './types';
 
 const headingStyles = {
     H1: {
@@ -48,10 +48,10 @@ const baseStyles = {
 };
 
 // Prop Driven Styles
-const propStyles = (props, isText = false) => {
+const propStyles = (props: HeadingStyleProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color) styles.color = getColor(props.color);
+    if (props.color) styles.color = getColor(props.color, props.colorLevel);
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
     if (isText) styles.lineHeight = typography.lineHeights[props.size];
     return styles;
@@ -62,8 +62,8 @@ const headings = {} as any;
 
 ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].forEach((heading) => {
     const component = styled[heading.toLowerCase()];
-    headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingProps) => ({
-        ...propStyles(props as HeadingProps),
+    headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingStyleProps) => ({
+        ...propStyles(props),
     }));
 });
 

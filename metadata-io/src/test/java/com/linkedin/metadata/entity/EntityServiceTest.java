@@ -2007,6 +2007,97 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
+  public void testSyncHeaderPreProcessedProposal() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    // verify with sync header
+    StringMap headers = new StringMap();
+    headers.put(SYNC_INDEX_UPDATE_HEADER_NAME, "true");
+    gmce.setHeaders(headers);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, times(1))
+        .handleChangeEvent(eq(opContext), mceCaptor.capture());
+    assertTrue(
+        mceCaptor
+            .getValue()
+            .getHeaders()
+            .get(SYNC_INDEX_UPDATE_HEADER_NAME)
+            .equalsIgnoreCase("true"));
+    assertEquals(mceCaptor.getValue().getEntityUrn(), entityUrn);
+  }
+
+  @Test
+  public void testWithoutSyncHeaderOrUISourcePreProcessedProposal() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
+  }
+
+  @Test
+  public void testWithNullUpdateIndicesServicePreProcessedProposal() throws Exception {
+    _entityServiceImpl.setUpdateIndicesService(
+        null); // this should cause skipping of the sync index update
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    StringMap headers = new StringMap();
+    headers.put(SYNC_INDEX_UPDATE_HEADER_NAME, "true");
+    gmce.setHeaders(headers);
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
+  }
+
+  @Test
   public void testStructuredPropertyIngestProposal() throws Exception {
     String urnStr = "urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset_unique,PROD)";
     Urn entityUrn = UrnUtils.getUrn(urnStr);

@@ -1,3 +1,4 @@
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -222,6 +223,10 @@ export const DefaultEntityHeader = ({
                                         )}
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}
+                                        />
+                                        <VersioningBadge
+                                            versionProperties={entityData?.versionProperties ?? undefined}
+                                            showPopover
                                         />
                                     </TitleRow>
                                     <HeaderRow>

@@ -1673,10 +1673,11 @@ class LookerUserRegistry:
                 primary_key="",
             )
 
-            # Extract user email mappings
+            # Extract user email mappings.
+            # Sort it to ensure the order is deterministic.
             user_email_cache = {
                 user_id: user.email
-                for user_id, user in self._user_cache.items()
+                for user_id, user in sorted(self._user_cache.items())
                 if user.email
             }
 

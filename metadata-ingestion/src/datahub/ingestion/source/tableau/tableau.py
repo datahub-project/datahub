@@ -170,6 +170,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -798,7 +799,7 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+    logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
 
@@ -2428,10 +2429,12 @@ class TableauSiteSource:
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-        database_info = datasource.get(c.DATABASE) or {
-            c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
-        }
+        database_field = datasource.get(c.DATABASE) or {}
+        database_id: Optional[str] = database_field.get(c.ID)
+        database_name: Optional[str] = database_field.get(c.NAME) or c.UNKNOWN.lower()
+        database_connection_type: Optional[str] = database_field.get(
+            c.CONNECTION_TYPE
+        ) or datasource.get(c.CONNECTION_TYPE)
 
         if (
             datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
@@ -2440,10 +2443,7 @@ class TableauSiteSource:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if (
-            database_info.get(c.NAME) is None
-            or database_info.get(c.CONNECTION_TYPE) is None
-        ):
+        if database_connection_type is None:
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -2459,14 +2459,14 @@ class TableauSiteSource:
 
         logger.debug(f"Parsing sql={query}")
 
-        upstream_db = database_info.get(c.NAME)
+        upstream_db = database_name
 
         if func_overridden_info is not None:
             # Override the information as per configuration
             upstream_db, platform_instance, platform, _ = func_overridden_info(
-                database_info[c.CONNECTION_TYPE],
-                database_info.get(c.NAME),
-                database_info.get(c.ID),
+                database_connection_type,
+                database_name,
+                database_id,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
@@ -2533,6 +2533,9 @@ class TableauSiteSource:
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
+        )
+        logger.debug(
+            f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
         )
 
         if parsed_result is None:
