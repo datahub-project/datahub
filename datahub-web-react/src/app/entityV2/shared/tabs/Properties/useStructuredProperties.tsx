@@ -248,5 +248,6 @@ export default function useStructuredProperties(
     return {
         structuredPropertyRows,
         expandedRowsFromFilter: expandedRowsFromFilter as Set<string>,
+        structuredPropertyRowsRaw,
     };
 }

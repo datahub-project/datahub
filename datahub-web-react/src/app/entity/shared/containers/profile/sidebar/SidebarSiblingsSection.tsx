@@ -2,12 +2,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
-import { SidebarHeader } from './SidebarHeader';
 import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
 import { Dataset, Entity } from '../../../../../../types.generated';
-import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
+import { SidebarHeader } from './SidebarHeader';
 
 const EntityListContainer = styled.div`
     margin-left: -8px;
@@ -30,7 +30,7 @@ export const SidebarSiblingsSection = () => {
             <div>
                 <SidebarHeader title="Part Of" />
                 <EntityListContainer>
-                    <CompactEntityNameList entities={[entityData as Entity]} showTooltips />
+                    <CompactEntityNameList entities={[entityData as Entity]} />
                 </EntityListContainer>
             </div>
         );
@@ -59,11 +59,7 @@ export const SidebarSiblingsSection = () => {
         <div>
             <SidebarHeader title="Composed Of" />
             <EntityListContainer>
-                <CompactEntityNameList
-                    entities={allSiblingsInGroupThatExist}
-                    linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                    showTooltips
-                />
+                <CompactEntityNameList entities={allSiblingsInGroupThatExist} />
             </EntityListContainer>
         </div>
     );
