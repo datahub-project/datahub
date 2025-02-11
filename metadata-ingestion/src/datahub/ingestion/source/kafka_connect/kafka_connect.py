@@ -208,12 +208,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def _get_connector_topics(
         self, connector_name: str, config: Dict[str, str], connector_type: str
     ) -> List[str]:
-        if connector_type == SINK and config.get("topics"):
-            # Sink connectors may configure `topics` as List of topics to consume, separated by commas
-            # https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
-            # https://docs.confluent.io/platform/current/installation/configuration/connect/sink-connect-configs.html#topics
-            return [topic.strip() for topic in config["topics"].split(",")]
-
         try:
             response = self.session.get(
                 f"{self.config.connect_uri}/connectors/{connector_name}/topics",
@@ -225,7 +219,24 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             return []
 
-        return response.json()[connector_name]["topics"]
+        processed_topics = response.json()[connector_name]["topics"]
+
+        if connector_type == SINK:
+            try:
+                ## Sink connectors may configure `topics` or `topics.regex`
+                # https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
+                # https://docs.confluent.io/platform/current/installation/configuration/connect/sink-connect-configs.html#topics
+                return SinkTopicFilter().filter_stale_topics(processed_topics, config)
+            except Exception as e:
+                self.report.warning(
+                    title="Error parsing sink conector topics configuration",
+                    message="Some stale lineage tasks might show up for connector",
+                    context=connector_name,
+                    exc=e,
+                )
+                return processed_topics
+        else:
+            return processed_topics
 
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name
@@ -369,3 +380,63 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return builder.make_dataset_urn_with_platform_instance(
             platform, name, platform_instance, self.config.env
         )
+
+
+class SinkTopicFilter:
+    """Helper class to filter Kafka Connect topics based on configuration."""
+
+    def filter_stale_topics(
+        self,
+        processed_topics: List[str],
+        sink_config: Dict[str, str],
+    ) -> List[str]:
+        """Filter out stale topics based on sink connector configuration.
+
+        Args:
+            connector_name: Name of the connector
+            processed_topics: List of topics currently being processed
+            sink_config: Configuration dictionary for the sink connector
+
+        Returns:
+            List of filtered topics that match the configuration
+
+        """
+        # Validate required config exists
+        if not self._has_topic_config(sink_config):
+            return processed_topics
+
+        # Handle explicit topic list
+        if sink_config.get("topics"):
+            return self._filter_by_topic_list(processed_topics, sink_config["topics"])
+        else:
+            # Handle regex pattern
+            return self._filter_by_topic_regex(
+                processed_topics, sink_config["topics.regex"]
+            )
+
+    def _has_topic_config(self, sink_config: Dict[str, str]) -> bool:
+        """Check if sink config has either topics or topics.regex."""
+        return bool(sink_config.get("topics") or sink_config.get("topics.regex"))
+
+    def _filter_by_topic_list(
+        self, processed_topics: List[str], topics_config: str
+    ) -> List[str]:
+        """Filter topics based on explicit topic list from config."""
+        config_topics = [
+            topic.strip() for topic in topics_config.split(",") if topic.strip()
+        ]
+        return [topic for topic in processed_topics if topic in config_topics]
+
+    def _filter_by_topic_regex(
+        self, processed_topics: List[str], regex_pattern: str
+    ) -> List[str]:
+        """Filter topics based on regex pattern from config."""
+        from java.util.regex import Pattern
+
+        regex_matcher = Pattern.compile(regex_pattern)
+
+        return [
+            topic
+            for topic in processed_topics
+            if regex_matcher.matcher(topic).matches()
+        ]
