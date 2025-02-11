@@ -20,11 +20,6 @@ export const DescriptionEditorToolbar = ({ disableSave, onSave, onCancel }: Desc
             <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
                 Cancel
             </Button>
-            {showPropose && (
-                <Button variant="outline" data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
-                    Propose
-                </Button>
-            )}
             <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
                 Publish
             </Button>

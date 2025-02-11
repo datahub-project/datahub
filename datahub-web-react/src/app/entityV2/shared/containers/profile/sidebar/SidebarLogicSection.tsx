@@ -1,7 +1,6 @@
 import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 import { Modal } from 'antd';
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';

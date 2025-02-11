@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Typography, message } from 'antd';
+import { Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';

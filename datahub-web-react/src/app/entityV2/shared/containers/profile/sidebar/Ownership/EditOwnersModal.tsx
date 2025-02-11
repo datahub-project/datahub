@@ -4,8 +4,6 @@ import styled from 'styled-components/macro';
 import { getModalDomContainer } from '@src/utils/focus';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
-import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
@@ -354,14 +352,6 @@ export const EditOwnersModal = ({
                 <ModalButtonContainer>
                     <Button color="gray" variant="text" onClick={onModalClose}>
                         Cancel
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={proposeOwners}
-                        disabled={!selectedOwners?.length}
-                        data-testid="propose-owners-on-entity-button"
-                    >
-                        Propose
                     </Button>
                     <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
                         Add

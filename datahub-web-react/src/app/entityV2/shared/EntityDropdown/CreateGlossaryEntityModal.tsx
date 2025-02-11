@@ -123,9 +123,6 @@ function CreateGlossaryEntityModal(props: Props) {
                     <Button color="gray" onClick={onClose} variant="text">
                         Cancel
                     </Button>
-                    <Button variant="outline" onClick={proposeGlossaryEntity} disabled={createButtonDisabled}>
-                        Propose
-                    </Button>
                     <Button
                         data-testid="glossary-entity-modal-create-button"
                         onClick={createGlossaryEntity}

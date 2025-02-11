@@ -470,16 +470,6 @@ export default function EditTagTermsModal({
                     <Button variant="text" onClick={onCloseModal} color="gray">
                         Cancel
                     </Button>
-                    {showPropose && (
-                        <Button
-                            variant="outline"
-                            onClick={() => onOkProposal()}
-                            disabled={urns.length === 0 || urns.length > 1 || disableAction}
-                            data-testid="create-proposal-btn"
-                        >
-                            Propose
-                        </Button>
-                    )}
                     <Button
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"

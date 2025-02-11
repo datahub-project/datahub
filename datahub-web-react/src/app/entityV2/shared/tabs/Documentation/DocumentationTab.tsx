@@ -129,18 +129,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                         >
                             <PlusOutlined /> Add Documentation
                         </Button>
-                        {shouldShowInferenceButton && (
-                            <InferDocsButton
-                                style={{ display: 'inline-block', top: 3, marginLeft: 8, height: 40 }}
-                                surface="entity-docs-tab"
-                                onClick={() =>
-                                    routeToTab({
-                                        tabName: 'Documentation',
-                                        tabParams: { editing: true, inferOnMount: true },
-                                    })
-                                }
-                            />
-                        )}
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}
