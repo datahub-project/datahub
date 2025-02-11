@@ -221,6 +221,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((BusinessAttribute) partialEntity).setUrn(input.toString());
       ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
     }
+    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
+      partialEntity = new DataProcessInstance();
+      ((DataProcessInstance) partialEntity).setUrn(input.toString());
+      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
+    }
+    if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
+      partialEntity = new VersionSet();
+      ((VersionSet) partialEntity).setUrn(input.toString());
+      ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
+    }
     if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
       partialEntity = new Form();
       ((Form) partialEntity).setUrn(input.toString());
@@ -241,11 +251,6 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
     }
-    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
-      partialEntity = new DataProcessInstance();
-      ((DataProcessInstance) partialEntity).setUrn(input.toString());
-      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
-    }
     if (input.getEntityType().equals(AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)) {
       partialEntity = new RemoteExecutor();
       ((RemoteExecutor) partialEntity).setUrn(input.toString());
@@ -255,11 +260,6 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new RemoteExecutorPool();
       ((RemoteExecutorPool) partialEntity).setUrn(input.toString());
       ((RemoteExecutorPool) partialEntity).setType(EntityType.REMOTE_EXECUTOR_POOL);
-    }
-    if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
-      partialEntity = new VersionSet();
-      ((VersionSet) partialEntity).setUrn(input.toString());
-      ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
     }
     return partialEntity;
   }

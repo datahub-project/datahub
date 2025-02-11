@@ -54,9 +54,9 @@ class DataHubReportingExtractSQLSourceConfig(ConfigModel):
 
             if "file" not in v:
                 default_config = FileStoreBackedDatasetConfig.dummy()
-                v[
-                    "file"
-                ] = f"{default_config.file_name}.{default_config.file_extension}"
+                v["file"] = (
+                    f"{default_config.file_name}.{default_config.file_extension}"
+                )
             else:
                 v["file_name"] = v["file"].split(".")[0]
                 v["file_extension"] = v["file"].split(".")[-1]
@@ -133,7 +133,7 @@ class DataHubReportingExtractSQLSource(Source):
         tmp_dir_aux = (
             self.ctx.pipeline_name if self.ctx.pipeline_name else "sql_default_dir"
         )
-        tmp_dir = f'/tmp/{tmp_dir_aux.replace(":", "_")}'
+        tmp_dir = f"/tmp/{tmp_dir_aux.replace(':', '_')}"
 
         output_file = (
             self.datahub_based_s3_dataset.config.file

@@ -2,6 +2,7 @@ package io.datahubproject.metadata.context;
 
 import com.google.common.net.HttpHeaders;
 import com.linkedin.restli.server.ResourceContext;
+import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collection;
@@ -59,6 +60,13 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
     private RequestContext build() {
+
+      // Add context for tracing
+      Span.current()
+          .setAttribute("user.id", this.actorUrn)
+          .setAttribute("request.api", this.requestAPI.toString())
+          .setAttribute("request.id", this.requestID);
+
       return new RequestContext(
           this.actorUrn, this.sourceIP, this.requestAPI, this.requestID, this.userAgent);
     }

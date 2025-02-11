@@ -1,8 +1,11 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_ASPECT;
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_URN;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -103,8 +106,8 @@ public class ESSystemMetadataDAO {
   public BulkByScrollResponse deleteByUrnAspect(
       @Nonnull final String urn, @Nonnull final String aspect) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    finalQuery.must(QueryBuilders.termQuery("urn", urn));
-    finalQuery.must(QueryBuilders.termQuery("aspect", aspect));
+    finalQuery.filter(QueryBuilders.termQuery("urn", urn));
+    finalQuery.filter(QueryBuilders.termQuery("aspect", aspect));
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
@@ -121,7 +124,7 @@ public class ESSystemMetadataDAO {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
     for (String key : searchParams.keySet()) {
-      finalQuery.must(QueryBuilders.termQuery(key, searchParams.get(key)));
+      finalQuery.filter(QueryBuilders.termQuery(key, searchParams.get(key)));
     }
 
     if (!includeSoftDeleted) {
@@ -161,7 +164,7 @@ public class ESSystemMetadataDAO {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
     for (String key : searchParams.keySet()) {
-      finalQuery.must(QueryBuilders.termQuery(key, searchParams.get(key)));
+      finalQuery.filter(QueryBuilders.termQuery(key, searchParams.get(key)));
     }
 
     if (!includeSoftDeleted) {
@@ -180,6 +183,43 @@ public class ESSystemMetadataDAO {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
+    } catch (IOException e) {
+      log.error("Error while searching by params.", e);
+    }
+    return null;
+  }
+
+  public SearchResponse scroll(
+      BoolQueryBuilder queryBuilder,
+      boolean includeSoftDeleted,
+      @Nullable String scrollId,
+      @Nullable String pitId,
+      @Nullable String keepAlive,
+      int size) {
+    SearchRequest searchRequest = new SearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    if (!includeSoftDeleted) {
+      queryBuilder.mustNot(QueryBuilders.termQuery("removed", "true"));
+    }
+
+    Object[] sort = null;
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      sort = searchAfterWrapper.getSort();
+    }
+
+    searchSourceBuilder.query(queryBuilder);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
+
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try {
+      return client.search(searchRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
     }

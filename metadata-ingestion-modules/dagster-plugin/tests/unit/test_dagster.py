@@ -22,11 +22,11 @@ from dagster._core.definitions.repository_definition import (
     RepositoryDefinition,
 )
 from dagster._core.definitions.resource_definition import ResourceDefinition
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DatahubClientConfig
 from freezegun import freeze_time
 from utils.utils import PytestConfig, check_golden_file
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,

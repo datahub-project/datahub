@@ -12,7 +12,7 @@
 // -- This is a parent command --
 
 import dayjs from "dayjs";
-import { aliasQuery, hasOperationName } from "../e2e/utils";
+import { hasOperationName } from "../e2e/utils";
 
 function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
@@ -133,7 +133,7 @@ Cypress.Commands.add("goToIngestionPage", () => {
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(`/dataset/${urn}/`);
-  cy.wait(5000);
+  cy.wait(3000);
   cy.waitTextVisible(dataset_name);
 });
 
@@ -145,7 +145,7 @@ Cypress.Commands.add("goToBusinessAttribute", (urn, attribute_name) => {
 
 Cypress.Commands.add("goToTag", (urn, tag_name) => {
   cy.visit(`/tag/${urn}`);
-  cy.wait(5000);
+  cy.wait(3000);
   cy.waitTextVisible(tag_name);
 });
 

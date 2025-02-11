@@ -4,7 +4,7 @@ import com.google.common.collect.Streams;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;

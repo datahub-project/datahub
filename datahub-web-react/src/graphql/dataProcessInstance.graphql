@@ -67,9 +67,6 @@ fragment processInstanceRelationshipResults on EntityRelationshipsResult {
 fragment dataProcessInstanceFields on DataProcessInstance {
     urn
     type
-    platform {
-        ...platformFields
-    }
     parentContainers {
         ...parentContainersFields
     }
@@ -125,9 +122,6 @@ query getDataProcessInstance($urn: String!) {
     dataProcessInstance(urn: $urn) {
         urn
         type
-        platform {
-            ...platformFields
-        }
         parentContainers {
             ...parentContainersFields
         }

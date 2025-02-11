@@ -189,6 +189,11 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -199,11 +204,6 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         (entity, dataMap) ->
             entity.setLineageFeatures(
                 LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
-    mappingHelper.mapToResult(
-        VERSION_PROPERTIES_ASPECT_NAME,
-        (entity, dataMap) ->
-            entity.setVersionProperties(
-                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModel.class);

@@ -4,6 +4,7 @@ from random import randint
 
 import pytest
 import tenacity
+
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -23,7 +24,6 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 

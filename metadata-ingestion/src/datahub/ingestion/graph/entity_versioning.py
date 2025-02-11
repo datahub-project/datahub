@@ -17,16 +17,14 @@ class DataHubGraphProtocol(Protocol):
         variables: Optional[Dict],
         operation_name: Optional[str] = None,
         format_exception: bool = True,
-    ) -> Dict:
-        ...
+    ) -> Dict: ...
 
     def get_aspect(
         self,
         entity_urn: str,
         aspect_type: Type[Aspect],
         version: int = 0,
-    ) -> Optional[Aspect]:
-        ...
+    ) -> Optional[Aspect]: ...
 
 
 class EntityVersioningAPI(DataHubGraphProtocol):

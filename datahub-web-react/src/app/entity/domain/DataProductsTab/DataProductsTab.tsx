@@ -68,6 +68,7 @@ export default function DataProductsTab() {
                 searchFlags: { skipCache: true },
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const totalResults = data?.searchAcrossEntities?.total || 0;
     const searchResults = data?.searchAcrossEntities?.searchResults?.map((r) => r.entity) || [];

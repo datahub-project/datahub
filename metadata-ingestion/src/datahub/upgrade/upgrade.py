@@ -10,7 +10,7 @@ import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
 
-from datahub import __version__
+from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.perf_timer import PerfTimer
@@ -93,11 +93,11 @@ async def get_github_stats():
     async with aiohttp.ClientSession(
         headers={"Accept": "application/vnd.github.v3+json"}
     ) as session:
-        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases"
+        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases/latest"
         async with session.get(gh_url) as gh_response:
             gh_response_json = await gh_response.json()
-            latest_server_version = Version(gh_response_json[0].get("tag_name"))
-            latest_server_date = gh_response_json[0].get("published_at")
+            latest_server_version = Version(gh_response_json.get("tag_name"))
+            latest_server_date = gh_response_json.get("published_at")
             return (latest_server_version, latest_server_date)
 
 

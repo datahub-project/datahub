@@ -136,9 +136,9 @@ def extras_list_to_dict(extras: List[str]) -> Dict[str, str]:
     extra_properties: Dict[str, str] = dict()
     for x in extras:
         parts = x.split("=")
-        assert (
-            len(parts) == 2
-        ), f"Invalid value for extras {x}, should be in format key=value"
+        assert len(parts) == 2, (
+            f"Invalid value for extras {x}, should be in format key=value"
+        )
         extra_properties[parts[0]] = parts[1]
     return extra_properties
 

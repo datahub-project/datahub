@@ -254,7 +254,9 @@ class UnityCatalogSourceConfig(
     )
 
     # TODO: Remove `type:ignore` by refactoring config
-    profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
+    profiling: Union[
+        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+    ] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",

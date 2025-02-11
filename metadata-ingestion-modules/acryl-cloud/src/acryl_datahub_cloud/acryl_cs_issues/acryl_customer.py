@@ -662,7 +662,7 @@ def generate_markdown_with_logo(
     logo_url = get_platform_logo_url(platform)
     formatted_date = date.strftime("%B %d, %Y")
     if logo_url:
-        markdown = f'<img src="{logo_url}" alt="Logo" width="{logo_size}" height="{logo_size}" style="vertical-align: middle;"> by {author.name} on {formatted_date} {""if is_public else "(Internal)"}'
+        markdown = f'<img src="{logo_url}" alt="Logo" width="{logo_size}" height="{logo_size}" style="vertical-align: middle;"> by {author.name} on {formatted_date} {"" if is_public else "(Internal)"}'
     else:
         markdown = f":{platform}: by {author.name} on {formatted_date} {'' if is_public else '(Internal)'}"
     return markdown

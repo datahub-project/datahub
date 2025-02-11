@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/operations/identity")
+@RequestMapping("/openapi/operations/identity")
 @Slf4j
 @Tag(name = "Identity", description = "An API for checking identity")
 public class IdController {

@@ -5,6 +5,7 @@ import pytest
 from freezegun import freeze_time
 from pydantic import ValidationError
 
+import datahub.ingestion.source.usage.usage_common
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -28,6 +29,7 @@ from datahub.metadata.schema_classes import (
     UserUsageCountsClass,
     WindowDurationClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 _TestTableRef = str
 
@@ -373,3 +375,7 @@ def test_convert_usage_aggregation_class():
             eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.MONTH),
         ),
     )
+
+
+def test_extract_user_email():
+    assert_doctest(datahub.ingestion.source.usage.usage_common)

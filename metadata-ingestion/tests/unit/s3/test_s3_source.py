@@ -1,12 +1,15 @@
+from datetime import datetime
 from typing import List, Tuple
+from unittest.mock import Mock
 
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import partitioned_folder_comparator
+from datahub.ingestion.source.s3.source import S3Source, partitioned_folder_comparator
 
 
 def test_partition_comparator_numeric_folder_name():
@@ -240,3 +243,63 @@ def test_container_generation_with_multiple_folders():
         "folder_abs_path": "my-bucket/my-dir/my-dir2",
         "platform": "s3",
     }
+
+
+def test_get_folder_info():
+    """
+    Test S3Source.get_folder_info returns the latest file in each folder
+    """
+
+    def _get_s3_source(path_spec_: PathSpec) -> S3Source:
+        return S3Source.create(
+            config_dict={
+                "path_spec": {
+                    "include": path_spec_.include,
+                    "table_name": path_spec_.table_name,
+                },
+            },
+            ctx=PipelineContext(run_id="test-s3"),
+        )
+
+    # arrange
+    path_spec = PathSpec(
+        include="s3://my-bucket/{table}/{partition0}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = Mock()
+    bucket.objects.filter().page_size = Mock(
+        return_value=[
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/dir1/0001.csv",
+                creation_time=datetime(2025, 1, 1, 1),
+                last_modified=datetime(2025, 1, 1, 1),
+                size=100,
+            ),
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/dir2/0001.csv",
+                creation_time=datetime(2025, 1, 1, 2),
+                last_modified=datetime(2025, 1, 1, 2),
+                size=100,
+            ),
+            Mock(
+                bucket_name="my-bucket",
+                key="my-folder/dir1/0002.csv",
+                creation_time=datetime(2025, 1, 1, 2),
+                last_modified=datetime(2025, 1, 1, 2),
+                size=100,
+            ),
+        ]
+    )
+
+    # act
+    res = _get_s3_source(path_spec).get_folder_info(
+        path_spec, bucket, prefix="/my-folder"
+    )
+
+    # assert
+    assert len(res) == 2
+    assert res[0].sample_file == "s3://my-bucket/my-folder/dir1/0002.csv"
+    assert res[1].sample_file == "s3://my-bucket/my-folder/dir2/0001.csv"

@@ -47,7 +47,10 @@ class BaseTimeWindowConfig(ConfigModel):
         default_factory=lambda: datetime.now(tz=timezone.utc),
         description="Latest date of lineage/usage to consider. Default: Current time in UTC",
     )
-    start_time: datetime = Field(default=None, description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`). You can also specify relative time with respect to end_time such as '-7 days' Or '-7d'.")  # type: ignore
+    start_time: datetime = Field(
+        default=None,
+        description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`). You can also specify relative time with respect to end_time such as '-7 days' Or '-7d'.",
+    )  # type: ignore
 
     @pydantic.validator("start_time", pre=True, always=True)
     def default_start_time(
@@ -63,12 +66,14 @@ class BaseTimeWindowConfig(ConfigModel):
             # This is where start_time str is resolved to datetime
             try:
                 delta = parse_relative_timespan(v)
-                assert delta < timedelta(
-                    0
-                ), "Relative start time should start with minus sign (-) e.g. '-2 days'."
+                assert delta < timedelta(0), (
+                    "Relative start time should start with minus sign (-) e.g. '-2 days'."
+                )
                 assert abs(delta) >= get_bucket_duration_delta(
                     values["bucket_duration"]
-                ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
+                ), (
+                    "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
+                )
 
                 # The end_time's default value is not yet populated, in which case
                 # we can just manually generate it here.

@@ -55,7 +55,7 @@ import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestSourceType;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;

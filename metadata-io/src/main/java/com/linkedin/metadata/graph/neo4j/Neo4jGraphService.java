@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.neo4j;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -66,26 +65,32 @@ import org.neo4j.driver.types.Relationship;
 public class Neo4jGraphService implements GraphService {
 
   private static final int MAX_TRANSACTION_RETRY = 3;
-  private final LineageRegistry _lineageRegistry;
-  private final Driver _driver;
-  private SessionConfig _sessionConfig;
+  private final LineageRegistry lineageRegistry;
+  private final Driver driver;
+  private final OperationContext systemOperationContext;
+  private SessionConfig sessionConfig;
 
-  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
-    this(lineageRegistry, driver, SessionConfig.defaultConfig());
+  public Neo4jGraphService(
+      @Nonnull final OperationContext systemOperationContext,
+      @Nonnull LineageRegistry lineageRegistry,
+      @Nonnull Driver driver) {
+    this(systemOperationContext, lineageRegistry, driver, SessionConfig.defaultConfig());
   }
 
   public Neo4jGraphService(
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull LineageRegistry lineageRegistry,
       @Nonnull Driver driver,
       @Nonnull SessionConfig sessionConfig) {
-    this._lineageRegistry = lineageRegistry;
-    this._driver = driver;
-    this._sessionConfig = sessionConfig;
+    this.systemOperationContext = systemOperationContext;
+    this.lineageRegistry = lineageRegistry;
+    this.driver = driver;
+    this.sessionConfig = sessionConfig;
   }
 
   @Override
   public LineageRegistry getLineageRegistry() {
-    return _lineageRegistry;
+    return lineageRegistry;
   }
 
   @Override
@@ -329,7 +334,7 @@ public class Neo4jGraphService implements GraphService {
     final var filterComponents = new HashSet<String>();
     for (final var entityName : entityNames) {
       if (direction != null) {
-        for (final var edgeInfo : _lineageRegistry.getLineageRelationships(entityName, direction)) {
+        for (final var edgeInfo : lineageRegistry.getLineageRelationships(entityName, direction)) {
           final var type = edgeInfo.getType();
           if (edgeInfo.getDirection() == RelationshipDirection.INCOMING) {
             filterComponents.add("<" + type);
@@ -342,7 +347,7 @@ public class Neo4jGraphService implements GraphService {
         for (final var direction1 :
             List.of(LineageDirection.UPSTREAM, LineageDirection.DOWNSTREAM)) {
           for (final var edgeInfo :
-              _lineageRegistry.getLineageRelationships(entityName, direction1)) {
+              lineageRegistry.getLineageRelationships(entityName, direction1)) {
             filterComponents.add(edgeInfo.getType());
           }
         }
@@ -736,7 +741,7 @@ public class Neo4jGraphService implements GraphService {
     final StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     int retry = 0;
-    try (final Session session = _driver.session(_sessionConfig)) {
+    try (final Session session = driver.session(sessionConfig)) {
       for (retry = 0; retry <= MAX_TRANSACTION_RETRY; retry++) {
         try {
           session.executeWrite(
@@ -773,9 +778,11 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
-      return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
-    }
+    return systemOperationContext.withSpan(
+        "runQuery",
+        () -> driver.session(sessionConfig).run(statement.getCommandText(), statement.getParams()),
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "runQuery"));
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it

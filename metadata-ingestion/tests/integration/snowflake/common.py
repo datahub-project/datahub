@@ -458,7 +458,6 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=True,
             include_column_lineage=True,
         ),
     ):
@@ -548,7 +547,6 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=True,
             include_column_lineage=False,
         ),
     ):

@@ -10,6 +10,7 @@ import com.linkedin.util.Pair;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -169,15 +170,16 @@ public interface AspectDao {
   void setWritable(boolean canWrite);
 
   @Nonnull
-  <T> T runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block, final int maxTransactionRetry);
+  <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
+      final int maxTransactionRetry);
 
   @Nonnull
-  default <T> List<T> runInTransactionWithRetry(
-      @Nonnull final Function<TransactionContext, T> block,
+  default <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       AspectsBatch batch,
       final int maxTransactionRetry) {
-    return List.of(runInTransactionWithRetry(block, maxTransactionRetry));
+    return runInTransactionWithRetry(block, maxTransactionRetry);
   }
 
   default void incrementWriteMetrics(String aspectName, long count, long bytes) {

@@ -18,11 +18,11 @@ public class Neo4jTestServerBuilder {
   }
 
   public Neo4jTestServerBuilder() {
-    this(new InProcessNeo4jBuilder().withProcedure(PathExplorer.class));
+    this(new InProcessNeo4jBuilder().withProcedure(PathExplorer.class).withDisabledServer());
   }
 
   public Neo4jTestServerBuilder(File workingDirectory) {
-    this(new InProcessNeo4jBuilder(workingDirectory.toPath()));
+    this(new InProcessNeo4jBuilder(workingDirectory.toPath()).withDisabledServer());
   }
 
   public Neo4j newServer() {

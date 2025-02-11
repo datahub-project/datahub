@@ -73,18 +73,15 @@ task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ && " +
-    "isort --check --diff src/ tests/ && " +
-    "flake8 --count --statistics src/ tests/ && " +
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/ "
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ "
 }
 
 // HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).
@@ -121,5 +118,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

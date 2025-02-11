@@ -113,6 +113,7 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
             disabled={!canEdit}
             onClick={isActive ? onStopMonitor : onConfirmStartMonitor}
             icon={isActive ? <StyledStopOutlined /> : <StyledCaretOutlined />}
+            dataTestId="assertion-start-stop-action"
         />
     );
 };

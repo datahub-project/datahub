@@ -387,9 +387,7 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )
-""".strip(
-    "\t \n"
-)
+""".strip("\t \n")
 
 
 def bigquery_audit_metadata_query_template_lineage(

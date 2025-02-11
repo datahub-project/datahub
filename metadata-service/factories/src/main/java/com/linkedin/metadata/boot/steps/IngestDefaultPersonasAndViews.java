@@ -81,7 +81,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
 
     // 1. Read from the file into JSON.
     final JsonNode viewsObj =
-        mapper.readTree(new ClassPathResource("./boot/persona_views.json").getFile());
+        mapper.readTree(new ClassPathResource("./boot/persona_views.json").getInputStream());
 
     if (!viewsObj.isArray()) {
       throw new RuntimeException(
@@ -175,7 +175,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
 
     // 1. Read from the file into JSON.
     final JsonNode personasObj =
-        mapper.readTree(new ClassPathResource("./boot/personas.json").getFile());
+        mapper.readTree(new ClassPathResource("./boot/personas.json").getInputStream());
 
     if (!personasObj.isArray()) {
       throw new RuntimeException(

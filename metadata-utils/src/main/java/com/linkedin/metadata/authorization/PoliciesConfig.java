@@ -1057,10 +1057,10 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
+          VERSION_SET_PRIVILEGES,
           FORMS_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
-          ML_MODEL_PRIVILEGES,
-          VERSION_SET_PRIVILEGES);
+          ML_MODEL_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

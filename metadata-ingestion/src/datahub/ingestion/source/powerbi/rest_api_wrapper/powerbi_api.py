@@ -96,7 +96,7 @@ class PowerBiAPI:
             url: str = e.request.url if e.request else "URL not available"
             self.reporter.warning(
                 title="Metadata API Timeout",
-                message=f"Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
+                message="Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
                 context=f"url={url}",
             )
 
@@ -173,7 +173,7 @@ class PowerBiAPI:
                 entity=entity_name,
                 entity_id=entity_id,
             )
-        except:  # It will catch all type of exception
+        except Exception:
             e = self.log_http_error(
                 message=f"Unable to fetch users for {entity_name}({entity_id})."
             )
@@ -193,15 +193,18 @@ class PowerBiAPI:
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
-    def get_reports(self, workspace: Workspace) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
         """
-        reports: List[Report] = []
+        reports: Dict[str, Report] = {}
         try:
-            reports = self._get_resolver().get_reports(workspace)
+            reports = {
+                report.id: report
+                for report in self._get_resolver().get_reports(workspace)
+            }
             # Fill Report dataset
-            for report in reports:
+            for report in reports.values():
                 if report.dataset_id:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:
@@ -210,7 +213,7 @@ class PowerBiAPI:
                             message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                             context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                         )
-        except:
+        except Exception:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
             )
@@ -222,7 +225,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.users = self.get_report_users(
                     workspace_id=workspace.id, report_id=report.id
                 )
@@ -234,7 +237,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
         fill_ownership()
@@ -260,7 +263,7 @@ class PowerBiAPI:
 
             groups = self._get_resolver().get_groups(filter_=filter_)
 
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of workspaces")
             # raise  # we want this exception to bubble up
 
@@ -270,12 +273,12 @@ class PowerBiAPI:
                 name=workspace[Constant.NAME],
                 type=workspace[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It will be populated in _fill_metadata_from_scan_result method
             )
             for workspace in groups
@@ -292,7 +295,7 @@ class PowerBiAPI:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
         return modified_workspace_ids
@@ -303,8 +306,8 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_ids=workspace_ids
             )
-        except:
-            e = self.log_http_error(message=f"Unable to fetch get scan result.")
+        except Exception:
+            e = self.log_http_error(message="Unable to fetch get scan result.")
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
@@ -561,12 +564,12 @@ class PowerBiAPI:
                 name=workspace_metadata[Constant.NAME],
                 type=workspace_metadata[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It is getting set from scan-result
             )
             cur_workspace.scan_result = workspace_metadata
@@ -597,25 +600,28 @@ class PowerBiAPI:
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
         # Find out reachable datasets
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             for tile in dashboard.tiles:
                 if tile.dataset is not None:
                     reachable_datasets.append(tile.dataset.id)
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             if report.dataset is not None:
                 reachable_datasets.append(report.dataset.id)
 
         # Set datasets not present in reachable_datasets
         for dataset in workspace.datasets.values():
             if dataset.id not in reachable_datasets:
-                workspace.independent_datasets.append(dataset)
+                workspace.independent_datasets[dataset.id] = dataset
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = self._get_resolver().get_dashboards(workspace)
+            workspace.dashboards = {
+                dashboard.id: dashboard
+                for dashboard in self._get_resolver().get_dashboards(workspace)
+            }
             # set tiles of Dashboard
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
@@ -644,7 +650,7 @@ class PowerBiAPI:
                     "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false"
                 )
                 return
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
         if self.__config.extract_dashboards:

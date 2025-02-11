@@ -38,16 +38,16 @@ def merge_parent_and_child_fields(
     # Create a map field-name vs field
     child_field_map: dict = {}
     for field in child_fields:
-        assert (
-            NAME in field
-        ), "A lookml view must have a name field"  # name is required field of lookml field array
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
 
         child_field_map[field[NAME]] = field
 
     for field in parent_fields:
-        assert (
-            NAME in field
-        ), "A lookml view must have a name field"  # name is required field of lookml field array
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
 
         if field[NAME] in child_field_map:
             # Fields defined in the child view take higher precedence.

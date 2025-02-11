@@ -288,9 +288,9 @@ class Dataset(BaseModel):
                     ) == 0, "All fields must have an id specified"
                     assert [
                         f.nativeDataType or f.type for f in self.schema_metadata.fields
-                    ].count(
-                        None
-                    ) == 0, "All fields must have a type or nativeDataType specified"
+                    ].count(None) == 0, (
+                        "All fields must have a type or nativeDataType specified"
+                    )
 
                     schema_metadata = SchemaMetadataClass(
                         schemaName=self.name or self.id or self.urn or "",
@@ -372,7 +372,8 @@ class Dataset(BaseModel):
             if self.schema_metadata.fields:
                 for field in self.schema_metadata.fields:
                     field_urn = field.urn or make_schema_field_urn(
-                        self.urn, field.id  # type: ignore[arg-type]
+                        self.urn,  # type: ignore[arg-type]
+                        field.id,  # type: ignore[arg-type]
                     )
                     assert field_urn.startswith("urn:li:schemaField:")
 

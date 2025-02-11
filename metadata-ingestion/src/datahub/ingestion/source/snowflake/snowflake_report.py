@@ -166,6 +166,3 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
-
-    def set_ingestion_stage(self, database: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{database}: {stage}")

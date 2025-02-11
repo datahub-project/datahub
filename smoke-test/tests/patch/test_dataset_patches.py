@@ -15,7 +15,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-
 from tests.patch.common_patch_tests import (
     helper_test_custom_properties_patch,
     helper_test_dataset_tags_patch,

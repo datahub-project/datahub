@@ -20,6 +20,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
+from datahub.metadata.urns import StructuredPropertyUrn
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -75,6 +76,7 @@ def gen_schema_container(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
@@ -99,6 +101,7 @@ def gen_schema_container(
         owner_urn=owner_urn,
         qualified_name=qualified_name,
         extra_properties=extra_properties,
+        structured_properties=structured_properties,
     )
 
 
@@ -133,6 +136,7 @@ def gen_database_container(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
@@ -154,6 +158,7 @@ def gen_database_container(
         owner_urn=owner_urn,
         qualified_name=qualified_name,
         extra_properties=extra_properties,
+        structured_properties=structured_properties,
     )
 
 

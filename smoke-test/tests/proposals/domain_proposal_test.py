@@ -62,9 +62,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -99,9 +99,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
 
     # We should find our request with COMPLETED & ACCEPTED
     matching = [r for r in requests if r["urn"] == proposal_urn]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {proposal_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {proposal_urn}"
+    )
     assert matching[0]["status"] == "COMPLETED"
     assert matching[0]["result"] == "ACCEPTED"
 
@@ -122,17 +122,17 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
     dataset_domain_resp = execute_gql(
         auth_session, query=dataset_domain_query, variables=variables_dataset_domain
     )
-    assert (
-        "errors" not in dataset_domain_resp
-    ), f"Errors found: {dataset_domain_resp.get('errors')}"
+    assert "errors" not in dataset_domain_resp, (
+        f"Errors found: {dataset_domain_resp.get('errors')}"
+    )
 
     # Extract the domain URN from the dataset
     actual_domain_urn = dataset_domain_resp["data"]["dataset"]["domain"]["domain"][
         "urn"
     ]
-    assert (
-        domain_urn == actual_domain_urn
-    ), f"Expected {domain_urn}, found {actual_domain_urn}"
+    assert domain_urn == actual_domain_urn, (
+        f"Expected {domain_urn}, found {actual_domain_urn}"
+    )
 
     # 5) Reset the domain to reset for subsequent tests (cleanup step)
     unset_domain_mutation = """
@@ -147,9 +147,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
     remove_resp = execute_gql(
         auth_session, query=unset_domain_mutation, variables=variables_unset_domain
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found resetting domain: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found resetting domain: {remove_resp.get('errors')}"
+    )
     assert remove_resp["data"]["setDomain"] is True, "Expected setDomain to return True"
 
 
@@ -196,9 +196,9 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     wait_for_writes_to_sync()
 
@@ -250,17 +250,17 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
     dataset_domain_resp = execute_gql(
         auth_session, query=dataset_domain_query, variables=variables_dataset_domain
     )
-    assert (
-        "errors" not in dataset_domain_resp
-    ), f"Errors found: {dataset_domain_resp.get('errors')}"
+    assert "errors" not in dataset_domain_resp, (
+        f"Errors found: {dataset_domain_resp.get('errors')}"
+    )
 
     # Extract the domain URN from the dataset
     actual_domain_urn = dataset_domain_resp["data"]["dataset"]["domain"]["domain"][
         "urn"
     ]
-    assert (
-        actual_domain_urn == already_applied_domain_urn
-    ), "Expected the domain to be set to applied domain, not the newly proposed domain"
+    assert actual_domain_urn == already_applied_domain_urn, (
+        "Expected the domain to be set to applied domain, not the newly proposed domain"
+    )
 
 
 @pytest.mark.dependency()
@@ -351,9 +351,9 @@ def test_list_action_requests_domain_params(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -477,9 +477,9 @@ def test_propose_domain_domain_already_proposed(auth_session, ingest_cleanup_dat
     first_resp = execute_gql(
         auth_session=auth_session, query=propose_domain_mutation, variables=variables
     )
-    assert (
-        "errors" not in first_resp
-    ), f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    assert "errors" not in first_resp, (
+        f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    )
     first_proposal_urn = first_resp["data"]["proposeDomain"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
 
@@ -511,9 +511,9 @@ def test_propose_domain_domain_already_proposed(auth_session, ingest_cleanup_dat
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()

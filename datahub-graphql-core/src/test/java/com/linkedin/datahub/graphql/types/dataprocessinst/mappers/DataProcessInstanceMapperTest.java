@@ -80,9 +80,10 @@ public class DataProcessInstanceMapperTest {
     DataProcessInstance instance = DataProcessInstanceMapper.map(null, entityResponse);
 
     assertNotNull(instance.getDataPlatformInstance());
-    assertNotNull(instance.getPlatform());
-    assertEquals(instance.getPlatform().getUrn(), TEST_PLATFORM_URN);
-    assertEquals(instance.getPlatform().getType(), EntityType.DATA_PLATFORM);
+    assertNotNull(instance.getDataPlatformInstance().getPlatform());
+    assertEquals(instance.getDataPlatformInstance().getPlatform().getUrn(), TEST_PLATFORM_URN);
+    assertEquals(
+        instance.getDataPlatformInstance().getPlatform().getType(), EntityType.DATA_PLATFORM);
   }
 
   @Test

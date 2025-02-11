@@ -283,9 +283,9 @@ basicAuditStamp = models.AuditStampClass(
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
-        assert (
-            requested_snapshot == snapshot
-        ), f"Expected snapshot to be {json.dumps(snapshot)}, got {json.dumps(requested_snapshot)}"
+        assert requested_snapshot == snapshot, (
+            f"Expected snapshot to be {json.dumps(snapshot)}, got {json.dumps(requested_snapshot)}"
+        )
         return True
 
     requests_mock.post(

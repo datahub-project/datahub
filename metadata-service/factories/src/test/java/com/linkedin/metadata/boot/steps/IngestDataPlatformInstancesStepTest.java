@@ -87,7 +87,7 @@ public class IngestDataPlatformInstancesStepTest {
     mockOpContext =
         mockOpContext.toBuilder()
             .entityRegistryContext(spyEntityRegistryContext)
-            .build(mockOpContext.getSessionAuthentication());
+            .build(mockOpContext.getSessionAuthentication(), true);
 
     mockDBWithWorkToDo(migrationsDao, countOfCorpUserEntities, countOfChartEntities);
 

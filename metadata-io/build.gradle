@@ -28,6 +28,7 @@ dependencies {
   implementation spec.product.pegasus.restliServer
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
+  implementation 'com.linkedin.avroutil1:helper-all:0.2.138'
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
@@ -38,6 +39,7 @@ dependencies {
     exclude group: 'com.google.guava', module: 'guava'
     exclude group: 'io.grpc', module: 'grpc-protobuf'
   }
+  implementation externalDependency.dgraphNetty
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.logbackJackson
@@ -60,6 +62,7 @@ dependencies {
   implementation externalDependency.ebeanDdl
   implementation externalDependency.ebeanAgent
   implementation externalDependency.opentelemetryAnnotations
+  implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.resilience4j
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
@@ -114,7 +117,7 @@ dependencies {
   testImplementation(testFixtures(project(":entity-registry")))
 
   testAnnotationProcessor externalDependency.lombok
-
+  testImplementation project(':mock-entity-registry')
   constraints {
     implementation(externalDependency.log4jCore) {
         because("previous versions are vulnerable to CVE-2021-45105")

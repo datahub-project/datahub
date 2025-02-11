@@ -40,7 +40,7 @@ def get_s3_tags(
                 ]
             )
         except s3.meta.client.exceptions.ClientError:
-            logger.warn(f"No tags found for bucket={bucket_name}")
+            logger.warning(f"No tags found for bucket={bucket_name}")
 
     if use_s3_object_tags and key_name is not None:
         s3_client = aws_config.get_s3_client()
@@ -53,7 +53,7 @@ def get_s3_tags(
         else:
             # Unlike bucket tags, if an object does not have tags, it will just return an empty array
             # as opposed to an exception.
-            logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
+            logger.warning(f"No tags found for bucket={bucket_name} key={key_name}")
     if len(tags_to_add) == 0:
         return None
     if ctx.graph is not None:
@@ -65,7 +65,7 @@ def get_s3_tags(
         if current_tags:
             tags_to_add.extend([current_tag.tag for current_tag in current_tags.tags])
     else:
-        logger.warn("Could not connect to DatahubApi. No current tags to maintain")
+        logger.warning("Could not connect to DatahubApi. No current tags to maintain")
     # Remove duplicate tags
     tags_to_add = sorted(list(set(tags_to_add)))
     new_tags = GlobalTagsClass(

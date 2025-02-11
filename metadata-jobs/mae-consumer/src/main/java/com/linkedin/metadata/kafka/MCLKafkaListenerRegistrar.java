@@ -84,7 +84,7 @@ public class MCLKafkaListenerRegistrar implements InitializingBean {
                   buildConsumerGroupName(key),
                   List.of(mclVersionedTopicName, mclTimeseriesTopicName),
                   hooks);
-          registerMCLKafkaListener(kafkaListenerEndpoint, true);
+          registerMCLKafkaListener(kafkaListenerEndpoint, false);
         });
   }
 
@@ -108,7 +108,7 @@ public class MCLKafkaListenerRegistrar implements InitializingBean {
         new MethodKafkaListenerEndpoint<>();
     kafkaListenerEndpoint.setId(consumerGroupId);
     kafkaListenerEndpoint.setGroupId(consumerGroupId);
-    kafkaListenerEndpoint.setAutoStartup(true);
+    kafkaListenerEndpoint.setAutoStartup(false);
     kafkaListenerEndpoint.setTopics(topics.toArray(new String[topics.size()]));
     kafkaListenerEndpoint.setMessageHandlerMethodFactory(new DefaultMessageHandlerMethodFactory());
     ConsumerConfiguration.ConsumerOptions mclConsumerOptions =

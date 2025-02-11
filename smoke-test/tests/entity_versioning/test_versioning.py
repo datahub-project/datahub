@@ -1,4 +1,5 @@
 import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -7,7 +8,6 @@ from datahub.metadata.schema_classes import (
     VersionSetPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
-
 from tests.consistency_utils import wait_for_writes_to_sync
 
 VERSION_SET_URN = VersionSetUrn("12345678910", DatasetUrn.ENTITY_TYPE).urn()

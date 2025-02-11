@@ -22,11 +22,13 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.TraceContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.Map;
 import java.util.Optional;
@@ -195,6 +197,8 @@ public class TestOperationContexts {
         retrieverContextSupplier,
         indexConventionSupplier,
         null,
+        null,
+        null,
         null);
   }
 
@@ -212,7 +216,26 @@ public class TestOperationContexts {
         retrieverContextSupplier,
         indexConventionSupplier,
         null,
-        environmentContextSupplier);
+        environmentContextSupplier,
+        null,
+        null);
+  }
+
+  public static OperationContext systemContextTraceNoSearchAuthorization(
+      @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
+      @Nullable Supplier<TraceContext> traceContextSupplier) {
+
+    return systemContext(
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        objectMapperContextSupplier,
+        traceContextSupplier);
   }
 
   public static OperationContext systemContext(
@@ -224,6 +247,30 @@ public class TestOperationContexts {
       @Nullable Supplier<IndexConvention> indexConventionSupplier,
       @Nullable Consumer<OperationContext> postConstruct,
       @Nullable Supplier<ValidationContext> environmentContextSupplier) {
+    return systemContext(
+        configSupplier,
+        systemAuthSupplier,
+        servicesRegistrySupplier,
+        entityRegistrySupplier,
+        retrieverContextSupplier,
+        indexConventionSupplier,
+        postConstruct,
+        environmentContextSupplier,
+        null,
+        null);
+  }
+
+  public static OperationContext systemContext(
+      @Nullable Supplier<OperationContextConfig> configSupplier,
+      @Nullable Supplier<Authentication> systemAuthSupplier,
+      @Nullable Supplier<ServicesRegistryContext> servicesRegistrySupplier,
+      @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
+      @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
+      @Nullable Supplier<IndexConvention> indexConventionSupplier,
+      @Nullable Consumer<OperationContext> postConstruct,
+      @Nullable Supplier<ValidationContext> environmentContextSupplier,
+      @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
+      @Nullable Supplier<TraceContext> traceContextSupplier) {
 
     OperationContextConfig config =
         Optional.ofNullable(configSupplier).map(Supplier::get).orElse(DEFAULT_OPCONTEXT_CONFIG);
@@ -254,6 +301,13 @@ public class TestOperationContexts {
             .map(Supplier::get)
             .orElse(defaultValidationContext);
 
+    ObjectMapperContext objectMapperContext =
+        objectMapperContextSupplier == null
+            ? ObjectMapperContext.DEFAULT
+            : objectMapperContextSupplier.get();
+
+    TraceContext traceContext = traceContextSupplier != null ? traceContextSupplier.get() : null;
+
     OperationContext operationContext =
         OperationContext.asSystem(
             config,
@@ -262,7 +316,10 @@ public class TestOperationContexts {
             servicesRegistryContext,
             indexConvention,
             retrieverContext,
-            validationContext);
+            validationContext,
+            objectMapperContext,
+            traceContext,
+            true);
 
     if (postConstruct != null) {
       postConstruct.accept(operationContext);

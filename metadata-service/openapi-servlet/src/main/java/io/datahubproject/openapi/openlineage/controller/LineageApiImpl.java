@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/openlineage/api/v1")
+@RequestMapping("/openapi/openlineage/api/v1")
 @Slf4j
 public class LineageApiImpl implements LineageApi {
   private static final ObjectMapper OBJECT_MAPPER = OpenLineageClientUtils.newObjectMapper();

@@ -12,7 +12,7 @@ import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
-import datahub as datahub_package
+from datahub._version import nice_version_name
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.common import ConfigModel, GraphError
@@ -147,7 +147,7 @@ def run(
                 return ret
 
     # main function begins
-    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", nice_version_name())
 
     pipeline_config = load_config_file(
         config,
@@ -507,15 +507,11 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         click.echo("No response received from the server.")
         return
 
-    # when urn or source filter does not match, exit gracefully
-    if (
-        not isinstance(data.get("data"), dict)
-        or "listIngestionSources" not in data["data"]
-    ):
-        click.echo("No matching ingestion sources found. Please check your filters.")
-        return
+    # a lot of responses can be null if there's errors in the run
+    ingestion_sources = (
+        data.get("data", {}).get("listIngestionSources", {}).get("ingestionSources", [])
+    )
 
-    ingestion_sources = data["data"]["listIngestionSources"]["ingestionSources"]
     if not ingestion_sources:
         click.echo("No ingestion sources or executions found.")
         return
@@ -526,17 +522,31 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         name = ingestion_source.get("name", "N/A")
 
         executions = ingestion_source.get("executions", {}).get("executionRequests", [])
+
         for execution in executions:
+            if execution is None:
+                continue
+
             execution_id = execution.get("id", "N/A")
-            start_time = execution.get("result", {}).get("startTimeMs", "N/A")
-            start_time = (
-                datetime.fromtimestamp(start_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
-                if start_time != "N/A"
-                else "N/A"
-            )
-            status = execution.get("result", {}).get("status", "N/A")
+            result = execution.get("result") or {}
+            status = result.get("status", "N/A")
+
+            try:
+                start_time = (
+                    datetime.fromtimestamp(
+                        result.get("startTimeMs", 0) / 1000
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                    if status != "DUPLICATE" and result.get("startTimeMs") is not None
+                    else "N/A"
+                )
+            except (TypeError, ValueError):
+                start_time = "N/A"
 
             rows.append([execution_id, name, start_time, status, urn])
+
+    if not rows:
+        click.echo("No execution data found.")
+        return
 
     click.echo(
         tabulate(

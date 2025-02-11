@@ -58,7 +58,7 @@ public class IngestDefaultTagsStep implements BootstrapStep {
     try {
 
       // 1. Read from the file into JSON.
-      final JsonNode tags = mapper.readTree(new ClassPathResource(_filePath).getFile());
+      final JsonNode tags = mapper.readTree(new ClassPathResource(_filePath).getInputStream());
 
       if (!tags.isArray()) {
         throw new RuntimeException(
