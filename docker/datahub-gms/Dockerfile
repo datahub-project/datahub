@@ -25,7 +25,7 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM alpine:3.21 AS base
 
-ENV JMX_VERSION=0.18.0
+ENV JMX_VERSION=0.20.0
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL

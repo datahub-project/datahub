@@ -23,6 +23,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 
 @Slf4j
 @Getter
@@ -59,6 +60,11 @@ public class DeleteItemImpl implements ChangeMCP {
   @Override
   public SystemMetadata getSystemMetadata() {
     return null;
+  }
+
+  @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    throw new NotImplementedException();
   }
 
   @Nullable

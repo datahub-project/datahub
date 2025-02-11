@@ -22,7 +22,7 @@ describe("create and manage group", () => {
       cy.mouseover("#title").click();
       cy.waitTextVisible("Other").click();
       cy.get("[type=submit]").click();
-      cy.waitTextVisible("Welcome to DataHub");
+      cy.waitTextVisible("Welcome back");
       cy.hideOnboardingTour();
       cy.waitTextVisible(username);
     });

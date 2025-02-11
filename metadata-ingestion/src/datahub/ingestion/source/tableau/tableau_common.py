@@ -761,7 +761,7 @@ class TableauUpstreamReference:
 
 
 def get_overridden_info(
-    connection_type: Optional[str],
+    connection_type: str,
     upstream_db: Optional[str],
     upstream_db_id: Optional[str],
     platform_instance_map: Optional[Dict[str, str]],

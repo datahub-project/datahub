@@ -48,6 +48,7 @@ export const getAvatarSizes = (size) => {
         sm: { width: '18px', height: '18px', fontSize: '8px' },
         md: { width: '24px', height: '24px', fontSize: '12px' },
         lg: { width: '28px', height: '28px', fontSize: '14px' },
+        xl: { width: '32px', height: '32px', fontSize: '14px' },
         default: { width: '20px', height: '20px', fontSize: '10px' },
     };
 

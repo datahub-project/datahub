@@ -148,10 +148,12 @@ export const EditOwnersModal = ({
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-    const userSearchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const userSearchResults: Array<Entity> =
+        userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const groupSearchResults: Array<Entity> =
+        groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
+    const { recommendedData } = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     // Invokes the search API as the owner types

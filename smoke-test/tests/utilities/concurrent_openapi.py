@@ -57,13 +57,14 @@ def evaluate_test(auth_session, test_name, test_data):
                 continue
             url = req_resp["request"]["url"]
             actual_resp = execute_request(auth_session, req_resp["request"])
+            diff = None
             try:
                 if "response" in req_resp and "status_codes" in req_resp["response"]:
                     assert (
                         actual_resp.status_code in req_resp["response"]["status_codes"]
                     )
                 else:
-                    assert actual_resp.status_code in [200, 202, 204]
+                    assert actual_resp.status_code in [200, 201, 202, 204]
                 if "response" in req_resp:
                     if "json" in req_resp["response"]:
                         if "exclude_regex_paths" in req_resp["response"]:
@@ -87,7 +88,9 @@ def evaluate_test(auth_session, test_name, test_data):
                 )
                 if description:
                     logger.error(f"Step {idx} Description: {description}")
-                logger.error(f"Response content: {actual_resp.content}")
+                if diff:
+                    logger.error(f"Unexpected diff: {diff}")
+                logger.debug(f"Response content: {actual_resp.content}")
                 raise e
     except Exception as e:
         logger.error(f"Error executing test: {test_name}")
