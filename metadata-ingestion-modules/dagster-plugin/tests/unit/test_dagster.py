@@ -96,7 +96,7 @@ TEST_UUIDS = ["uuid_{}".format(i) for i in range(10000)]
 @patch.object(uuid, "uuid4", side_effect=TEST_UUIDS)
 @patch("datahub_dagster_plugin.sensors.datahub_sensors.DataHubGraph", autospec=True)
 @freeze_time(FROZEN_TIME)
-def test_emit_metadata(mock_emit: Mock) -> None:
+def test_emit_metadata(mock_emit: Mock, mock_uuid: Mock) -> None:
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
 
