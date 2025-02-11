@@ -128,7 +128,7 @@ project.ext.externalDependency = [
     'awsJavaSdkSts': 'software.amazon.awssdk:sts:2.17.261',
     'awsJavaSdkS3': 'software.amazon.awssdk:s3:2.17.261',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.2.0',
     'awsS3': 'software.amazon.awssdk:s3:2.26.21',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
