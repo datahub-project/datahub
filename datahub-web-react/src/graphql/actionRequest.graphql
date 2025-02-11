@@ -25,6 +25,7 @@ query listActionRequests($input: ListActionRequestsInput!) {
                             logoUrl
                         }
                     }
+                    ...datasetSchema
                 }
                 ... on Dashboard {
                     tool

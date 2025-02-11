@@ -13,6 +13,7 @@ import {
     DatasetProperties,
     ChartProperties,
     Operation,
+    Dataset,
 } from '../../../types.generated';
 
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -307,4 +308,22 @@ export const toProperTitleCase = (str: string) => {
                 : word,
         )
         .join(' ');
+};
+
+/**
+ * Attempts to extract a description for a sub-resource of an entity, if it exists.
+ * @param entity ie dataset
+ * @param subResource ie field name
+ * @returns the description of the sub-resource if it exists, otherwise undefined
+ */
+export const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
+    // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
+    // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
+    const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(
+        (field) => field.fieldPath === subResource,
+    )?.description;
+    const maybeSchemaMetadataDescription = (entity as Dataset).schemaMetadata?.fields?.find(
+        (field) => field.fieldPath === subResource,
+    )?.description;
+    return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
 };
