@@ -45,8 +45,11 @@ dependencies {
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'
+    exclude group: 'com.datastax.oss' , module: 'java-driver-shaded-guava'
   }
-  api externalDependency.datastaxOssQueryBuilder
+  api(externalDependency.datastaxOssQueryBuilder) {
+    exclude group: 'com.datastax.oss' , module: 'java-driver-shaded-guava'
+  }
   api externalDependency.elasticSearchRest
   api externalDependency.elasticSearchJava
   implementation externalDependency.javatuples
