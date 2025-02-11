@@ -961,6 +961,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)
                         else SnowflakeObjectDomain.VIEW
+                        if isinstance(table, SnowflakeView)
+                        else SnowflakeObjectDomain.STREAM
                     ),
                 )
                 if self.snowsight_url_builder

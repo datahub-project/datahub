@@ -140,11 +140,20 @@ class SnowflakeDatabase:
 
 
 @dataclass
+class SnowflakeStreamContainer:
+    name: str
+    database_name: str
+    schema_name: str
+    comment: Optional[str] = None
+
+
+@dataclass
 class SnowflakeStream:
     name: str
     created: datetime
     owner: str
     source_type: str
+    # entity: SnowflakeStreamContainer
     type: str
     stale: str
     mode: str
@@ -704,6 +713,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         table_name=stream["table_name"],
                         base_tables=stream["base_tables"],
                         last_altered=stream["created_on"],
+                        # entity=SnowflakeStreamContainer(
+                        #     name=stream["name"],
+                        #     database_name=stream["database_name"],
+                        #     schema_name=stream["schema_name"],
+                        # ),
                     )
                 )
 
