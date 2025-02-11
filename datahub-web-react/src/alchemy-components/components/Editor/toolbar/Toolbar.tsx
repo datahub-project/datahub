@@ -23,8 +23,9 @@ const Container = styled.div`
     position: sticky;
     top: 0;
     z-index: 99;
-    border-top-left-radius: 4px;
-    border-bottom-left-radius: 4px;
+    background-color: white;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
     padding: 8px !important;
     & button {
         line-height: 0;
