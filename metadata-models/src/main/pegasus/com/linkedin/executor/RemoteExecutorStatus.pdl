@@ -38,6 +38,7 @@ record RemoteExecutorStatus {
 
   /**
    * Flag indicating whether remote executor status record is stale.
+   * This means executor no longer sends heartbeats and considered dead.
    */
   @Searchable = {
     "fieldType": "BOOLEAN"
@@ -45,12 +46,12 @@ record RemoteExecutorStatus {
   executorExpired: boolean = false
 
   /**
-   * Flag indicating whether remote executor is stopped.
+   * Flag indicating whether remote executor is stopped, and properly reported its termination.
    */
   executorStopped: boolean = false
 
   /**
-   * Flag indicating whether remote executor is embedded executor
+   * Flag indicating whether remote executor is embedded into the coordinator pod
    */
   executorEmbedded: boolean = false
 
