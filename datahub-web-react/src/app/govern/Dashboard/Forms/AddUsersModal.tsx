@@ -7,8 +7,8 @@ import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
 import { Form, Select } from 'antd';
 import React, { useContext, useState } from 'react';
 import ManageFormContext from './ManageFormContext';
-import { FieldLabel, FooterButtonsContainer, FormFieldsContainer, StyledModal } from './styledComponents';
 import UserOrGroupSelect from './UserOrGroupSelect';
+import { FieldLabel, FooterButtonsContainer, FormFieldsContainer, StyledModal } from './styledComponents';
 
 interface Props {
     showUsersModal: boolean;
@@ -175,6 +175,7 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
 
     return (
         <StyledModal
+            maskClosable={false}
             title={
                 <Text color="gray" size="lg" weight="bold">
                     Assign Users or Groups
