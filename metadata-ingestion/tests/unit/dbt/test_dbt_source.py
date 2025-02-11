@@ -493,3 +493,41 @@ def test_get_column_type_redshift():
         messages[0].message
         == "Got an unexpected column type. The column's parsed field type will not be populated."
     )
+
+
+def test_include_database_name_default():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.include_database_name is True
+
+
+@pytest.mark.parametrize(
+    ("include_database_name", "expected"), [("false", False), ("true", True)]
+)
+def test_include_database_name(include_database_name: str, expected: bool) -> None:
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    config_dict.update({"include_database_name": include_database_name})
+    config = DBTCoreConfig.parse_obj({**config_dict})
+    assert config.include_database_name is expected
+
+
+def test_extract_dbt_entities():
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        manifest_path="tests/unit/dbt/artifacts/manifest.json",
+        catalog_path="tests/unit/dbt/artifacts/catalog.json",
+        target_platform="dummy",
+    )
+    source = DBTCoreSource(config, ctx, "dbt")
+    assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
+    config.include_database_name = False
+    source = DBTCoreSource(config, ctx, "dbt")
+    assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
