@@ -3,6 +3,13 @@ from typing import Optional
 
 import pytest
 
+__all__ = [
+    "load_golden_flags",
+    "get_golden_settings",
+    "pytest_addoption",
+    "GoldenFileSettings",
+]
+
 
 @dataclasses.dataclass
 class GoldenFileSettings:
@@ -14,7 +21,7 @@ _registered: bool = False
 _settings: Optional[GoldenFileSettings] = None
 
 
-def register_golden_flags(parser: pytest.Parser) -> None:
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--update-golden-files",
         action="store_true",
