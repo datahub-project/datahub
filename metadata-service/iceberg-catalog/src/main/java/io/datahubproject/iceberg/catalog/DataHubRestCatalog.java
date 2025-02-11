@@ -1,13 +1,10 @@
 package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
 import com.google.common.base.Joiner;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.SubTypes;
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
 import com.linkedin.container.ContainerProperties;
@@ -15,7 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
@@ -27,7 +24,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.iceberg.catalog.credentials.S3CredentialProvider;
 import io.datahubproject.metadata.context.OperationContext;
@@ -164,43 +160,20 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
         throw new NoSuchNamespaceException("Namespace does not exist: " + toTableId.namespace());
       }
     }
-    AuditStamp auditStamp = auditStamp();
-    DatasetUrn datasetUrn = warehouse.renameDataset(fromTableId, toTableId, false, auditStamp);
-    DatasetProperties datasetProperties = new DatasetProperties();
-    datasetProperties.setName(toTableId.name());
-    datasetProperties.setQualifiedName(fullTableName(platformInstance(), toTableId));
-
-    MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityType(DATASET_ENTITY_NAME);
-    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
-    mcp.setEntityUrn(datasetUrn);
-    mcp.setAspect(serializeAspect(datasetProperties));
-    mcp.setChangeType(ChangeType.UPSERT);
-    ingestMcp(mcp, auditStamp);
-
-    if (!fromTableId.namespace().equals(toTableId.namespace())) {
-      Container container = new Container();
-      container.setContainer(containerUrn(platformInstance(), toTableId.namespace()));
-
-      MetadataChangeProposal containerMcp = new MetadataChangeProposal();
-      containerMcp.setEntityType(DATASET_ENTITY_NAME);
-      containerMcp.setAspectName(CONTAINER_ASPECT_NAME);
-      containerMcp.setEntityUrn(datasetUrn);
-      containerMcp.setAspect(serializeAspect(container));
-      containerMcp.setChangeType(ChangeType.UPSERT);
-      StringMap headers =
-          new StringMap(
-              Collections.singletonMap(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true)));
-      mcp.setHeaders(headers);
-      containerMcp.setHeaders(headers);
-      ingestMcp(containerMcp, auditStamp);
-    }
+    warehouse.renameDataset(fromTableId, toTableId, view);
   }
 
   @Override
   public void createNamespace(Namespace namespace, Map<String, String> properties) {
-    AuditStamp auditStamp = auditStamp();
     Urn containerUrn = containerUrn(platformInstance(), namespace);
+
+    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch.EntityBatch containerBatch =
+        icebergBatch.createEntity(
+            containerUrn,
+            CONTAINER_ENTITY_NAME,
+            CONTAINER_PROPERTIES_ASPECT_NAME,
+            containerProperties(namespace, properties));
 
     int nLevels = namespace.length();
     if (nLevels > 1) {
@@ -211,24 +184,17 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
             "Parent namespace %s does not exist in platformInstance-catalog %s",
             Joiner.on(".").join(parentLevels), platformInstance());
       }
-      ingestContainerAspect(
-          containerUrn,
-          CONTAINER_ASPECT_NAME,
-          new Container().setContainer(parentContainerUrn),
-          auditStamp);
+
+      containerBatch.aspect(
+          CONTAINER_ASPECT_NAME, new Container().setContainer(parentContainerUrn));
     }
 
-    ingestContainerAspect(
-        containerUrn,
-        SUB_TYPES_ASPECT_NAME,
-        new SubTypes().setTypeNames(new StringArray(CONTAINER_SUB_TYPE)),
-        auditStamp);
+    containerBatch.platformInstance(platformInstance());
 
-    ingestContainerProperties(namespace, properties, auditStamp);
+    containerBatch.aspect(
+        SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray(CONTAINER_SUB_TYPE)));
 
-    MetadataChangeProposal platformInstanceMcp =
-        platformInstanceMcp(platformInstance(), containerUrn, CONTAINER_ENTITY_NAME);
-    ingestMcp(platformInstanceMcp, auditStamp);
+    ingestBatch(icebergBatch);
   }
 
   @Override
@@ -313,15 +279,11 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     throw new UnsupportedOperationException();
   }
 
-  private void ingestContainerProperties(
-      Namespace namespace, Map<String, String> properties, AuditStamp auditStamp) {
-    ingestContainerAspect(
-        containerUrn(platformInstance(), namespace),
-        CONTAINER_PROPERTIES_ASPECT_NAME,
-        new ContainerProperties()
-            .setName(namespace.levels()[namespace.length() - 1])
-            .setCustomProperties(new StringMap(properties)),
-        auditStamp);
+  private ContainerProperties containerProperties(
+      Namespace namespace, Map<String, String> properties) {
+    return new ContainerProperties()
+        .setName(namespace.levels()[namespace.length() - 1])
+        .setCustomProperties(new StringMap(properties));
   }
 
   public UpdateNamespacePropertiesResponse updateNamespaceProperties(
@@ -347,7 +309,13 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     properties.putAll(request.updates());
     properties.keySet().removeAll(request.removals());
 
-    ingestContainerProperties(namespace, properties, auditStamp());
+    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    Urn containerUrn = containerUrn(platformInstance(), namespace);
+    icebergBatch
+        .updateEntity(containerUrn, CONTAINER_ENTITY_NAME)
+        .aspect(CONTAINER_PROPERTIES_ASPECT_NAME, containerProperties(namespace, properties));
+
+    ingestBatch(icebergBatch);
 
     return responseBuilder.build();
   }
@@ -358,26 +326,9 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     this.closeableGroup.close();
   }
 
-  private void ingestContainerAspect(
-      Urn containerUrn, String aspectName, RecordTemplate aspect, AuditStamp auditStamp) {
-    MetadataChangeProposal mcp = new MetadataChangeProposal();
-
-    mcp.setEntityUrn(containerUrn);
-    mcp.setEntityType(CONTAINER_ENTITY_NAME);
-    mcp.setAspectName(aspectName);
-    mcp.setAspect(serializeAspect(aspect));
-    mcp.setChangeType(ChangeType.UPSERT);
-
-    StringMap headers =
-        new StringMap(
-            Collections.singletonMap(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true)));
-    mcp.setHeaders(headers);
-
-    ingestMcp(mcp, auditStamp);
-  }
-
-  private void ingestMcp(MetadataChangeProposal mcp, AuditStamp auditStamp) {
-    entityService.ingestProposal(operationContext, mcp, auditStamp, false);
+  private void ingestBatch(IcebergBatch icebergBatch) {
+    AspectsBatch aspectsBatch = icebergBatch.asAspectsBatch();
+    entityService.ingestProposal(operationContext, aspectsBatch, false);
   }
 
   private List<TableIdentifier> listTablesOrViews(Namespace namespace, String typeName) {
