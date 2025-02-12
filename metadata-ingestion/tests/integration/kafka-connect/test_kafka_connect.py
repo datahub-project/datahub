@@ -727,3 +727,23 @@ def test_filter_stale_topics_regex_filtering():
 
     # Assert the result matches the expected filtered topics
     assert result == ["topic1", "topic2"]
+
+
+def test_filter_stale_topics_no_topics_config():
+    """
+    Test filter_stale_topics when using neither topics.regex not topics
+    Ideally, this will never happen for kafka-connect sink connector
+    """
+
+    # Create an instance of SinkTopicFilter
+    sink_filter = SinkTopicFilter()
+
+    # Set up test data
+    processed_topics = ["topic1", "topic2", "other_topic", "test_topic"]
+    sink_config = {"X": "Y"}
+
+    # Call the method under test
+    result = sink_filter.filter_stale_topics(processed_topics, sink_config)
+
+    # Assert the result matches the expected filtered topics
+    assert result == processed_topics

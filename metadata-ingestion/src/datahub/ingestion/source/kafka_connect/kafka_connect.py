@@ -122,7 +122,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
             connector_manifest.url = connector_url
             connector_manifest.topic_names = self._get_connector_topics(
-                connector_name, connector_manifest.config, connector_manifest.type
+                connector_name=connector_name,
+                config=connector_manifest.config,
+                connector_type=connector_manifest.type,
             )
             connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
@@ -223,9 +225,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         if connector_type == SINK:
             try:
-                ## Sink connectors may configure `topics` or `topics.regex`
-                # https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
-                # https://docs.confluent.io/platform/current/installation/configuration/connect/sink-connect-configs.html#topics
                 return SinkTopicFilter().filter_stale_topics(processed_topics, config)
             except Exception as e:
                 self.report.warning(
@@ -390,19 +389,32 @@ class SinkTopicFilter:
         processed_topics: List[str],
         sink_config: Dict[str, str],
     ) -> List[str]:
-        """Filter out stale topics based on sink connector configuration.
+        """
+        Kafka-connect's /topics API returns the set of topic names the connector has been using
+        since its creation or since the last time its set of active topics was reset. This means-
+        if a topic was ever used by a connector, it will be returned, even if it is no longer used.
+        To remove these stale topics from the list, we double-check the list returned by the API
+        against the sink connector's config.
+        Sink connectors configure exactly one of `topics` or `topics.regex`
+        https://kafka.apache.org/documentation/#sinkconnectorconfigs_topics
 
         Args:
-            connector_name: Name of the connector
             processed_topics: List of topics currently being processed
             sink_config: Configuration dictionary for the sink connector
 
         Returns:
             List of filtered topics that match the configuration
 
+        Raises:
+            ValueError: If sink connector configuration is missing both 'topics' and 'topics.regex' fields
+
         """
-        # Validate required config exists
-        if not self._has_topic_config(sink_config):
+        # Absence of topics config is a defensive NOOP,
+        # although this should never happen in real world
+        if not self.has_topic_config(sink_config):
+            logger.warning(
+                f"Found sink without topics config {sink_config.get(CONNECTOR_CLASS)}"
+            )
             return processed_topics
 
         # Handle explicit topic list
@@ -414,7 +426,7 @@ class SinkTopicFilter:
                 processed_topics, sink_config["topics.regex"]
             )
 
-    def _has_topic_config(self, sink_config: Dict[str, str]) -> bool:
+    def has_topic_config(self, sink_config: Dict[str, str]) -> bool:
         """Check if sink config has either topics or topics.regex."""
         return bool(sink_config.get("topics") or sink_config.get("topics.regex"))
 
