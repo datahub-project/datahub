@@ -455,6 +455,9 @@ public class Constants {
       "dataHubStepStateProperties";
 
   // Authorization
+  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
+  // the  spring property "authorization.restApiAuthorization" from application.yaml for
+  // consistency. The spring property can be initialized by this env var (among other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
