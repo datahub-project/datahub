@@ -267,7 +267,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",
     }
@@ -328,7 +327,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None],
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
@@ -1538,9 +1537,7 @@ def create_bigquery_temp_table(
         query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
             # In google-cloud-bigquery 3.15.0, the _query_job attribute was
             # made public and renamed to query_job.
-            cursor.query_job
-            if hasattr(cursor, "query_job")
-            else cursor._query_job  # type: ignore[attr-defined]
+            cursor.query_job if hasattr(cursor, "query_job") else cursor._query_job  # type: ignore[attr-defined]
         )
         assert query_job
         temp_destination_table = query_job.destination

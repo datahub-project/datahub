@@ -241,6 +241,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
+            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
@@ -260,7 +261,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
-            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowTaskCenterRedesign(_featureFlags.isShowTaskCenterRedesign())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

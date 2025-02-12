@@ -85,16 +85,18 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             "get_latest_version",
             new_get_latest_version,
         ):
-            schema_str = confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
-                # The external reference would match by name.
-                schema=Schema(
-                    schema_str=schema_str_orig,
-                    schema_type="AVRO",
-                    references=[
-                        SchemaReference(
-                            name="TestTopic1", subject="schema_subject_1", version=1
-                        )
-                    ],
+            schema_str = (
+                confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
+                    # The external reference would match by name.
+                    schema=Schema(
+                        schema_str=schema_str_orig,
+                        schema_type="AVRO",
+                        references=[
+                            SchemaReference(
+                                name="TestTopic1", subject="schema_subject_1", version=1
+                            )
+                        ],
+                    )
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
@@ -106,16 +108,18 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             "get_latest_version",
             new_get_latest_version,
         ):
-            schema_str = confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
-                # The external reference would match by subject.
-                schema=Schema(
-                    schema_str=schema_str_orig,
-                    schema_type="AVRO",
-                    references=[
-                        SchemaReference(
-                            name="schema_subject_1", subject="TestTopic1", version=1
-                        )
-                    ],
+            schema_str = (
+                confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
+                    # The external reference would match by subject.
+                    schema=Schema(
+                        schema_str=schema_str_orig,
+                        schema_type="AVRO",
+                        references=[
+                            SchemaReference(
+                                name="schema_subject_1", subject="TestTopic1", version=1
+                            )
+                        ],
+                    )
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(

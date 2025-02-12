@@ -5,9 +5,9 @@ from typing import Any, Dict, Iterable, List
 
 import yaml
 from click.testing import CliRunner, Result
+
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
-
 from tests.utils import assert_dict_contains
 
 runner = CliRunner(mix_stderr=False)

@@ -212,7 +212,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=endpoint_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{endpoint_details["EndpointName"]}',
+            id=f"{endpoint_details['EndpointName']}",
             mce=mce,
         )
 
@@ -503,7 +503,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{model_details["ModelName"]}',
+            id=f"{model_details['ModelName']}",
             mce=mce,
         )
 

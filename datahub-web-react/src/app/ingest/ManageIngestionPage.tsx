@@ -11,6 +11,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { RemoteExecutorPoolsList } from './executor/RemoteExecutorPoolsList';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -56,7 +57,14 @@ const ListContainer = styled.div``;
 enum TabType {
     Sources = 'Sources',
     Secrets = 'Secrets',
+    RemoteExecutors = 'Executors',
 }
+
+const TabTypeToListComponent = {
+    [TabType.Sources]: <IngestionSourceList />,
+    [TabType.Secrets]: <SecretsList />,
+    [TabType.RemoteExecutors]: <RemoteExecutorPoolsList />,
+};
 
 export const ManageIngestionPage = () => {
     /**
@@ -67,6 +75,8 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
+    // TODO: For now remote executors privilege is tied to manage ingestion
+    const showRemoteExecutorsTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
@@ -78,7 +88,8 @@ export const ManageIngestionPage = () => {
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
     const onClickTab = (newTab: string) => {
-        setSelectedTab(TabType[newTab]);
+        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
+        setSelectedTab(matchingTab || selectedTab);
     };
 
     return (
@@ -93,8 +104,9 @@ export const ManageIngestionPage = () => {
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
+                {showRemoteExecutorsTab && <Tab key={TabType.RemoteExecutors} tab={TabType.RemoteExecutors} />}
             </StyledTabs>
-            <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
+            <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>
         </PageContainer>
     );
 };

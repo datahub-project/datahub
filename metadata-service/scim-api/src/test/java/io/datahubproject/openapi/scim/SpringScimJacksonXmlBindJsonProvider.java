@@ -20,6 +20,7 @@
 package io.datahubproject.openapi.scim;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.scim.ScimpleSpringConfiguration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -38,12 +39,20 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /** It is equivalent of @link{ScimJacksonXmlBindJsonProvider} for Spring WebMVC */
 @Configuration
 @EnableWebMvc
 public class SpringScimJacksonXmlBindJsonProvider implements WebMvcConfigurer {
+
+  @Override
+  public void configurePathMatch(PathMatchConfigurer configurer) {
+    configurer.addPathPrefix(
+        "/openapi",
+        c -> c.getPackage().getName().startsWith(ScimpleSpringConfiguration.SCIM_IMPL_PACKAGE));
+  }
 
   @Autowired SchemaRegistry schemaRegistry;
   private static final Set<Package> SUPPORTED_PACKAGES =

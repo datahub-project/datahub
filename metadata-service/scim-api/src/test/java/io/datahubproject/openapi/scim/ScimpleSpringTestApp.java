@@ -44,17 +44,7 @@ import io.datahubproject.test.util.Neo4jTestServerBuilder;
 import io.ebean.Database;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.List;
 import javax.annotation.Nonnull;
-import org.apache.directory.scim.core.repository.DefaultPatchHandler;
-import org.apache.directory.scim.core.repository.PatchHandler;
-import org.apache.directory.scim.core.repository.Repository;
-import org.apache.directory.scim.core.repository.RepositoryRegistry;
-import org.apache.directory.scim.core.schema.SchemaRegistry;
-import org.apache.directory.scim.server.configuration.ServerConfiguration;
-import org.apache.directory.scim.server.rest.EtagGenerator;
-import org.apache.directory.scim.spec.resources.ScimResource;
-import org.apache.directory.scim.spec.schema.ServiceProviderConfiguration;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -67,57 +57,21 @@ import org.springframework.context.annotation.Primary;
 @SpringBootApplication(
     scanBasePackages = {
       "io.datahubproject.openapi",
-      "org.apache.directory.scim.server",
       "org.springdoc.webmvc.ui",
       "org.springdoc.core",
       "org.springdoc.webmvc.core",
       "org.springframework.boot.autoconfigure.jackson",
+      "com.linkedin.gms.factory.scim",
       "io.datahubproject.openapi.scim"
     })
 public class ScimpleSpringTestApp {
   @Value("${secretService.encryptionKey}")
   private String encryptionKey;
 
-  @Bean
-  ServerConfiguration serverConfiguration() {
-    return new ServerConfiguration()
-        .addAuthenticationSchema(ServiceProviderConfiguration.AuthenticationSchema.oauthBearer());
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  SchemaRegistry schemaRegistry() {
-    return new SchemaRegistry();
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  RepositoryRegistry repositoryRegistry(
-      SchemaRegistry schemaRegistry, List<Repository<? extends ScimResource>> scimResources) {
-
-    RepositoryRegistry registry = new RepositoryRegistry(schemaRegistry);
-
-    registry.registerRepositories(scimResources);
-
-    return registry;
-  }
-
   @Bean("systemOperationContext")
   @ConditionalOnMissingBean
   OperationContext systemOperationContext() {
     return TestOperationContexts.systemContextNoSearchAuthorization();
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  EtagGenerator etagGenerator() {
-    return new EtagGenerator();
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  PatchHandler patchHandler(SchemaRegistry schemaRegistry) {
-    return new DefaultPatchHandler(schemaRegistry);
   }
 
   @Bean(name = "dataHubSecretService")
@@ -155,10 +109,10 @@ public class ScimpleSpringTestApp {
             systemOperationContext.getSearchContext().getIndexConvention().getIdHashAlgo());
 
     EventProducer _mockProducer = mock(EventProducer.class);
-    when(_mockProducer.produceMetadataChangeLog(any(), any(), any()))
+    when(_mockProducer.produceMetadataChangeLog(any(OperationContext.class), any(), any(), any()))
         .thenAnswer(
             x -> {
-              MetadataChangeLog mcl = x.getArgument(2);
+              MetadataChangeLog mcl = x.getArgument(3);
               updateIndicesService.handleChangeEvent(systemOperationContext, mcl);
               return null;
             });
@@ -239,7 +193,8 @@ public class ScimpleSpringTestApp {
 
   @Bean
   @ConditionalOnMissingBean
-  GraphService graphService() {
+  GraphService graphService(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
     Neo4jTestServerBuilder _serverBuilder = new Neo4jTestServerBuilder();
 
     _serverBuilder.newServer();
@@ -247,7 +202,10 @@ public class ScimpleSpringTestApp {
     Driver _driver = GraphDatabase.driver(_serverBuilder.boltURI());
 
     Neo4jGraphService _client =
-        new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+        new Neo4jGraphService(
+            systemOperationContext,
+            new LineageRegistry(SnapshotEntityRegistry.getInstance()),
+            _driver);
 
     _client.clear();
 

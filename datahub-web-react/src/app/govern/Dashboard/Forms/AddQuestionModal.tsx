@@ -6,8 +6,8 @@ import { Form, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
-import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
+import { questionTypes } from './formUtils';
 import CommonQuestionFields from './questionTypes/CommonQuestionFields';
 import DomainsQuestion from './questionTypes/DomainQuestion';
 import GlossaryTermsQuestion from './questionTypes/GlossaryTermsQuestion';
@@ -164,6 +164,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
             }
             open={showQuestionModal}
             onCancel={handleModalClose}
+            maskClosable={false}
             footer={
                 <ModalFooter>
                     <RequiredField form={form} isRequired={isRequired} setIsRequired={setIsRequired} />

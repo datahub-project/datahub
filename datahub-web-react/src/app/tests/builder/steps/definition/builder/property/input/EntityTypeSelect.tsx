@@ -31,6 +31,7 @@ export const EntityTypeSelect = ({ entityTypes, selectedTypes, onChangeTypes }: 
             placeholder="Datasets, Dashboards, Charts..."
             onSelect={onSelectEntityType}
             onDeselect={onDeselectEntityType}
+            data-testid="entity-type-select"
         >
             {Array.from(entityTypes).map((entityType) => (
                 <Select.Option value={entityType} key={entityType}>

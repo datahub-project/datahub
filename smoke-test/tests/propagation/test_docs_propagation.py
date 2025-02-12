@@ -8,10 +8,12 @@ import subprocess
 import time
 from typing import Any, Iterable, Iterator, List, Optional, Set, Union
 
-import datahub.metadata.schema_classes as models
 import pydantic
 import pytest
 import yaml
+from pydantic import BaseModel
+
+import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataset.dataset import (
     Dataset,
     SchemaFieldSpecification,
@@ -32,8 +34,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from pydantic import BaseModel
-
 from tests.integrations_service_utils import (
     bootstrap_action,
     rollback_action,

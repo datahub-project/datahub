@@ -291,16 +291,15 @@ class BigqueryLineageExtractor:
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
         for project in projects:
-            if self.config.lineage_parse_view_ddl:
-                for view in view_refs_by_project[project]:
-                    self.datasets_skip_audit_log_lineage.add(view)
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(view)
-                        ),
-                        view_definition=view_definitions[view],
-                        default_db=project,
-                    )
+            for view in view_refs_by_project[project]:
+                self.datasets_skip_audit_log_lineage.add(view)
+                self.aggregator.add_view_definition(
+                    view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                        BigQueryTableRef.from_string_name(view)
+                    ),
+                    view_definition=view_definitions[view],
+                    default_db=project,
+                )
 
             for snapshot_ref in snapshot_refs_by_project[project]:
                 snapshot = snapshots_by_ref[snapshot_ref]
@@ -322,32 +321,20 @@ class BigqueryLineageExtractor:
     def get_lineage_workunits(
         self,
         projects: List[str],
-        view_refs_by_project: Dict[str, Set[str]],
-        view_definitions: FileBackedDict[str],
-        snapshot_refs_by_project: Dict[str, Set[str]],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
 
-        yield from self.get_lineage_workunits_for_views_and_snapshots(
-            projects,
-            view_refs_by_project,
-            view_definitions,
-            snapshot_refs_by_project,
-            snapshots_by_ref,
-        )
-
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
 
         for project in projects:
-            self.report.set_ingestion_stage(project, LINEAGE_EXTRACTION)
-            yield from self.generate_lineage(
-                project,
-                table_refs,
-            )
+            with self.report.new_stage(f"{project}: {LINEAGE_EXTRACTION}"):
+                yield from self.generate_lineage(
+                    project,
+                    table_refs,
+                )
 
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
@@ -381,8 +368,8 @@ class BigqueryLineageExtractor:
             self.report.lineage_metadata_entries[project_id] = len(lineage)
             logger.info(f"Built lineage map containing {len(lineage)} entries.")
             logger.debug(f"lineage metadata is {lineage}")
-            self.report.lineage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[project_id] = timer.elapsed_seconds(
+                digits=2
             )
             self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
                 memory_footprint.total_size(lineage)
@@ -710,7 +697,7 @@ class BigqueryLineageExtractor:
                         if parsed_queries[-1]:
                             query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
                             (
-                                {parsed_queries[-1].sql(dialect='bigquery')}
+                                {parsed_queries[-1].sql(dialect="bigquery")}
                             )"""
                         else:
                             query = e.query
@@ -822,11 +809,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[
-                            ref_temp_table_upstream
-                        ] = _merge_lineage_edge_columns(
-                            upstreams.get(ref_temp_table_upstream),
-                            collapsed_lineage,
+                        upstreams[ref_temp_table_upstream] = (
+                            _merge_lineage_edge_columns(
+                                upstreams.get(ref_temp_table_upstream),
+                                collapsed_lineage,
+                            )
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(
@@ -1017,9 +1004,9 @@ class BigqueryLineageExtractor:
                 dataset_urn
             )
             for gcs_dataset_urn in gcs_urns:
-                schema_metadata_for_gcs: Optional[
-                    SchemaMetadataClass
-                ] = graph.get_schema_metadata(gcs_dataset_urn)
+                schema_metadata_for_gcs: Optional[SchemaMetadataClass] = (
+                    graph.get_schema_metadata(gcs_dataset_urn)
+                )
                 if schema_metadata and schema_metadata_for_gcs:
                     fine_grained_lineage = self.get_fine_grained_lineages_with_gcs(
                         dataset_urn,

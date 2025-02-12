@@ -8,7 +8,6 @@ import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.NoopMetricRegistry;
-import com.codahale.metrics.Timer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
@@ -16,12 +15,16 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -37,6 +40,7 @@ public class MCLKafkaListener {
 
   private final String consumerGroupId;
   private final List<MetadataChangeLogHook> hooks;
+  private final OperationContext systemOperationContext;
   private final boolean fineGrainedLoggingEnabled;
   private final Map<String, Set<String>> aspectsToDrop;
 
@@ -50,6 +54,7 @@ public class MCLKafkaListener {
       List<MetadataChangeLogHook> hooks,
       boolean fineGrainedLoggingEnabled,
       Map<String, Set<String>> aspectsToDrop) {
+    this.systemOperationContext = systemOperationContext;
     this.consumerGroupId = consumerGroup;
     this.hooks = hooks;
     this.hooks.forEach(hook -> hook.init(systemOperationContext));
@@ -63,7 +68,7 @@ public class MCLKafkaListener {
   }
 
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
+    try {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
       log.debug(
@@ -93,68 +98,97 @@ public class MCLKafkaListener {
       String aspectName = event.hasAspectName() ? event.getAspectName() : null;
       String entityType = event.hasEntityType() ? event.getEntityType() : null;
       ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
-      try (Timer.Context aspectChangeTypeTimer =
-          fineGrainedLoggingEnabled
-              ? MetricUtils.timer(this.getClass(), aspectName + "_" + changeType + "_consume")
-                  .time()
-              : NO_OP_METRIC_REGISTRY.timer("").time()) {
-        MDC.put(MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
-        MDC.put(MDC_ASPECT_NAME, aspectName);
-        MDC.put(MDC_ENTITY_TYPE, entityType);
-        MDC.put(
-            MDC_CHANGE_TYPE, Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
-        if (aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-            || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName)) {
-          log.info("Skipping aspect {} for entity {}.", aspectName, entityUrn);
-          return;
-        }
 
-        log.info(
-            "Invoking MCL hooks for consumer: {} urn: {}, aspect name: {}, entity type: {}, change type: {}",
-            consumerGroupId,
-            entityUrn,
-            aspectName,
-            entityType,
-            changeType);
-
-        // Here - plug in additional "custom processor hooks"
-        for (MetadataChangeLogHook hook : this.hooks) {
-          log.debug(
-              "Invoking MCL hook {} for urn: {}",
-              hook.getClass().getSimpleName(),
-              event.getEntityUrn());
-          try (Timer.Context ignored =
-                  MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
-                      .time();
-              Timer.Context aspectChangeTypeHookTimer =
-                  fineGrainedLoggingEnabled
-                      ? MetricUtils.timer(
-                              this.getClass(),
-                              hook.getClass().getSimpleName()
-                                  + "_"
-                                  + aspectName
-                                  + "_"
-                                  + changeType
-                                  + "_latency")
-                          .time()
-                      : NO_OP_METRIC_REGISTRY.timer("").time()) {
-            hook.invoke(event);
-          } catch (Exception e) {
-            // Just skip this hook and continue. - Note that this represents "at most once"//
-            // processing.
-            MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure")
-                .inc();
-            log.error(
-                "Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
-          }
+      List<String> fineGrainedAttributes = new ArrayList<>();
+      if (fineGrainedLoggingEnabled) {
+        if (aspectName != null) {
+          fineGrainedAttributes.add(MetricUtils.ASPECT_NAME);
+          fineGrainedAttributes.add(aspectName);
         }
-        // TODO: Manually commit kafka offsets after full processing.
-        MetricUtils.counter(this.getClass(), consumerGroupId + "_consumed_mcl_count").inc();
-        log.info(
-            "Successfully completed MCL hooks for consumer: {} urn: {}",
-            consumerGroupId,
-            event.getEntityUrn());
+        if (entityType != null) {
+          fineGrainedAttributes.add(MetricUtils.ENTITY_TYPE);
+          fineGrainedAttributes.add(entityType);
+        }
+        if (changeType != null) {
+          fineGrainedAttributes.add(MetricUtils.CHANGE_TYPE);
+          fineGrainedAttributes.add(changeType.name());
+        }
       }
+
+      MDC.put(MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
+      MDC.put(MDC_ASPECT_NAME, aspectName);
+      MDC.put(MDC_ENTITY_TYPE, entityType);
+      MDC.put(
+          MDC_CHANGE_TYPE, Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
+      if (aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
+          || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName)) {
+        log.info("Skipping aspect {} for entity {}.", aspectName, entityUrn);
+        return;
+      }
+
+      systemOperationContext.withQueueSpan(
+          "consume",
+          event.getSystemMetadata(),
+          consumerRecord.topic(),
+          () -> {
+            log.info(
+                "Invoking MCL hooks for consumer: {} urn: {}, aspect name: {}, entity type: {}, change type: {}",
+                consumerGroupId,
+                entityUrn,
+                aspectName,
+                entityType,
+                changeType);
+
+            // Here - plug in additional "custom processor hooks"
+            for (MetadataChangeLogHook hook : this.hooks) {
+              systemOperationContext.withSpan(
+                  hook.getClass().getSimpleName(),
+                  () -> {
+                    log.debug(
+                        "Invoking MCL hook {} for urn: {}",
+                        hook.getClass().getSimpleName(),
+                        event.getEntityUrn());
+                    try {
+                      hook.invoke(event);
+                    } catch (Exception e) {
+                      // Just skip this hook and continue. - Note that this represents "at most
+                      // once"//
+                      // processing.
+                      MetricUtils.counter(
+                              this.getClass(), hook.getClass().getSimpleName() + "_failure")
+                          .inc();
+                      log.error(
+                          "Failed to execute MCL hook with name {}",
+                          hook.getClass().getCanonicalName(),
+                          e);
+
+                      Span currentSpan = Span.current();
+                      currentSpan.recordException(e);
+                      currentSpan.setStatus(StatusCode.ERROR, e.getMessage());
+                      currentSpan.setAttribute(MetricUtils.ERROR_TYPE, e.getClass().getName());
+                    }
+                  },
+                  Stream.concat(
+                          Stream.of(
+                              MetricUtils.DROPWIZARD_NAME,
+                              MetricUtils.name(
+                                  this.getClass(), hook.getClass().getSimpleName() + "_latency")),
+                          fineGrainedAttributes.stream())
+                      .toArray(String[]::new));
+            }
+
+            // TODO: Manually commit kafka offsets after full processing.
+            MetricUtils.counter(this.getClass(), consumerGroupId + "_consumed_mcl_count").inc();
+            log.info(
+                "Successfully completed MCL hooks for consumer: {} urn: {}",
+                consumerGroupId,
+                event.getEntityUrn());
+          },
+          Stream.concat(
+                  Stream.of(
+                      MetricUtils.DROPWIZARD_NAME, MetricUtils.name(this.getClass(), "consume")),
+                  fineGrainedAttributes.stream())
+              .toArray(String[]::new));
     } finally {
       MDC.clear();
     }

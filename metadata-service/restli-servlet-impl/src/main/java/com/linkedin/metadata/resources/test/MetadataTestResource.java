@@ -27,7 +27,7 @@ import com.linkedin.test.TestResults;
 import com.linkedin.test.TestResultsMap;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
@@ -77,7 +77,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         testUrns == null
             ? null
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -125,7 +125,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         testUrns == null
             ? null
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             Authentication auth = AuthenticationContext.getAuthentication();
@@ -172,7 +172,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
       throws URISyntaxException {
     log.info("Evaluate single test called with urn: {}, shouldPush: {}", testUrnStr, shouldPush);
     final Urn testUrn = Urn.createFromString(testUrnStr);
-    return RestliUtils.toTask(() -> {
+    return RestliUtils.toTask(systemOperationContext, () -> {
 
         Authentication auth = AuthenticationContext.getAuthentication();
         final OperationContext opContext = OperationContext.asSession(

@@ -4,6 +4,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 ## Introduction
 
 BigQuery Metadata Sync is an automation that synchronizes DataHub Tags, Table and Column descriptions, and Column Glossary Terms with
@@ -67,7 +73,7 @@ Ensure your service account has the following permissions:
     | Propagation Type | DataHub Entity | BigQuery Entity | Note |
     | -------- | ------- | ------- | ------- |
     | Table Tags as Labels | [Table Tag](https://datahubproject.io/docs/tags/) | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro) | - |
-    | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/0.14.0/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul>
+    | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul>
     | Table Descriptions | [Table Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Table Description | - |
     | Column Descriptions | [Column Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Column Description | - |
 

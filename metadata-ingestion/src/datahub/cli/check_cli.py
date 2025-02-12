@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import click
 
-from datahub import __package_name__
+from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
 from datahub.configuration import config_loader
 from datahub.configuration.common import AllowDenyPattern

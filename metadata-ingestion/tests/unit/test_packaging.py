@@ -1,6 +1,6 @@
 import pytest
 
-import datahub as datahub_metadata
+import datahub._version as datahub_version
 
 
 @pytest.mark.filterwarnings(
@@ -10,4 +10,4 @@ def test_datahub_version():
     # Simply importing pkg_resources checks for unsatisfied dependencies.
     import pkg_resources
 
-    assert pkg_resources.get_distribution(datahub_metadata.__package_name__).version
+    assert pkg_resources.get_distribution(datahub_version.__package_name__).version

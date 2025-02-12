@@ -78,9 +78,9 @@ def test_complete_entity_tag_proposal_accept(auth_session, ingest_cleanup_data):
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -115,9 +115,9 @@ def test_complete_entity_tag_proposal_accept(auth_session, ingest_cleanup_data):
 
     # We should find our request with COMPLETED & ACCEPTED
     matching = [r for r in requests if r["urn"] == proposal_urn]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {proposal_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {proposal_urn}"
+    )
     assert matching[0]["status"] == "COMPLETED"
     assert matching[0]["result"] == "ACCEPTED"
 
@@ -140,9 +140,9 @@ def test_complete_entity_tag_proposal_accept(auth_session, ingest_cleanup_data):
     dataset_tags_resp = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp
-    ), f"Errors found: {dataset_tags_resp.get('errors')}"
+    assert "errors" not in dataset_tags_resp, (
+        f"Errors found: {dataset_tags_resp.get('errors')}"
+    )
 
     # Extract the list of tag URNs from the dataset
     actual_tags = dataset_tags_resp["data"]["dataset"]["tags"]["tags"]
@@ -159,23 +159,23 @@ def test_complete_entity_tag_proposal_accept(auth_session, ingest_cleanup_data):
     remove_resp = execute_gql(
         auth_session, query=remove_tag_mutation, variables=variables_remove_tag
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing tag: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing tag: {remove_resp.get('errors')}"
+    )
     assert remove_resp["data"]["removeTag"] is True, "Expected removeTag to return True"
 
     # Optional: verify the tag was removed
     dataset_tags_resp_after_removal = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp_after_removal
-    ), f"Errors found: {dataset_tags_resp_after_removal.get('errors')}"
+    assert "errors" not in dataset_tags_resp_after_removal, (
+        f"Errors found: {dataset_tags_resp_after_removal.get('errors')}"
+    )
     updated_tags = dataset_tags_resp_after_removal["data"]["dataset"]["tags"]["tags"]
     updated_tag_urns = [t["tag"]["urn"] for t in updated_tags]
-    assert (
-        tag_urn not in updated_tag_urns
-    ), f"Expected {tag_urn} to be removed, but it still appears: {updated_tag_urns}"
+    assert tag_urn not in updated_tag_urns, (
+        f"Expected {tag_urn} to be removed, but it still appears: {updated_tag_urns}"
+    )
 
 
 @pytest.mark.dependency()
@@ -221,9 +221,9 @@ def test_complete_entity_tag_proposal_reject(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     wait_for_writes_to_sync()
 
@@ -277,9 +277,9 @@ def test_complete_entity_tag_proposal_reject(auth_session, ingest_cleanup_data):
     dataset_tags_resp = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp
-    ), f"Errors found: {dataset_tags_resp.get('errors')}"
+    assert "errors" not in dataset_tags_resp, (
+        f"Errors found: {dataset_tags_resp.get('errors')}"
+    )
     applied_tags = dataset_tags_resp["data"]["dataset"]["tags"]["tags"]
     applied_tag_urns = [t["tag"]["urn"] for t in applied_tags]
 
@@ -378,9 +378,9 @@ def test_list_action_requests_tag_params(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -430,9 +430,9 @@ def test_complete_schema_field_tag_proposal_accept(auth_session, ingest_cleanup_
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return True"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -499,9 +499,9 @@ def test_complete_schema_field_tag_proposal_accept(auth_session, ingest_cleanup_
     print(fields)
     print(field_bar)
     applied_tags = [t["tag"]["urn"] for t in field_bar["tags"]["tags"]]
-    assert (
-        tag_urn in applied_tags
-    ), f"Expected {tag_urn} on {field_name}, found {applied_tags}"
+    assert tag_urn in applied_tags, (
+        f"Expected {tag_urn} on {field_name}, found {applied_tags}"
+    )
 
     # 5) Remove the tag to reset for subsequent tests
     remove_tag_mutation = """
@@ -520,26 +520,26 @@ def test_complete_schema_field_tag_proposal_accept(auth_session, ingest_cleanup_
     remove_resp = execute_gql(
         auth_session, query=remove_tag_mutation, variables=variables_remove_tag
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing tag: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing tag: {remove_resp.get('errors')}"
+    )
     assert remove_resp["data"]["removeTag"] is True, "Expected removeTag to return True"
 
     # Optional: verify the tag is gone
     fields_resp_after_removal = execute_gql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
     )
-    assert (
-        "errors" not in fields_resp_after_removal
-    ), f"Errors found: {fields_resp_after_removal.get('errors')}"
+    assert "errors" not in fields_resp_after_removal, (
+        f"Errors found: {fields_resp_after_removal.get('errors')}"
+    )
     updated_fields = fields_resp_after_removal["data"]["dataset"][
         "editableSchemaMetadata"
     ]["editableSchemaFieldInfo"]
     updated_field_bar = next(f for f in updated_fields if f["fieldPath"] == field_name)
     updated_tags = [t["tag"]["urn"] for t in updated_field_bar["tags"]["tags"]]
-    assert (
-        tag_urn not in updated_tags
-    ), f"Tag {tag_urn} should have been removed from field {field_name}, but is still there: {updated_tags}"
+    assert tag_urn not in updated_tags, (
+        f"Tag {tag_urn} should have been removed from field {field_name}, but is still there: {updated_tags}"
+    )
 
 
 @pytest.mark.dependency()
@@ -588,9 +588,9 @@ def test_complete_schema_field_tag_proposal_reject(auth_session, ingest_cleanup_
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return True"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -659,9 +659,9 @@ def test_complete_schema_field_tag_proposal_reject(auth_session, ingest_cleanup_
             applied_tags = [t["tag"]["urn"] for t in field_bar["tags"]["tags"]]
 
             # Since it was rejected, we expect not to see the tag on field_bar
-            assert (
-                tag_urn not in applied_tags
-            ), f"Tag {tag_urn} should NOT have been applied, but is present: {applied_tags}"
+            assert tag_urn not in applied_tags, (
+                f"Tag {tag_urn} should NOT have been applied, but is present: {applied_tags}"
+            )
 
 
 @pytest.mark.dependency()
@@ -785,9 +785,9 @@ def test_propose_tag_tag_already_proposed(auth_session, ingest_cleanup_data):
     first_resp = execute_gql(
         auth_session=auth_session, query=propose_tags_mutation, variables=variables
     )
-    assert (
-        "errors" not in first_resp
-    ), f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    assert "errors" not in first_resp, (
+        f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    )
     first_proposal_urn = first_resp["data"]["proposeTags"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
 
@@ -819,9 +819,9 @@ def test_propose_tag_tag_already_proposed(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -874,16 +874,16 @@ def test_propose_tag_schema_field_no_subresource(auth_session, ingest_cleanup_da
         }
     }
     resp = execute_gql(auth_session, query=propose_tags_mutation, variables=variables)
-    assert (
-        "errors" in resp
-    ), "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    assert "errors" in resp, (
+        "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    )
     error_msg = resp["errors"][0]["message"]
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "subresource field must be provided" in error_msg.lower()
-    ), f"Expected error message about missing subResource, but got: {error_msg}"
+    assert "subresource field must be provided" in error_msg.lower(), (
+        f"Expected error message about missing subResource, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -910,9 +910,9 @@ def test_propose_tag_malformed_tag_urn(auth_session, ingest_cleanup_data):
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "invalid tag urns" in error_msg.lower() or "invalid" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "invalid tag urns" in error_msg.lower() or "invalid" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -939,9 +939,9 @@ def test_propose_tag_empty_tag_urns(auth_session, ingest_cleanup_data):
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "no tags provided" in error_msg.lower() or "invalid" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "no tags provided" in error_msg.lower() or "invalid" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 # TESTS FOR THE LEGACY (deprecated) proposeTag API
@@ -1018,9 +1018,9 @@ def test_complete_legacy_entity_tag_proposal_accept(auth_session, ingest_cleanup
     matching = [
         r for r in requests if r["params"]["tagProposal"]["tag"]["urn"] == tag_urn
     ]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {tag_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {tag_urn}"
+    )
     assert matching[0]["status"] == "PENDING"
     proposal_urn = matching[0]["urn"]
 
@@ -1038,9 +1038,9 @@ def test_complete_legacy_entity_tag_proposal_accept(auth_session, ingest_cleanup
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # 4) Verify the tag was applied by fetching the dataset
     dataset_tags_query = """
@@ -1061,9 +1061,9 @@ def test_complete_legacy_entity_tag_proposal_accept(auth_session, ingest_cleanup
     dataset_tags_resp = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp
-    ), f"Errors found: {dataset_tags_resp.get('errors')}"
+    assert "errors" not in dataset_tags_resp, (
+        f"Errors found: {dataset_tags_resp.get('errors')}"
+    )
 
     # Extract the list of tag URNs from the dataset
     actual_tags = dataset_tags_resp["data"]["dataset"]["tags"]["tags"]
@@ -1080,23 +1080,23 @@ def test_complete_legacy_entity_tag_proposal_accept(auth_session, ingest_cleanup
     remove_resp = execute_gql(
         auth_session, query=remove_tag_mutation, variables=variables_remove_tag
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing tag: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing tag: {remove_resp.get('errors')}"
+    )
     assert remove_resp["data"]["removeTag"] is True, "Expected removeTag to return True"
 
     # Optional: verify the tag was removed
     dataset_tags_resp_after_removal = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp_after_removal
-    ), f"Errors found: {dataset_tags_resp_after_removal.get('errors')}"
+    assert "errors" not in dataset_tags_resp_after_removal, (
+        f"Errors found: {dataset_tags_resp_after_removal.get('errors')}"
+    )
     updated_tags = dataset_tags_resp_after_removal["data"]["dataset"]["tags"]["tags"]
     updated_tag_urns = [t["tag"]["urn"] for t in updated_tags]
-    assert (
-        tag_urn not in updated_tag_urns
-    ), f"Expected {tag_urn} to be removed, but it still appears: {updated_tag_urns}"
+    assert tag_urn not in updated_tag_urns, (
+        f"Expected {tag_urn} to be removed, but it still appears: {updated_tag_urns}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1183,9 +1183,9 @@ def test_complete_legacy_entity_tag_proposal_reject(auth_session, ingest_cleanup
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     # 4) Confirm that the tag was NOT applied to the dataset
     dataset_tags_query = """
@@ -1206,9 +1206,9 @@ def test_complete_legacy_entity_tag_proposal_reject(auth_session, ingest_cleanup
     dataset_tags_resp = execute_gql(
         auth_session, query=dataset_tags_query, variables=variables_dataset_tags
     )
-    assert (
-        "errors" not in dataset_tags_resp
-    ), f"Errors found: {dataset_tags_resp.get('errors')}"
+    assert "errors" not in dataset_tags_resp, (
+        f"Errors found: {dataset_tags_resp.get('errors')}"
+    )
     applied_tags = dataset_tags_resp["data"]["dataset"]["tags"]["tags"]
     applied_tag_urns = [t["tag"]["urn"] for t in applied_tags]
 
@@ -1321,6 +1321,6 @@ def test_list_action_requests_legacy_tag_params(auth_session, ingest_cleanup_dat
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )

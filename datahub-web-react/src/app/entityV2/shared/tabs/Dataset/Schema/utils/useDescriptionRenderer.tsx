@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
-import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+import { pathMatchesExact } from '../../../../../dataset/profile/schema/utils/utils';
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
 import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
@@ -34,7 +34,7 @@ export default function useDescriptionRenderer(
 
     return (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
-            pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+            pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { schemaFieldEntity } = record;
         const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =

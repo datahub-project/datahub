@@ -1271,6 +1271,11 @@ type FeatureFlagsConfig {
   showManageStructuredProperties: Boolean!
 
   """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
+
+  """
   If turned on, hides DBT Sources from lineage by:
   i) Hiding the source in the lineage graph, if it has no downstreams
   ii) Swapping to the source's sibling urn on V2 lineage graph
@@ -1319,9 +1324,9 @@ type FeatureFlagsConfig {
   requestMinimalSlackPermissions: Boolean!
 
   """
-  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  If turned on, show the re-designed Proposals page in Task Center
   """
-  entityVersioningEnabled: Boolean!
+  showTaskCenterRedesign: Boolean!
 }
 
 """

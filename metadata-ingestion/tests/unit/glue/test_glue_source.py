@@ -35,8 +35,8 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.unit.glue.test_glue_source_stubs import (
-    databases_1,
-    databases_2,
+    empty_database,
+    flights_database,
     get_bucket_tagging,
     get_databases_delta_response,
     get_databases_response,
@@ -64,6 +64,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     tables_2,
     tables_profiling_1,
     target_database_tables,
+    test_database,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -310,6 +311,40 @@ def test_config_without_platform():
     assert source.platform == "glue"
 
 
+def test_get_databases_filters_by_catalog():
+    def format_databases(databases):
+        return set(d["Name"] for d in databases)
+
+    all_catalogs_source: GlueSource = GlueSource(
+        config=GlueSourceConfig(aws_region="us-west-2"),
+        ctx=PipelineContext(run_id="glue-source-test"),
+    )
+    with Stubber(all_catalogs_source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+
+        expected = [flights_database, test_database, empty_database]
+        actual = all_catalogs_source.get_all_databases()
+        assert format_databases(actual) == format_databases(expected)
+        assert all_catalogs_source.report.databases.dropped_entities.as_obj() == []
+
+    catalog_id = "123412341234"
+    single_catalog_source: GlueSource = GlueSource(
+        config=GlueSourceConfig(catalog_id=catalog_id, aws_region="us-west-2"),
+        ctx=PipelineContext(run_id="glue-source-test"),
+    )
+    with Stubber(single_catalog_source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", get_databases_response, {"CatalogId": catalog_id}
+        )
+
+        expected = [flights_database, test_database]
+        actual = single_catalog_source.get_all_databases()
+        assert format_databases(actual) == format_databases(expected)
+        assert single_catalog_source.report.databases.dropped_entities.as_obj() == [
+            "empty-database"
+        ]
+
+
 @freeze_time(FROZEN_TIME)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
@@ -357,8 +392,8 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             tables_on_first_call = tables_1
             tables_on_second_call = tables_2
             mock_get_all_databases_and_tables.side_effect = [
-                (databases_1, tables_on_first_call),
-                (databases_2, tables_on_second_call),
+                ([flights_database], tables_on_first_call),
+                ([test_database], tables_on_second_call),
             ]
 
             pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)

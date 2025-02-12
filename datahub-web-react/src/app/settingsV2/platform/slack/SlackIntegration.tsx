@@ -121,12 +121,15 @@ export const SlackIntegration = () => {
 
     const isRequestMinimalSlackPermissions =
         appConfig.config.featureFlags.requestMinimalSlackPermissions === true ? 'true' : 'false';
+
     const isBotTokensTabVisibleByDefault = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
     const isBotTokensTabVisibleByQueryParam = useShouldDisplayBotTokensTabFromQueryParams();
-    const isBotTokensTabVisible = isBotTokensTabVisibleByDefault || isBotTokensTabVisibleByQueryParam;
+
     const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
-    const [selectTypeValue, setSelectTypeValue] = useState<string>(APP_CONFIG_SELECT_ID);
+    const [selectTypeValue, setSelectTypeValue] = useState<typeof APP_CONFIG_SELECT_ID | typeof BOT_TOKEN_SELECT_ID>(
+        APP_CONFIG_SELECT_ID,
+    );
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
@@ -140,16 +143,21 @@ export const SlackIntegration = () => {
     const existingConnJson = connData?.connection?.details?.json;
     const slackConnData = existingConnJson && decodeSlackConnection(existingConnJson.blob as string);
     const isConnected = slackConnData?.botToken || settings.botToken;
+    const isConnectedThroughAppConfig = isConnected && slackConnData?.appConfigToken;
+    const isConnectedThroughBotTokens = isConnected && !isConnectedThroughAppConfig;
+
+    const isBotTokensTabVisible =
+        isBotTokensTabVisibleByDefault || isBotTokensTabVisibleByQueryParam || isConnectedThroughBotTokens;
 
     useEffect(() => {
         if (slackConnData && connection === DEFAULT_CONNECTION) {
             setConnection(slackConnData);
-            // render bot token tab if there bot token and no app token
-            if (!slackConnData.appConfigToken && slackConnData.botToken && isBotTokensTabVisible) {
+            // render bot token tab if there's bot token and no app token
+            if (isConnectedThroughBotTokens) {
                 setSelectTypeValue(BOT_TOKEN_SELECT_ID);
             }
         }
-    }, [slackConnData, connection, isBotTokensTabVisible]);
+    }, [slackConnData, connection, isConnectedThroughBotTokens]);
 
     useEffect(() => {
         if (data?.globalSettings?.integrationSettings?.slackSettings) {
@@ -322,6 +330,21 @@ export const SlackIntegration = () => {
                         <InfoIcon />
                         The Slack integration is ready! Now switch to the{' '}
                         <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
+                        {!isConnectedThroughAppConfig && (
+                            <>
+                                <br />
+                                To refresh your Slack configuration,
+                                <a
+                                    href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-troubleshoot#refresh-the-existing-app-installation-recommended"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {' '}
+                                    see instructions here
+                                </a>
+                                .
+                            </>
+                        )}
                     </GlobalNotificationsBanner>
                 ) : (
                     !connLoading && <SlackIntegrationHint visible={!isConnected} />

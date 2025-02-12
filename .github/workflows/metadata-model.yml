@@ -27,8 +27,8 @@ jobs:
           ENABLE_PUBLISH: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
           ENABLE_S3_UPLOAD: "${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}"
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
+          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> $GITHUB_OUTPUT
           echo "s3_publish=${{ env.ENABLE_S3_UPLOAD != '' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
     runs-on: depot-ubuntu-22.04
@@ -39,7 +39,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:

@@ -137,9 +137,9 @@ class BigQueryCredential(ConfigModel):
     @root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("client_x509_cert_url") is None:
-            values[
-                "client_x509_cert_url"
-            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
+            values["client_x509_cert_url"] = (
+                f"https://www.googleapis.com/robot/v1/metadata/x509/{values['client_email']}"
+            )
         return values
 
     def create_credential_temp_file(self) -> str:
@@ -447,6 +447,14 @@ class BigQueryV2Config(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from bigquery.",
     )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     @property
     def have_table_data_read_permission(self) -> bool:
@@ -462,10 +470,6 @@ class BigQueryV2Config(
     lineage_use_sql_parser: bool = Field(
         default=True,
         description="Use sql parser to resolve view/table lineage.",
-    )
-    lineage_parse_view_ddl: bool = Field(
-        default=True,
-        description="Sql parse view ddl to get lineage.",
     )
 
     lineage_sql_parser_use_raw_names: bool = Field(
@@ -572,11 +576,9 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig
-    # but not used in bigquery so we hide them from docs.
-    include_view_lineage: bool = Field(default=True, hidden_from_docs=True)
-
-    include_view_column_lineage: bool = Field(default=True, hidden_from_docs=True)
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
 
     @root_validator(pre=True)
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
@@ -609,9 +611,9 @@ class BigQueryV2Config(
         cls, v: Optional[List[str]], values: Dict
     ) -> Optional[List[str]]:
         if values.get("use_exported_bigquery_audit_metadata"):
-            assert (
-                v and len(v) > 0
-            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            assert v and len(v) > 0, (
+                "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            )
 
         return v
 

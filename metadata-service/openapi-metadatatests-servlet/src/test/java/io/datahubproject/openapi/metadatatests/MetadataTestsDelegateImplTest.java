@@ -16,7 +16,6 @@ import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.test.TestEngine;
@@ -42,7 +41,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
@@ -54,12 +52,8 @@ import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(
-    basePackages = {"io.datahubproject.openapi", "com.linkedin.gms.factory.scim"},
-    excludeFilters =
-        @ComponentScan.Filter(
-            type = FilterType.REGEX,
-            pattern = "io\\.datahubproject\\.openapi\\.scim\\..*"))
-@Import({MetadataTestsTestConfiguration.class, EntityVersioningServiceFactory.class})
+    basePackages = {"io.datahubproject.openapi.metadatatests", "io.datahubproject.openapi.v1"})
+@Import({MetadataTestsTestConfiguration.class})
 @AutoConfigureMockMvc
 public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTests {
 
@@ -108,7 +102,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
     mockMvc
         .perform(
             MockMvcRequestBuilders.post(
-                    String.format("/v2/metadata_test/test/%s/evaluate", TEST_URN))
+                    String.format("/openapi/v2/metadata_test/test/%s/evaluate", TEST_URN))
                 .content(testBody)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)

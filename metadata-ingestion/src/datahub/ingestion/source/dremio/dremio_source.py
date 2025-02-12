@@ -472,8 +472,8 @@ class DremioSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        self.report.set_ingestion_stage(dataset_info.resource_name, PROFILING)
-        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+        with self.report.new_stage(f"{dataset_info.resource_name}: {PROFILING}"):
+            yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]

@@ -37,7 +37,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/queryCountLast30Days",
+            path=("queryCountLast30Days",),
             value=count,
         )
         return self
@@ -56,7 +56,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/viewCountLast30Days",
+            path=("viewCountLast30Days",),
             value=count,
         )
         return self
@@ -73,7 +73,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/viewCountTotal",
+            path=("viewCountTotal",),
             value=count,
         )
         return self
@@ -92,7 +92,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/viewCountPercentileLast30Days",
+            path=("viewCountPercentileLast30Days",),
             value=count,
         )
         return self
@@ -111,7 +111,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/usageCountLast30Days",
+            path=("usageCountLast30Days",),
             value=count,
         )
         return self
@@ -130,7 +130,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/uniqueUserCountLast30Days",
+            path=("uniqueUserCountLast30Days",),
             value=count,
         )
         return self
@@ -149,7 +149,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/writeCountLast30Days",
+            path=("writeCountLast30Days",),
             value=count,
         )
         return self
@@ -168,7 +168,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/queryCountPercentileLast30Days",
+            path=("queryCountPercentileLast30Days",),
             value=count,
         )
         return self
@@ -187,7 +187,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/queryCountRankLast30Days",
+            path=("queryCountRankLast30Days",),
             value=count,
         )
         return self
@@ -206,7 +206,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/uniqueUserPercentileLast30Days",
+            path=("uniqueUserPercentileLast30Days",),
             value=count,
         )
         return self
@@ -225,7 +225,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/uniqueUserRankLast30Days",
+            path=("uniqueUserRankLast30Days",),
             value=count,
         )
         return self
@@ -244,7 +244,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/writeCountPercentileLast30Days",
+            path=("writeCountPercentileLast30Days",),
             value=count,
         )
         return self
@@ -263,7 +263,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/writeCountRankLast30Days",
+            path=("writeCountRankLast30Days",),
             value=count,
         )
         return self
@@ -282,7 +282,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/topUsersLast30Days",
+            path=("topUsersLast30Days",),
             value=users,
         )
         return self
@@ -301,7 +301,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/sizeInBytesPercentile",
+            path=("sizeInBytesPercentile",),
             value=percentile,
         )
         return self
@@ -318,7 +318,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/sizeInBytesRank",
+            path=("sizeInBytesRank",),
             value=rank,
         )
         return self
@@ -337,7 +337,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/rowCountPercentile",
+            path=("rowCountPercentile",),
             value=percentile,
         )
         return self
@@ -356,7 +356,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/usageSearchScoreMultiplier",
+            path=("usageSearchScoreMultiplier",),
             value=multiplier,
         )
         return self
@@ -375,7 +375,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/usageFreshnessScoreMultiplier",
+            path=("usageFreshnessScoreMultiplier",),
             value=multiplier,
         )
         return self
@@ -394,7 +394,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/customDatahubScoreMultiplier",
+            path=("customDatahubScoreMultiplier",),
             value=multiplier,
         )
         return self
@@ -413,7 +413,7 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UsageFeaturesClass.ASPECT_NAME,
             "add",
-            path="/combinedSearchRankingMultiplier",
+            path=("combinedSearchRankingMultiplier",),
             value=multiplier,
         )
         return self

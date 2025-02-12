@@ -1,16 +1,16 @@
+import { blue } from '@ant-design/colors';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { blue } from '@ant-design/colors';
-import { ANTD_GRAY } from '../../../constants';
-import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
-import { SidebarHeader } from './SidebarHeader';
-import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
-import { Dataset, Entity } from '../../../../../../types.generated';
-import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
+import { Dataset, Entity } from '../../../../../../types.generated';
+import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
 import { UnionType } from '../../../../../search/utils/constants';
 import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
+import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
+import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
+import { ANTD_GRAY } from '../../../constants';
+import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { SidebarHeader } from './SidebarHeader';
 
 const EntityListContainer = styled.div`
     display: flex;
@@ -52,7 +52,7 @@ export const SidebarSiblingsSection = () => {
             <div>
                 <SidebarHeader title="Part Of" />
                 <EntityListContainer>
-                    <CompactEntityNameList entities={[entityData as Entity]} showTooltips />
+                    <CompactEntityNameList entities={[entityData as Entity]} />
                 </EntityListContainer>
             </div>
         );
@@ -86,7 +86,6 @@ export const SidebarSiblingsSection = () => {
                 <CompactEntityNameList
                     entities={allSiblingsInGroupThatExist}
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                    showTooltips
                 />
                 {numSiblingsNotShown > 0 && (
                     <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>

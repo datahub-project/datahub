@@ -486,8 +486,8 @@ public class GmsGraphQLEngine {
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
-  private final IntegrationsService integrationsService;
   private final EntityVersioningService entityVersioningService;
+  private final IntegrationsService integrationsService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -548,9 +548,9 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
-  private final PostType postType;
   private final DataProcessInstanceType dataProcessInstanceType;
   private final VersionSetType versionSetType;
+  private final PostType postType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -612,8 +612,8 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
-    this.integrationsService = args.integrationsService;
     this.entityVersioningService = args.entityVersioningService;
+    this.integrationsService = args.integrationsService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -670,9 +670,9 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
-    this.postType = new PostType(entityClient);
     this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
     this.versionSetType = new VersionSetType(entityClient);
+    this.postType = new PostType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -722,8 +722,8 @@ public class GmsGraphQLEngine {
                 entityTypeType,
                 formType,
                 incidentType,
-                postType,
                 versionSetType,
+                postType,
                 restrictedType,
                 businessAttributeType,
                 dataProcessInstanceType));
@@ -834,9 +834,9 @@ public class GmsGraphQLEngine {
     configureConnectionResolvers(builder);
     configureDeprecationResolvers(builder);
     configureMetadataAttributionResolver(builder);
-    configureSourceDetailsResolvers(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
+    configureSourceDetailsResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -3340,16 +3340,6 @@ public class GmsGraphQLEngine {
                               ? dataProcessInstance.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher(
-                    "platform",
-                    new LoadableTypeResolver<>(
-                        dataPlatformType,
-                        (env) -> {
-                          final DataProcessInstance dataProcessInstance = env.getSource();
-                          return dataProcessInstance.getPlatform() != null
-                              ? dataProcessInstance.getPlatform().getUrn()
-                              : null;
-                        }))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "container",
@@ -3595,21 +3585,6 @@ public class GmsGraphQLEngine {
                         (env) -> ((MetadataAttribution) env.getSource()).getSource())));
   }
 
-  private void configureSourceDetailsResolvers(final RuntimeWiring.Builder builder) {
-    builder.type(
-        "SourceDetails",
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "source",
-                    new EntityTypeResolver(
-                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getSource()))
-                .dataFetcher(
-                    "platform",
-                    new EntityTypeResolver(
-                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getPlatform())));
-  }
-
   private void configureVersionPropertiesResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "VersionProperties",
@@ -3638,5 +3613,20 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
+  }
+
+  private void configureSourceDetailsResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "SourceDetails",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "source",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getSource()))
+                .dataFetcher(
+                    "platform",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getPlatform())));
   }
 }

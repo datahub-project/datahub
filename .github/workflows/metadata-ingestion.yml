@@ -34,7 +34,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.10"]
+        python-version: ["3.9", "3.11"]
         command:
           [
             "testQuick",
@@ -42,9 +42,6 @@ jobs:
             "testIntegrationBatch1",
             "testIntegrationBatch2",
           ]
-        include:
-          - python-version: "3.9"
-          - python-version: "3.10"
       fail-fast: false
     steps:
       - name: Free up disk space
@@ -57,7 +54,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
@@ -96,7 +93,7 @@ jobs:
             **/junit.*.xml
             !**/binary/**
       - name: Upload coverage to Codecov with ingestion flag
-        if: ${{ always() && matrix.python-version == '3.10' }}
+        if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -105,6 +102,11 @@ jobs:
           flags: ingestion
           name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
 
   event-file:

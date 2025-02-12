@@ -1,7 +1,7 @@
 from collections import deque
 from itertools import chain
 from sys import getsizeof
-from typing import Any, Callable
+from typing import Any, Iterator
 
 
 def total_size(o: Any, handlers: Any = {}) -> int:
@@ -15,7 +15,8 @@ def total_size(o: Any, handlers: Any = {}) -> int:
     Based on https://github.com/ActiveState/recipe-577504-compute-mem-footprint/blob/master/recipe.py
     """
 
-    dict_handler: Callable[[Any], chain[Any]] = lambda d: chain.from_iterable(d.items())
+    def dict_handler(d: dict) -> Iterator[Any]:
+        return chain.from_iterable(d.items())
 
     all_handlers = {
         tuple: iter,

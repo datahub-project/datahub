@@ -246,7 +246,7 @@ class MCPDiff:
         for urn in self.aspect_changes.keys() - self.urns_added - self.urns_removed:
             aspect_map = self.aspect_changes[urn]
             s.append(f"Urn changed, {urn}:")
-            for aspect_name, aspect_diffs in aspect_map.items():
+            for aspect_diffs in aspect_map.values():
                 for i, ga in aspect_diffs.aspects_added.items():
                     s.append(self.report_aspect(ga, i, "added"))
                     if verbose:

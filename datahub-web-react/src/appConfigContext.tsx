@@ -100,6 +100,7 @@ export const DEFAULT_APP_CONFIG = {
         showStatsTabRedesign: false,
         requestMinimalSlackPermissions: false,
         entityVersioningEnabled: false,
+        showTaskCenterRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

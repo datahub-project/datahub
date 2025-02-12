@@ -184,9 +184,9 @@ class NifiSourceConfig(EnvConfigMixin):
 
     @validator("site_url")
     def validator_site_url(cls, site_url: str) -> str:
-        assert site_url.startswith(
-            ("http://", "https://")
-        ), "site_url must start with http:// or https://"
+        assert site_url.startswith(("http://", "https://")), (
+            "site_url must start with http:// or https://"
+        )
 
         if not site_url.endswith("/"):
             site_url = site_url + "/"
@@ -484,17 +484,10 @@ class NifiSource(Source):
     def rest_api_base_url(self):
         return self.config.site_url[: -len("nifi/")] + "nifi-api/"
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = NifiSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(
-        self, pg_flow_dto: Dict, recursion_level: int = 0
-    ) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:  # noqa: C901
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -553,16 +546,16 @@ class NifiSource(Source):
         for inputPort in flow_dto.get("inputPorts", []):
             component = inputPort.get("component")
             if inputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.INPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.INPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:
@@ -581,16 +574,16 @@ class NifiSource(Source):
         for outputPort in flow_dto.get("outputPorts", []):
             component = outputPort.get("component")
             if outputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.OUTPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.OUTPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:

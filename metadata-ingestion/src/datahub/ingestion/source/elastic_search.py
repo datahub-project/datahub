@@ -111,10 +111,10 @@ class ElasticToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
-        type_class: Optional[
-            Type
-        ] = ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
-            elastic_column_type
+        type_class: Optional[Type] = (
+            ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
+                elastic_column_type
+            )
         )
         if type_class is None:
             logger.warning(

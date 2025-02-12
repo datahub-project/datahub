@@ -13,6 +13,15 @@ module.exports = {
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        httpEquiv: 'Content-Security-Policy',
+        content: "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*"
+      }
+    },
+  ],
   scripts: [
     {
       src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
@@ -68,7 +77,7 @@ module.exports = {
     announcementBar: {
           id: "announcement-3",
           content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Watch Metadata & AI Summit sessions on-demand.</p><a href="https://www.youtube.com/@DataHubProject/videos" target="_blank" class="button">Watch Now<span> →</span></a></div>',
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0 launching at our 5th birthday party!</p><a href="https://lu.ma/0j5jcocn" target="_blank" class="button">Register<span> →</span></a></div>',
           backgroundColor: "#111",
           textColor: "#ffffff",
           isCloseable: false,
@@ -327,6 +336,7 @@ module.exports = {
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
             require.resolve("./src/components/SecondNavbar/styles.module.scss"),
+            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {

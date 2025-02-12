@@ -108,9 +108,9 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         ] = {}  # Map to cache server field objects, where fieldPath is key
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            server_schema_metadata_aspect: Optional[
-                SchemaMetadataClass
-            ] = self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
+            server_schema_metadata_aspect: Optional[SchemaMetadataClass] = (
+                self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
+            )
             if server_schema_metadata_aspect is not None:
                 if not schema_metadata_aspect:
                     schema_metadata_aspect = server_schema_metadata_aspect

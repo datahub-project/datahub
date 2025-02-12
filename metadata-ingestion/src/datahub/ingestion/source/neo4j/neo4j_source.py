@@ -286,7 +286,7 @@ class Neo4jSource(Source):
         df = self.get_neo4j_metadata(
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
         )
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():
             try:
                 yield MetadataWorkUnit(
                     id=row["key"],

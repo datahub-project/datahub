@@ -354,7 +354,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}/{self.config.platform_instance}"
 
         if os.path.isdir(self.config.path):
-            for root, dirs, files in os.walk(self.config.path, topdown=False):
+            for root, _, files in os.walk(self.config.path, topdown=False):
                 for file_name in [f for f in files if f.endswith(".json")]:
                     try:
                         yield from self._load_one_file(

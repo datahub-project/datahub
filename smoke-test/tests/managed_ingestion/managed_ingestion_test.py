@@ -489,9 +489,9 @@ def test_create_list_get_ingestion_execution_request(auth_session):
 
     assert res_data
     assert res_data["data"]
-    assert (
-        res_data["data"]["createIngestionExecutionRequest"] is not None
-    ), f"res_data was {res_data}"
+    assert res_data["data"]["createIngestionExecutionRequest"] is not None, (
+        f"res_data was {res_data}"
+    )
     assert "errors" not in res_data
 
     execution_request_urn = res_data["data"]["createIngestionExecutionRequest"]

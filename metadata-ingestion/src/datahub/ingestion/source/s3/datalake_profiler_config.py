@@ -85,8 +85,8 @@ class DataLakeProfilerConfig(ConfigModel):
                 if field_level_metric.startswith("include_field_"):
                     values.setdefault(field_level_metric, False)
 
-            assert (
-                max_num_fields_to_profile is None
-            ), f"{max_num_fields_to_profile_key} should be set to None"
+            assert max_num_fields_to_profile is None, (
+                f"{max_num_fields_to_profile_key} should be set to None"
+            )
 
         return values

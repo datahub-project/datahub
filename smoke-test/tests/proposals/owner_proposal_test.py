@@ -69,9 +69,9 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -106,9 +106,9 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
 
     # We should find our request with COMPLETED & ACCEPTED
     matching = [r for r in requests if r["urn"] == proposal_urn]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {proposal_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {proposal_urn}"
+    )
     assert matching[0]["status"] == "COMPLETED"
     assert matching[0]["result"] == "ACCEPTED"
 
@@ -145,9 +145,9 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
         query=dataset_owners_query,
         variables=variables_dataset_owners,
     )
-    assert (
-        "errors" not in dataset_properties_resp
-    ), f"Errors found: {dataset_properties_resp.get('errors')}"
+    assert "errors" not in dataset_properties_resp, (
+        f"Errors found: {dataset_properties_resp.get('errors')}"
+    )
 
     # Extract the list of owners from the dataset
     actual_owners = dataset_properties_resp["data"]["dataset"]["ownership"]["owners"]
@@ -157,9 +157,9 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
         None,
     )
 
-    assert (
-        matching_owner is not None
-    ), f"Did not find owner with urn {user_urn} in entity owners set"
+    assert matching_owner is not None, (
+        f"Did not find owner with urn {user_urn} in entity owners set"
+    )
     assert matching_owner["type"] == "TECHNICAL_OWNER"
 
     # 5) Remove the owner to reset for subsequent tests (cleanup step)
@@ -176,9 +176,9 @@ def test_complete_entity_owner_proposal_accept(auth_session, ingest_cleanup_data
         query=remove_owner_mutation,
         variables=variables_remove_owner,
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing owner: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing owner: {remove_resp.get('errors')}"
+    )
 
 
 @pytest.mark.dependency()
@@ -233,9 +233,9 @@ def test_complete_entity_owner_propose_new_ownership_type(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -273,9 +273,9 @@ def test_complete_entity_owner_propose_new_ownership_type(
         query=dataset_owners_query,
         variables=variables_dataset_owners,
     )
-    assert (
-        "errors" not in dataset_properties_resp
-    ), f"Errors found: {dataset_properties_resp.get('errors')}"
+    assert "errors" not in dataset_properties_resp, (
+        f"Errors found: {dataset_properties_resp.get('errors')}"
+    )
 
     # Extract the list of owners from the dataset
     actual_owners = dataset_properties_resp["data"]["dataset"]["ownership"]["owners"]
@@ -308,9 +308,9 @@ def test_complete_entity_owner_propose_new_ownership_type(
         query=remove_owner_mutation,
         variables=variables_remove_owner,
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing owner: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing owner: {remove_resp.get('errors')}"
+    )
 
 
 @pytest.mark.dependency()
@@ -362,9 +362,9 @@ def test_complete_entity_owner_proposal_reject(auth_session, ingest_cleanup_data
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     wait_for_writes_to_sync()
 
@@ -432,9 +432,9 @@ def test_complete_entity_owner_proposal_reject(auth_session, ingest_cleanup_data
         query=dataset_owners_query,
         variables=variables_dataset_properties,
     )
-    assert (
-        "errors" not in dataset_owners_resp
-    ), f"Errors found: {dataset_owners_resp.get('errors')}"
+    assert "errors" not in dataset_owners_resp, (
+        f"Errors found: {dataset_owners_resp.get('errors')}"
+    )
     applied_owners = dataset_owners_resp["data"]["dataset"]["ownership"]["owners"]
     applied_owner_urns = [t["owner"]["urn"] for t in applied_owners]
 
@@ -552,9 +552,9 @@ def test_list_action_requests_owner_params(auth_session, ingest_cleanup_data):
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -716,9 +716,9 @@ def test_propose_owner_owner_and_type_already_proposed(
         query=propose_owners_mutation,
         variables=variables,
     )
-    assert (
-        "errors" not in first_resp
-    ), f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    assert "errors" not in first_resp, (
+        f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    )
     first_proposal_urn = first_resp["data"]["proposeOwners"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
 
@@ -752,9 +752,9 @@ def test_propose_owner_owner_and_type_already_proposed(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     # Wait for kafka
     wait_for_writes_to_sync()
@@ -905,9 +905,9 @@ def test_propose_owner_malformed_owner_urn(auth_session, ingest_cleanup_data):
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "invalid owner urn" in error_msg.lower() or "invalid" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "invalid owner urn" in error_msg.lower() or "invalid" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1008,4 +1008,6 @@ def test_propose_owner_custom_type_without_type_urn(auth_session, ingest_cleanup
     assert error_code == 400, f"Expected 400, got {error_code}"
     assert (
         "ownership type urn must be provided for custom owner type" in error_msg.lower()
-    ), f"Expected error message about ownership type being required, but got: {error_msg}"
+    ), (
+        f"Expected error message about ownership type being required, but got: {error_msg}"
+    )

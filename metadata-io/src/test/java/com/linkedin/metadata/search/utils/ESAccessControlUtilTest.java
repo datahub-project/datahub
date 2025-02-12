@@ -987,7 +987,7 @@ public class ESAccessControlUtilTest {
                     .graphRetriever(mockGraphRetriever)
                     .searchRetriever(mock(SearchRetriever.class))
                     .build())
-            .build(USER_A_AUTH);
+            .build(USER_A_AUTH, false);
 
     when(mockGraphRetriever.scrollRelatedEntities(
             eq(List.of(DOMAIN_ENTITY_NAME)),
@@ -1044,7 +1044,7 @@ public class ESAccessControlUtilTest {
                     .graphRetriever(mockGraphRetriever)
                     .searchRetriever(mock(SearchRetriever.class))
                     .build())
-            .build(USER_A_AUTH);
+            .build(USER_A_AUTH, false);
 
     Optional<QueryBuilder> filter =
         ESAccessControlUtil.buildAccessControlFilters(mockGraphUserAContext);

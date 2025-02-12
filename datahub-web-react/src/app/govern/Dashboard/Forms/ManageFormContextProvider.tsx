@@ -47,7 +47,7 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
                 formDescription: formData?.info.description as string | undefined,
                 questions: (formData?.info.prompts as FormPrompt[]) || [],
                 actors: formData?.info.actors as FormActors,
-                state: formData?.info.status.state,
+                state: formData?.info?.status?.state,
                 assets: {
                     logicalPredicate:
                         formData?.dynamicFormAssignment?.json && JSON.parse(formData?.dynamicFormAssignment?.json),

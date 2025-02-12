@@ -95,9 +95,9 @@ def test_complete_entity_structured_property_proposal_accept(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # Wait again before continuing.
     wait_for_writes_to_sync()
@@ -132,9 +132,9 @@ def test_complete_entity_structured_property_proposal_accept(
 
     # We should find our request with COMPLETED & ACCEPTED
     matching = [r for r in requests if r["urn"] == proposal_urn]
-    assert (
-        len(matching) == 1
-    ), f"Expected to find exactly one request matching {proposal_urn}"
+    assert len(matching) == 1, (
+        f"Expected to find exactly one request matching {proposal_urn}"
+    )
     assert matching[0]["status"] == "COMPLETED"
     assert matching[0]["result"] == "ACCEPTED"
 
@@ -164,9 +164,9 @@ def test_complete_entity_structured_property_proposal_accept(
         query=dataset_properties_query,
         variables=variables_dataset_properties,
     )
-    assert (
-        "errors" not in dataset_properties_resp
-    ), f"Errors found: {dataset_properties_resp.get('errors')}"
+    assert "errors" not in dataset_properties_resp, (
+        f"Errors found: {dataset_properties_resp.get('errors')}"
+    )
 
     # Extract the list of properties from the dataset
     actual_properties = dataset_properties_resp["data"]["dataset"][
@@ -182,9 +182,9 @@ def test_complete_entity_structured_property_proposal_accept(
         None,
     )
 
-    assert (
-        matching_property is not None
-    ), f"Did not find property urn {property_urn} in entity property set"
+    assert matching_property is not None, (
+        f"Did not find property urn {property_urn} in entity property set"
+    )
     assert len(matching_property["values"]) == 1
     assert matching_property["values"][0]["stringValue"] == "test1"
 
@@ -206,9 +206,9 @@ def test_complete_entity_structured_property_proposal_accept(
         query=remove_property_mutation,
         variables=variables_remove_property,
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing property: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing property: {remove_resp.get('errors')}"
+    )
 
     # Optional: verify the property was removed
     dataset_properties_resp_after_removal = execute_gql(
@@ -216,16 +216,16 @@ def test_complete_entity_structured_property_proposal_accept(
         query=dataset_properties_query,
         variables=variables_dataset_properties,
     )
-    assert (
-        "errors" not in dataset_properties_resp_after_removal
-    ), f"Errors found: {dataset_properties_resp_after_removal.get('errors')}"
+    assert "errors" not in dataset_properties_resp_after_removal, (
+        f"Errors found: {dataset_properties_resp_after_removal.get('errors')}"
+    )
     updated_properties = dataset_properties_resp_after_removal["data"]["dataset"][
         "structuredProperties"
     ]["properties"]
     updated_property_urns = [t["structuredProperty"]["urn"] for t in updated_properties]
-    assert (
-        property_urn not in updated_property_urns
-    ), f"Expected {property_urn} to be removed, but it still appears: {updated_property_urns}"
+    assert property_urn not in updated_property_urns, (
+        f"Expected {property_urn} to be removed, but it still appears: {updated_property_urns}"
+    )
 
 
 @pytest.mark.dependency()
@@ -280,9 +280,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return true"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return true"
+    )
 
     # 3) Verify the property was applied by fetching the dataset properties
     dataset_properties_query = """
@@ -310,9 +310,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         query=dataset_properties_query,
         variables=variables_dataset_properties,
     )
-    assert (
-        "errors" not in dataset_properties_resp
-    ), f"Errors found: {dataset_properties_resp.get('errors')}"
+    assert "errors" not in dataset_properties_resp, (
+        f"Errors found: {dataset_properties_resp.get('errors')}"
+    )
 
     # Extract the list of properties from the dataset
     actual_properties = dataset_properties_resp["data"]["dataset"][
@@ -328,9 +328,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         None,
     )
 
-    assert (
-        matching_property is not None
-    ), "Did not find actual applied property in entity property set"
+    assert matching_property is not None, (
+        "Did not find actual applied property in entity property set"
+    )
     assert matching_property["values"] == [
         {"stringValue": "newValue1"},
         {"stringValue": "newValue2"},
@@ -362,9 +362,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         query=reset_property_mutation,
         variables=variables_reset_property,
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found resetting property: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found resetting property: {remove_resp.get('errors')}"
+    )
 
 
 @pytest.mark.dependency()
@@ -416,9 +416,9 @@ def test_complete_entity_structured_property_proposal_reject(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     wait_for_writes_to_sync()
 
@@ -479,9 +479,9 @@ def test_complete_entity_structured_property_proposal_reject(
         query=dataset_properties_query,
         variables=variables_dataset_properties,
     )
-    assert (
-        "errors" not in dataset_properties_resp
-    ), f"Errors found: {dataset_properties_resp.get('errors')}"
+    assert "errors" not in dataset_properties_resp, (
+        f"Errors found: {dataset_properties_resp.get('errors')}"
+    )
     applied_properties = dataset_properties_resp["data"]["dataset"][
         "structuredProperties"
     ]["properties"]
@@ -604,9 +604,9 @@ def test_list_action_requests_property_params(auth_session, ingest_cleanup_data)
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
 
 @pytest.mark.dependency()
@@ -663,9 +663,9 @@ def test_complete_schema_field_property_proposal_accept(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
     assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
-    assert (
-        accept_resp["data"]["acceptProposals"] is True
-    ), "Expected acceptProposals to return True"
+    assert accept_resp["data"]["acceptProposals"] is True, (
+        "Expected acceptProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -750,9 +750,9 @@ def test_complete_schema_field_property_proposal_accept(
         None,
     )
 
-    assert (
-        matching_property is not None
-    ), "Did not find actual applied property in entity property set"
+    assert matching_property is not None, (
+        "Did not find actual applied property in entity property set"
+    )
     assert matching_property["values"] == [{"stringValue": "test1"}]
 
     # 5) Remove the property to reset for subsequent tests (cleanup step)
@@ -778,17 +778,17 @@ def test_complete_schema_field_property_proposal_accept(
         query=remove_property_mutation,
         variables=variables_remove_property,
     )
-    assert (
-        "errors" not in remove_resp
-    ), f"Errors found removing property: {remove_resp.get('errors')}"
+    assert "errors" not in remove_resp, (
+        f"Errors found removing property: {remove_resp.get('errors')}"
+    )
 
     # Optional: verify the property is gone
     fields_resp_after_removal = execute_gql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
     )
-    assert (
-        "errors" not in fields_resp_after_removal
-    ), f"Errors found: {fields_resp_after_removal.get('errors')}"
+    assert "errors" not in fields_resp_after_removal, (
+        f"Errors found: {fields_resp_after_removal.get('errors')}"
+    )
 
     updated_fields = fields_resp_after_removal["data"]["dataset"]["schemaMetadata"][
         "fields"
@@ -800,9 +800,9 @@ def test_complete_schema_field_property_proposal_accept(
             "properties"
         ]
     ]
-    assert (
-        property_urn not in updated_properties
-    ), f"Property {property_urn} should have been removed from field {field_name}, but is still there: {updated_properties}"
+    assert property_urn not in updated_properties, (
+        f"Property {property_urn} should have been removed from field {field_name}, but is still there: {updated_properties}"
+    )
 
 
 @pytest.mark.dependency()
@@ -858,9 +858,9 @@ def test_complete_schema_field_property_proposal_reject(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return True"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return True"
+    )
 
     wait_for_writes_to_sync()
 
@@ -942,9 +942,9 @@ def test_complete_schema_field_property_proposal_reject(
         ]
 
         # Since it was rejected, we expect not to see the property
-        assert (
-            property_urn not in applied_properties
-        ), f"Property {property_urn} should NOT have been applied, but is present: {applied_properties}"
+        assert property_urn not in applied_properties, (
+            f"Property {property_urn} should NOT have been applied, but is present: {applied_properties}"
+        )
 
 
 @pytest.mark.dependency()
@@ -1099,9 +1099,9 @@ def test_propose_property_property_values_already_proposed(
         query=propose_properties_mutation,
         variables=variables,
     )
-    assert (
-        "errors" not in first_resp
-    ), f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    assert "errors" not in first_resp, (
+        f"Unexpected error in first proposal: {first_resp.get('errors')}"
+    )
     first_proposal_urn = first_resp["data"]["proposeStructuredProperties"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
 
@@ -1135,9 +1135,9 @@ def test_propose_property_property_values_already_proposed(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
     assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
-    assert (
-        reject_resp["data"]["rejectProposals"] is True
-    ), "Expected rejectProposals to return true"
+    assert reject_resp["data"]["rejectProposals"] is True, (
+        "Expected rejectProposals to return true"
+    )
 
     # Wait for kafka
     wait_for_writes_to_sync()
@@ -1207,16 +1207,16 @@ def test_propose_property_schema_field_no_subresource(
     resp = execute_gql(
         auth_session, query=propose_properties_mutation, variables=variables
     )
-    assert (
-        "errors" in resp
-    ), "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    assert "errors" in resp, (
+        "Expected an error when subResource is missing for subResourceType=DATASET_FIELD"
+    )
     error_msg = resp["errors"][0]["message"]
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "subresource field must be provided" in error_msg.lower()
-    ), f"Expected error message about missing subResource, but got: {error_msg}"
+    assert "subresource field must be provided" in error_msg.lower(), (
+        f"Expected error message about missing subResource, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1316,9 +1316,9 @@ def test_propose_property_empty_property_value_keys(auth_session, ingest_cleanup
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "some properties are missing" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "some properties are missing" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1353,9 +1353,9 @@ def test_propose_property_invalid_property_value_type(
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "invalid values" in error_msg.lower()
-    ), f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    assert "invalid values" in error_msg.lower(), (
+        f"Expected error message about malformed or invalid URN, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1394,9 +1394,9 @@ def test_propose_property_same_property_proposed_twice(
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "same structured property" in error_msg.lower()
-    ), f"Expected error message about same structured property proposed twice, but got: {error_msg}"
+    assert "same structured property" in error_msg.lower(), (
+        f"Expected error message about same structured property proposed twice, but got: {error_msg}"
+    )
 
 
 @pytest.mark.dependency()
@@ -1431,6 +1431,6 @@ def test_propose_property_single_cardinality_multiple_values(
     error_code = resp["errors"][0].get("extensions", {}).get("code")
 
     assert error_code == 400, f"Expected 400, got {error_code}"
-    assert (
-        "invalid values" in error_msg.lower()
-    ), f"Expected error message about invalid cardinality, but got: {error_msg}"
+    assert "invalid values" in error_msg.lower(), (
+        f"Expected error message about invalid cardinality, but got: {error_msg}"
+    )

@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -24,6 +24,7 @@ from typing import (
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
+from typing_extensions import assert_never
 
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
@@ -87,13 +88,11 @@ def get_sys_time() -> int:
 
 
 @overload
-def make_ts_millis(ts: None) -> None:
-    ...
+def make_ts_millis(ts: None) -> None: ...
 
 
 @overload
-def make_ts_millis(ts: datetime) -> int:
-    ...
+def make_ts_millis(ts: datetime) -> int: ...
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
@@ -101,6 +100,20 @@ def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
     if ts is None:
         return None
     return int(ts.timestamp() * 1000)
+
+
+@overload
+def parse_ts_millis(ts: float) -> datetime: ...
+
+
+@overload
+def parse_ts_millis(ts: None) -> None: ...
+
+
+def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
 
 def make_data_platform_urn(platform: str) -> str:
@@ -253,9 +266,8 @@ def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
         return make_user_urn(owner)
     elif owner_type == OwnerType.GROUP:
         return make_group_urn(owner)
-    # This should pretty much never happen.
-    # TODO: With Python 3.11, we can use typing.assert_never() here.
-    return f"urn:li:{owner_type.value}:{owner}"
+    else:
+        assert_never(owner_type)
 
 
 def make_ownership_type_urn(type: str) -> str:
@@ -428,6 +440,10 @@ def can_add_aspect_to_snapshot(
 
 
 def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    # TODO: This is specific to snapshot types. We have a more general method
+    # in `entity_supports_aspect`, which should be used instead. This method
+    # should be deprecated, and all usages should be replaced.
+
     SnapshotType = type(mce.proposedSnapshot)
 
     return can_add_aspect_to_snapshot(SnapshotType, AspectType)

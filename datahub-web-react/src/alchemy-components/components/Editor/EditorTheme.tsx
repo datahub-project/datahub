@@ -76,7 +76,7 @@ export const EditorContainer = styled.div`
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: 16px 32px;
+        padding: 16px;
         position: relative;
         outline: 0;
         line-height: 1.5;

@@ -167,6 +167,10 @@ class PlatformDetail(ConfigModel):
         description="The database that all assets produced by this connector belong to. "
         "For destinations, this defaults to the fivetran log config's database.",
     )
+    include_schema_in_urn: bool = pydantic.Field(
+        default=True,
+        description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
+    )
 
 
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

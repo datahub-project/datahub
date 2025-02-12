@@ -89,15 +89,15 @@ def test_latest_version(mock_sdk):
     )
     SalesforceSource(config=config, ctx=Mock())
     calls = mock_sf._call_salesforce.mock_calls
-    assert (
-        len(calls) == 1
-    ), "We didn't specify version but source didn't call SF API to get the latest one"
-    assert calls[0].ends_with(
-        "/services/data"
-    ), "Source didn't call proper SF API endpoint to get all versions"
-    assert (
-        mock_sf.sf_version == "54.0"
-    ), "API version was not correctly set (see versions_responses.json)"
+    assert len(calls) == 1, (
+        "We didn't specify version but source didn't call SF API to get the latest one"
+    )
+    assert calls[0].ends_with("/services/data"), (
+        "Source didn't call proper SF API endpoint to get all versions"
+    )
+    assert mock_sf.sf_version == "54.0", (
+        "API version was not correctly set (see versions_responses.json)"
+    )
 
 
 @mock.patch("datahub.ingestion.source.salesforce.Salesforce")
@@ -133,12 +133,12 @@ def test_custom_version(mock_sdk):
     SalesforceSource(config=config, ctx=Mock())
 
     calls = mock_sf._call_salesforce.mock_calls
-    assert (
-        len(calls) == 0
-    ), "Source called API to get all versions even though we specified proper version"
-    assert (
-        mock_sdk.call_args.kwargs["version"] == "46.0"
-    ), "API client object was not correctly initialized with the custom version"
+    assert len(calls) == 0, (
+        "Source called API to get all versions even though we specified proper version"
+    )
+    assert mock_sdk.call_args.kwargs["version"] == "46.0", (
+        "API client object was not correctly initialized with the custom version"
+    )
 
 
 @freeze_time(FROZEN_TIME)

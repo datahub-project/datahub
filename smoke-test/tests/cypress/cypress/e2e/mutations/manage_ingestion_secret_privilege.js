@@ -173,7 +173,8 @@ describe("Manage Ingestion and Secret Privileges", () => {
     cy.waitTextVisible("Manage Data Sources");
     cy.waitTextVisible("Sources");
     cy.get(".ant-tabs-nav-list").contains("Source").should("be.visible");
-    cy.get(".ant-tabs-tab").should("have.length", 1);
+    // We check 2 because remote executors management is tied to ingestion management
+    cy.get(".ant-tabs-tab").should("have.length", 2);
   });
 
   it("Verify new user can see ingestion and access Manage Secret tab", () => {

@@ -30,6 +30,8 @@ import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.events.ExternalEventsController;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
@@ -54,6 +56,13 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @TestConfiguration
 @Import(ConfigurationProvider.class)
 public class MetadataTestsTestConfiguration {
+
+  @MockBean TraceContext traceContext;
+
+  @Bean
+  public TracingInterceptor tracingInterceptor(final TraceContext traceContext) {
+    return new TracingInterceptor(traceContext);
+  }
 
   @Bean
   public ObjectMapper objectMapper() {

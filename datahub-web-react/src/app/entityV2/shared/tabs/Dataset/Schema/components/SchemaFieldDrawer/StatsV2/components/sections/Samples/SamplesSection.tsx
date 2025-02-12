@@ -6,9 +6,7 @@ import SamplesTable from './components/SamplesTable';
 import SampleDrawer from './components/SampleDrawer';
 import AllSamplesDrawer from './components/AllSamplesDrawer';
 
-const Container = styled.div`
-    max-height: 200px;
-`;
+const Container = styled.div``;
 
 const ButtonContainer = styled.div`
     display: flex;
@@ -22,7 +20,7 @@ export default function SamplesSection() {
     const [showAllSamples, setShowAllSamples] = useState<boolean>(false);
     const [selectedSample, setSelectedSample] = useState<string | null>(null);
 
-    const fieldType = properties?.expandedField.type;
+    const fieldType = properties?.expandedField?.type;
     const samples = useMemo(() => properties?.fieldProfile?.sampleValues || [], [properties]);
     const numberOfHiddenSampleValues = useMemo(() => samples.length - DEFAULT_MAX_SAMPLES_FOR_PREVIEW_TABLE, [samples]);
 
@@ -30,28 +28,26 @@ export default function SamplesSection() {
     if (samples.length === 0) return null;
 
     return (
-        <>
-            <Container>
-                <SamplesTable
-                    samples={samples}
-                    fieldType={fieldType}
-                    onViewSample={(sample) => setSelectedSample(sample)}
-                    maxItems={DEFAULT_MAX_SAMPLES_FOR_PREVIEW_TABLE}
-                />
+        <Container>
+            <SamplesTable
+                samples={samples}
+                fieldType={fieldType}
+                onViewSample={(sample) => setSelectedSample(sample)}
+                maxItems={DEFAULT_MAX_SAMPLES_FOR_PREVIEW_TABLE}
+            />
 
-                {numberOfHiddenSampleValues > 0 && (
-                    <ButtonContainer>
-                        <Button
-                            variant="text"
-                            onClick={() => setShowAllSamples(true)}
-                            icon="ArrowForward"
-                            iconPosition="right"
-                        >
-                            View {numberOfHiddenSampleValues} more
-                        </Button>
-                    </ButtonContainer>
-                )}
-            </Container>
+            {numberOfHiddenSampleValues > 0 && (
+                <ButtonContainer>
+                    <Button
+                        variant="text"
+                        onClick={() => setShowAllSamples(true)}
+                        icon="ArrowForward"
+                        iconPosition="right"
+                    >
+                        View {numberOfHiddenSampleValues} more
+                    </Button>
+                </ButtonContainer>
+            )}
             <AllSamplesDrawer
                 samples={samples}
                 onBack={() => setShowAllSamples(false)}
@@ -63,6 +59,6 @@ export default function SamplesSection() {
                 onBack={() => setSelectedSample(null)}
                 open={selectedSample !== null}
             />
-        </>
+        </Container>
     );
 }

@@ -19,15 +19,13 @@ class Operator(Protocol):
 
     operator: str
 
-    def id(self) -> str:
-        ...
+    def id(self) -> str: ...
 
-    def generate_parameters(self) -> AssertionStdParametersClass:
-        ...
+    def generate_parameters(self) -> AssertionStdParametersClass: ...
 
 
 def _generate_assertion_std_parameter(
-    value: Union[str, int, float]
+    value: Union[str, int, float],
 ) -> AssertionStdParameterClass:
     if isinstance(value, str):
         return AssertionStdParameterClass(

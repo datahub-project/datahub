@@ -66,14 +66,14 @@ record SearchFlags {
   includeDefaultFacets: optional boolean = true
 
   /**
+   * Include only latest versions in version sets, default true
+   */
+   filterNonLatestVersions: optional boolean = true
+
+  /**
     * Extra fields to fetch from the search documents
     * Note: This will be added on top of the default fields that is controlled
       by the server
     */
   fetchExtraFields: optional array[string] = []
-
-  /**
-   * Include only latest versions in version sets, default true
-   */
-   filterNonLatestVersions: optional boolean = true
 }

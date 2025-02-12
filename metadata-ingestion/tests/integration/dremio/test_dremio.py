@@ -190,9 +190,9 @@ def create_mysql_source(headers):
         "type": "MYSQL",
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
-    assert (
-        response.status_code == 200
-    ), f"Failed to add mysql datasource: {response.text}"
+    assert response.status_code == 200, (
+        f"Failed to add mysql datasource: {response.text}"
+    )
 
 
 def upload_dataset(headers):
@@ -537,9 +537,9 @@ def test_dremio_platform_instance_urns(
 
         # Check dataset URN structure
         if mce["entityType"] == "dataset" and "entityUrn" in mce:
-            assert (
-                "test-platform.dremio" in mce["entityUrn"]
-            ), f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            assert "test-platform.dremio" in mce["entityUrn"], (
+                f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            )
 
         # Check aspects for both datasets and containers
         if "aspectName" in mce:
@@ -558,9 +558,9 @@ def test_dremio_platform_instance_urns(
 
                 instance = aspect_json["instance"]
                 expected_instance = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dremio,test-platform)"
-                assert (
-                    instance == expected_instance
-                ), f"Invalid platform instance format: {instance}"
+                assert instance == expected_instance, (
+                    f"Invalid platform instance format: {instance}"
+                )
 
     # Verify against golden file
     mce_helpers.check_golden_file(

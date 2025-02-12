@@ -156,7 +156,7 @@ class QlikAPI:
                 )
                 if chart:
                     if not chart.title:
-                        chart.title = f"Object {i+1} of Sheet '{sheet.title}'"
+                        chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
                 websocket_connection.handle.pop()
             return sheet

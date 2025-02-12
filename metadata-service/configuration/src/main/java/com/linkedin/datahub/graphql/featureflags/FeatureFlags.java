@@ -32,6 +32,8 @@ public class FeatureFlags {
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
+  private boolean dataProcessInstanceEntityEnabled = true;
+  private boolean entityVersioning = false;
   private boolean documentationAiEnabled = false;
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
@@ -53,6 +55,5 @@ public class FeatureFlags {
   private boolean showFormAnalytics = false;
   private boolean showStatsTabRedesign = false;
   private boolean requestMinimalSlackPermissions = false;
-  private boolean entityVersioning = false;
-  private boolean dataProcessInstanceEntityEnabled = true;
+  private boolean showTaskCenterRedesign = false;
 }

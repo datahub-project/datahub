@@ -19,64 +19,87 @@ from datahub.configuration.yaml import YamlConfigurationMechanism
 Environ = Mapping[str, str]
 
 
-def _resolve_element(element: str, environ: Environ) -> str:
-    if re.search(r"(\$\{).+(\})", element):
-        return expand(element, nounset=True, environ=environ)
-    elif element.startswith("$"):
-        try:
-            return expand(element, nounset=True, environ=environ)
-        except UnboundVariable:
-            return element
-    else:
-        return element
-
-
-def _resolve_list(ele_list: list, environ: Environ) -> list:
-    new_v: list = []
-    for ele in ele_list:
-        if isinstance(ele, str):
-            new_v.append(_resolve_element(ele, environ=environ))
-        elif isinstance(ele, list):
-            new_v.append(_resolve_list(ele, environ=environ))
-        elif isinstance(ele, dict):
-            new_v.append(resolve_env_variables(ele, environ=environ))
-        else:
-            new_v.append(ele)
-    return new_v
-
-
 def resolve_env_variables(config: dict, environ: Environ) -> dict:
-    new_dict: Dict[Any, Any] = {}
-    for k, v in config.items():
-        if isinstance(v, dict):
-            new_dict[k] = resolve_env_variables(v, environ=environ)
-        elif isinstance(v, list):
-            new_dict[k] = _resolve_list(v, environ=environ)
-        elif isinstance(v, str):
-            new_dict[k] = _resolve_element(v, environ=environ)
-        else:
-            new_dict[k] = v
-    return new_dict
+    # TODO: This is kept around for backwards compatibility.
+    return EnvResolver(environ).resolve(config)
 
 
 def list_referenced_env_variables(config: dict) -> Set[str]:
-    # This is a bit of a hack, but expandvars does a bunch of escaping
-    # and other logic that we don't want to duplicate here.
+    # TODO: This is kept around for backwards compatibility.
+    return EnvResolver(environ=os.environ).list_referenced_variables(config)
 
-    vars = set()
 
-    def mock_get_env(key: str, default: Optional[str] = None) -> str:
-        vars.add(key)
-        if default is not None:
-            return default
-        return "mocked_value"
+class EnvResolver:
+    def __init__(self, environ: Environ, strict_env_syntax: bool = False):
+        self.environ = environ
+        self.strict_env_syntax = strict_env_syntax
 
-    mock = unittest.mock.MagicMock()
-    mock.get.side_effect = mock_get_env
+    def resolve(self, config: dict) -> dict:
+        return self._resolve_dict(config)
 
-    resolve_env_variables(config, environ=mock)
+    @classmethod
+    def list_referenced_variables(
+        cls,
+        config: dict,
+        strict_env_syntax: bool = False,
+    ) -> Set[str]:
+        # This is a bit of a hack, but expandvars does a bunch of escaping
+        # and other logic that we don't want to duplicate here.
 
-    return vars
+        vars = set()
+
+        def mock_get_env(key: str, default: Optional[str] = None) -> str:
+            vars.add(key)
+            if default is not None:
+                return default
+            return "mocked_value"
+
+        mock = unittest.mock.MagicMock()
+        mock.get.side_effect = mock_get_env
+
+        resolver = EnvResolver(environ=mock, strict_env_syntax=strict_env_syntax)
+        resolver._resolve_dict(config)
+
+        return vars
+
+    def _resolve_element(self, element: str) -> str:
+        if re.search(r"(\$\{).+(\})", element):
+            return expand(element, nounset=True, environ=self.environ)
+        elif not self.strict_env_syntax and element.startswith("$"):
+            try:
+                return expand(element, nounset=True, environ=self.environ)
+            except UnboundVariable:
+                # TODO: This fallback is kept around for backwards compatibility, but
+                # doesn't make a ton of sense from first principles.
+                return element
+        else:
+            return element
+
+    def _resolve_list(self, ele_list: list) -> list:
+        new_v: list = []
+        for ele in ele_list:
+            if isinstance(ele, str):
+                new_v.append(self._resolve_element(ele))
+            elif isinstance(ele, list):
+                new_v.append(self._resolve_list(ele))
+            elif isinstance(ele, dict):
+                new_v.append(self._resolve_dict(ele))
+            else:
+                new_v.append(ele)
+        return new_v
+
+    def _resolve_dict(self, config: dict) -> dict:
+        new_dict: Dict[Any, Any] = {}
+        for k, v in config.items():
+            if isinstance(v, dict):
+                new_dict[k] = self._resolve_dict(v)
+            elif isinstance(v, list):
+                new_dict[k] = self._resolve_list(v)
+            elif isinstance(v, str):
+                new_dict[k] = self._resolve_element(v)
+            else:
+                new_dict[k] = v
+        return new_dict
 
 
 WRITE_TO_FILE_DIRECTIVE_PREFIX = "__DATAHUB_TO_FILE_"
@@ -159,7 +182,7 @@ def load_config_file(
 
     config = raw_config.copy()
     if resolve_env_vars:
-        config = resolve_env_variables(config, environ=os.environ)
+        config = EnvResolver(environ=os.environ).resolve(config)
     if process_directives:
         config = _process_directives(config)
 

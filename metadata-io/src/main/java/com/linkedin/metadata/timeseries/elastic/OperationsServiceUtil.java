@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -123,25 +122,22 @@ public class OperationsServiceUtil {
     long took;
 
     // 2. Get buckets of aggregations by type per day
-    timer = MetricUtils.timer(OperationsServiceUtil.class, "aggregateByDay").time();
     OperationsAggregationArray buckets =
-        aggregateByDay(opContext, timeseriesAspectService, filter, resource, duration, timeZone);
-    took = timer.stop();
-    log.info(
-        "Operations for resource {} returned {} buckets in {} ms",
-        resource,
-        buckets.size(),
-        TimeUnit.NANOSECONDS.toMillis(took));
+        opContext.withSpan(
+            "aggregateByDay",
+            () ->
+                aggregateByDay(
+                    opContext, timeseriesAspectService, filter, resource, duration, timeZone),
+            MetricUtils.DROPWIZARD_NAME,
+            MetricUtils.name(OperationsServiceUtil.class, "aggregateByDay"));
 
     // 3. Get overall aggregations for the whole time period by operation type
-    timer = MetricUtils.timer(OperationsServiceUtil.class, "aggregateByType").time();
     OperationsAggregationsResult aggregations =
-        aggregateByType(opContext, timeseriesAspectService, filter, resource);
-    took = timer.stop();
-    log.info(
-        "Operations aggregation for resource {} took {} ms",
-        resource,
-        TimeUnit.NANOSECONDS.toMillis(took));
+        opContext.withSpan(
+            "aggregateByType",
+            () -> aggregateByType(opContext, timeseriesAspectService, filter, resource),
+            MetricUtils.DROPWIZARD_NAME,
+            MetricUtils.name(OperationsServiceUtil.class, "aggregateByType"));
 
     // 5. Populate and return the result.
     return new OperationsQueryResult().setAggregations(aggregations).setBuckets(buckets);

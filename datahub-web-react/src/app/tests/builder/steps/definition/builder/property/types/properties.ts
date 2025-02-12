@@ -149,6 +149,16 @@ export const commonProps: Property[] = [
         },
     },
     {
+        id: 'browsePathsV2.path.urn',
+        displayName: 'Browse Path container',
+        description: 'A container in browse path of an asset.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.Container],
+            mode: SelectInputMode.SINGLE,
+        },
+    },
+    {
         id: 'container.container',
         displayName: 'Container',
         description: 'The parent container of the asset.',

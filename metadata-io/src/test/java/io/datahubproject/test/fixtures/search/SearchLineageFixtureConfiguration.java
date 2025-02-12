@@ -162,7 +162,7 @@ public class SearchLineageFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "searchLineageESIndexBuilder")

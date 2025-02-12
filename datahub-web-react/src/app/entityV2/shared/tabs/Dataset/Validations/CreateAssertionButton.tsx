@@ -21,6 +21,7 @@ const CreateButton = styled(Button)`
         justify-content: center;
         align-items: end;
         border-radius: 5px;
+
         &:disabled {
             background-color: #e0e0e0 !important;
             height: 40px;
@@ -42,6 +43,7 @@ const SiblingSelectionDropdownLink = styled.div`
     //     color: black;
     //     background-color: ${getColor('gray', 1000)};
     // }
+
     &:disabled {
         opacity: 0.6;
         background-color: transparent;
@@ -80,6 +82,10 @@ export const CreateAssertionButton = ({
         useSiblingOptionsForAssertionBuilder(entityData, primaryEntityData.urn, primaryEntityData.entityType) ?? [];
 
     const noPermissionsMessage = 'You do not have permission to create an assertion for this asset';
+
+    if (!assertionMonitorsEnabled) {
+        return null;
+    }
 
     /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
     const canEditAssertions = privileges?.canEditAssertions || false;
@@ -161,7 +167,7 @@ export const CreateAssertionButton = ({
         onClick: onClickCreateButton,
     });
 
-    return assertionMonitorsEnabled ? (
+    return (
         <TabToolbar style={{ boxShadow: 'none', justifyContent: 'end', padding: 0 }} className={className}>
             {isSiblingMode && !disableCreateAssertion ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
@@ -173,5 +179,5 @@ export const CreateAssertionButton = ({
                 </Tooltip>
             )}
         </TabToolbar>
-    ) : null;
+    );
 };

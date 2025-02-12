@@ -355,7 +355,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             for doc in results:
                 if "platform" not in doc["_source"] or not doc["_source"]["platform"]:
                     logger.warning(
-                        f"Platform not found in query { doc['_source']['urn']}. Skipping..."
+                        f"Platform not found in query {doc['_source']['urn']}. Skipping..."
                     )
                     continue
 
@@ -672,10 +672,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def polars_to_arrow_schema(
-        polars_schema: Dict[str, Union[DataTypeClass, polars.DataType]]
+        polars_schema: Dict[str, Union[DataTypeClass, polars.DataType]],
     ) -> pa.Schema:
         def convert_dtype(
-            polars_dtype: Union[DataTypeClass, polars.DataType]
+            polars_dtype: Union[DataTypeClass, polars.DataType],
         ) -> pa.DataType:
             type_mapping: Dict[Union[DataTypeClass, polars.DataType], pa.DataType] = {
                 polars.Boolean(): pa.bool_(),
@@ -933,14 +933,14 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.dataset_usage_enabled:
             with self.report.dataset_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate dataset usage")
+                self.report.new_stage("generate dataset usage")
                 yield from self.generate_dataset_usage_mcps()
                 time_taken = timer.elapsed_seconds()
                 logger.info(f"Dataset Usage generation took {time_taken:.3f} seconds")
 
         if self.config.dashboard_usage_enabled:
             with self.report.dashboard_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate dashboard usage")
+                self.report.new_stage("generate dashboard usage")
                 yield from self.generate_dashboard_usage_mcps()
 
                 time_taken = timer.elapsed_seconds()
@@ -948,7 +948,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         if self.config.chart_usage_enabled:
             with self.report.chart_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate chart usage")
+                self.report.new_stage("generate chart usage")
 
                 yield from self.generate_chart_usage_mcps()
 
@@ -957,7 +957,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         if self.config.query_usage_enabled:
             with self.report.query_usage_processing_time as timer:
-                self.report.report_ingestion_stage_start("generate query usage")
+                self.report.new_stage("generate query usage")
 
                 yield from self.generate_query_usage_mcps()
 
@@ -1443,9 +1443,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         if not self.config.streaming_mode:
             return polars.LazyFrame(data, schema)
         else:
-            assert (
-                self.temp_dir is not None
-            ), "In Streaming mode temp dir should be set. Normally this should not happen..."
+            assert self.temp_dir is not None, (
+                "In Streaming mode temp dir should be set. Normally this should not happen..."
+            )
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
@@ -1614,7 +1614,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     time_taken = timer.elapsed_seconds()
                     processed_count += len(results["hits"]["hits"])
                     logger.info(
-                        f"Processed {len(results['hits']['hits'''])} data from {index} index in {time_taken:.3f} seconds. Total: {processed_count} processed."
+                        f"Processed {len(results['hits']['hits'])} data from {index} index in {time_taken:.3f} seconds. Total: {processed_count} processed."
                     )
                     if len(results["hits"]["hits"]) < batch_size:
                         break

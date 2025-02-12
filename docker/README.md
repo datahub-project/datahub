@@ -16,7 +16,7 @@ area.
 ## Quickstart
 
 The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images 
-which are continuously deployed to [Docker Hub](https://hub.docker.com/u/linkedin) with every commit to repository.
+which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acryldata) with every commit to repository.
 
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).

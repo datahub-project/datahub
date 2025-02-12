@@ -8,7 +8,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UpstreamClass,
 )
-
 from tests.setup.lineage.constants import (
     DATASET_ENTITY_TYPE,
     SNOWFLAKE_DATA_PLATFORM,

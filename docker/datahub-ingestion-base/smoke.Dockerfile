@@ -1,4 +1,4 @@
-FROM acryldata/datahub-ingestion-base AS base
+FROM acryldata/datahub-ingestion-base as base
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     sudo \
@@ -18,14 +18,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 COPY . /datahub-src
+ARG RELEASE_VERSION
 RUN cd /datahub-src && \
-    ./gradlew :metadata-ingestion:codegen :metadata-ingestion:installDev  && \
-    pip install --upgrade uv && \
-    uv venv venv && \
-    . venv/bin/activate && \
-    uv pip install --upgrade pip wheel setuptools && \
-    uv pip install 'pytest-sentry==0.3.2' && \
-    cd smoke-test && \
-    uv pip install -r /datahub-src/smoke-test/requirements.txt && \
-    cd .. && \
-    ./gradlew :smoke-test:yarnInstall
+    sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion/src/datahub/_version.py && \
+    sed -i.bak "s/__version__ = .*$/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/_version.py && \
+    cat metadata-ingestion/src/datahub/_version.py && \
+    ./gradlew :metadata-ingestion:codegen && \
+    pip install file:metadata-ingestion-modules/airflow-plugin#egg=acryl-datahub-airflow-plugin file:metadata-ingestion#egg=acryl-datahub
+

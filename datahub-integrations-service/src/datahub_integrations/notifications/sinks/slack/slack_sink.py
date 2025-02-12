@@ -287,8 +287,8 @@ class SlackNotificationSink(NotificationSink):
             # Save the information about the incident notification.
             patch._add_patch(
                 aspect_name="incidentNotificationDetails",
-                op="ADD",
-                path=f"/slack/messages/{message_detail.message_id}",
+                op="add",
+                path=("slack", "messages", message_detail.message_id),
                 value={
                     "channelId": message_detail.channel_id,
                     "channelName": message_detail.channel_name,

@@ -1,6 +1,7 @@
 import os
 from typing import Optional, Set
 
+import pydantic
 from pydantic import Field, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
@@ -14,6 +15,21 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
+DEFAULT_EXCLUDE_ASPECTS = {
+    "dataHubIngestionSourceKey",
+    "dataHubIngestionSourceInfo",
+    "datahubIngestionRunSummary",
+    "datahubIngestionCheckpoint",
+    "dataHubSecretKey",
+    "dataHubSecretValue",
+    "globalSettingsKey",
+    "globalSettingsInfo",
+    "testResults",
+    "dataHubExecutionRequestKey",
+    "dataHubExecutionRequestInput",
+    "dataHubExecutionRequestSignal",
+    "dataHubExecutionRequestResult",
+}
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
@@ -44,7 +60,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     exclude_aspects: Set[str] = Field(
-        default_factory=set,
+        default=DEFAULT_EXCLUDE_ASPECTS,
         description="Set of aspect names to exclude from ingestion",
     )
 
@@ -96,6 +112,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
 
+    drop_duplicate_schema_fields: bool = Field(
+        default=False,
+        description="Whether to drop duplicate schema fields in the schemaMetadata aspect. "
+        "Useful if the source system has duplicate field paths in the db, but we're pushing to a system with server-side duplicate checking.",
+    )
+
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
         if (
@@ -108,3 +130,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
             )
         return values
+
+    @pydantic.validator("database_connection")
+    def validate_mysql_scheme(
+        cls, v: SQLAlchemyConnectionConfig
+    ) -> SQLAlchemyConnectionConfig:
+        if "mysql" in v.scheme:
+            if v.scheme != "mysql+pymysql":
+                raise ValueError("For MySQL, the scheme must be mysql+pymysql.")
+        return v

@@ -3,9 +3,26 @@
 In order to ingest metadata from Tableau, you will need:
 
 - Tableau Server Version 2021.1.10 and above. It may also work for older versions.
-- [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled.
-- Tableau Credentials (Username/Password or [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens))
-- The user or token must have **Site Administrator Explorer** permissions.
+- [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled. This is always enabled for Tableau Cloud.
+
+### Authentication
+
+DataHub supports two authentication methods:
+
+1. Username/Password
+2. [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens)
+
+Either way, the user/token must have at least the **Site Administrator Explorer** site role.
+
+:::info
+
+We need at least the **Site Administrator Explorer** site role in order to get complete metadata from Tableau. Roles with higher privileges, like **Site Administrator Creator** or **Server Admin** also work.
+
+With any lower role, the Tableau Metadata API returns missing/partial metadata.
+This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column lineage. Some table-level lineage is also impacted.
+Other site roles, like Viewer or Explorer, are insufficient due to these limitations in the current Tableau Metadata API.
+
+:::
 
 ### Ingestion through UI
 
@@ -46,8 +63,8 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept              | DataHub Concept                                               | Notes                             |
 | --------------------------- | ------------------------------------------------------------- | --------------------------------- |
-| `"Tableau"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md)     |  
-| Project                 | [Container](../../metamodel/entities/container.md)      | SubType `"Project"`              |
+| `"Tableau"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md)     |
+| Project                     | [Container](../../metamodel/entities/container.md)            | SubType `"Project"`               |
 | Embedded DataSource         | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Embedded Data Source"`  |
 | Published DataSource        | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Published Data Source"` |
 | Custom SQL Table            | [Dataset](../../metamodel/entities/dataset.md)                | SubTypes `"View"`, `"Custom SQL"` |
@@ -75,14 +92,15 @@ Lineage is emitted as received from Tableau's metadata API for
 
 ### Troubleshooting
 
-### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
+#### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
 
 This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider
 
 - reducing the page size using the `page_size` config param in datahub recipe (Defaults to 10).
 - increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value.
 
-### `PERMISSIONS_MODE_SWITCHED` error in ingestion report 
+#### `PERMISSIONS_MODE_SWITCHED` error in ingestion report
+
 This error occurs if the Tableau site is using external assets. For more detail, refer to the Tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
 
 Follow the below steps to enable the derived permissions:

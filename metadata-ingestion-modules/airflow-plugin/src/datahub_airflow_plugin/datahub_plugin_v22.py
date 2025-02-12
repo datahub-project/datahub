@@ -7,9 +7,9 @@ import airflow
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
+
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.telemetry import telemetry
-
 from datahub_airflow_plugin._airflow_shims import (
     MappedOperator,
     get_task_inlets,
@@ -29,6 +29,11 @@ TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
 TASK_ON_RETRY_CALLBACK = "on_retry_callback"
 
 
+def load_config_v22():
+    plugin_config = get_lineage_config()
+    return plugin_config
+
+
 def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
     # TODO: Fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
     # in Airflow 2.4.
@@ -44,11 +49,9 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
 
     if task_inlets and isinstance(task_inlets, list):
         inlets = []
-        task_ids = (
-            {o for o in task_inlets if isinstance(o, str)}
-            .union(op.task_id for op in task_inlets if isinstance(op, BaseOperator))
-            .intersection(task.get_flat_relative_ids(upstream=True))
-        )
+        task_ids = {o for o in task_inlets if isinstance(o, str)}.union(
+            op.task_id for op in task_inlets if isinstance(op, BaseOperator)
+        ).intersection(task.get_flat_relative_ids(upstream=True))
 
         from airflow.lineage import AUTO
         from cattr import structure
@@ -101,9 +104,7 @@ def datahub_task_status_callback(context, status):
     task_inlets = get_task_inlets_advanced(task, context)
     task_outlets = get_task_outlets(task)
 
-    emitter = (
-        DatahubGenericHook(config.datahub_conn_id).get_underlying_hook().make_emitter()
-    )
+    emitter = config.make_emitter_hook().make_emitter()
 
     dataflow = AirflowGenerator.generate_dataflow(
         config=config,
@@ -219,7 +220,7 @@ def datahub_pre_execution(context):
 
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             datahub_pre_execution(context)
@@ -233,7 +234,7 @@ def _wrap_pre_execution(pre_execution):
 
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -253,7 +254,7 @@ def _wrap_on_failure_callback(on_failure_callback):
 
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -273,7 +274,8 @@ def _wrap_on_success_callback(on_success_callback):
 
 def _wrap_on_retry_callback(on_retry_callback):
     def custom_on_retry_callback(context):
-        config = get_lineage_config()
+        config = load_config_v22()
+
         if config.enabled:
             context["_datahub_config"] = config
             try:
@@ -365,7 +367,7 @@ def _patch_datahub_policy():
 
     _patch_policy(settings)
 
-    plugin_config = get_lineage_config()
+    plugin_config = load_config_v22()
     telemetry.telemetry_instance.ping(
         "airflow-plugin-init",
         {

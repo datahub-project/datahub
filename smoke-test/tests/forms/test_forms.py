@@ -5,6 +5,7 @@ import urllib
 from typing import Any, List, Optional
 
 import pytest
+
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -17,7 +18,6 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyDefinitionClass,
 )
 from datahub.utilities.urns.urn import Urn
-
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns, get_sleep_info
 

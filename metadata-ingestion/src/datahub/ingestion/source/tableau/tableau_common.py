@@ -1,3 +1,4 @@
+import copy
 import html
 import json
 import logging
@@ -35,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -640,8 +642,11 @@ class TableauUpstreamReference:
 
     @classmethod
     def create(
-        cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
+        cls, d: Dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
+        if d is None:
+            raise ValueError("TableauUpstreamReference.create: d is None")
+
         # Values directly from `table` object from Tableau
         database_dict = (
             d.get(c.DATABASE) or {}
@@ -715,7 +720,7 @@ class TableauUpstreamReference:
         #  schema
 
         # TODO: Validate the startswith check. Currently required for our integration tests
-        if full_name is None or not full_name.startswith("["):
+        if full_name is None:
             return None
 
         return full_name.replace("[", "").replace("]", "").split(".")
@@ -1000,3 +1005,19 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
         ]
 
     return filter_pages
+
+
+def optimize_query_filter(query_filter: dict) -> dict:
+    """
+    Duplicates in the filter cause duplicates in the result,
+    leading to entities/aspects being emitted multiple times unnecessarily
+    """
+    optimized_query = copy.deepcopy(query_filter)
+
+    if query_filter.get(c.ID_WITH_IN):
+        optimized_query[c.ID_WITH_IN] = list(OrderedSet(query_filter[c.ID_WITH_IN]))
+    if query_filter.get(c.PROJECT_NAME_WITH_IN):
+        optimized_query[c.PROJECT_NAME_WITH_IN] = list(
+            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
+        )
+    return optimized_query

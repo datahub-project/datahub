@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Optional, Type, TypeVar
+from typing import Optional, Type
 
-_Self = TypeVar("_Self", bound="Closeable")
+from typing_extensions import Self
 
 
 class Closeable(AbstractContextManager):
@@ -11,7 +11,7 @@ class Closeable(AbstractContextManager):
     def close(self) -> None:
         pass
 
-    def __enter__(self: _Self) -> _Self:
+    def __enter__(self) -> Self:
         # This method is mainly required for type checking.
         return self
 

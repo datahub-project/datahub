@@ -41,7 +41,7 @@ export const AdminConsole = (): JSX.Element => {
     const isPoliciesEnabled = config?.policiesConfig?.enabled;
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showActionRequests =

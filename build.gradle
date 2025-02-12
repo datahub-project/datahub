@@ -38,14 +38,14 @@ buildscript {
   ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
-  ext.openTelemetryVersion = '1.18.0'
-  ext.neo4jVersion = '5.14.0'
-  ext.neo4jTestVersion = '5.14.0'
-  ext.neo4jApocVersion = '5.14.0'
+  ext.openTelemetryVersion = '1.45.0'
+  ext.neo4jVersion = '5.20.0'
+  ext.neo4jTestVersion = '5.20.0'
+  ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
-  ext.jettyVersion = '11.0.21'
+  ext.jettyVersion = '12.0.16'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
@@ -128,7 +128,7 @@ project.ext.externalDependency = [
     'awsJavaSdkSts': 'software.amazon.awssdk:sts:2.17.261',
     'awsJavaSdkS3': 'software.amazon.awssdk:s3:2.17.261',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.2.0',
     'awsS3': 'software.amazon.awssdk:s3:2.26.21',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
@@ -144,7 +144,8 @@ project.ext.externalDependency = [
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
-    'dgraph4j' : 'io.dgraph:dgraph4j:21.12.0',
+    'dgraph4j' : 'io.dgraph:dgraph4j:24.1.1',
+    'dgraphNetty': 'io.grpc:grpc-netty-shaded:1.69.0',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
@@ -185,8 +186,9 @@ project.ext.externalDependency = [
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
+    'jettySecurity': "org.eclipse.jetty:jetty-security:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
+    'jettyJmx': "org.eclipse.jetty:jetty-jmx:$jettyVersion",
     'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
@@ -202,9 +204,9 @@ project.ext.externalDependency = [
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
-    'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
+    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
-    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.5',
     'logbackJackson': "ch.qos.logback.contrib:logback-jackson:$logbackContribVersion",
     'logbackJsonClassic': "ch.qos.logback.contrib:logback-json-classic:$logbackContribVersion",
     'janino': "org.codehaus.janino:janino:$janinoVersion",
@@ -230,7 +232,10 @@ project.ext.externalDependency = [
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
+    'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
+    'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
@@ -304,6 +309,7 @@ project.ext.externalDependency = [
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
+    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7',
     'scimServer': 'io.acryl:scim-server:1.0.3',
     'scimSpec': 'io.acryl:scim-spec-schema:1.0.3',
     'scimSpecTest': 'io.acryl:scim-compliance-tests:1.0.3'
@@ -394,9 +400,18 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+    exclude group: "javax.mail", module: "mail"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+    resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
+    resolutionStrategy {
+      force "org.eclipse.jetty:jetty-security:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-server:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-ee10-servlet:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-ee10-webapp:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
+    }
   }
 }
 
@@ -438,7 +453,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.115.Final')
+        implementation('io.netty:netty-all:4.1.116.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
@@ -508,10 +523,6 @@ subprojects {
       if (compileJavaTask != null) {
         spotlessJavaTask.dependsOn compileJavaTask
       }
-      // TODO - Do not run this in CI. How?
-      // tasks.withType(JavaCompile) {
-      //   finalizedBy(tasks.findByName('spotlessApply'))
-      // }
     }
     }
   }

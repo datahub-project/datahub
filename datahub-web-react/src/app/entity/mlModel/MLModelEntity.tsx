@@ -135,7 +135,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, mlModel) => {
-                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents.total;
+                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -164,7 +164,7 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     displayName = (data: MlModel) => {
-        return data.name || data.urn;
+        return data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModel: MlModel) => {

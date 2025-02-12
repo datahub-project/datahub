@@ -6,6 +6,7 @@ import NoStats from './components/NoStats';
 import SamplesSection from './components/sections/Samples/SamplesSection';
 import StatsAndInsightsSection from './components/sections/StatsAndInsights/StatsAndInsightsSection';
 import { StatsTabContextProvider } from './StatsTabContext';
+import ChartsSection from './components/sections/charts/ChartsSection';
 
 const Container = styled.div`
     display: flex;
@@ -23,6 +24,7 @@ export default function StatsTabContent(props: StatsProps) {
             <Container>
                 <StatsAndInsightsSection />
                 <SamplesSection />
+                <ChartsSection />
             </Container>
         </StatsTabContextProvider>
     );

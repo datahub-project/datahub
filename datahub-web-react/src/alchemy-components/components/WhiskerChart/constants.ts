@@ -1,3 +1,4 @@
+import { TextProps } from '@visx/text/lib/Text';
 import { ColorSchemeSettings, WhiskerMetricType } from './types';
 
 export const DEFAULT_COLOR_SHEME: ColorSchemeSettings = {
@@ -25,3 +26,12 @@ export const WHISKER_METRIC_ATTRIBUTE_NAMES = {
 
 export const DEFAULT_BOX_SIZE = 34;
 export const DEFAULT_GAP_BETWEEN_WHISKERS = 10;
+
+export const AXIS_LABEL_PROPS: Partial<TextProps> = {
+    fontSize: 12,
+    fontFamily: 'Mulish',
+    fontWeight: 600,
+    textAnchor: 'middle',
+};
+
+export const AXIS_LABEL_MARGIN_OFFSET = 30;

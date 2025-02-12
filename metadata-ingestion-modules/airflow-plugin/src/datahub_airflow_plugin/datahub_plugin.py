@@ -4,20 +4,20 @@ import os
 
 from airflow.plugins_manager import AirflowPlugin
 
-from datahub_airflow_plugin import __package_name__
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_LISTENER_API,
     NEEDS_AIRFLOW_LISTENER_MODULE,
 )
+from datahub_airflow_plugin._version import __package_name__
 
 assert AIRFLOW_PATCHED
 logger = logging.getLogger(__name__)
 
 
-_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and not os.getenv(
+_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and os.getenv(
     "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
-).lower() in ("true", "1")
+).lower() not in ("true", "1")
 
 if _USE_AIRFLOW_LISTENER_INTERFACE:
     try:
@@ -32,7 +32,7 @@ if _USE_AIRFLOW_LISTENER_INTERFACE:
 
 
 with contextlib.suppress(Exception):
-    if not os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() in (
+    if os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() not in (
         "true",
         "1",
     ):

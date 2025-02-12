@@ -205,55 +205,57 @@ def register_mock_data(workspace_client):
         ),
     ]
 
-    workspace_client.tables.get = lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
-        {
-            "name": "quickstart_table",
-            "catalog_name": "quickstart_catalog",
-            "schema_name": "quickstart_schema",
-            "table_type": "MANAGED",
-            "data_source_format": "DELTA",
-            "columns": [
-                {
-                    "name": "columnA",
-                    "type_text": "int",
-                    "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
-                    "type_name": "INT",
-                    "type_precision": 0,
-                    "type_scale": 0,
-                    "position": 0,
-                    "nullable": True,
+    workspace_client.tables.get = (
+        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "properties": {
+                    "delta.lastCommitTimestamp": "1666185711000",
+                    "delta.lastUpdateVersion": "1",
+                    "delta.minReaderVersion": "1",
+                    "delta.minWriterVersion": "2",
+                    "spark.sql.statistics.numRows": "10",
+                    "spark.sql.statistics.totalSize": "512",
                 },
-                {
-                    "name": "columnB",
-                    "type_text": "string",
-                    "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
-                    "type_name": "STRING",
-                    "type_precision": 0,
-                    "type_scale": 0,
-                    "position": 1,
-                    "nullable": True,
-                },
-            ],
-            "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
-            "owner": "account users",
-            "properties": {
-                "delta.lastCommitTimestamp": "1666185711000",
-                "delta.lastUpdateVersion": "1",
-                "delta.minReaderVersion": "1",
-                "delta.minWriterVersion": "2",
-                "spark.sql.statistics.numRows": "10",
-                "spark.sql.statistics.totalSize": "512",
-            },
-            "generation": 2,
-            "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-            "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
-            "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
-            "created_at": 1666185698688,
-            "created_by": "abc@acryl.io",
-            "updated_at": 1666186049633,
-            "updated_by": "abc@acryl.io",
-            "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-        }
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+            }
+        )
     )
 
     workspace_client.service_principals.list.return_value = [
@@ -437,9 +439,7 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
         "datahub.ingestion.source.unity.proxy.WorkspaceClient"
     ) as mock_client, patch.object(
         HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(
-        HiveMetastoreProxy, "_execute_sql"
-    ) as execute_sql:
+    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client
         register_mock_data(workspace_client)

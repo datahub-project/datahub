@@ -128,17 +128,17 @@ def get_upstream_tables(
     reporter.m_query_parse_successes += 1
 
     try:
-        lineage: List[
-            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-        ] = resolver.MQueryResolver(
-            table=table,
-            parse_tree=parse_tree,
-            reporter=reporter,
-            parameters=parameters,
-        ).resolve_to_lineage(
-            ctx=ctx,
-            config=config,
-            platform_instance_resolver=platform_instance_resolver,
+        lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+            resolver.MQueryResolver(
+                table=table,
+                parse_tree=parse_tree,
+                reporter=reporter,
+                parameters=parameters,
+            ).resolve_to_lineage(
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
+            )
         )
 
         if lineage:
