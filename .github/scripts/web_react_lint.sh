@@ -17,5 +17,3 @@ if [ -n "$STAGED_FILES" ]; then
   # Navigate back to the original directory
   cd - || exit
 fi
-
-# Feel free to add more checks here if needed
