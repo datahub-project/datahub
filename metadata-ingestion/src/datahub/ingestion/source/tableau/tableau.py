@@ -2630,8 +2630,13 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
-        if not is_embedded_ds and self._get_published_datasource_project_luid(datasource) is None:
-            logger.info(f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project")
+        if (
+            not is_embedded_ds
+            and self._get_published_datasource_project_luid(datasource) is None
+        ):
+            logger.info(
+                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
+            )
             return
 
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
@@ -2858,7 +2863,9 @@ class TableauSiteSource:
             page_size=self.config.effective_database_table_page_size,
         ):
             if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
-                logger.warning(f"Skipping table due to filtered out published datasource")
+                logger.warning(
+                    "Skipping table due to filtered out published datasource"
+                )
                 continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]

@@ -1265,10 +1265,10 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
     ):
         TableauConfig.parse_obj(new_config)
 
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_filtered_upstream_asset.json"
     golden_file_name: str = "tableau_filtered_upstream_asset_golden.json"
 
@@ -1277,10 +1277,6 @@ def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
     new_config["project_path_pattern"] = {"deny": ["^Samples$"]}
     new_config["extract_project_hierarchy"] = True
 
-    # with pytest.raises(
-    #     PipelineInitError,
-    #     match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
-    # ):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
@@ -1302,13 +1298,16 @@ def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
             read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
             read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
             read_response("customSQLTablesConnection_all.json"),
-            read_response("databaseTablesConnection_excluding_upstream_of_sample_published_ds.json"),
+            read_response(
+                "databaseTablesConnection_excluding_upstream_of_sample_published_ds.json"
+            ),
         ],
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
         pipeline_name="test_tableau_ingest",
     )
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
