@@ -27,7 +27,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.extractor import avro_schema_util
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -357,7 +357,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         fields: List[SchemaField] = []
         if schema.schema_type in ["AVRO", "JSON"]:
             # Extract fields from schema and get the FQN for the schema
-            fields = schema_util.avro_schema_to_mce_fields(
+            fields = avro_schema_util.avro_schema_to_mce_fields(
                 schema.schema_str, is_key_schema=is_key_schema
             )
         else:

@@ -19,7 +19,7 @@ from datahub.emitter.mce_builder import (
     validate_ownership_type,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.extractor.avro_schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,

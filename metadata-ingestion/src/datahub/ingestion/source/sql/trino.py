@@ -34,7 +34,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.extractor import avro_schema_util
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -407,7 +407,7 @@ class TrinoSource(SQLAlchemySource):
                 column["type"], column["name"]
             )
 
-            newfields = schema_util.avro_schema_to_mce_fields(
+            newfields = avro_schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=True
             )
 

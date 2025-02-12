@@ -10,7 +10,7 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.extractor.avro_schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (

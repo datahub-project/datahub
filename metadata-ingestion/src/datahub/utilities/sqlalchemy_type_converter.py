@@ -8,7 +8,7 @@ from sqlalchemy import types
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql.visitors import Visitable
 
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.extractor.avro_schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
 

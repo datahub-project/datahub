@@ -54,7 +54,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.extractor import avro_schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceConfig,
     IcebergSourceReport,
@@ -404,7 +404,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         schema: Schema,
     ) -> List[SchemaField]:
         avro_schema = visit(schema, ToAvroSchemaIcebergVisitor())
-        schema_fields = schema_util.avro_schema_to_mce_fields(
+        schema_fields = avro_schema_util.avro_schema_to_mce_fields(
             json.dumps(avro_schema), default_nullable=False
         )
         return schema_fields

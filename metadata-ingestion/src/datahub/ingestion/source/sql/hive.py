@@ -22,7 +22,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.extractor import avro_schema_util
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -191,7 +191,7 @@ class HiveSource(TwoTierSQLAlchemySource):
                 column["name"], field.nativeDataType
             )
 
-            new_fields = schema_util.avro_schema_to_mce_fields(
+            new_fields = avro_schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=True
             )
 

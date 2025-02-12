@@ -13,7 +13,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
-from datahub.ingestion.extractor import protobuf_util, schema_util
+from datahub.ingestion.extractor import protobuf_util, avro_schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
@@ -319,7 +319,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             avro_schema = avro.schema.parse(cleaned_str)
 
             # "value.id" or "value.[type=string]id"
-            fields = schema_util.avro_schema_to_mce_fields(
+            fields = avro_schema_util.avro_schema_to_mce_fields(
                 avro_schema,
                 is_key_schema=is_key_schema,
                 meta_mapping_processor=(

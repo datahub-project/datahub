@@ -4,7 +4,7 @@ import re
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.extractor.avro_schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
 
