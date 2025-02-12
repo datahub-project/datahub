@@ -3,7 +3,6 @@ package com.datahub.notification.recipient;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.notification.NotificationScenarioType;
-import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;

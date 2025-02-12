@@ -26,8 +26,4 @@ public enum NotificationScenarioType {
   INGESTION_RUN_CHANGE,
   INGESTION_FAILURE,
   ASSERTION_STATUS_CHANGE,
-  /**
-   * Type of notification sent when a user or group is assigned ownership of a dataset.
-   */
-  OWNERSHIP_ASSIGNMENT,
 }

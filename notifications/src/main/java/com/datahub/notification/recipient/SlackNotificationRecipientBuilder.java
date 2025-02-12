@@ -50,6 +50,13 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   public List<NotificationRecipient> buildGlobalRecipients(
       @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type) {
     final GlobalSettingsInfo globalSettingsInfo = _settingsService.getGlobalSettings(opContext);
+
+    if (globalSettingsInfo == null
+        || !globalSettingsInfo.hasNotifications()
+        || !globalSettingsInfo.getNotifications().hasSettings()) {
+      return Collections.emptyList();
+    }
+
     final NotificationSetting setting =
         globalSettingsInfo.getNotifications().getSettings().get(type.toString());
 
@@ -76,9 +83,18 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   }
 
   @Override
-  public List<NotificationRecipient> buildActorRecipients(@NotNull OperationContext opContext, @NotNull List<Urn> actorUrns, @NotNull NotificationScenarioType type) {
-    final List<Urn> userUrns = actorUrns.stream().filter(urn -> Constants.CORP_USER_ENTITY_NAME.equals(urn.getEntityType())).collect(Collectors.toList());
-    final List<Urn> groupUrns = actorUrns.stream().filter(urn -> Constants.CORP_GROUP_ENTITY_NAME.equals(urn.getEntityType())).collect(Collectors.toList());
+  public List<NotificationRecipient> buildActorRecipients(
+      @NotNull OperationContext opContext,
+      @NotNull List<Urn> actorUrns,
+      @NotNull NotificationScenarioType type) {
+    final List<Urn> userUrns =
+        actorUrns.stream()
+            .filter(urn -> Constants.CORP_USER_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    final List<Urn> groupUrns =
+        actorUrns.stream()
+            .filter(urn -> Constants.CORP_GROUP_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
 
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
@@ -94,31 +110,39 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   }
 
   private List<NotificationRecipient> buildUserActorRecipients(
-          @Nonnull final OperationContext opContext,
-          @Nonnull final List<Urn> userUrns,
-          @Nonnull final NotificationScenarioType type
-  ) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> userUrns,
+      @Nonnull final NotificationScenarioType type) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
     // 1. For each user, extract their settings.
-    final Map<Urn, CorpUserSettings> userToSettings = _settingsService.batchGetCorpUserSettings(opContext, userUrns);
+    final Map<Urn, CorpUserSettings> userToSettings =
+        _settingsService.batchGetCorpUserSettings(opContext, userUrns);
 
     // 1.a. Filter out users who have no notification settings.
-    final Map<Urn, NotificationSettings> userToNotificationSettings = userToSettings.entrySet().stream()
+    final Map<Urn, NotificationSettings> userToNotificationSettings =
+        userToSettings.entrySet().stream()
             .filter(entry -> entry.getValue().hasNotificationSettings())
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
 
-    // 2. For each user with settings, determine whether we are allowed to send to them based on settings.
-    for (Map.Entry<Urn, NotificationSettings> entry : userToNotificationSettings.entrySet()) {
+    // 2. For each user with settings, determine whether we are allowed to send to them based on
+    // settings.
+    for (final Urn userUrn : userUrns) {
 
-      final Urn userUrn = entry.getKey();
-      final NotificationSettings notificationSettings = entry.getValue();
+      final NotificationSettings notificationSettings = userToNotificationSettings.get(userUrn);
 
-      if (isActorSettingsEnabledForScenario(notificationSettings, type) && isSlackEnabledForActor(userToNotificationSettings, userUrn)) {
+      if (notificationSettings != null
+          && isActorSettingsEnabledForScenario(notificationSettings, type)
+          && isSlackEnabledForActor(userToNotificationSettings, userUrn)) {
         // Determine which slack handle(s) to to send to.
-        String maybeSlack = extractUserSlackFromNotificationSettingsForScenarioType(notificationSettings,  type);
+        String maybeSlack =
+            extractUserSlackFromNotificationSettingsForScenarioType(notificationSettings, type);
         if (maybeSlack == null) {
-          log.warn("Failed to resolve slack handle for user {}! Skipping sending notification.", userUrn);
+          log.warn(
+              "Failed to resolve slack handle for user {}! Skipping sending notification.",
+              userUrn);
           continue;
         }
         // Now we can build and add the recipient.
@@ -129,44 +153,57 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   }
 
   private List<NotificationRecipient> buildGroupActorRecipients(
-          @Nonnull final OperationContext opContext,
-          @Nonnull final List<Urn> groupUrns,
-          @Nonnull final NotificationScenarioType type
-  ) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> groupUrns,
+      @Nonnull final NotificationScenarioType type) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
     // 1. For each group, extract their settings.
-    final Map<Urn, CorpGroupSettings> groupToSettings = _settingsService.batchGetCorpGroupSettings(opContext, groupUrns);
+    final Map<Urn, CorpGroupSettings> groupToSettings =
+        _settingsService.batchGetCorpGroupSettings(opContext, groupUrns);
 
     // 1.a. Filter out groups who have no notification settings.
-    final Map<Urn, NotificationSettings> groupToNotificationSettings = groupToSettings.entrySet().stream()
+    final Map<Urn, NotificationSettings> groupToNotificationSettings =
+        groupToSettings.entrySet().stream()
             .filter(entry -> entry.getValue().hasNotificationSettings())
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
 
-    // 2. For each group with settings, determine whether we are allowed to send to them based on settings.
-    for (final Map.Entry<Urn, NotificationSettings> entry : groupToNotificationSettings.entrySet()) {
+    // 2. For each group with settings, determine whether we are allowed to send to them based on
+    // settings.
+    for (final Urn groupUrn : groupUrns) {
 
-      final Urn groupUrn = entry.getKey();
-      final NotificationSettings notificationSettings = entry.getValue();
+      final NotificationSettings notificationSettings = groupToNotificationSettings.get(groupUrn);
 
-      if (isActorSettingsEnabledForScenario(notificationSettings, type) && isSlackEnabledForActor(groupToNotificationSettings, groupUrn)) {
+      if (notificationSettings != null
+          && isActorSettingsEnabledForScenario(notificationSettings, type)
+          && isSlackEnabledForActor(groupToNotificationSettings, groupUrn)) {
         // Determine which email to send to.
-        List<String> maybeSlackChannels = extractGroupSlackFromNotificationSettingsForScenarioType(notificationSettings,  type);
+        List<String> maybeSlackChannels =
+            extractGroupSlackFromNotificationSettingsForScenarioType(notificationSettings, type);
         if (maybeSlackChannels == null) {
-          log.warn("Failed to resolve slack channels for group {}! Skipping sending notification.", groupUrn);
+          log.warn(
+              "Failed to resolve slack channels for group {}! Skipping sending notification.",
+              groupUrn);
           continue;
         }
         // Now we can build and add the recipients
-        maybeSlackChannels.forEach(maybeSlack ->
-          recipients.add(buildRecipient(NotificationRecipientType.SLACK_CHANNEL, maybeSlack, groupUrn)));
+        maybeSlackChannels.forEach(
+            maybeSlack ->
+                recipients.add(
+                    buildRecipient(NotificationRecipientType.SLACK_CHANNEL, maybeSlack, groupUrn)));
       }
     }
     return recipients;
   }
 
-  private boolean isActorSettingsEnabledForScenario(@Nonnull final NotificationSettings notificationSettings, @Nonnull final NotificationScenarioType type) {
+  private boolean isActorSettingsEnabledForScenario(
+      @Nonnull final NotificationSettings notificationSettings,
+      @Nonnull final NotificationScenarioType type) {
     if (notificationSettings.hasScenarioSettings()) {
-      final Map<String, NotificationSetting> scenarioSettings = notificationSettings.getScenarioSettings();
+      final Map<String, NotificationSetting> scenarioSettings =
+          notificationSettings.getScenarioSettings();
       if (scenarioSettings.containsKey(type.toString())) {
         return isSlackNotificationEnabled(scenarioSettings.get(type.toString()));
       }
@@ -176,12 +213,13 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
 
   @Nullable
   private String extractUserSlackFromNotificationSettingsForScenarioType(
-          @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
+      @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
     // First, see if there is a scenario-specific override slack
     final Map<String, NotificationSetting> scenarioSettings = settings.getScenarioSettings();
     if (scenarioSettings.containsKey(type.toString())) {
       final NotificationSetting setting = scenarioSettings.get(type.toString());
-      if (hasParam(setting.getParams(), "slack.channel") && !setting.getParams().get("slack.channel").isEmpty()) {
+      if (hasParam(setting.getParams(), "slack.channel")
+          && !setting.getParams().get("slack.channel").isEmpty()) {
         return setting.getParams().get("slack.channel");
       }
     }
@@ -195,12 +233,13 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
 
   @Nullable
   private List<String> extractGroupSlackFromNotificationSettingsForScenarioType(
-          @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
+      @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
     // First, see if there is a scenario-specific override slack
     final Map<String, NotificationSetting> scenarioSettings = settings.getScenarioSettings();
     if (scenarioSettings.containsKey(type.toString())) {
       final NotificationSetting setting = scenarioSettings.get(type.toString());
-      if (hasParam(setting.getParams(), "slack.channel") && !setting.getParams().get("slack.channel").isEmpty()) {
+      if (hasParam(setting.getParams(), "slack.channel")
+          && !setting.getParams().get("slack.channel").isEmpty()) {
         return Collections.singletonList(setting.getParams().get("slack.channel"));
       }
     }

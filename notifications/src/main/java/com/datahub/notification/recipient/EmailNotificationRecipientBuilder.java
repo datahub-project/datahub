@@ -56,10 +56,19 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
   }
 
   @Override
-  public List<NotificationRecipient> buildActorRecipients(@Nonnull final OperationContext opContext, @Nonnull final List<Urn> actorUrns, @Nonnull final NotificationScenarioType type) {
+  public List<NotificationRecipient> buildActorRecipients(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> actorUrns,
+      @Nonnull final NotificationScenarioType type) {
 
-    final List<Urn> userUrns = actorUrns.stream().filter(urn -> Constants.CORP_USER_ENTITY_NAME.equals(urn.getEntityType())).collect(Collectors.toList());
-    final List<Urn> groupUrns = actorUrns.stream().filter(urn -> Constants.CORP_GROUP_ENTITY_NAME.equals(urn.getEntityType())).collect(Collectors.toList());
+    final List<Urn> userUrns =
+        actorUrns.stream()
+            .filter(urn -> Constants.CORP_USER_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    final List<Urn> groupUrns =
+        actorUrns.stream()
+            .filter(urn -> Constants.CORP_GROUP_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
 
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
@@ -75,31 +84,39 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
   }
 
   private List<NotificationRecipient> buildUserActorRecipients(
-    @Nonnull final OperationContext opContext,
-    @Nonnull final List<Urn> userUrns,
-    @Nonnull final NotificationScenarioType type
-  ) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> userUrns,
+      @Nonnull final NotificationScenarioType type) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
     // 1. For each user, extract their settings.
-    final Map<Urn, CorpUserSettings> userToSettings = _settingsService.batchGetCorpUserSettings(opContext, userUrns);
+    final Map<Urn, CorpUserSettings> userToSettings =
+        _settingsService.batchGetCorpUserSettings(opContext, userUrns);
 
     // 1.a. Filter out users who have no notification settings.
-    final Map<Urn, NotificationSettings> userToNotificationSettings = userToSettings.entrySet().stream()
+    final Map<Urn, NotificationSettings> userToNotificationSettings =
+        userToSettings.entrySet().stream()
             .filter(entry -> entry.getValue().hasNotificationSettings())
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
 
-    // 2. For each user with settings, determine whether we are allowed to send to them based on settings.
-    for (Map.Entry<Urn, NotificationSettings> entry : userToNotificationSettings.entrySet()) {
+    // 2. For each user with settings, determine whether we are allowed to send to them based on
+    // settings.
+    for (final Urn userUrn : userUrns) {
 
-      final Urn userUrn = entry.getKey();
-      final NotificationSettings notificationSettings = entry.getValue();
+      final NotificationSettings notificationSettings = userToNotificationSettings.get(userUrn);
 
-      if (isActorSettingsEnabledForScenario(notificationSettings, type) && isEmailEnabledForActor(userToNotificationSettings, userUrn)) {
+      if (notificationSettings != null
+          && isActorSettingsEnabledForScenario(notificationSettings, type)
+          && isEmailEnabledForActor(userToNotificationSettings, userUrn)) {
         // Determine which email to send to.
-        String maybeEmail = extractEmailFromNotificationSettingsForScenarioType(notificationSettings,  type);
+        String maybeEmail =
+            extractEmailFromNotificationSettingsForScenarioType(notificationSettings, type);
         if (maybeEmail == null) {
-          log.warn("Failed to resolve email address for user {}! Skipping sending notification.", userUrn);
+          log.warn(
+              "Failed to resolve email address for user {}! Skipping sending notification.",
+              userUrn);
           continue;
         }
         // Now we can build and add the recipient.
@@ -112,43 +129,54 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
   private List<NotificationRecipient> buildGroupActorRecipients(
       @Nonnull final OperationContext opContext,
       @Nonnull final List<Urn> groupUrns,
-      @Nonnull final NotificationScenarioType type
-  ) {
-      final List<NotificationRecipient> recipients = new ArrayList<>();
+      @Nonnull final NotificationScenarioType type) {
+    final List<NotificationRecipient> recipients = new ArrayList<>();
 
-      // 1. For each group, extract their settings.
-      final Map<Urn, CorpGroupSettings> groupToSettings = _settingsService.batchGetCorpGroupSettings(opContext, groupUrns);
+    // 1. For each group, extract their settings.
+    final Map<Urn, CorpGroupSettings> groupToSettings =
+        _settingsService.batchGetCorpGroupSettings(opContext, groupUrns);
 
-      // 1.a. Filter out groups who have no notification settings.
-      final Map<Urn, NotificationSettings> groupToNotificationSettings = groupToSettings.entrySet().stream()
-              .filter(entry -> entry.getValue().hasNotificationSettings())
-              .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
+    // 1.a. Filter out groups who have no notification settings.
+    final Map<Urn, NotificationSettings> groupToNotificationSettings =
+        groupToSettings.entrySet().stream()
+            .filter(entry -> entry.getValue().hasNotificationSettings())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, entry -> entry.getValue().getNotificationSettings()));
 
-      // 2. For each group with settings, determine whether we are allowed to send to them based on settings.
-      for (final Map.Entry<Urn, NotificationSettings> entry : groupToNotificationSettings.entrySet()) {
+    // 2. For each group with settings, determine whether we are allowed to send to them based on
+    // settings.
+    for (final Urn groupUrn : groupUrns) {
 
-        final Urn groupUrn = entry.getKey();
-        final NotificationSettings notificationSettings = entry.getValue();
+      final NotificationSettings notificationSettings = groupToNotificationSettings.get(groupUrn);
 
-        if (isActorSettingsEnabledForScenario(notificationSettings, type) && isEmailEnabledForActor(groupToNotificationSettings, groupUrn)) {
-            // Determine which email to send to.
-            String maybeEmail = extractEmailFromNotificationSettingsForScenarioType(notificationSettings,  type);
-            if (maybeEmail == null) {
-            log.warn("Failed to resolve email address for group {}! Skipping sending notification.", groupUrn);
-            continue;
-            }
-            // Now we can build and add the recipient.
-            recipients.add(buildRecipient(NotificationRecipientType.EMAIL, maybeEmail, groupUrn));
+      if (notificationSettings != null
+          && isActorSettingsEnabledForScenario(notificationSettings, type)
+          && isEmailEnabledForActor(groupToNotificationSettings, groupUrn)) {
+        // Determine which email to send to.
+        String maybeEmail =
+            extractEmailFromNotificationSettingsForScenarioType(notificationSettings, type);
+        if (maybeEmail == null) {
+          log.warn(
+              "Failed to resolve email address for group {}! Skipping sending notification.",
+              groupUrn);
+          continue;
         }
+        // Now we can build and add the recipient.
+        recipients.add(buildRecipient(NotificationRecipientType.EMAIL, maybeEmail, groupUrn));
       }
-      return recipients;
+    }
+    return recipients;
   }
 
-  private boolean isActorSettingsEnabledForScenario(@Nonnull final NotificationSettings notificationSettings, @Nonnull final NotificationScenarioType type) {
+  private boolean isActorSettingsEnabledForScenario(
+      @Nonnull final NotificationSettings notificationSettings,
+      @Nonnull final NotificationScenarioType type) {
     if (notificationSettings.hasScenarioSettings()) {
-      final Map<String, NotificationSetting> scenarioSettings = notificationSettings.getScenarioSettings();
+      final Map<String, NotificationSetting> scenarioSettings =
+          notificationSettings.getScenarioSettings();
       if (scenarioSettings.containsKey(type.toString())) {
-          return isEmailNotificationEnabled(scenarioSettings.get(type.toString()));
+        return isEmailNotificationEnabled(scenarioSettings.get(type.toString()));
       }
     }
     return false;
@@ -223,12 +251,13 @@ public class EmailNotificationRecipientBuilder extends NotificationRecipientBuil
 
   @Nullable
   private String extractEmailFromNotificationSettingsForScenarioType(
-          @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
+      @Nonnull final NotificationSettings settings, @Nonnull final NotificationScenarioType type) {
     // First, see if there is a scenario-specific override email address.
     final Map<String, NotificationSetting> scenarioSettings = settings.getScenarioSettings();
     if (scenarioSettings.containsKey(type.toString())) {
       final NotificationSetting setting = scenarioSettings.get(type.toString());
-      if (hasParam(setting.getParams(), "email.address") && !setting.getParams().get("email.address").isEmpty()) {
+      if (hasParam(setting.getParams(), "email.address")
+          && !setting.getParams().get("email.address").isEmpty()) {
         return setting.getParams().get("email.address");
       }
     }

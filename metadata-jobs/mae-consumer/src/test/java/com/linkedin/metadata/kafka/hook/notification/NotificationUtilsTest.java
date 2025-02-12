@@ -7,6 +7,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.notification.provider.EntityNameProvider;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -106,6 +107,18 @@ public class NotificationUtilsTest {
     Assert.assertEquals(
         NotificationUtils.generateEntityPath(urn),
         "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29");
+  }
+
+  @Test
+  public void testGenerateEntityPaths() {
+    final Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,Test Name,PROD)");
+    final Urn dashboardUrn = UrnUtils.getUrn("urn:li:dashboard:(airflow,test)");
+    Assert.assertEquals(
+            NotificationUtils.generateEntityPaths(List.of(datasetUrn, dashboardUrn)),
+            ImmutableList.of(
+              "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29",
+              "/dashboard/urn%3Ali%dashboard%3A%28airflow%2Ctest%29"
+            ));
   }
 
   @Test

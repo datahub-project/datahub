@@ -5,6 +5,8 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -25,6 +27,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.ownership.OwnershipTypeInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +40,7 @@ public class EntityNameProviderTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)");
   private static final Urn TEST_DATA_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:hive");
+  private static final Urn TEST_OWNERSHIP_TYPE_URN = UrnUtils.getUrn("urn:li:ownershipType:test");
 
   private SystemEntityClient entityClient;
   private Authentication systemAuthentication;
@@ -92,6 +96,27 @@ public class EntityNameProviderTest {
       String platformName =
           entityNameProvider.getPlatformName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertEquals(platformName, "Expected Platform Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
+  public void testGetOwnershipTypeNameExists() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(OWNERSHIP_TYPE_ENTITY_NAME),
+                  Mockito.eq(Set.of(TEST_OWNERSHIP_TYPE_URN)),
+                  Mockito.eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME))))
+          .thenReturn(
+              Map.of(
+                  TEST_OWNERSHIP_TYPE_URN,
+                  getMockOwnershipTypeResponse("Expected Ownership Type Name")));
+      String name =
+          entityNameProvider.getName(mock(OperationContext.class), TEST_OWNERSHIP_TYPE_URN);
+      Assert.assertEquals(name, "Expected Ownership Type Name");
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
     }
@@ -248,6 +273,19 @@ public class EntityNameProviderTest {
                                 (new com.linkedin.dataset.DatasetProperties()
                                     .setName(name)
                                     .data()))))));
+  }
+
+  private EntityResponse getMockOwnershipTypeResponse(String name) {
+    return new EntityResponse()
+        .setEntityName(OWNERSHIP_TYPE_ENTITY_NAME)
+        .setUrn(TEST_OWNERSHIP_TYPE_URN)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    OWNERSHIP_TYPE_INFO_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setName(OWNERSHIP_TYPE_INFO_ASPECT_NAME)
+                        .setValue(new Aspect(new OwnershipTypeInfo().setName(name).data())))));
   }
 
   private EntityResponse getMockSubTypesResponse(String name) {

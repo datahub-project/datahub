@@ -103,7 +103,7 @@ public class EntityNameProvider {
       case Constants.NOTEBOOK_ENTITY_NAME:
         return batchGetNotebookName(opContext, entityUrns);
       case Constants.OWNERSHIP_TYPE_ENTITY_NAME:
-         return batchGetOwnershipTypeName(opContext, entityUrns);
+        return batchGetOwnershipTypeName(opContext, entityUrns);
       default:
         return entityUrns.stream().collect(Collectors.toMap(k -> k, Urn::toString));
     }
@@ -611,23 +611,23 @@ public class EntityNameProvider {
                 }));
   }
 
-    private Map<Urn, String> batchGetOwnershipTypeName(
-            @Nonnull OperationContext opContext, Set<Urn> ownershipTypeUrns) {
-        Map<Urn, DataMap> dataMap =
-                batchGetAspectData(
-                        opContext,
-                        ownershipTypeUrns,
-                        Constants.OWNERSHIP_TYPE_ENTITY_NAME,
-                        Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME);
-        return ownershipTypeUrns.stream()
-                .collect(
-                        Collectors.toMap(
-                                k -> k,
-                                urn -> {
-                                    DataMap data = dataMap.get(urn);
-                                    return data != null ? new OwnershipTypeInfo(data).getName() : urn.toString();
-                                }));
-    }
+  private Map<Urn, String> batchGetOwnershipTypeName(
+      @Nonnull OperationContext opContext, Set<Urn> ownershipTypeUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            ownershipTypeUrns,
+            Constants.OWNERSHIP_TYPE_ENTITY_NAME,
+            Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME);
+    return ownershipTypeUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new OwnershipTypeInfo(data).getName() : urn.toString();
+                }));
+  }
 
   @Nullable
   private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {

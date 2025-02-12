@@ -56,9 +56,11 @@ enum EntityChangeType {
     */
     GLOSSARY_TERM_ADDED
     GLOSSARY_TERM_REMOVED
+    GLOSSARY_TERM_PROPOSED
     /**
     * Tag changes. Added, removed or proposed.
     */
     TAG_ADDED
     TAG_REMOVED
+    TAG_PROPOSED
 }

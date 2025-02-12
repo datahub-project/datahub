@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -36,6 +37,7 @@ import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Assert;
 import org.mockito.Mockito;
@@ -44,8 +46,10 @@ import org.testng.annotations.Test;
 public class SettingsServiceTest {
   private static final String USER_URN_STRING = "urn:li:corpuser:testUser";
   private static final Urn TEST_USER_URN = UrnUtils.getUrn(USER_URN_STRING);
+  private static final Urn TEST_USER_URN_2 = UrnUtils.getUrn(USER_URN_STRING + "_2");
   private static final String GROUP_URN_STRING = "urn:li:corpGroup:testGroup";
   private static final Urn GROUP_URN = UrnUtils.getUrn(GROUP_URN_STRING);
+  private static final Urn GROUP_URN_2 = UrnUtils.getUrn(GROUP_URN_STRING + "_2");
   private static final Urn TEST_VIEW_URN = UrnUtils.getUrn("urn:li:dataHubView:test");
   private static final String USER_HANDLE = "testUser";
   private static final List<String> CHANNELS = Collections.singletonList("testChannel");
@@ -126,6 +130,62 @@ public class SettingsServiceTest {
   }
 
   @Test
+  private static void testBatchGetCorpUserSettingsNullSettings() throws Exception {
+    final SettingsService service =
+        new SettingsService(
+            getCorpUserSettingsEntityClientMock(null),
+            mock(OpenApiClient.class),
+            new ObjectMapper());
+    final Map<Urn, CorpUserSettings> res =
+        service.batchGetCorpUserSettings(
+            opContext, ImmutableList.of(TEST_USER_URN, TEST_USER_URN_2));
+
+    Assert.assertEquals(res.size(), 0);
+  }
+
+  @Test
+  private static void testBatchGetCorpUserSettingsValidSettings() throws Exception {
+    final CorpUserSettings existingSettings =
+        new CorpUserSettings()
+            .setViews(new CorpUserViewsSettings().setDefaultView(TEST_VIEW_URN))
+            .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true));
+
+    final SettingsService service =
+        new SettingsService(
+            getCorpUserSettingsEntityClientMock(existingSettings),
+            mock(OpenApiClient.class),
+            new ObjectMapper());
+
+    final Map<Urn, CorpUserSettings> res =
+        service.batchGetCorpUserSettings(
+            opContext, ImmutableList.of(TEST_USER_URN, TEST_USER_URN_2));
+    Assert.assertEquals(existingSettings, res.get(TEST_USER_URN));
+    Assert.assertEquals(existingSettings, res.get(TEST_USER_URN_2));
+  }
+
+  @Test
+  private static void testBatchGetCorpUserSettingsSettingsException() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_USER_URN, TEST_USER_URN_2)),
+                Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME))))
+        .thenThrow(new RemoteInvocationException());
+
+    final SettingsService service =
+        new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());
+
+    Assert.assertThrows(
+        RuntimeException.class,
+        () ->
+            service.batchGetCorpUserSettings(
+                opContext, ImmutableList.of(TEST_USER_URN, TEST_USER_URN_2)));
+  }
+
+  @Test
   public void testGetCorpGroupSettingsMissingActor() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(false);
@@ -183,6 +243,55 @@ public class SettingsServiceTest {
     assertThrows(
         RuntimeException.class,
         () -> service.getCorpUserSettings(mock(OperationContext.class), TEST_USER_URN));
+  }
+
+  @Test
+  private static void testBatchGetCorpGroupSettingsNullSettings() throws Exception {
+    final SettingsService service =
+        new SettingsService(
+            getCorpGroupSettingsEntityClientMock(null),
+            mock(OpenApiClient.class),
+            new ObjectMapper());
+    final Map<Urn, CorpGroupSettings> res =
+        service.batchGetCorpGroupSettings(opContext, ImmutableList.of(GROUP_URN, GROUP_URN_2));
+
+    Assert.assertEquals(res.size(), 0);
+  }
+
+  @Test
+  private static void testBatchGetCorpGroupSettingsValidSettings() throws Exception {
+    final SettingsService service =
+        new SettingsService(
+            getCorpGroupSettingsEntityClientMock(CORP_GROUP_SETTINGS),
+            mock(OpenApiClient.class),
+            new ObjectMapper());
+
+    final Map<Urn, CorpGroupSettings> res =
+        service.batchGetCorpGroupSettings(opContext, ImmutableList.of(GROUP_URN, GROUP_URN_2));
+
+    Assert.assertEquals(CORP_GROUP_SETTINGS, res.get(GROUP_URN));
+    Assert.assertEquals(CORP_GROUP_SETTINGS, res.get(GROUP_URN_2));
+  }
+
+  @Test
+  private static void testBatchGetCorpGroupSettingsSettingsException() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(CORP_GROUP_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(GROUP_URN, GROUP_URN_2)),
+                Mockito.eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME))))
+        .thenThrow(new RemoteInvocationException());
+
+    final SettingsService service =
+        new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());
+
+    Assert.assertThrows(
+        RuntimeException.class,
+        () ->
+            service.batchGetCorpGroupSettings(opContext, ImmutableList.of(GROUP_URN, GROUP_URN_2)));
   }
 
   @Test
@@ -328,6 +437,9 @@ public class SettingsServiceTest {
     when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN))).thenReturn(true);
     when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN), anyBoolean()))
         .thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN_2))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN_2), anyBoolean()))
+        .thenReturn(true);
 
     EnvelopedAspectMap aspectMap =
         settings != null
@@ -348,6 +460,76 @@ public class SettingsServiceTest {
                 .setEntityName(Constants.CORP_USER_ENTITY_NAME)
                 .setUrn(TEST_USER_URN)
                 .setAspects(aspectMap));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.CORP_USER_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_USER_URN, TEST_USER_URN_2)),
+                Mockito.eq(ImmutableSet.of(Constants.CORP_USER_SETTINGS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_USER_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(TEST_USER_URN)
+                    .setAspects(aspectMap),
+                TEST_USER_URN_2,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(TEST_USER_URN_2)
+                    .setAspects(aspectMap)));
+    return mockClient;
+  }
+
+  private static SystemEntityClient getCorpGroupSettingsEntityClientMock(
+      @Nullable final CorpGroupSettings settings) throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN), anyBoolean()))
+        .thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN_2))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN_2), anyBoolean()))
+        .thenReturn(true);
+
+    EnvelopedAspectMap aspectMap =
+        settings != null
+            ? new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    CORP_GROUP_SETTINGS_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(settings.data()))))
+            : new EnvelopedAspectMap();
+
+    Mockito.when(
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.CORP_GROUP_ENTITY_NAME),
+                Mockito.eq(GROUP_URN),
+                Mockito.eq(ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.CORP_GROUP_ENTITY_NAME)
+                .setUrn(GROUP_URN)
+                .setAspects(aspectMap));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.CORP_GROUP_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(GROUP_URN, GROUP_URN_2)),
+                Mockito.eq(ImmutableSet.of(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                GROUP_URN,
+                new EntityResponse()
+                    .setEntityName(CORP_GROUP_ENTITY_NAME)
+                    .setUrn(GROUP_URN)
+                    .setAspects(aspectMap),
+                GROUP_URN_2,
+                new EntityResponse()
+                    .setEntityName(CORP_GROUP_ENTITY_NAME)
+                    .setUrn(GROUP_URN_2)
+                    .setAspects(aspectMap)));
     return mockClient;
   }
 

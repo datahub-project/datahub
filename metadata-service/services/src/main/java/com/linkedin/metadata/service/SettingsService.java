@@ -21,7 +21,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -60,31 +59,37 @@ public class SettingsService extends BaseService {
    */
   @Nonnull
   public Map<Urn, CorpUserSettings> batchGetCorpUserSettings(
-          @Nonnull OperationContext opContext, @Nonnull final List<Urn> users) {
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> users) {
     Objects.requireNonNull(users, "users must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       Map<Urn, EntityResponse> response =
-              this.entityClient.batchGetV2(
-                      opContext,
-                      CORP_USER_ENTITY_NAME,
-                      new HashSet<>(users),
-                      ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME));
+          this.entityClient.batchGetV2(
+              opContext,
+              CORP_USER_ENTITY_NAME,
+              new HashSet<>(users),
+              ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME));
 
-        final Map<Urn, CorpUserSettings> userSettingsMap = new HashMap<>();
-        for (final Urn user : users) {
-          if (response.containsKey(user)
-              && response.get(user).getAspects().containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
-            userSettingsMap.put(
-                user,
-                new CorpUserSettings(
-                    getDataMapFromEntityResponse(response.get(user), CORP_USER_SETTINGS_ASPECT_NAME)));
-          }
+      final Map<Urn, CorpUserSettings> userSettingsMap = new HashMap<>();
+      for (final Urn user : users) {
+        if (response.containsKey(user)
+            && response
+                .get(user)
+                .getAspects()
+                .containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
+          userSettingsMap.put(
+              user,
+              new CorpUserSettings(
+                  getDataMapFromEntityResponse(
+                      response.get(user), CORP_USER_SETTINGS_ASPECT_NAME)));
         }
-        return userSettingsMap;
+      }
+      return userSettingsMap;
     } catch (Exception e) {
       throw new RuntimeException(
-              String.format("Failed to retrieve batch of corp user settings for users with urns %s", users), e);
+          String.format(
+              "Failed to retrieve batch of corp user settings for users with urns %s", users),
+          e);
     }
   }
 
@@ -97,31 +102,37 @@ public class SettingsService extends BaseService {
    */
   @Nonnull
   public Map<Urn, CorpGroupSettings> batchGetCorpGroupSettings(
-          @Nonnull OperationContext opContext, @Nonnull final List<Urn> groups) {
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> groups) {
     Objects.requireNonNull(groups, "groups must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       Map<Urn, EntityResponse> response =
-              this.entityClient.batchGetV2(
-                      opContext,
-                      CORP_GROUP_ENTITY_NAME,
-                      new HashSet<>(groups),
-                      ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME));
+          this.entityClient.batchGetV2(
+              opContext,
+              CORP_GROUP_ENTITY_NAME,
+              new HashSet<>(groups),
+              ImmutableSet.of(CORP_GROUP_SETTINGS_ASPECT_NAME));
 
-        final Map<Urn, CorpGroupSettings> groupSettingsMap = new HashMap<>();
-        for (final Urn group : groups) {
-          if (response.containsKey(group)
-              && response.get(group).getAspects().containsKey(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME)) {
-            groupSettingsMap.put(
-                group,
-                new CorpGroupSettings(
-                    getDataMapFromEntityResponse(response.get(group), CORP_GROUP_SETTINGS_ASPECT_NAME)));
-          }
+      final Map<Urn, CorpGroupSettings> groupSettingsMap = new HashMap<>();
+      for (final Urn group : groups) {
+        if (response.containsKey(group)
+            && response
+                .get(group)
+                .getAspects()
+                .containsKey(Constants.CORP_GROUP_SETTINGS_ASPECT_NAME)) {
+          groupSettingsMap.put(
+              group,
+              new CorpGroupSettings(
+                  getDataMapFromEntityResponse(
+                      response.get(group), CORP_GROUP_SETTINGS_ASPECT_NAME)));
         }
-        return groupSettingsMap;
+      }
+      return groupSettingsMap;
     } catch (Exception e) {
       throw new RuntimeException(
-              String.format("Failed to retrieve batch of corp group settings for groups with urns %s", groups), e);
+          String.format(
+              "Failed to retrieve batch of corp group settings for groups with urns %s", groups),
+          e);
     }
   }
 
