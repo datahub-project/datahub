@@ -16,6 +16,18 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaNormalization;
 
+/*
+ * Code here is similar to code in avro_schema_util.py in the Python SDK
+ * So, in order to preserve the feature parity,
+ * any update here should have the corresponding update there.
+ *
+ * TODO: There are some missing features on the Java side:
+ *  - better handling of defaults and docs
+ *  - handling of top-level schemas that are not records (eg unions or primitive types)
+ *  - recursive fields
+ *  - meta mapping processor
+ */
+
 /** Converts Avro schemas to DataHub's schema format following SchemaFieldPath Specification V2. */
 @Slf4j
 @Builder

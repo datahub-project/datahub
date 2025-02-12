@@ -1,4 +1,4 @@
-from datahub.ingestion.extractor.schema_util import AvroToMceSchemaConverter
+from datahub.ingestion.extractor.avro_schema_util import AvroSchemaConverter
 from avro.schema import parse as parse_avro, RecordSchema
 from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
 import datahub.metadata.schema_classes as models
@@ -32,7 +32,7 @@ def generate_schema_file_from_avro_schema(
     avro_schema_file = input_file
     output_file_name = output_file
     platform_urn = make_data_platform_urn(platform)
-    converter = AvroToMceSchemaConverter(is_key_schema=False)
+    converter = AvroSchemaConverter()
 
     # Delete the output file if it exists
     if os.path.exists(output_file_name):
@@ -61,7 +61,12 @@ def generate_schema_file_from_avro_schema(
             ),
         )
         schema_fields = [
-            f for f in converter.to_mce_fields(avro_schema, is_key_schema=False)
+            f for f in converter.to_datahub_schema(
+                schema=avro_schema,
+                is_key_schema=False,
+                default_nullable=False,
+                platform_urn=platform_urn,
+            ).fields
         ]
         schema_metadata = models.SchemaMetadataClass(
             schemaName=avro_schema.name,

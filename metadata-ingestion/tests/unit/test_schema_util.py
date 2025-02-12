@@ -12,7 +12,7 @@ from datahub.emitter.mce_builder import (
     make_global_tag_aspect_with_tag_list,
     make_glossary_terms_aspect_from_urn_list,
 )
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.extractor.avro_schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NumberTypeClass,
@@ -152,7 +152,7 @@ def test_avro_schema_to_mce_fields_sample_events_with_different_field_types():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
-        "[version=2.0].[type=R].[type=map].[type=long].a_map_of_longs_field",
+        "[version=2.0].[type=R].[type=map].a_map_of_longs_field",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -264,7 +264,8 @@ def test_avro_schema_with_recursion():
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
         "[version=2.0].[type=TreeNode].[type=long].value",
-        "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
+        "[version=2.0].[type=TreeNode].[type=array].children",
+        "[version=2.0].[type=TreeNode].[type=array].children.[type=TreeNode].items",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -319,7 +320,7 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
          },
          "null"
      ],
-      "doc": "addressDoc",
+     "doc": "addressDoc",
      "default": "null"
     }
   ]
@@ -340,9 +341,9 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert fields[1].description == "amountDoc"
-    assert fields[3].description == "testDoc\nField default value: null"
-    assert fields[4].description == "areaCodeDoc\nField default value: "
-    assert fields[8].description == "addressDoc\nField default value: null"
+    assert fields[3].description == 'testDoc\nField default value: "null"'
+    assert fields[4].description == 'areaCodeDoc\nField default value: ""'
+    assert fields[8].description == 'addressDoc\nField default value: "null"'
 
 
 def test_avro_schema_to_mce_fields_with_nesting_across_records():
@@ -369,12 +370,14 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
-        "[version=2.0].[type=union]",
-        "[version=2.0].[type=union].[type=Address].[type=string].streetAddress",
-        "[version=2.0].[type=union].[type=Address].[type=string].city",
-        "[version=2.0].[type=union].[type=Person].[type=string].firstname",
-        "[version=2.0].[type=union].[type=Person].[type=string].lastname",
-        "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=union]",
+        "[version=2.0].[type=union].[type=Address].unnamed_union",
+        "[version=2.0].[type=union].[type=Address].unnamed_union.[type=string].streetAddress",
+        "[version=2.0].[type=union].[type=Address].unnamed_union.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].unnamed_union",
+        "[version=2.0].[type=union].[type=Person].unnamed_union.[type=string].firstname",
+        "[version=2.0].[type=union].[type=Person].unnamed_union.[type=string].lastname",
+        "[version=2.0].[type=union].[type=Person].unnamed_union.[type=Address].address",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -512,8 +515,10 @@ def test_nested_arrays():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths: List[str] = [
-        "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar",
-        "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=long].a",
+        "[version=2.0].[type=NestedArray].[type=array].ar",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].items",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].items.[type=Foo].items",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].items.[type=Foo].items.[type=long].a",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -545,12 +550,13 @@ def test_map_of_union_of_int_and_record_of_union():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
-        "[version=2.0].[type=MapSample].[type=map].[type=union].aMap",
-        "[version=2.0].[type=MapSample].[type=map].[type=union].[type=int].aMap",
-        "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap",
-        "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].aUnion",
-        "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=string].aUnion",
-        "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=int].aUnion",
+        "[version=2.0].[type=MapSample].[type=map].aMap",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].value",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].[type=int].value",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].[type=Rcd].value",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].[type=Rcd].value.[type=union].aUnion",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].[type=Rcd].value.[type=union].[type=string].aUnion",
+        "[version=2.0].[type=MapSample].[type=map].aMap.[type=union].[type=Rcd].value.[type=union].[type=int].aUnion",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -623,8 +629,10 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
         "[version=2.0].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
-        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
-        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items.[type=Foo].items",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items.[type=Foo].items.[type=long].f",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -690,8 +698,10 @@ def test_key_schema_handling():
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
-        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
-        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items.[type=Foo].items",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].items.[type=Foo].items.[type=long].f",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     for f in fields:
@@ -880,3 +890,134 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     assert fields[8].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
         ["urn:li:glossaryTerm:Address"]
     )
+
+
+@pytest.mark.parametrize(
+    "schema_file, expected_field_paths",
+    [
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/primitive_types.avsc",
+            [
+                "[version=2.0].[type=PrimitiveType].[type=int].intField",
+                "[version=2.0].[type=PrimitiveType].[type=union].intFieldV2",
+                "[version=2.0].[type=PrimitiveType].[type=union].[type=int].intFieldV2",
+                "[version=2.0].[type=PrimitiveType].[type=null].nullField",
+                "[version=2.0].[type=PrimitiveType].[type=union].nullFieldV2",
+                "[version=2.0].[type=PrimitiveType].[type=long].longField",
+                "[version=2.0].[type=PrimitiveType].[type=float].floatField",
+                "[version=2.0].[type=PrimitiveType].[type=double].doubleField",
+                "[version=2.0].[type=PrimitiveType].[type=string].stringField",
+                "[version=2.0].[type=PrimitiveType].[type=boolean].booleanField",
+                "[version=2.0].[type=PrimitiveType].[type=int].nullableIntField",
+                "[version=2.0].[type=PrimitiveType].[type=long].nullableLongField",
+                "[version=2.0].[type=PrimitiveType].[type=string].nullableStringField",
+                "[version=2.0].[type=PrimitiveType].[type=enum].status",
+            ],
+        ),
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/logical_types.avsc",
+            [
+                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalField",
+                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalFieldWithoutScale",
+                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalFieldWithoutPrecisionAndScale",
+                "[version=2.0].[type=LogicalTypes].[type=long].timestampMillisField",
+                "[version=2.0].[type=LogicalTypes].[type=long].timestampMicrosField",
+                "[version=2.0].[type=LogicalTypes].[type=int].dateField",
+                "[version=2.0].[type=LogicalTypes].[type=int].timeMillisField",
+                "[version=2.0].[type=LogicalTypes].[type=long].timeMicrosField",
+                "[version=2.0].[type=LogicalTypes].[type=string].uuidField",
+            ],
+        ),
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/complex_arrays.avsc",
+            [
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfString",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfMap",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfMap.[type=map].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfRecord",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfRecord.[type=ComplexType].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfRecord.[type=ComplexType].items.[type=string].field1",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfRecord.[type=ComplexType].items.[type=int].field2",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfArray",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfArray.[type=array].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfUnion",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfUnion.[type=union].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfUnion.[type=union].[type=string].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfUnion.[type=union].[type=int].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfUnion.[type=union].[type=boolean].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableString",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableString.[type=string].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableRecord",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableRecord.[type=ComplexTypeNullable].items",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableRecord.[type=ComplexTypeNullable].items.[type=string].field1",
+                "[version=2.0].[type=ArrayType].[type=array].arrayOfNullableRecord.[type=ComplexTypeNullable].items.[type=int].field2",
+            ],
+        ),
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/complex_maps.avsc",
+            [
+                "[version=2.0].[type=MapType].[type=map].mapOfString",
+                "[version=2.0].[type=MapType].[type=map].mapOfComplexType",
+                "[version=2.0].[type=MapType].[type=map].mapOfComplexType.[type=ComplexType].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfComplexType.[type=ComplexType].value.[type=string].field1",
+                "[version=2.0].[type=MapType].[type=map].mapOfComplexType.[type=ComplexType].value.[type=int].field2",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableString",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableString.[type=string].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableComplexType",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableComplexType.[type=ComplexTypeNullable].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableComplexType.[type=ComplexTypeNullable].value.[type=string].field1",
+                "[version=2.0].[type=MapType].[type=map].mapOfNullableComplexType.[type=ComplexTypeNullable].value.[type=int].field2",
+                "[version=2.0].[type=MapType].[type=map].mapOfArray",
+                "[version=2.0].[type=MapType].[type=map].mapOfArray.[type=array].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfMap",
+                "[version=2.0].[type=MapType].[type=map].mapOfMap.[type=map].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfUnion",
+                "[version=2.0].[type=MapType].[type=map].mapOfUnion.[type=union].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfUnion.[type=union].[type=string].value",
+                "[version=2.0].[type=MapType].[type=map].mapOfUnion.[type=union].[type=int].value",
+            ],
+        ),
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/complex_structs.avsc",
+            [
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=string].fieldString",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=int].fieldInt",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=boolean].fieldBoolean",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=map].fieldMap",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=NestedRecord].fieldRecord",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=NestedRecord].fieldRecord.[type=string].nestedField1",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=NestedRecord].fieldRecord.[type=int].nestedField2",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=array].fieldArray",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=union].fieldUnion",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=union].[type=string].fieldUnion",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=union].[type=int].fieldUnion",
+                "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=map].fieldNullableMap",
+            ],
+        ),
+        (
+            "../metadata-integration/java/datahub-schematron/lib/src/test/resources/complex_unions.avsc",
+            [
+                "[version=2.0].[type=UnionType].[type=union].fieldUnionNullablePrimitives",
+                "[version=2.0].[type=UnionType].[type=union].[type=string].fieldUnionNullablePrimitives",
+                "[version=2.0].[type=UnionType].[type=union].[type=int].fieldUnionNullablePrimitives",
+                "[version=2.0].[type=UnionType].[type=union].[type=boolean].fieldUnionNullablePrimitives",
+                "[version=2.0].[type=UnionType].[type=union].fieldUnionComplexTypes",
+                "[version=2.0].[type=UnionType].[type=union].[type=NestedRecord].fieldUnionComplexTypes",
+                "[version=2.0].[type=UnionType].[type=union].[type=NestedRecord].fieldUnionComplexTypes.[type=string].nestedField1",
+                "[version=2.0].[type=UnionType].[type=union].[type=NestedRecord].fieldUnionComplexTypes.[type=int].nestedField2",
+                "[version=2.0].[type=UnionType].[type=union].[type=map].fieldUnionComplexTypes",
+                "[version=2.0].[type=UnionType].[type=union].fieldUnionPrimitiveAndComplex",
+                "[version=2.0].[type=UnionType].[type=union].[type=string].fieldUnionPrimitiveAndComplex",
+                "[version=2.0].[type=UnionType].[type=union].[type=ComplexTypeRecord].fieldUnionPrimitiveAndComplex",
+                "[version=2.0].[type=UnionType].[type=union].[type=ComplexTypeRecord].fieldUnionPrimitiveAndComplex.[type=string].complexField1",
+                "[version=2.0].[type=UnionType].[type=union].[type=ComplexTypeRecord].fieldUnionPrimitiveAndComplex.[type=int].complexField2",
+            ],
+        ),
+    ],
+)
+def test_avro_schema_files(schema_file, expected_field_paths):
+    with open(schema_file) as f:
+        schema = f.read()
+        fields = avro_schema_to_mce_fields(schema)
+        assert_field_paths_match(fields, expected_field_paths)
