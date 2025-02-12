@@ -7,6 +7,8 @@ import static com.linkedin.metadata.Constants.DATA_PLATFORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -28,6 +30,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.ownership.OwnershipTypeInfo;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +44,7 @@ public class EntityNameProviderTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)");
   private static final Urn TEST_DATA_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:hive");
   private static final Urn TEST_OWNERSHIP_TYPE_URN = UrnUtils.getUrn("urn:li:ownershipType:test");
+  private static final Urn TEST_STRUCTURED_PROPERTY_URN = UrnUtils.getUrn("urn:li:structuredProperty:test");
 
   private SystemEntityClient entityClient;
   private Authentication systemAuthentication;
@@ -117,6 +121,27 @@ public class EntityNameProviderTest {
       String name =
           entityNameProvider.getName(mock(OperationContext.class), TEST_OWNERSHIP_TYPE_URN);
       Assert.assertEquals(name, "Expected Ownership Type Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
+  @Test
+  public void testGetStructuredPropertyNameExists() {
+    try {
+      Mockito.when(
+                      entityClient.batchGetV2(
+                              any(OperationContext.class),
+                              Mockito.eq(STRUCTURED_PROPERTY_ENTITY_NAME),
+                              Mockito.eq(Set.of(TEST_STRUCTURED_PROPERTY_URN)),
+                              Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))))
+              .thenReturn(
+                      Map.of(
+                              TEST_STRUCTURED_PROPERTY_URN,
+                              getMockStructuredPropertyResponse("Expected Structured Property Name")));
+      String name =
+              entityNameProvider.getName(mock(OperationContext.class), TEST_STRUCTURED_PROPERTY_URN);
+      Assert.assertEquals(name, "Expected Structured Property Name");
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
     }
@@ -286,6 +311,19 @@ public class EntityNameProviderTest {
                     new EnvelopedAspect()
                         .setName(OWNERSHIP_TYPE_INFO_ASPECT_NAME)
                         .setValue(new Aspect(new OwnershipTypeInfo().setName(name).data())))));
+  }
+
+  private EntityResponse getMockStructuredPropertyResponse(String name) {
+    return new EntityResponse()
+            .setEntityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+            .setUrn(TEST_STRUCTURED_PROPERTY_URN)
+            .setAspects(
+                    new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    new EnvelopedAspect()
+                                            .setName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                                            .setValue(new Aspect(new StructuredPropertyDefinition().setDisplayName(name).data())))));
   }
 
   private EntityResponse getMockSubTypesResponse(String name) {

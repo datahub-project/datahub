@@ -74,6 +74,7 @@ import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
+import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -99,7 +100,7 @@ public class ProposalNotificationGeneratorTest {
 
   @Mock private ActorContext mockActorContext;
 
-  @Mock private EventProducer mockEventProducer;
+  @Mock private static EventProducer mockEventProducer;
 
   @Mock private SystemEntityClient mockEntityClient;
 
@@ -111,13 +112,24 @@ public class ProposalNotificationGeneratorTest {
 
   @Mock private FeatureFlags mockFeatureFlags;
 
-  @InjectMocks private ProposalNotificationGenerator proposalNotificationGenerator;
+  private ProposalNotificationGenerator proposalNotificationGenerator;
 
   @Captor private ArgumentCaptor<PlatformEvent> platformEventArgumentCaptor;
 
   @BeforeMethod
-  public void setup() throws Exception {
-    MockitoAnnotations.initMocks(this);
+  public void setup(Method method) throws Exception {
+
+    MockitoAnnotations.openMocks(this);
+
+    proposalNotificationGenerator =
+        new ProposalNotificationGenerator(
+            mockSystemOpContext,
+            mockEventProducer,
+            mockEntityClient,
+            mockGraphClient,
+            mockSettingsService,
+            mockRecipientBuilders,
+            mockFeatureFlags);
 
     // Default stubbing
     when(mockFeatureFlags.isSubscriptionsEnabled()).thenReturn(true);
@@ -145,196 +157,8 @@ public class ProposalNotificationGeneratorTest {
 
     when(mockRecipientBuilders.listBuilders()).thenReturn(Collections.singletonList(mockBuilder));
 
-    // Init entity client for entity name resolution.
-    DatasetProperties datasetProperties = new DatasetProperties();
-    datasetProperties.setQualifiedName("Test Dataset Name");
-    datasetProperties.setName("Test Dataset Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.DATASET_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_DATASET_URN)),
-            eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_DATASET_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.DATASET_ENTITY_NAME)
-                    .setUrn(TEST_DATASET_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                DATASET_PROPERTIES_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(datasetProperties.data())))))));
-
-    TagProperties tagProperties = new TagProperties();
-    tagProperties.setName("Test Tag Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.TAG_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_TAG_URN)),
-            eq(ImmutableSet.of(TAG_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_TAG_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.TAG_ENTITY_NAME)
-                    .setUrn(TEST_TAG_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                TAG_PROPERTIES_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(tagProperties.data())))))));
-
-    DomainProperties domainProperties = new DomainProperties();
-    domainProperties.setName("Test Domain Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.DOMAIN_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_DOMAIN_URN)),
-            eq(ImmutableSet.of(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_DOMAIN_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.DOMAIN_ENTITY_NAME)
-                    .setUrn(TEST_DOMAIN_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                DOMAIN_PROPERTIES_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(domainProperties.data())))))));
-
-    GlossaryTermInfo glossaryTermInfo = new GlossaryTermInfo();
-    glossaryTermInfo.setName("Test Term Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_GLOSSARY_TERM_URN)),
-            eq(ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_GLOSSARY_TERM_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.GLOSSARY_TERM_ENTITY_NAME)
-                    .setUrn(TEST_GLOSSARY_TERM_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                GLOSSARY_TERM_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(glossaryTermInfo.data())))))));
-
-    StructuredPropertyDefinition structuredPropertyDefinition = new StructuredPropertyDefinition();
-    structuredPropertyDefinition.setDisplayName("Test Property Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.STRUCTURED_PROPERTY_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_STRUCTURED_PROPERTY_URN)),
-            eq(ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_STRUCTURED_PROPERTY_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
-                    .setUrn(TEST_STRUCTURED_PROPERTY_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(structuredPropertyDefinition.data())))))));
-
-    OwnershipTypeInfo ownershipTypeInfo = new OwnershipTypeInfo();
-    ownershipTypeInfo.setName("Test Ownership Type Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_OWNERSHIP_TYPE_URN)),
-            eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME))))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_OWNERSHIP_TYPE_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.OWNERSHIP_TYPE_ENTITY_NAME)
-                    .setUrn(TEST_OWNERSHIP_TYPE_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                OWNERSHIP_TYPE_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(ownershipTypeInfo.data())))))));
-
-    CorpUserInfo ownerCorpUserInfo = new CorpUserInfo();
-    ownerCorpUserInfo.setDisplayName("Test User Owner Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.CORP_USER_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_USER_OWNER_URN)),
-            any(Set.class)))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_USER_OWNER_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
-                    .setUrn(TEST_USER_OWNER_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                CORP_USER_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(ownerCorpUserInfo.data())))))));
-
-    CorpUserInfo creatorCorpUserInfo = new CorpUserInfo();
-    creatorCorpUserInfo.setDisplayName("Test Creator Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.CORP_USER_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_USER_CREATOR_URN)),
-            any(Set.class)))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_USER_CREATOR_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
-                    .setUrn(TEST_USER_CREATOR_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                CORP_USER_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(creatorCorpUserInfo.data())))))));
-
-    CorpGroupInfo ownerCorpGroupInfo = new CorpGroupInfo();
-    ownerCorpGroupInfo.setDisplayName("Test Group Owner Name");
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Constants.CORP_GROUP_ENTITY_NAME),
-            eq(ImmutableSet.of(TEST_GROUP_OWNER_URN)),
-            any(Set.class)))
-        .thenReturn(
-            ImmutableMap.of(
-                TEST_GROUP_OWNER_URN,
-                new EntityResponse()
-                    .setEntityName(Constants.CORP_GROUP_ENTITY_NAME)
-                    .setUrn(TEST_GROUP_OWNER_URN)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            Collections.singletonMap(
-                                CORP_GROUP_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(ownerCorpGroupInfo.data())))))));
+    // init entity client for entity name resolution
+    initMockEntityClient();
 
     // Typical OperationContext stubbing
     when(mockSystemOpContext.getActorContext()).thenReturn(mockActorContext);
@@ -564,11 +388,11 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
     List<NotificationRecipient> recipientList = Collections.singletonList(mockRecipient);
 
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
 
     // Force the buildRecipients call to return a non-empty set
     doReturn(new ArrayList<>(recipientList))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -579,7 +403,7 @@ public class ProposalNotificationGeneratorTest {
 
     Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:someActor");
 
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(actorUrn));
 
     // Now we expect a NotificationRequest to be produced
@@ -654,10 +478,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
     List<NotificationRecipient> recipientList = Collections.singletonList(mockRecipient);
 
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
 
     doReturn(new ArrayList<>(recipientList))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -668,7 +492,7 @@ public class ProposalNotificationGeneratorTest {
 
     Urn actorUrn = TEST_USER_CREATOR_URN;
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(actorUrn));
 
     verify(mockEventProducer, atLeast(1))
@@ -711,8 +535,6 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -721,8 +543,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -732,7 +556,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -789,7 +613,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
 
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
@@ -799,8 +622,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -809,7 +634,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -863,8 +688,6 @@ public class ProposalNotificationGeneratorTest {
     info.setSubResource("testField");
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -873,8 +696,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -884,7 +709,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -945,7 +770,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
 
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
@@ -955,8 +779,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -965,7 +791,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1020,8 +846,6 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1030,8 +854,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1041,7 +867,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1099,8 +925,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1109,8 +933,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1119,7 +945,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1174,8 +1000,6 @@ public class ProposalNotificationGeneratorTest {
     info.setSubResource("testField");
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1184,8 +1008,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1195,7 +1021,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1257,8 +1083,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1267,8 +1091,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1277,7 +1103,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1331,8 +1157,6 @@ public class ProposalNotificationGeneratorTest {
                     .setParentNode(parentNodeUrn)));
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1341,8 +1165,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1352,7 +1178,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1401,8 +1227,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1411,8 +1235,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1421,7 +1247,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1465,8 +1291,6 @@ public class ProposalNotificationGeneratorTest {
                     .setParentNode(parentNodeUrn)));
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1475,8 +1299,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1486,7 +1312,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1535,8 +1361,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1545,8 +1369,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1555,7 +1381,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1605,8 +1431,6 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1615,8 +1439,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1626,7 +1452,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1689,8 +1515,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1699,8 +1523,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1709,7 +1535,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1770,8 +1596,6 @@ public class ProposalNotificationGeneratorTest {
     info.setSubResource("testField");
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1780,8 +1604,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1791,7 +1617,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1858,8 +1684,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1868,8 +1692,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -1878,7 +1704,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -1934,8 +1760,6 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -1944,8 +1768,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -1955,7 +1781,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -2012,8 +1838,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -2022,8 +1846,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -2032,7 +1858,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -2097,8 +1923,6 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -2107,8 +1931,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.NEW_PROPOSAL),
@@ -2118,7 +1944,7 @@ public class ProposalNotificationGeneratorTest {
             any());
 
     // Trigger
-    spyGenerator.generateNewProposalNotifications(
+    localSpy.generateNewProposalNotifications(
         actionRequestUrn, info, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -2194,8 +2020,6 @@ public class ProposalNotificationGeneratorTest {
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
 
     // We'll ensure that at least one recipient is generated
-    ProposalNotificationGenerator spyGenerator = Mockito.spy(proposalNotificationGenerator);
-
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
 
     NotificationRecipient mockRecipient = new NotificationRecipient();
@@ -2204,8 +2028,10 @@ public class ProposalNotificationGeneratorTest {
     mockRecipient.setType(NotificationRecipientType.EMAIL);
     mockRecipient.setOrigin(NotificationRecipientOriginType.ACTOR_NOTIFICATION);
 
+    ProposalNotificationGenerator localSpy = Mockito.spy(proposalNotificationGenerator);
+
     doReturn(Collections.singletonList(mockRecipient))
-        .when(spyGenerator)
+        .when(localSpy)
         .buildRecipients(
             any(),
             eq(NotificationScenarioType.PROPOSAL_STATUS_CHANGE),
@@ -2214,7 +2040,7 @@ public class ProposalNotificationGeneratorTest {
             any(),
             any());
 
-    spyGenerator.generateUpdatedProposalNotifications(
+    localSpy.generateUpdatedProposalNotifications(
         actionRequestUrn, info, newStatus, new AuditStamp().setActor(TEST_USER_CREATOR_URN));
 
     // Capture
@@ -2256,6 +2082,199 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(
         templateParams.get("context"),
         "{\"owners\":[{\"owner\":\"urn:li:corpuser:testUser\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"TECHNICAL_OWNER\"},{\"owner\":\"urn:li:corpGroup:testGroup\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"BUSINESS_OWNER\"}]}");
+  }
+
+  private void initMockEntityClient() throws Exception {
+    // Init entity client for entity name resolution.
+    DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setQualifiedName("Test Dataset Name");
+    datasetProperties.setName("Test Dataset Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.DATASET_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_DATASET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(TEST_DATASET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                DATASET_PROPERTIES_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(datasetProperties.data())))))));
+
+    TagProperties tagProperties = new TagProperties();
+    tagProperties.setName("Test Tag Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.TAG_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_TAG_URN)),
+            eq(ImmutableSet.of(TAG_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_TAG_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.TAG_ENTITY_NAME)
+                    .setUrn(TEST_TAG_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                TAG_PROPERTIES_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(tagProperties.data())))))));
+
+    DomainProperties domainProperties = new DomainProperties();
+    domainProperties.setName("Test Domain Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.DOMAIN_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_DOMAIN_URN)),
+            eq(ImmutableSet.of(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_DOMAIN_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.DOMAIN_ENTITY_NAME)
+                    .setUrn(TEST_DOMAIN_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                DOMAIN_PROPERTIES_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(domainProperties.data())))))));
+
+    GlossaryTermInfo glossaryTermInfo = new GlossaryTermInfo();
+    glossaryTermInfo.setName("Test Term Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_GLOSSARY_TERM_URN)),
+            eq(ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_GLOSSARY_TERM_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.GLOSSARY_TERM_ENTITY_NAME)
+                    .setUrn(TEST_GLOSSARY_TERM_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                GLOSSARY_TERM_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(glossaryTermInfo.data())))))));
+
+    StructuredPropertyDefinition structuredPropertyDefinition = new StructuredPropertyDefinition();
+    structuredPropertyDefinition.setDisplayName("Test Property Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.STRUCTURED_PROPERTY_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_STRUCTURED_PROPERTY_URN)),
+            eq(ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_STRUCTURED_PROPERTY_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
+                    .setUrn(TEST_STRUCTURED_PROPERTY_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(structuredPropertyDefinition.data())))))));
+
+    OwnershipTypeInfo ownershipTypeInfo = new OwnershipTypeInfo();
+    ownershipTypeInfo.setName("Test Ownership Type Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_OWNERSHIP_TYPE_URN)),
+            eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_OWNERSHIP_TYPE_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.OWNERSHIP_TYPE_ENTITY_NAME)
+                    .setUrn(TEST_OWNERSHIP_TYPE_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                OWNERSHIP_TYPE_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(ownershipTypeInfo.data())))))));
+
+    CorpUserInfo ownerCorpUserInfo = new CorpUserInfo();
+    ownerCorpUserInfo.setDisplayName("Test User Owner Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_USER_OWNER_URN)),
+            any(Set.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_USER_OWNER_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(TEST_USER_OWNER_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                CORP_USER_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(ownerCorpUserInfo.data())))))));
+
+    CorpUserInfo creatorCorpUserInfo = new CorpUserInfo();
+    creatorCorpUserInfo.setDisplayName("Test Creator Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_USER_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_USER_CREATOR_URN)),
+            any(Set.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_USER_CREATOR_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(TEST_USER_CREATOR_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                CORP_USER_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(creatorCorpUserInfo.data())))))));
+
+    CorpGroupInfo ownerCorpGroupInfo = new CorpGroupInfo();
+    ownerCorpGroupInfo.setDisplayName("Test Group Owner Name");
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Constants.CORP_GROUP_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_GROUP_OWNER_URN)),
+            any(Set.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_GROUP_OWNER_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_GROUP_ENTITY_NAME)
+                    .setUrn(TEST_GROUP_OWNER_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            Collections.singletonMap(
+                                CORP_GROUP_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(ownerCorpGroupInfo.data())))))));
   }
 
   private String urlEncode(Urn urn) {

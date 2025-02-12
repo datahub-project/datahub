@@ -354,6 +354,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         new NotificationRecipientsGeneratorExtraContext();
     context.setOriginalAspect(info);
 
+    System.out.println("Starting method call");
+
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
@@ -363,6 +365,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
                 null,
                 actorUrn,
                 context));
+
+    System.out.println("Post method call");
 
     final Urn entityUrn = info.hasResource() ? UrnUtils.getUrn(info.getResource()) : null;
 
@@ -411,6 +415,11 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         String.format(
             "Broadcasting new proposal change for entity %s, action request %s...",
             entityUrn, urn));
+
+    System.out.println("emitter method call");
+    System.out.println(
+        String.format("Here is the REAL event producer: %s", _eventProducer.hashCode()));
+
     sendNotificationRequest(notificationRequest);
   }
 
@@ -493,6 +502,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         String.format(
             "Broadcasting proposal status change for entity %s, action request %s...",
             entityUrn, urn));
+
     sendNotificationRequest(notificationRequest);
   }
 
