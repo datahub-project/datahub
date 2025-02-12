@@ -2,8 +2,8 @@ from pyspark.sql import SparkSession
 import os
 from urllib.parse import urlparse
 import pytest
-from datahub.cli import cli_utils, env_utils, iceberg_cli
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.cli import cli_utils, iceberg_cli
+from datahub.ingestion.graph.client import get_default_graph
 
 
 def get_gms_url():
@@ -48,9 +48,7 @@ def give_all_permissions(username, policy_name):
         """
     variables = {"user": f"urn:li:corpuser:{username}", "policyName": policy_name}
 
-    response = client.execute_graphql(
-        query, variables=variables, format_exception=False
-    )
+    client.execute_graphql(query, variables=variables, format_exception=False)
 
 
 @pytest.fixture
@@ -163,7 +161,7 @@ def _test_basic_table_ops(spark_session):
     try:
         spark_session.sql("select * from test_table")
         assert False, "Table must not exist"
-    except:
+    except Exception:
         pass  # Exception is expected
 
     # TODO: Add dataset verification
@@ -181,7 +179,7 @@ def _test_basic_view_ops(spark_session):
     try:
         spark_session.sql("SELECT * FROM test_view")
         assert False, "test_view must not exist"
-    except:
+    except Exception:
         pass  # Exception is expected
 
     spark_session.sql("drop table test_table")
@@ -196,7 +194,7 @@ def _test_rename_ops(spark_session):
     try:
         spark_session.sql("SELECT * FROM test_table")
         assert False, "test_table must not exist"
-    except:
+    except Exception:
         pass  # Exception is expected
 
     spark_session.sql("insert into test_table_renamed values(2, 'bar' ) ")
