@@ -2190,8 +2190,10 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
-                logger.warning(f"Skipping Custom SQL table {csql_id}")
-                return
+                logger.warning(
+                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                )
+                continue
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
