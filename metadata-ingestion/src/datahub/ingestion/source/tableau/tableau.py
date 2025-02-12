@@ -2866,7 +2866,7 @@ class TableauSiteSource:
         ):
             if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
                 logger.warning(
-                    "Skipping table due to filtered out published datasource"
+                    f"Skipping table {tableau_table[c.ID]} due to filtered out published datasource"
                 )
                 continue
             database_table = self.database_tables[
