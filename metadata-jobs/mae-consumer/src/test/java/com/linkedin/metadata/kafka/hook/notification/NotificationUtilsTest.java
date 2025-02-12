@@ -111,14 +111,14 @@ public class NotificationUtilsTest {
 
   @Test
   public void testGenerateEntityPaths() {
-    final Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,Test Name,PROD)");
+    final Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,Test Name,PROD)");
     final Urn dashboardUrn = UrnUtils.getUrn("urn:li:dashboard:(airflow,test)");
     Assert.assertEquals(
-            NotificationUtils.generateEntityPaths(List.of(datasetUrn, dashboardUrn)),
-            ImmutableList.of(
-              "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29",
-              "/dashboard/urn%3Ali%dashboard%3A%28airflow%2Ctest%29"
-            ));
+        NotificationUtils.generateEntityPaths(List.of(datasetUrn, dashboardUrn)),
+        ImmutableList.of(
+            "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29",
+            "/dashboard/urn%3Ali%dashboard%3A%28airflow%2Ctest%29"));
   }
 
   @Test

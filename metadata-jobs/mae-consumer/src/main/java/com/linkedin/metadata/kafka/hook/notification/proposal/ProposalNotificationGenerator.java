@@ -5,6 +5,7 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
@@ -12,9 +13,9 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
-import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -108,13 +109,11 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
     if (NotificationScenarioType.NEW_PROPOSAL.equals(type)) {
       // Fetch and add assignee recipients, depending on settings of course.
-      return buildAssigneeRecipientsForNewProposal(
-          systemOpContext, entityUrn, extraContext);
+      return buildAssigneeRecipientsForNewProposal(systemOpContext, entityUrn, extraContext);
     }
     if (NotificationScenarioType.PROPOSAL_STATUS_CHANGE.equals(type)) {
       // Fetch and add proposer recipient, depending on settings of course.
-      return buildProposerRecipientForCompletedProposal(
-          systemOpContext, entityUrn, extraContext);
+      return buildProposerRecipientForCompletedProposal(systemOpContext, entityUrn, extraContext);
     }
     return null;
   }
@@ -154,7 +153,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final List<NotificationRecipient> recipients = new ArrayList<>();
     recipients.addAll(
         buildActorRecipients(opContext, allAssignedActors, NotificationScenarioType.NEW_PROPOSAL));
-    return null;
+    return recipients;
   }
 
   private List<NotificationRecipient> buildActorRecipients(
@@ -317,7 +316,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         || AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL.equals(info.getType())
         || AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals((info.getType()))
-        || AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals((info.getType()));
+        || AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(
+            (info.getType()));
   }
 
   private boolean isEligibleForProcessingActionRequestStatus(final ActionRequestStatus status) {
@@ -380,7 +380,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     final String entityName = getEntityNameFromProposal(info);
     final String entityType = getEntityTypeNameFromProposal(info);
     final String entityPath = entityUrn != null ? generateEntityPath(entityUrn) : null;
-    final String entityPlatform = entityUrn != null ?_entityNameProvider.getPlatformName(systemOpContext, entityUrn) : null;
+    final String entityPlatform =
+        entityUrn != null ? _entityNameProvider.getPlatformName(systemOpContext, entityUrn) : null;
     final String actorName = _entityNameProvider.getName(systemOpContext, auditStamp.getActor());
     templateParams.put("entityName", entityName);
     templateParams.put("entityType", entityType);
@@ -400,6 +401,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
     }
+    addContextToTemplateParams(templateParams, info);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
@@ -427,7 +429,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Pass down context required to build recipients.
     NotificationRecipientsGeneratorExtraContext context =
-            new NotificationRecipientsGeneratorExtraContext();
+        new NotificationRecipientsGeneratorExtraContext();
     context.setOriginalAspect(info);
 
     Set<NotificationRecipient> recipients =
@@ -446,7 +448,8 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
     final String entityName = getEntityNameFromProposal(info);
     final String entityType = getEntityTypeNameFromProposal(info);
-    final String entityPlatform = entityUrn != null ?_entityNameProvider.getPlatformName(systemOpContext, entityUrn) : null;
+    final String entityPlatform =
+        entityUrn != null ? _entityNameProvider.getPlatformName(systemOpContext, entityUrn) : null;
     final String entityPath = entityUrn != null ? generateEntityPath(entityUrn) : null;
     final String actorName = _entityNameProvider.getName(systemOpContext, auditStamp.getActor());
     final String subResource = info.getSubResource();
@@ -477,6 +480,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
     }
+    addContextToTemplateParams(templateParams, info);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
@@ -492,12 +496,28 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     sendNotificationRequest(notificationRequest);
   }
 
+  /** Adds proposal type specific context to the template parameters. */
+  private void addContextToTemplateParams(
+      @Nonnull final Map<String, String> templateParams, @Nonnull final ActionRequestInfo info) {
+    if (AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL.equals(info.getType())
+        && info.getParams().hasOwnerProposal()) {
+      templateParams.put("context", toSerializedJsonObject(info.getParams().getOwnerProposal()));
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL.equals(
+            info.getType())
+        && info.getParams().hasStructuredPropertyProposal()) {
+      templateParams.put(
+          "context", toSerializedJsonObject(info.getParams().getStructuredPropertyProposal()));
+    }
+  }
+
   private String getEntityNameFromProposal(@Nonnull final ActionRequestInfo info) {
     if (info.getResource() != null) {
       return _entityNameProvider.getName(systemOpContext, UrnUtils.getUrn(info.getResource()));
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(info.getType())) {
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(
+        info.getType())) {
       return info.getParams().getCreateGlossaryTermProposal().getName();
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(info.getType())) {
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(
+        info.getType())) {
       return info.getParams().getCreateGlossaryNodeProposal().getName();
     } else {
       throw new IllegalArgumentException(
@@ -508,10 +528,12 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   private String getEntityTypeNameFromProposal(@Nonnull final ActionRequestInfo info) {
     if (info.getResource() != null) {
       return _entityNameProvider.getTypeName(systemOpContext, UrnUtils.getUrn(info.getResource()));
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(info.getType())) {
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(
+        info.getType())) {
       return "Glossary Term";
-    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(info.getType())) {
-      return "Glossary Node";
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(
+        info.getType())) {
+      return "Glossary Term Group";
     } else {
       throw new IllegalArgumentException(
           String.format("Unsupported action request type %s provided!", info.getType()));
@@ -602,7 +624,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       case AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL:
         return "Owner(s)";
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL:
-        return "Glossary Node";
+        return "Glossary Term Group";
       case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
         return "Glossary Term";
       default:
@@ -623,23 +645,37 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     switch (info.getType()) {
       case AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL:
         // Resolve and present the name of the tag.
-        return info.getParams().getTagProposal().hasTags() && !info.getParams().getTagProposal().getTags().isEmpty()
+        return info.getParams().getTagProposal().hasTags()
+                && !info.getParams().getTagProposal().getTags().isEmpty()
             ? info.getParams().getTagProposal().getTags()
             : Collections.singletonList(info.getParams().getTagProposal().getTag());
       case AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL:
         // Resolve and present the name of the term.
-        return info.getParams().getGlossaryTermProposal().hasGlossaryTerms() && !info.getParams().getGlossaryTermProposal().getGlossaryTerms().isEmpty()
+        return info.getParams().getGlossaryTermProposal().hasGlossaryTerms()
+                && !info.getParams().getGlossaryTermProposal().getGlossaryTerms().isEmpty()
             ? info.getParams().getGlossaryTermProposal().getGlossaryTerms()
-            : Collections.singletonList(info.getParams().getGlossaryTermProposal().getGlossaryTerm());
+            : Collections.singletonList(
+                info.getParams().getGlossaryTermProposal().getGlossaryTerm());
       case AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PROPOSAL:
-        return info.getParams().getOwnerProposal().getOwners().stream().map(owner -> owner.getOwner()).collect(Collectors.toList());
+        return info.getParams().getOwnerProposal().getOwners().stream()
+            .map(owner -> owner.getOwner())
+            .collect(Collectors.toList());
       case AcrylConstants.ACTION_REQUEST_TYPE_DOMAIN_PROPOSAL:
         return info.getParams().getDomainProposal().getDomains();
       case AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
-        return info.getParams().getStructuredPropertyProposal().getStructuredPropertyValues().stream().map(property -> property.getPropertyUrn()).collect(Collectors.toList());
+        return info
+            .getParams()
+            .getStructuredPropertyProposal()
+            .getStructuredPropertyValues()
+            .stream()
+            .map(property -> property.getPropertyUrn())
+            .collect(Collectors.toList());
+      case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL:
+      case AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
+        return Collections.emptyList();
       default:
         throw new IllegalArgumentException(
-                String.format("Unsupported action request type %s provided!", info.getType()));
+            String.format("Unsupported action request type %s provided!", info.getType()));
     }
   }
 
@@ -664,6 +700,16 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     } catch (Exception e) {
       log.error("Failed to serialize list to JSON array", e);
       return "[]";
+    }
+  }
+
+  private String toSerializedJsonObject(@Nonnull final RecordTemplate template) {
+    // Use jackson to serialize the list to a JSON array.
+    try {
+      return RecordUtils.toJsonString(template);
+    } catch (Exception e) {
+      log.error("Failed to serialize list to JSON object", e);
+      return "{}";
     }
   }
 }

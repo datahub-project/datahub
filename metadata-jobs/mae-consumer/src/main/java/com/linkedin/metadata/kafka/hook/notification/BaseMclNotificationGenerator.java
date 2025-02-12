@@ -7,6 +7,7 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -56,8 +57,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.NotImplementedException;
 
@@ -144,7 +143,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
         opContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn, null);
   }
 
-  protected List<NotificationRecipient> buildRecipients(
+  @VisibleForTesting
+  public List<NotificationRecipient> buildRecipients(
       @Nonnull OperationContext opContext,
       @Nonnull final NotificationScenarioType notificationScenarioType,
       @Nonnull final Urn entityUrn,

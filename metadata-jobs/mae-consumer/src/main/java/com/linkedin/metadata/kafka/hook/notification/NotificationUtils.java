@@ -66,6 +66,9 @@ public class NotificationUtils {
         return String.format("/user/%s", encodedEntityUrn);
       case Constants.CORP_GROUP_ENTITY_NAME:
         return String.format("/group/%s", encodedEntityUrn);
+      case Constants.STRUCTURED_PROPERTY_ENTITY_NAME:
+        // Currently, there are no URL for specific properties.
+        return "/structured-properties";
       default:
         return "";
     }
@@ -73,7 +76,9 @@ public class NotificationUtils {
 
   @Nonnull
   public static List<String> generateEntityPaths(final List<Urn> entityUrns) {
-    return entityUrns.stream().map(NotificationUtils::generateEntityPath).collect(Collectors.toList());
+    return entityUrns.stream()
+        .map(NotificationUtils::generateEntityPath)
+        .collect(Collectors.toList());
   }
 
   @Nonnull
