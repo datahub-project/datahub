@@ -1,11 +1,20 @@
 import { DateInterval, TimeRange } from '@src/types.generated';
+import { LookbackWindow } from '../../lookbackWindows';
 
-export const GRAPH_LOOKBACK_WINDOWS = {
-    WEEK: { text: 'Last Week', windowSize: { interval: DateInterval.Week, count: 1 } },
-    MONTH: { text: 'Last 30 Days', windowSize: { interval: DateInterval.Day, count: 30 } },
-    QUARTER: { text: 'Last 3 Months', windowSize: { interval: DateInterval.Month, count: 3 } },
-    HALF_OF_YEAR: { text: 'Last 6 Months', windowSize: { interval: DateInterval.Month, count: 6 } },
-    YEAR: { text: 'Last Year', windowSize: { interval: DateInterval.Year, count: 1 } },
+export enum LookbackWindowType {
+    Week = 'WEEK',
+    Month = 'MONTH',
+    Quarter = 'QUARTER',
+    HalfOfYear = 'HALF_OF_YEAR',
+    Year = 'YEAR',
+}
+
+export const GRAPH_LOOKBACK_WINDOWS: { [key in LookbackWindowType]: LookbackWindow } = {
+    [LookbackWindowType.Week]: { text: 'Last Week', windowSize: { interval: DateInterval.Week, count: 1 } },
+    [LookbackWindowType.Month]: { text: 'Last 30 Days', windowSize: { interval: DateInterval.Day, count: 30 } },
+    [LookbackWindowType.Quarter]: { text: 'Last 3 Months', windowSize: { interval: DateInterval.Month, count: 3 } },
+    [LookbackWindowType.HalfOfYear]: { text: 'Last 6 Months', windowSize: { interval: DateInterval.Month, count: 6 } },
+    [LookbackWindowType.Year]: { text: 'Last Year', windowSize: { interval: DateInterval.Year, count: 1 } },
 };
 
 export const GRAPH_LOOKBACK_WINDOWS_OPTIONS = [

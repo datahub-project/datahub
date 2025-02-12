@@ -1,0 +1,4 @@
+/* Read the comment  in ./LineChart.tsx */
+.visx-tooltip {
+    z-index: 1000;
+}

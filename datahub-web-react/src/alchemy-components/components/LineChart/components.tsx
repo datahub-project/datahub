@@ -1,9 +1,8 @@
 import { colors } from '@src/alchemy-components/theme';
-import React, { useEffect, useRef } from 'react';
+import React, { forwardRef, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { GlyphProps } from '@visx/xychart';
 import { GLYPH_DROP_SHADOW_FILTER } from './constants';
-import { Datum, GlyphPropsWithRef } from './types';
+import { GlyphProps } from './types';
 
 export const ChartWrapper = styled.div`
     width: 100%;
@@ -12,7 +11,7 @@ export const ChartWrapper = styled.div`
     cursor: pointer;
 `;
 
-export const Glyph = ({ x, y }: GlyphPropsWithRef): React.ReactElement => {
+export const Glyph = ({ x, y }: GlyphProps): React.ReactElement => {
     return (
         <g>
             <circle cx={x} cy={y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
@@ -21,7 +20,15 @@ export const Glyph = ({ x, y }: GlyphPropsWithRef): React.ReactElement => {
     );
 };
 
-export const TooltipGlyph = (props: GlyphProps<Datum>): React.ReactElement => {
+export const GlyphWithRef = forwardRef<SVGGElement, GlyphProps>((props, ref): React.ReactElement => {
+    return (
+        <g ref={ref}>
+            <Glyph {...props} />
+        </g>
+    );
+});
+
+export const TooltipGlyph = (props: GlyphProps): React.ReactElement => {
     const ref = useRef<SVGGElement>(null);
 
     // FYI: Change size of parent SVG to prevent showing window's horizontal scrolling
@@ -37,5 +44,5 @@ export const TooltipGlyph = (props: GlyphProps<Datum>): React.ReactElement => {
         }
     }, [ref]);
 
-    return <Glyph {...props} ref={ref} />;
+    return <GlyphWithRef {...props} ref={ref} />;
 };

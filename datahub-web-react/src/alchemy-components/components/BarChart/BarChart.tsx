@@ -96,7 +96,7 @@ export function BarChart({
     const yAccessor: YAccessor = (datum) => datum.y;
 
     const maxDataValue = useMaxDataValue(data, yAccessor);
-    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
+    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
     const adaptedYAccessor = useAdaptYAccessorToZeroValue(yAccessor, maxDataValue, minYForZeroData);
 
     const accessors = { xAccessor, yAccessor: adaptedYAccessor };
