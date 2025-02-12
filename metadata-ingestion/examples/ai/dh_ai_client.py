@@ -298,7 +298,7 @@ class DatahubAIClient:
         run_result: Optional[str] = None,
         start_timestamp: Optional[int] = None,
         end_timestamp: Optional[int] = None,
-        **kwargs: Dict[str, Any]
+        **kwargs: Dict[str, Any],
     ) -> str:
         """Create a training job with properties and events."""
         dpi_urn = f"urn:li:dataProcessInstance:{run_id}"
