@@ -31,7 +31,7 @@ export default function DataHubTitle() {
             .join(' | ') ||
         globalSettings?.visualSettings?.customOrgName ||
         config?.visualConfig?.appTitle ||
-        theme?.content.title;
+        theme?.content?.title;
 
     if (!title) return null;
     return (

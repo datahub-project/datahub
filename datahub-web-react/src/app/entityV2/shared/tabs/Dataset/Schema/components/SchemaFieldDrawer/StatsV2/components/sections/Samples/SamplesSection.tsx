@@ -20,7 +20,7 @@ export default function SamplesSection() {
     const [showAllSamples, setShowAllSamples] = useState<boolean>(false);
     const [selectedSample, setSelectedSample] = useState<string | null>(null);
 
-    const fieldType = properties?.expandedField.type;
+    const fieldType = properties?.expandedField?.type;
     const samples = useMemo(() => properties?.fieldProfile?.sampleValues || [], [properties]);
     const numberOfHiddenSampleValues = useMemo(() => samples.length - DEFAULT_MAX_SAMPLES_FOR_PREVIEW_TABLE, [samples]);
 

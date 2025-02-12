@@ -101,7 +101,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, mlFeature) => {
-                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents.total;
+                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
