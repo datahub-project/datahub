@@ -2636,7 +2636,7 @@ class TableauSiteSource:
             not is_embedded_ds
             and self._get_published_datasource_project_luid(datasource) is None
         ):
-            logger.info(
+            logger.warning(
                 f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
             )
             return
