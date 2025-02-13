@@ -36,7 +36,10 @@ public class SystemMetadataUtils {
           QUERY_PROPERTIES_ASPECT_NAME,
           PLATFORM_RESOURCE_INFO_ASPECT_NAME,
           SIBLINGS_ASPECT_NAME,
-          GLOSSARY_TERM_INFO_ASPECT_NAME);
+          GLOSSARY_TERM_INFO_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          DATASET_PROFILE_ASPECT_NAME);
 
   private SystemMetadataUtils() {}
 
