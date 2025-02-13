@@ -1,3 +1,4 @@
+import re
 from typing import no_type_check
 from unittest.mock import MagicMock
 
@@ -54,12 +55,9 @@ def test_get_avro_schema_for_sqlalchemy_array_column():
         inspector=inspector_magic_mock,
     )
     assert len(schema_fields) == 1
-    assert (
-        schema_fields[0].fieldPath
-        == "[version=2.0].[type=struct].[type=array].[type=float].test"
-    )
+    assert schema_fields[0].fieldPath == "[version=2.0].[type=struct].[type=array].test"
     assert schema_fields[0].type.type == ArrayTypeClass(nestedType=["float"])
-    assert schema_fields[0].nativeDataType == "array<FLOAT>"
+    assert schema_fields[0].nativeDataType == "array(FLOAT)"
 
 
 def test_get_avro_schema_for_sqlalchemy_map_column():
@@ -72,14 +70,11 @@ def test_get_avro_schema_for_sqlalchemy_map_column():
         inspector=inspector_magic_mock,
     )
     assert len(schema_fields) == 1
-    assert (
-        schema_fields[0].fieldPath
-        == "[version=2.0].[type=struct].[type=map].[type=boolean].test"
-    )
+    assert schema_fields[0].fieldPath == "[version=2.0].[type=struct].[type=map].test"
     assert schema_fields[0].type.type == MapTypeClass(
         keyType="string", valueType="boolean"
     )
-    assert schema_fields[0].nativeDataType == "MapType(String(), BOOLEAN())"
+    assert schema_fields[0].nativeDataType == "map<string,BOOLEAN>"
 
 
 def test_get_avro_schema_for_sqlalchemy_struct_column() -> None:
@@ -96,7 +91,7 @@ def test_get_avro_schema_for_sqlalchemy_struct_column() -> None:
         schema_fields[0].fieldPath == "[version=2.0].[type=struct].[type=struct].test"
     )
     assert schema_fields[0].type.type == RecordTypeClass()
-    assert schema_fields[0].nativeDataType == "STRUCT<test INT64>"
+    assert re.match(r"__struct_[a-f0-9]{32}", schema_fields[0].nativeDataType)
 
     assert (
         schema_fields[1].fieldPath

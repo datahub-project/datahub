@@ -18,7 +18,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -35,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -52,7 +52,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -71,7 +71,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -88,7 +88,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -152,24 +152,37 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
                                             "nestedType": [
-                                                "record"
+                                                "__struct_9f848d57489d487bb12a5d0e92e3417c"
                                             ]
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
+                                "nativeDataType": "array(struct<name:string,position:array<double>,location:array<double>>)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "__struct_9f848d57489d487bb12a5d0e92e3417c",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<name:string,position:array<double>,location:array<double>>\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=string].name",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -182,7 +195,7 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=array].position",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -193,13 +206,13 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<double>",
+                                "nativeDataType": "array(double)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=array].location",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -210,7 +223,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<double>",
+                                "nativeDataType": "array(double)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
@@ -243,7 +256,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -262,7 +275,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -279,7 +292,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -301,7 +314,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -418,7 +431,7 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
-                                "nullable": true,
+                                "nullable": false,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -457,7 +470,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -476,7 +489,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -493,7 +506,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -515,24 +528,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "statefulpipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -549,7 +545,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-tyhyu0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }

@@ -382,21 +382,31 @@ def test_iceberg_map_to_schema_field(
         iceberg_source_instance = with_iceberg_source()
         schema = Schema(map_column)
         schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+
         # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
-        # The first field will be the array.
+        for schema_field in schema_fields:
+            print(schema_field.fieldPath)
         assert (
-            len(schema_fields) == 3
-        ), f"Expected 3 fields, but got {len(schema_fields)}"
+            len(schema_fields) == 4
+        ), f"Expected 4 fields, but got {len(schema_fields)}"
+        # The first field will be the array.
         assert_field(
             schema_fields[0], map_column.doc, map_column.optional, ArrayTypeClass
         )
-
-        # The second field will be the key type
-        assert_field(schema_fields[1], None, False, expected_map_type)
-
-        # The third field will be the value type
+        # The second field will be the struct
         assert_field(
-            schema_fields[2],
+            schema_fields[1],
+            map_column.doc + "\nField default value: null",
+            True,
+            RecordTypeClass,
+        )
+
+        # The third field will be the key type
+        assert_field(schema_fields[2], None, False, expected_map_type)
+
+        # The fourth field will be the value type
+        assert_field(
+            schema_fields[3],
             None,
             not map_column.field_type.value_required,
             expected_map_type,

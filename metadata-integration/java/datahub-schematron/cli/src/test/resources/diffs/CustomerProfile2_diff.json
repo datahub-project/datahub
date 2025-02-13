@@ -11,8 +11,10 @@
           "modified": [
             "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].frequencyPreferences.[type=FrequencyPreference].value",
             "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument",
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil",
             "[version=2.0].[type=CustomerProfile2].[type=union].[type=NationalID].identificationDocument",
-            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument"
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument",
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate"
           ],
           "modified_details": {
             "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].frequencyPreferences.[type=FrequencyPreference].value": {
@@ -29,6 +31,12 @@
                 "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument"
               }
             },
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument.[type=long].validUntil",
+                "before": "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil"
+              }
+            },
             "[version=2.0].[type=CustomerProfile2].[type=union].[type=NationalID].identificationDocument": {
               "description": {
                 "after": "Customer's identification document",
@@ -41,6 +49,12 @@
                 "after": "Customer's identification document",
                 "before": "Customer's identification document\nField default value: null",
                 "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument.[type=long].expiryDate",
+                "before": "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate"
               }
             }
           },

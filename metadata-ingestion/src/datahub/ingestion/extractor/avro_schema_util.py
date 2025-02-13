@@ -114,9 +114,16 @@ class FieldElement:
             self.parent_type,
         )
 
+    def _clean_type(self, type: str) -> str:
+        if type.startswith("__struct_"):
+            return "struct"
+        return type
+
     def as_string(self, v2_format: bool) -> str:
         if v2_format:
-            type_prefix = ".".join(f"[type={inner_type}]" for inner_type in self.types)
+            type_prefix = ".".join(
+                f"[type={self._clean_type(inner_type)}]" for inner_type in self.types
+            )
             return f"{type_prefix}.{self.name}" if self.name else type_prefix
         else:
             return self.name if self.name else ""
@@ -304,6 +311,10 @@ class AvroSchemaConverter:
         logical_type = schema.props.get("logicalType")
         if logical_type:
             return f"{schema.type.lower()}({logical_type})"
+
+        if schema.props.get("native_data_type"):
+            return str(schema.props["native_data_type"])
+
         return schema.type.lower()
 
     def to_datahub_schema(
@@ -485,7 +496,7 @@ class AvroSchemaConverter:
     def process_record_field(
         self,
         field: avro.schema.Field,
-        field_path: "FieldPath",
+        field_path: FieldPath,
         discriminated_type: str,
         default_nullable: bool,
         fields: List[SchemaFieldClass],
@@ -591,6 +602,11 @@ class AvroSchemaConverter:
         assert isinstance(array_schema, avro.schema.ArraySchema)
         element_schema = array_schema.items
         element_type = self.get_discriminated_type(element_schema)
+        native_datatype = (
+            element_schema.props["native_data_type"]
+            if element_schema.props.get("native_data_type")
+            else element_type
+        )
 
         field_path = field_path.expand_type("array", array_schema)
 
@@ -599,7 +615,7 @@ class AvroSchemaConverter:
         array_field = SchemaFieldClass(
             fieldPath=field_path.as_string(),
             type=array_datahubtype.as_schema_field_type(),
-            nativeDataType=f"array({element_type})",
+            nativeDataType=f"array({native_datatype})",
             nullable=is_nullable or default_nullable,
             isPartOfKey=field_path.is_key_schema,
         )
@@ -621,7 +637,7 @@ class AvroSchemaConverter:
     def process_map_field(
         self,
         field: avro.schema.Field,
-        field_path: "FieldPath",
+        field_path: FieldPath,
         discriminated_type: str,
         default_nullable: bool,
         fields: List[SchemaFieldClass],
@@ -631,6 +647,11 @@ class AvroSchemaConverter:
         assert isinstance(map_schema, avro.schema.MapSchema)
         value_schema = map_schema.values
         value_type = self.get_discriminated_type(value_schema)
+        native_datatype = (
+            value_schema.props["native_data_type"]
+            if value_schema.props.get("native_data_type")
+            else value_type
+        )
 
         field_path = field_path.expand_type("map", map_schema)
 
@@ -639,7 +660,7 @@ class AvroSchemaConverter:
         map_field = SchemaFieldClass(
             fieldPath=field_path.as_string(),
             type=map_datahubtype.as_schema_field_type(),
-            nativeDataType=f"map<string,{value_type}>",
+            nativeDataType=f"map<string,{native_datatype}>",
             nullable=is_nullable or default_nullable,
             isPartOfKey=field_path.is_key_schema,
         )
@@ -757,7 +778,7 @@ class AvroSchemaConverter:
     def process_enum_field(
         self,
         field: avro.schema.Field,
-        field_path: "FieldPath",
+        field_path: FieldPath,
         discriminated_type: str,
         default_nullable: bool,
         fields: List[SchemaFieldClass],
@@ -837,7 +858,12 @@ class AvroSchemaConverter:
                 "name",
                 getattr(non_null_schema, "fullname", non_null_schema.type),
             )
-        return schema.type.lower()
+
+        return (
+            str(schema.props["logicalType"])
+            if schema.props.get("logicalType")
+            else schema.type.lower()
+        )
 
 
 def avro_schema_to_mce_fields(

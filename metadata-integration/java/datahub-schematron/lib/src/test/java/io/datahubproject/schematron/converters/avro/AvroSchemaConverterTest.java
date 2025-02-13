@@ -751,7 +751,7 @@ class AvroSchemaConverterTest {
 
     assertSchemaField(
         schema.getFields().get(0),
-        "[version=2.0].[type=LogicalTypes].[type=bytes].decimalField",
+        "[version=2.0].[type=LogicalTypes].[type=decimal].decimalField",
         "bytes(decimal)",
         false,
         false,
@@ -759,7 +759,7 @@ class AvroSchemaConverterTest {
         "{\"scale\":2,\"logicalType\":\"decimal\",\"precision\":9}");
     assertSchemaField(
         schema.getFields().get(1),
-        "[version=2.0].[type=LogicalTypes].[type=bytes].decimalFieldWithoutScale",
+        "[version=2.0].[type=LogicalTypes].[type=decimal].decimalFieldWithoutScale",
         "bytes(decimal)",
         false,
         false,
@@ -775,7 +775,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"decimal\"}");
     assertSchemaField(
         schema.getFields().get(3),
-        "[version=2.0].[type=LogicalTypes].[type=long].timestampMillisField",
+        "[version=2.0].[type=LogicalTypes].[type=timestamp-millis].timestampMillisField",
         "long(timestamp-millis)",
         false,
         false,
@@ -783,7 +783,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"timestamp-millis\"}");
     assertSchemaField(
         schema.getFields().get(4),
-        "[version=2.0].[type=LogicalTypes].[type=long].timestampMicrosField",
+        "[version=2.0].[type=LogicalTypes].[type=timestamp-micros].timestampMicrosField",
         "long(timestamp-micros)",
         false,
         false,
@@ -791,7 +791,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"timestamp-micros\"}");
     assertSchemaField(
         schema.getFields().get(5),
-        "[version=2.0].[type=LogicalTypes].[type=int].dateField",
+        "[version=2.0].[type=LogicalTypes].[type=date].dateField",
         "int(date)",
         false,
         false,
@@ -799,7 +799,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"date\"}");
     assertSchemaField(
         schema.getFields().get(6),
-        "[version=2.0].[type=LogicalTypes].[type=int].timeMillisField",
+        "[version=2.0].[type=LogicalTypes].[type=time-millis].timeMillisField",
         "int(time-millis)",
         false,
         false,
@@ -807,7 +807,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"time-millis\"}");
     assertSchemaField(
         schema.getFields().get(7),
-        "[version=2.0].[type=LogicalTypes].[type=long].timeMicrosField",
+        "[version=2.0].[type=LogicalTypes].[type=time-micros].timeMicrosField",
         "long(time-micros)",
         false,
         false,
@@ -815,7 +815,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"time-micros\"}");
     assertSchemaField(
         schema.getFields().get(8),
-        "[version=2.0].[type=LogicalTypes].[type=string].uuidField",
+        "[version=2.0].[type=LogicalTypes].[type=uuid].uuidField",
         "string(uuid)",
         false,
         false,
@@ -921,7 +921,7 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(12),
-        "[version=2.0].[type=users_record].[type=address].address.[type=long].created_at",
+        "[version=2.0].[type=users_record].[type=address].address.[type=timestamp-micros].created_at",
         "long(timestamp-micros)",
         true,
         false,
@@ -950,7 +950,7 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(16),
-        "[version=2.0].[type=users_record].[type=long].created_at",
+        "[version=2.0].[type=users_record].[type=timestamp-micros].created_at",
         "long(timestamp-micros)",
         true,
         false,
@@ -958,7 +958,7 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"timestamp-micros\"}");
     assertSchemaField(
         schema.getFields().get(17),
-        "[version=2.0].[type=users_record].[type=long].updated_at",
+        "[version=2.0].[type=users_record].[type=timestamp-micros].updated_at",
         "long(timestamp-micros)",
         true,
         false,

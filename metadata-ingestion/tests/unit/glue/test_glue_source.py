@@ -70,6 +70,11 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
+DEFAULT_GOLDEN_IGNORE_PATHS = [
+    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['type'\]\['type'\]\['com.linkedin.pegasus2avro.schema.ArrayType'\]\['nestedType'\]\[\d+\]",
+    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+]
+
 test_resources_dir = Path(__file__).parent
 
 
@@ -252,6 +257,7 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        ignore_paths=DEFAULT_GOLDEN_IGNORE_PATHS,
     )
 
 
@@ -392,6 +398,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 pytestconfig,
                 output_path=deleted_mces_path,
                 golden_path=deleted_actor_golden_mcs,
+                ignore_paths=DEFAULT_GOLDEN_IGNORE_PATHS,
             )
 
             # Perform all assertions on the states. The deleted table should not be
@@ -440,6 +447,7 @@ def test_glue_with_delta_schema_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_delta_mces.json",
         golden_path=test_resources_dir / "glue_delta_mces_golden.json",
+        ignore_paths=DEFAULT_GOLDEN_IGNORE_PATHS,
     )
 
 
@@ -571,6 +579,7 @@ def test_glue_ingest_include_table_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        ignore_paths=DEFAULT_GOLDEN_IGNORE_PATHS,
     )
 
 

@@ -30,17 +30,6 @@
                 }
               }
             },
-            "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=PhoneContact].items.[type=enum].type": {
-              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=PhoneContact].items.[type=enum].type",
-              "isPartOfKey": false,
-              "nativeDataType": "Enum",
-              "nullable": false,
-              "type": {
-                "type": {
-                  "com.linkedin.schema.EnumType": {}
-                }
-              }
-            },
             "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=PhoneContact].items.[type=string].countryCode": {
               "fieldPath": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=PhoneContact].items.[type=string].countryCode",
               "isPartOfKey": false,
@@ -62,6 +51,18 @@
                   "com.linkedin.schema.StringType": {}
                 }
               }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=long].startDate": {
+              "fieldPath": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=long].startDate",
+              "isPartOfKey": false,
+              "jsonProps": "{\"logicalType\":\"date\"}",
+              "nativeDataType": "long",
+              "nullable": false,
+              "type": {
+                "type": {
+                  "com.linkedin.schema.NumberType": {}
+                }
+              }
             }
           },
           "modified": [
@@ -73,6 +74,9 @@
             "[version=2.0].[type=CustomerProfile].[type=array].addresses.[type=Address].items",
             "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory",
             "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items",
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=PaymentMethod].paymentMethod.[type=date].expiryDate",
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].endDate",
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].startDate",
             "[version=2.0].[type=CustomerProfile].[type=array].tags",
             "[version=2.0].[type=CustomerProfile].[type=array].tags.[type=Tag].items",
             "[version=2.0].[type=CustomerProfile].[type=map].metadata.[type=union].[type=MetadataValue].value",
@@ -85,8 +89,10 @@
             "[version=2.0].[type=CustomerProfile].[type=map].preferences.[type=union].[type=string].value",
             "[version=2.0].[type=CustomerProfile].[type=map].preferences.[type=union].value",
             "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument",
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil",
             "[version=2.0].[type=CustomerProfile].[type=union].[type=NationalID].identificationDocument",
-            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument"
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument",
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate"
           ],
           "modified_details": {
             "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=EmailContact].items": {
@@ -143,6 +149,34 @@
                 "after": "Historical record of customer subscriptions",
                 "before": "Historical record of customer subscriptions\nField default value: null",
                 "identifier": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=PaymentMethod].paymentMethod.[type=date].expiryDate": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile].[type=ContactInformation].contactInfo.[type=array].alternativeContacts.[type=union].[type=PhoneContact].items.[type=enum].type",
+                "before": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=PaymentMethod].paymentMethod.[type=date].expiryDate"
+              },
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=PaymentMethod].paymentMethod.[type=date].expiryDate"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].endDate": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument.[type=long].validUntil",
+                "before": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].endDate"
+              },
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].endDate"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].startDate": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument.[type=long].expiryDate",
+                "before": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=date].startDate"
               }
             },
             "[version=2.0].[type=CustomerProfile].[type=array].tags": {
@@ -229,6 +263,17 @@
                 "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument"
               }
             },
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=PaymentMethod].paymentMethod.[type=long].expiryDate",
+                "before": "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil"
+              },
+              "nullable": {
+                "after": true,
+                "before": false,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=DriversLicense].identificationDocument.[type=date].validUntil"
+              }
+            },
             "[version=2.0].[type=CustomerProfile].[type=union].[type=NationalID].identificationDocument": {
               "description": {
                 "after": "Customer's identification document - can be passport, driver's license, or national ID",
@@ -241,6 +286,17 @@
                 "after": "Customer's identification document - can be passport, driver's license, or national ID",
                 "before": "Customer's identification document - can be passport, driver's license, or national ID\nField default value: null",
                 "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate": {
+              "fieldPath": {
+                "after": "[version=2.0].[type=CustomerProfile].[type=array].subscriptionHistory.[type=Subscription].items.[type=long].endDate",
+                "before": "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate"
+              },
+              "nullable": {
+                "after": true,
+                "before": false,
+                "identifier": "[version=2.0].[type=CustomerProfile].[type=union].[type=Passport].identificationDocument.[type=date].expiryDate"
               }
             }
           },

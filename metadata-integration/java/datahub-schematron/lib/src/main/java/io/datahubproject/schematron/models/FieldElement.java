@@ -24,11 +24,18 @@ public class FieldElement {
     return new FieldElement(new ArrayList<>(type), new ArrayList<>(schemaTypes), name, parentType);
   }
 
+  private String cleanType(String type) {
+    if (type.startsWith("__struct_")) {
+      return "struct";
+    }
+    return type;
+  }
+
   public String asString(boolean v2Format) {
     if (v2Format) {
       String typePrefix =
           type.stream()
-              .map(innerType -> "[type=" + innerType + "]")
+              .map(innerType -> "[type=" + this.cleanType(innerType) + "]")
               .collect(Collectors.joining("."));
       return name != null ? typePrefix + "." + name : typePrefix;
     } else {

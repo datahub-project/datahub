@@ -772,7 +772,7 @@ def test_logical_types_fully_specified_in_type():
         json.dumps(schema), default_nullable=True
     )
     assert len(fields) == 1
-    assert "[version=2.0].[type=test].[type=bytes].name" == fields[0].fieldPath
+    assert "[version=2.0].[type=test].[type=decimal].name" == fields[0].fieldPath
     assert isinstance(fields[0].type.type, NumberTypeClass)
 
 
@@ -917,15 +917,15 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
         (
             "../metadata-integration/java/datahub-schematron/lib/src/test/resources/logical_types.avsc",
             [
-                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalField",
-                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalFieldWithoutScale",
-                "[version=2.0].[type=LogicalTypes].[type=bytes].decimalFieldWithoutPrecisionAndScale",
-                "[version=2.0].[type=LogicalTypes].[type=long].timestampMillisField",
-                "[version=2.0].[type=LogicalTypes].[type=long].timestampMicrosField",
-                "[version=2.0].[type=LogicalTypes].[type=int].dateField",
-                "[version=2.0].[type=LogicalTypes].[type=int].timeMillisField",
-                "[version=2.0].[type=LogicalTypes].[type=long].timeMicrosField",
-                "[version=2.0].[type=LogicalTypes].[type=string].uuidField",
+                "[version=2.0].[type=LogicalTypes].[type=decimal].decimalField",
+                "[version=2.0].[type=LogicalTypes].[type=decimal].decimalFieldWithoutScale",
+                "[version=2.0].[type=LogicalTypes].[type=decimal].decimalFieldWithoutPrecisionAndScale",
+                "[version=2.0].[type=LogicalTypes].[type=timestamp-millis].timestampMillisField",
+                "[version=2.0].[type=LogicalTypes].[type=timestamp-micros].timestampMicrosField",
+                "[version=2.0].[type=LogicalTypes].[type=date].dateField",
+                "[version=2.0].[type=LogicalTypes].[type=time-millis].timeMillisField",
+                "[version=2.0].[type=LogicalTypes].[type=time-micros].timeMicrosField",
+                "[version=2.0].[type=LogicalTypes].[type=uuid].uuidField",
             ],
         ),
         (

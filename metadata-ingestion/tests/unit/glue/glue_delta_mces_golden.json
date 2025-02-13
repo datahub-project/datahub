@@ -1323,24 +1323,37 @@
                                 "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].ga_session_list_array",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].ga_session_list_array",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
                                             "nestedType": [
-                                                "record"
+                                                "__struct_c469955950954e029c27287fb7f82b73"
                                             ]
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<struct<clsfd_session_id:string,clsfd_sum_dt:date>>",
+                                "nativeDataType": "array(struct<clsfd_session_id:string,clsfd_sum_dt:date>)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<struct<clsfd_session_id:string,clsfd_sum_dt:date>>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].ga_session_list_array.[type=string].clsfd_session_id",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].ga_session_list_array.[type=struct].items",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "__struct_c469955950954e029c27287fb7f82b73",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<clsfd_session_id:string,clsfd_sum_dt:date>\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].ga_session_list_array.[type=struct].items.[type=string].clsfd_session_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -1353,14 +1366,14 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].ga_session_list_array.[type=int].clsfd_sum_dt",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].ga_session_list_array.[type=struct].items.[type=date].clsfd_sum_dt",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "date",
+                                "nativeDataType": "int(date)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"logicalType\": \"date\", \"native_data_type\": \"date\", \"_nullable\": true}"
@@ -1373,7 +1386,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "null",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"\", \"_nullable\": true}"
@@ -1386,7 +1399,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "null",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"\", \"_nullable\": true}"
@@ -1399,7 +1412,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "null",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"\", \"_nullable\": true}"
@@ -1425,7 +1438,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "date",
+                                "nativeDataType": "int(date)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"logicalType\": \"date\", \"native_data_type\": \"date\", \"_nullable\": true}"
@@ -1451,7 +1464,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "date",
+                                "nativeDataType": "int(date)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"logicalType\": \"date\", \"native_data_type\": \"date\", \"_nullable\": true}"
@@ -1490,7 +1503,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "date",
+                                "nativeDataType": "int(date)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"logicalType\": \"date\", \"native_data_type\": \"date\", \"_nullable\": true}"

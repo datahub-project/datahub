@@ -13,7 +13,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
-from datahub.ingestion.extractor import protobuf_util, avro_schema_util
+from datahub.ingestion.extractor import avro_schema_util, protobuf_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport

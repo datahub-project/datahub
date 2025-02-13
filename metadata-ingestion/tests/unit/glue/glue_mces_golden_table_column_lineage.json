@@ -209,7 +209,7 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
-                                "nullable": true,
+                                "nullable": false,
                                 "description": "partition test comment",
                                 "type": {
                                     "type": {

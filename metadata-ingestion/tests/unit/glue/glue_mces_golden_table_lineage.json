@@ -317,7 +317,7 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
-                                "nullable": true,
+                                "nullable": false,
                                 "description": "partition test comment",
                                 "type": {
                                     "type": {
@@ -471,24 +471,37 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
                                             "nestedType": [
-                                                "record"
+                                                "__struct_be583d8ecb614f058efeed6d1a2ab8bb"
                                             ]
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
+                                "nativeDataType": "array(struct<name:string,position:array<double>,location:array<double>>)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "__struct_be583d8ecb614f058efeed6d1a2ab8bb",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"struct<name:string,position:array<double>,location:array<double>>\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=string].name",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -501,7 +514,7 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=array].position",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -512,13 +525,13 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<double>",
+                                "nativeDataType": "array(double)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].markers.[type=struct].items.[type=array].location",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -529,7 +542,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "array<double>",
+                                "nativeDataType": "array(double)",
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
@@ -729,7 +742,7 @@
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
-                                "nullable": true,
+                                "nullable": false,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}

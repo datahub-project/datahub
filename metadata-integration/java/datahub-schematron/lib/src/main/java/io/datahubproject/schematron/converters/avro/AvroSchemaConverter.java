@@ -103,6 +103,12 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     if (logicalType != null) {
       return schema.getType().getName().toLowerCase() + "(" + logicalType.getName() + ")";
     }
+
+    if (schema.getObjectProps() != null
+        && schema.getObjectProps().containsKey("native_date_type")) {
+      return schema.getObjectProp("native_date_type").toString();
+    }
+
     return schema.getType().getName().toLowerCase();
   }
 
@@ -346,6 +352,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     Schema arraySchema = field.schema();
     Schema elementSchema = arraySchema.getElementType();
     String elementType = getDiscriminatedType(elementSchema);
+    String nativeDataType =
+        elementSchema.getObjectProps().containsKey("native_data_type")
+            ? elementSchema.getObjectProp("native_data_type").toString()
+            : elementType;
 
     log.debug("Array Field Path before expand: {}", fieldPath.asString());
     fieldPath = fieldPath.expandType("array", arraySchema);
@@ -358,7 +368,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
         new SchemaField()
             .setFieldPath(fieldPath.asString())
             .setType(arrayDataHubType.asSchemaFieldType())
-            .setNativeDataType("array(" + elementType + ")")
+            .setNativeDataType("array(" + nativeDataType + ")")
             .setNullable(isNullable || defaultNullable)
             .setIsPartOfKey(fieldPath.isKeySchema());
 
@@ -393,6 +403,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     Schema mapSchema = field.schema();
     Schema valueSchema = mapSchema.getValueType();
     String valueType = getDiscriminatedType(valueSchema);
+    String nativeDataType =
+        valueSchema.getObjectProps().containsKey("native_data_type")
+            ? valueSchema.getObjectProp("native_data_type").toString()
+            : valueType;
 
     DataHubType mapDataHubType = new DataHubType(MapType.class, valueType);
     log.debug("Map Field Path before expand: {}", fieldPath.asString());
@@ -403,7 +417,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
         new SchemaField()
             .setFieldPath(fieldPath.asString())
             .setType(mapDataHubType.asSchemaFieldType())
-            .setNativeDataType("map<string," + valueType + ">")
+            .setNativeDataType("map<string," + nativeDataType + ">")
             .setNullable(isNullable || defaultNullable)
             .setIsPartOfKey(fieldPath.isKeySchema());
 
@@ -590,6 +604,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       Schema nonNullSchema =
           schema.getTypes().stream().filter(s -> s.getType() != Schema.Type.NULL).findFirst().get();
       return nonNullSchema.getFullName();
+    }
+
+    if (schema.getLogicalType() != null) {
+      return schema.getLogicalType().getName();
     }
     return schema.getType().getName().toLowerCase();
   }
