@@ -75,7 +75,7 @@ public class AuthUtil {
   // Since all methods of this class are static, need to postConstruct to initialize the static var
   // from the instance
   // var that spring can initialize
-  private static boolean isRestApiAuthorizationEnabled = true;
+  private static boolean isRestApiAuthorizationEnabled = false;
 
   // Eliminating the dependency on the env var REST_API_AUTHORIZATION_ENABLED and instead using the
   // an
