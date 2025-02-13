@@ -1,10 +1,8 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Optional, TypeVar, Union
 import logging
+from typing import Iterable, Optional, TypeVar
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform.models import Model, VersionInfo
-
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -21,13 +19,8 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
-    MLHyperParamClass,
-    MLMetricClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
-    TagAssociationClass,
-    TagPropertiesClass,
     VersionTagClass,
     _Aspect,
 )
@@ -35,23 +28,16 @@ from datahub.metadata.schema_classes import (
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
-class VertexAIConfig(EnvConfigMixin):
 
-    project_id: str = Field(
-        description=(
-            "Project ID"
-        )
-    )
+
+class VertexAIConfig(EnvConfigMixin):
+    project_id: str = Field(description=("Project ID"))
     region: str = Field(
-        description=(
-            "Region"
-        ),
+        description=("Region"),
     )
     bucket_uri: Optional[str] = Field(
         default=None,
-        description=(
-            "Bucket URI"
-        ),
+        description=("Bucket URI"),
     )
 
     model_name_separator: str = Field(
@@ -78,7 +64,6 @@ class VertexAISource(Source):
         aiplatform.init(project=config.project_id, location=config.region)
         self.client = aiplatform
 
-
     def get_report(self) -> SourceReport:
         return self.report
 
@@ -104,22 +89,22 @@ class VertexAISource(Source):
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 yield self._get_ml_model_properties_workunit(
-                    registered_model=model,
-                    model_version=model_version
+                    model=model, model_version=model_version
                 )
 
     def _get_ml_group_workunit(
         self,
-        registered_model: Model,
+        model: Model,
     ) -> MetadataWorkUnit:
         """
-        Generate an MLModelGroup workunit for an MLflow Registered Model.
+        Generate an MLModelGroup workunit for a VertexAI  Model.
+
         """
-        ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
+        ml_model_group_urn = self._make_ml_model_group_urn(model)
         ml_model_group_properties = MLModelGroupPropertiesClass(
-            name=registered_model.name,
-            description=registered_model.description,
-            createdAt=registered_model.create_time,
+            name=model.name,
+            description=model.description,
+            createdAt=model.create_time,
         )
         wu = self._create_workunit(
             urn=ml_model_group_urn,
@@ -127,37 +112,38 @@ class VertexAISource(Source):
         )
         return wu
 
-    def _make_ml_model_group_urn(self, registered_model: Model) -> str:
+    def _make_ml_model_group_urn(self, model: Model) -> str:
         urn = builder.make_ml_model_group_urn(
             platform=self.platform,
-            group_name=registered_model.name,
+            group_name=model.name,
             env=self.config.env,
         )
         return urn
 
     def _get_ml_model_properties_workunit(
         self,
-        registered_model: Model,
+        model: Model,
         model_version: VersionInfo,
     ) -> MetadataWorkUnit:
         """
-        Generate an MLModel workunit for an Vertex Model Version.
-        Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
+        Generate an MLModel workunit for an VertexAI Model Version.
+        Every Model Version is a DataHub MLModel entity associated with an MLModelGroup
+        corresponding to a Registered Model in VertexAI Model Registry.
         """
-        ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
+        ml_model_group_urn = self._make_ml_model_group_urn(model)
         ml_model_urn = self._make_ml_model_urn(model_version)
 
         training_job = None
         training_metrics = None
         hyperparams = None
         try:
-            job = registered_model.training_job
+            job = model.training_job
             training_job = [job]
-        except RuntimeError as e:
-            logger.info("No training job found for model %s", registered_model.name)
+        except RuntimeError:
+            logger.info("No training job found for model %s", model.name)
 
         ml_model_properties = MLModelPropertiesClass(
-            name=registered_model.name,
+            name=model.name,
             description=model_version.version_description,
             date=model_version.version_create_time,
             version=VersionTagClass(versionTag=str(model_version.version_id)),
@@ -180,6 +166,3 @@ class VertexAISource(Source):
             env=self.config.env,
         )
         return urn
-
-
-
