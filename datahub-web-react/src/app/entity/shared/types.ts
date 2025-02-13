@@ -45,6 +45,7 @@ import {
     Documentation,
     DisplayProperties,
     VersionProperties,
+    DataProcessRunEvent,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -135,6 +136,9 @@ export type GenericEntityProperties = {
     displayProperties?: Maybe<DisplayProperties>;
     notes?: Maybe<EntityRelationshipsResult>;
     versionProperties?: Maybe<VersionProperties>;
+
+    // Data process instance
+    lastRunEvent?: Maybe<DataProcessRunEvent>;
 };
 
 export type GenericEntityUpdate = {
