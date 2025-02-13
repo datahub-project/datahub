@@ -23,6 +23,7 @@ export type ActionType = {
     description: string;
     valueType?: ValueTypeId;
     valueOptions?: any;
+    additionalParams?: Record<string, any>;
 };
 
 /**
@@ -77,6 +78,9 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
             mode: SelectInputMode.MULTIPLE,
+        },
+        additionalParams: {
+            ownerType: 'TECHNICAL_OWNER',
         },
     },
     {

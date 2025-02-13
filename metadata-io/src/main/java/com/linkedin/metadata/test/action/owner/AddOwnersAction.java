@@ -24,8 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AddOwnersAction extends UrnValuesAction {
 
-  private static final OwnershipType DEFAULT_OWNERSHIP_TYPE = OwnershipType.TECHNICAL_OWNER;
-  private static final String OWNERSHIP_TYPE_PARAM = "ownerType";
+  public static final String OWNERSHIP_TYPE_PARAM = "ownerType";
 
   private final OwnerServiceAsync ownerService;
 
