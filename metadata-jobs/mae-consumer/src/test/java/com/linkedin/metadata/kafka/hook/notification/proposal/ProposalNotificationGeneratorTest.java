@@ -257,10 +257,12 @@ public class ProposalNotificationGeneratorTest {
     NotificationRecipientsGeneratorExtraContext extraContext =
         new NotificationRecipientsGeneratorExtraContext();
     ActionRequestInfo mockInfo = new ActionRequestInfo();
-    mockInfo.setAssignedUsers(new UrnArray());
-    mockInfo.setAssignedGroups(new UrnArray());
+    mockInfo.setAssignedUsers(
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:corpuser:assigneeUser"))));
+    mockInfo.setAssignedGroups(
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:corpGroup:assigneeGroup"))));
     mockInfo.setAssignedRoles(new UrnArray());
-    mockInfo.setCreatedBy(UrnUtils.getUrn("urn:li:corpuser:creator"));
+    mockInfo.setCreatedBy(TEST_USER_CREATOR_URN);
     extraContext.setOriginalAspect(mockInfo);
 
     List<NotificationRecipient> result =
@@ -273,6 +275,35 @@ public class ProposalNotificationGeneratorTest {
             extraContext);
 
     assertNotNull(result, "For PROPOSAL_STATUS_CHANGE, should not return null (based on code).");
+    assertEquals(result.size(), 1, "We expect one recipient based on mocked recipient builders");
+    assertEquals(result.get(0).getId(), "testuser@gmail.com");
+  }
+
+  @Test
+  public void testBuildCustomRecipientsProposerProposalStatusChange() {
+    Urn testEntityUrn = UrnUtils.getUrn("urn:li:actionRequest:456");
+    NotificationRecipientsGeneratorExtraContext extraContext =
+        new NotificationRecipientsGeneratorExtraContext();
+    ActionRequestInfo mockInfo = new ActionRequestInfo();
+    mockInfo.setAssignedUsers(
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:corpuser:assigneeUser"))));
+    mockInfo.setAssignedGroups(
+        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:corpGroup:assigneeGroup"))));
+    mockInfo.setAssignedRoles(new UrnArray());
+    mockInfo.setCreatedBy(TEST_USER_CREATOR_URN);
+    extraContext.setOriginalAspect(mockInfo);
+
+    List<NotificationRecipient> result =
+        proposalNotificationGenerator.buildCustomRecipients(
+            mockSystemOpContext,
+            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+            testEntityUrn,
+            null,
+            UrnUtils.getUrn("urn:li:corpuser:someActor"),
+            extraContext);
+
+    assertNotNull(
+        result, "For PROPOSER_PROPOSAL_STATUS_CHANGE, should not return null (based on code).");
     assertEquals(result.size(), 1, "We expect one recipient based on mocked recipient builders");
     assertEquals(result.get(0).getId(), "testuser@gmail.com");
   }
@@ -464,6 +495,7 @@ public class ProposalNotificationGeneratorTest {
                     .setTags(
                         new UrnArray(ImmutableList.of(UrnUtils.getUrn(TEST_TAG_URN.toString()))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -608,6 +640,7 @@ public class ProposalNotificationGeneratorTest {
                         new UrnArray(
                             Collections.singletonList(UrnUtils.getUrn(TEST_TAG_URN.toString()))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -669,6 +702,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -765,6 +799,7 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
     info.setSubResourceType(SubResourceType.DATASET_FIELD.toString());
     info.setSubResource("testField");
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -828,6 +863,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("action"), "accepted");
     assertEquals(templateParams.get("subResourceType"), "DATASET_FIELD");
     assertEquals(templateParams.get("subResource"), "testField");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -920,6 +956,7 @@ public class ProposalNotificationGeneratorTest {
                             Collections.singletonList(
                                 UrnUtils.getUrn(TEST_GLOSSARY_TERM_URN.toString()))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -980,6 +1017,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1078,6 +1116,7 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
     info.setSubResourceType(SubResourceType.DATASET_FIELD.toString());
     info.setSubResource("testField");
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -1140,6 +1179,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("action"), "accepted");
     assertEquals(templateParams.get("subResourceType"), "DATASET_FIELD");
     assertEquals(templateParams.get("subResource"), "testField");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1225,6 +1265,7 @@ public class ProposalNotificationGeneratorTest {
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     // We'll ensure that at least one recipient is generated
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
@@ -1274,6 +1315,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1359,6 +1401,7 @@ public class ProposalNotificationGeneratorTest {
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     // We'll ensure that at least one recipient is generated
     Urn recipientUrn = UrnUtils.getUrn("urn:li:corpuser:recipient");
@@ -1408,6 +1451,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1510,6 +1554,7 @@ public class ProposalNotificationGeneratorTest {
                                             Collections.singletonList(
                                                 PrimitivePropertyValue.create("value")))))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -1571,6 +1616,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(
         templateParams.get("context"),
         "{\"structuredPropertyValues\":[{\"propertyUrn\":\"urn:li:structuredProperty:test\",\"values\":[{\"string\":\"value\"}]}]}");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1679,6 +1725,7 @@ public class ProposalNotificationGeneratorTest {
     info.setResource(TEST_DATASET_URN.toString());
     info.setSubResourceType(SubResourceType.DATASET_FIELD.toString());
     info.setSubResource("testField");
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -1742,6 +1789,7 @@ public class ProposalNotificationGeneratorTest {
         "{\"structuredPropertyValues\":[{\"propertyUrn\":\"urn:li:structuredProperty:test\",\"values\":[{\"string\":\"value\"}]}]}");
     assertEquals(templateParams.get("subResourceType"), "DATASET_FIELD");
     assertEquals(templateParams.get("subResource"), "testField");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -1833,6 +1881,7 @@ public class ProposalNotificationGeneratorTest {
                             Collections.singletonList(
                                 UrnUtils.getUrn(TEST_DOMAIN_URN.toString()))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -1893,6 +1942,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(templateParams.get("actorUrn"), TEST_USER_CREATOR_URN.toString());
     assertEquals(templateParams.get("actorName"), "Test Creator Name");
     assertEquals(templateParams.get("action"), "accepted");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   @Test
@@ -2015,6 +2065,7 @@ public class ProposalNotificationGeneratorTest {
                                         new OwnershipSource()
                                             .setType(OwnershipSourceType.MANUAL)))))));
     info.setResource(TEST_DATASET_URN.toString());
+    info.setCreatedBy(TEST_USER_CREATOR_URN);
 
     ActionRequestStatus newStatus = new ActionRequestStatus();
     newStatus.setResult(AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED);
@@ -2082,6 +2133,7 @@ public class ProposalNotificationGeneratorTest {
     assertEquals(
         templateParams.get("context"),
         "{\"owners\":[{\"owner\":\"urn:li:corpuser:testUser\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"TECHNICAL_OWNER\"},{\"owner\":\"urn:li:corpGroup:testGroup\",\"typeUrn\":\"urn:li:ownershipType:test\",\"source\":{\"type\":\"MANUAL\"},\"type\":\"BUSINESS_OWNER\"}]}");
+    assertEquals(templateParams.get("creatorUrn"), TEST_USER_CREATOR_URN.toString());
   }
 
   private void initMockEntityClient() throws Exception {

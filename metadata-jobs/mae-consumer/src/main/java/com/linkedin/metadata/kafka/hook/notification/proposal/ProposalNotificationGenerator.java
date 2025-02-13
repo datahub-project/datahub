@@ -113,6 +113,10 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     }
     if (NotificationScenarioType.PROPOSAL_STATUS_CHANGE.equals(type)) {
       // Fetch and add proposer recipient, depending on settings of course.
+      return buildAssigneeRecipientsForNewProposal(systemOpContext, entityUrn, extraContext);
+    }
+    if (NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.equals(type)) {
+      // Fetch and add proposer recipient, depending on settings of course.
       return buildProposerRecipientForCompletedProposal(systemOpContext, entityUrn, extraContext);
     }
     return null;
@@ -354,8 +358,6 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         new NotificationRecipientsGeneratorExtraContext();
     context.setOriginalAspect(info);
 
-    System.out.println("Starting method call");
-
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
@@ -365,8 +367,6 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
                 null,
                 actorUrn,
                 context));
-
-    System.out.println("Post method call");
 
     final Urn entityUrn = info.hasResource() ? UrnUtils.getUrn(info.getResource()) : null;
 
@@ -416,10 +416,6 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             "Broadcasting new proposal change for entity %s, action request %s...",
             entityUrn, urn));
 
-    System.out.println("emitter method call");
-    System.out.println(
-        String.format("Here is the REAL event producer: %s", _eventProducer.hashCode()));
-
     sendNotificationRequest(notificationRequest);
   }
 
@@ -441,15 +437,28 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         new NotificationRecipientsGeneratorExtraContext();
     context.setOriginalAspect(info);
 
-    Set<NotificationRecipient> recipients =
-        new HashSet<>(
-            buildRecipients(
-                systemOpContext,
-                NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
-                urn,
-                null,
-                actorUrn,
-                context));
+    // Build notification recipients from 2 scenarios: As a stakeholder and as a proposer.
+    // This allows us to use different configs / settings for each scenario: Reviewed and proposed.
+    List<NotificationRecipient> stakeholders =
+        buildRecipients(
+            systemOpContext,
+            NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
+            urn,
+            null,
+            actorUrn,
+            context);
+    List<NotificationRecipient> proposer =
+        buildRecipients(
+            systemOpContext,
+            NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+            urn,
+            null,
+            actorUrn,
+            context);
+
+    Set<NotificationRecipient> recipients = new HashSet<>();
+    recipients.addAll(stakeholders);
+    recipients.addAll(proposer);
 
     if (recipients.isEmpty()) {
       return;
@@ -478,6 +487,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
     templateParams.put("modifierPaths", toSerializedJsonArray(generateEntityPaths(modifierUrns)));
     templateParams.put("actorUrn", auditStamp.getActor().toString());
     templateParams.put("actorName", actorName);
+    templateParams.put("creatorUrn", info.getCreatedBy().toString());
     templateParams.put("action", action);
     if (entityPath != null) {
       templateParams.put("entityPath", entityPath);
@@ -497,8 +507,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
             templateParams,
             recipients);
 
-    // TODO: Remove this log once we've validated.
-    log.info(
+    log.debug(
         String.format(
             "Broadcasting proposal status change for entity %s, action request %s...",
             entityUrn, urn));
