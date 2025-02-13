@@ -17,7 +17,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -33,7 +33,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -83,7 +83,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -99,7 +99,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -208,7 +208,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -226,7 +226,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -247,7 +247,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -263,7 +263,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -384,7 +384,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -402,7 +402,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -423,7 +423,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -439,7 +439,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -548,7 +548,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -566,7 +566,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -587,7 +587,82 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "",
+            "name": "northwind.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "security_type": "DEFINER",
+                "sql_data_access": "CONTAINS SQL",
+                "created": "2025-01-24 21:54:05",
+                "last_altered": "2025-01-24 21:54:05",
+                "definer": "root@localhost",
+                "parameters": "IN min_priority float",
+                "code": "BEGIN\n    CREATE TEMPORARY TABLE IF NOT EXISTS temp_priority_customers\n    SELECT\n        c.company,\n        c.priority\n    FROM customers c\n    WHERE c.priority >= min_priority;\n\n    INSERT INTO customer_stats (company, total_orders)\n    SELECT\n        t.company,\n        COUNT(o.id) as total_orders\n    FROM temp_priority_customers t\n    LEFT JOIN customers c ON c.company = t.company\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY t.company;\n\n    DROP TEMPORARY TABLE IF EXISTS temp_priority_customers;\nEND"
+            },
+            "externalUrl": "",
+            "name": "northwind.analyze_customer_priority",
+            "type": {
+                "string": "MYSQL_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "security_type": "DEFINER",
+                "sql_data_access": "CONTAINS SQL",
+                "created": "2025-01-24 21:54:05",
+                "last_altered": "2025-01-24 21:54:05",
+                "definer": "root@localhost",
+                "code": "BEGIN\n    TRUNCATE TABLE customer_stats;\n\n    INSERT INTO customer_stats (company, total_orders, last_order_date)\n    SELECT\n        c.company,\n        COUNT(o.id) as total_orders,\n        MAX(o.order_date) as last_order_date\n    FROM customers c\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY c.company;\nEND"
+            },
+            "externalUrl": "",
+            "name": "northwind.calculate_customer_stats",
+            "type": {
+                "string": "MYSQL_STORED_PROCEDURE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -605,13 +680,39 @@
             },
             "rowCount": 0,
             "columnCount": 5,
-            "fieldProfiles": [],
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "company",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "total_orders",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "last_order_date",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "creation_time",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                }
+            ],
             "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -629,13 +730,121 @@
             },
             "rowCount": 5,
             "columnCount": 6,
-            "fieldProfiles": [],
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "5",
+                    "mean": "3.0",
+                    "median": "3",
+                    "stdev": "1.5811388300841898",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5"
+                    ]
+                },
+                {
+                    "fieldPath": "company",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Company A",
+                        "Company B",
+                        "Company C",
+                        "Company D",
+                        "Company E"
+                    ]
+                },
+                {
+                    "fieldPath": "last_name",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Axen",
+                        "Bedecs",
+                        "Donnell",
+                        "Gratacos Solsona",
+                        "Lee"
+                    ]
+                },
+                {
+                    "fieldPath": "first_name",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Anna",
+                        "Antonio",
+                        "Christina",
+                        "Martin",
+                        "Thomas"
+                    ]
+                },
+                {
+                    "fieldPath": "email_address",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
+                },
+                {
+                    "fieldPath": "priority",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.75,
+                    "nullCount": 1,
+                    "nullProportion": 0.2,
+                    "min": "3.8",
+                    "max": "4.9",
+                    "mean": "4.175000011920929",
+                    "median": "4.0",
+                    "stdev": "0.49244294899530355",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "3.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.0",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "4.9",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "4.0",
+                        "4.9",
+                        "4.0",
+                        "3.8"
+                    ]
+                }
+            ],
             "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -653,13 +862,185 @@
             },
             "rowCount": 0,
             "columnCount": 4,
-            "fieldProfiles": [],
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "description",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "order_date",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                }
+            ],
             "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00-lce9f8",
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
+                    ],
+                    "confidenceScore": 0.35
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
+                    ],
+                    "confidenceScore": 0.35
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),order_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),last_order_date)"
+                    ],
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
         "lastRunId": "no-run-id-provided"
     }
 }
