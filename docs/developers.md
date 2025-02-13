@@ -115,7 +115,7 @@ To refresh the GMS (Generalized Metadata Service) with local changes:
 ./gradlew :metadata-service:war:build -x test --parallel && docker restart datahub-datahub-gms-debug-1
 ```
 
-### Refreshing CLI 
+### Refreshing the CLI 
 
 If you haven't set up the CLI for local development yet, run:
 
@@ -125,7 +125,7 @@ cd metadata-ingestion
 source venv/bin/activate
 ```
 
-Once you're in `venv`, your local changes should be reflected automatically. 
+Once you're in `venv`, your local changes will be reflected automatically. 
 For example, you can run `datahub ingest -c <file>` to test local changes in ingestion connectors.
 
 To verify that you're using the local version, run:
