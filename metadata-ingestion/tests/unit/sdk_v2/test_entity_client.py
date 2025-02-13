@@ -35,7 +35,6 @@ def assert_client_golden(
 ) -> None:
     mcps = client._graph.emit_mcps.call_args[0][0]  # type: ignore
     mce_helpers.check_goldens_stream(
-        pytestconfig=pytestconfig,
         outputs=mcps,
         golden_path=golden_path,
         ignore_order=False,
