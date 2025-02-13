@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.validation;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.UrnValidator;
 import com.linkedin.data.schema.validation.CoercionMode;

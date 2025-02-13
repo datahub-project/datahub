@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
@@ -9,9 +9,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
