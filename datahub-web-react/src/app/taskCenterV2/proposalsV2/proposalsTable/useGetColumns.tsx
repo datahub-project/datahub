@@ -1,0 +1,56 @@
+import { toLocalDateString } from '@src/app/shared/time/timeUtils';
+import React from 'react';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { ActionRequestListItem } from '@src/app/actionrequestV2/item/ActionRequestListItem';
+import ActionsColumn from './ActionsColumn';
+
+interface Props {
+    onActionRequestUpdate: () => void;
+}
+
+export const useGetColumns = ({ onActionRequestUpdate }: Props) => {
+    const columns = [
+        {
+            title: 'Content',
+            key: 'content',
+            render: (record) => {
+                return <ActionRequestListItem actionRequest={record} />;
+            },
+            width: '550px',
+        },
+        {
+            title: 'Date',
+            key: 'date',
+            render: (record) => {
+                const createdTime = record.created.time;
+                return <>{toLocalDateString(createdTime)}</>;
+            },
+            width: '10%',
+            sorter: (sourceA, sourceB) => {
+                const timeA = sourceA.created.time || Number.MAX_SAFE_INTEGER;
+                const timeB = sourceB.created.time || Number.MAX_SAFE_INTEGER;
+
+                return timeA - timeB;
+            },
+        },
+        {
+            title: 'Note',
+            key: 'note',
+            render: (record) => {
+                return <>{record.note}</>;
+            },
+            width: '25%',
+        },
+        {
+            title: '',
+            key: 'actions',
+            render: (record) => {
+                return <ActionsColumn actionRequest={record} onUpdate={onActionRequestUpdate} />;
+            },
+            width: '10%',
+            alignment: 'right' as AlignmentOptions,
+        },
+    ];
+
+    return columns;
+};

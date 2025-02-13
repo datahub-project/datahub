@@ -2,12 +2,15 @@ import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 import { PageRoutes } from '../conf/Global';
 import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
+import { ActionRequestsPage as ActionRequestsPageV2 } from './actionrequestV2/ActionRequestsPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { Automations } from './automations/Automations';
 import { BrowseResultsPage } from './browse/BrowseResultsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
 import { useUserContext } from './context/useUserContext';
 import DomainRoutes from './domain/DomainRoutes';
+import { ManageDomainsPage } from './domain/ManageDomainsPage';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
@@ -15,8 +18,6 @@ import {
     useIsDocumentationFormsEnabled,
     useIsNestedDomainsEnabled,
 } from './useAppConfig';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 
 import { EntityPage } from './entity/EntityPage';
 import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
@@ -36,13 +37,14 @@ import { useEntityRegistry } from './useEntityRegistry';
 
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
+import AnalyticsTab from './govern/Dashboard/AnalyticsTab';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
+import { FormAnalyticsProvider } from './govern/Dashboard/FormAnalyticsContext';
 import CreateForm from './govern/Dashboard/Forms/CreateForm';
 import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
 import { TaskCenter } from './taskCenter/TaskCenter';
+import { TaskCenter as TaskCenterV2 } from './taskCenterV2/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
-import AnalyticsTab from './govern/Dashboard/AnalyticsTab';
-import { FormAnalyticsProvider } from './govern/Dashboard/FormAnalyticsContext';
 
 /**
  * Container for all searchable page routes
@@ -68,6 +70,8 @@ export const SearchRoutes = (): JSX.Element => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     return (
         <FinalSearchablePage>
@@ -113,10 +117,18 @@ export const SearchRoutes = (): JSX.Element => {
 
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
-                <Route
-                    path={PageRoutes.ACTION_REQUESTS}
-                    render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
-                />
+                {showTaskCenterRedesign ? (
+                    <Route
+                        path={PageRoutes.ACTION_REQUESTS}
+                        render={() => (isDocumentationFormsEnabled ? <TaskCenterV2 /> : <ActionRequestsPageV2 />)}
+                    />
+                ) : (
+                    <Route
+                        path={PageRoutes.ACTION_REQUESTS}
+                        render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
+                    />
+                )}
+
                 <Route path={PageRoutes.AUTOMATIONS} component={Automations} />
                 {/* TODO: Remove this route - currently in place for a grafeful redirect to new Automations center */}
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
