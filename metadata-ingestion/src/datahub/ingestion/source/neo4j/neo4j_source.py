@@ -107,12 +107,13 @@ class Neo4jSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
+        processors = super().get_workunit_processors()
+        processors.append(
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
-            ).workunit_processor,
-        ]
+            ).workunit_processor
+        )
+        return processors
 
     def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
         type_class: type = _type_mapping.get(attribute_type, NullTypeClass)
