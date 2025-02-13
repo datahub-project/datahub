@@ -354,8 +354,8 @@ export const EmbeddedListSearch = ({
 
     let errorMessage = '';
     if (error) {
-        errorMessage =
-            'Failed to load results! An unexpected error occurred. This may be due to a timeout when fetching lineage results.';
+        console.error('Failed to load results', error);
+        errorMessage = `Failed to load results due to an unexpected error. Please try again later.`;
     }
 
     return (
