@@ -53,7 +53,7 @@ public class BootstrapMCPStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(opContext, mcpTemplate);
+        AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(opContext, mcpTemplate, id());
         log.info("Ingesting {} MCPs", batch.getItems().size());
         entityService.ingestProposal(opContext, batch, mcpTemplate.isAsync());
       } catch (IOException e) {

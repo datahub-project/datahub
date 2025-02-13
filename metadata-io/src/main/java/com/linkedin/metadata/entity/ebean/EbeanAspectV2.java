@@ -1,6 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import io.ebean.Model;
 import io.ebean.annotation.Index;
