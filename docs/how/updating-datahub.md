@@ -1,8 +1,3 @@
-# Known Issues
-
-- Async APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
-
-
 # Updating DataHub
 
 <!--
@@ -22,37 +17,38 @@
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
-- #12191 - Configs `include_view_lineage` and `include_view_column_lineage` are removed from snowflake ingestion source. View and External Table DDL lineage will always be ingested when definitions are available.
-- #12181 - Configs `include_view_lineage`, `include_view_column_lineage` and `lineage_parse_view_ddl` are removed from bigquery ingestion source. View and Snapshot lineage will always be ingested when definitions are available.
-- #11560 - The PowerBI ingestion source configuration option include_workspace_name_in_dataset_urn determines whether the workspace name is included in the PowerBI dataset's URN.<br/> PowerBI allows to have identical name of semantic model and their tables across the workspace, It will overwrite the semantic model in-case of multi-workspace ingestion.<br/>
-  Entity urn with `include_workspace_name_in_dataset_urn: false`
-
-  ```
-   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.]<SemanticModelName>.<TableName>,<ENV>)
-  ```
-
-  Entity urn with `include_workspace_name_in_dataset_urn: true`
-
-  ```
-   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.].<WorkspaceName>.<SemanticModelName>.<TableName>,<ENV>)
-  ```
-
-  The config `include_workspace_name_in_dataset_urn` is default to `false` for backward compatibility, However, we recommend enabling this flag after performing the necessary cleanup.
-  If stateful ingestion is enabled, running ingestion with the latest CLI version will handle the cleanup automatically. Otherwise, we recommend soft deleting all powerbi data via the DataHub CLI:
-  `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
-
-- #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
-- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
-- #12056: The DataHub Airflow plugin no longer supports Airflow 2.1 and Airflow 2.2.
-- #12056: The DataHub Airflow plugin now defaults to the v2 plugin implementation.
-- #12077: `Kafka` source no longer ingests schemas from schema registry as separate entities by default, set `ingest_schemas_as_entities` to `true` to ingest them
-- OpenAPI Update: PIT Keep Alive parameter added to scroll. NOTE: This parameter requires the `pointInTimeCreationEnabled` feature flag to be enabled and the `elasticSearch.implementation` configuration to be `elasticsearch`. This feature is not supported for OpenSearch at this time and the parameter will not be respected without both of these set.
-- OpenAPI Update 2: Previously there was an incorrectly marked parameter named `sort` on the generic list entities endpoint for v3. This parameter is deprecated and only supports a single string value while the documentation indicates it supports a list of strings. This documentation error has been fixed and the correct field, `sortCriteria`, is now documented which supports a list of strings. 
-- #12223: For dbt Cloud ingestion, the "View in dbt" link will point at the "Explore" page in the dbt Cloud UI. You can revert to the old behavior of linking to the dbt Cloud IDE by setting `external_url_mode: ide".
-- #12236: Data flow and data job entities may additionally produce container aspect that will require a corresponding upgrade of server. Otherwise server can reject the aspect.
 
 ### Breaking Changes
 
+- #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
+
+### Known Issues
+
+- #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+- #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Mainly, users of Sigma and PowerBI Apps ingestion may be affected by this adjustment. Consequently, a [reindex](https://datahubproject.io/docs/how/restore-indices/) will be automatically triggered during the system upgrade.
+
+## 0.15.0
+
+- OpenAPI Update: PIT Keep Alive parameter added to scroll endpoints. NOTE: This parameter requires the `pointInTimeCreationEnabled` feature flag to be enabled and the `elasticSearch.implementation` configuration to be `elasticsearch`. This feature is not supported for OpenSearch at this time and the parameter will not be respected without both of these set.
+- OpenAPI Update 2: Previously there was an incorrectly marked parameter named `sort` on the generic list entities endpoint for v3. This parameter is deprecated and only supports a single string value while the documentation indicates it supports a list of strings. This documentation error has been fixed and the correct field, `sortCriteria`, is now documented which supports a list of strings.
+
+### Known Issues
+
+- Persistence Exception: No Rows Updated may occur if a transaction does not change any aspect's data.
+
+### Breaking Changes
+
+- #12223: For dbt Cloud ingestion, the "View in dbt" link will point at the "Explore" page in the dbt Cloud UI. You can revert to the old behavior of linking to the dbt Cloud IDE by setting `external_url_mode: ide".
+- #12191 - Configs `include_view_lineage` and `include_view_column_lineage` are removed from snowflake ingestion source. View and External Table DDL lineage will always be ingested when definitions are available.
+- #12181 - Configs `include_view_lineage`, `include_view_column_lineage` and `lineage_parse_view_ddl` are removed from bigquery ingestion source. View and Snapshot lineage will always be ingested when definitions are available.
+- #12077: `Kafka` source no longer ingests schemas from schema registry as separate entities by default, set `ingest_schemas_as_entities` to `true` to ingest them
 - #11486 - Criterion's `value` parameter has been previously deprecated. Use of `value` instead of `values` is no longer supported and will be completely removed on the next major version.
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
@@ -78,8 +74,30 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- #12056: The DataHub Airflow plugin no longer supports Airflow 2.1 and Airflow 2.2.
+- #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
+- #11560 - The PowerBI ingestion source configuration option include_workspace_name_in_dataset_urn determines whether the workspace name is included in the PowerBI dataset's URN.<br/> PowerBI allows to have identical name of semantic model and their tables across the workspace, It will overwrite the semantic model in-case of multi-workspace ingestion.<br/>
+  Entity urn with `include_workspace_name_in_dataset_urn: false`
+
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.]<SemanticModelName>.<TableName>,<ENV>)
+  ```
+
+  Entity urn with `include_workspace_name_in_dataset_urn: true`
+
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.].<WorkspaceName>.<SemanticModelName>.<TableName>,<ENV>)
+  ```
+
+  The config `include_workspace_name_in_dataset_urn` is default to `false` for backward compatibility, However, we recommend enabling this flag after performing the necessary cleanup.
+  If stateful ingestion is enabled, running ingestion with the latest CLI version will handle the cleanup automatically. Otherwise, we recommend soft deleting all powerbi data via the DataHub CLI:
+  `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
+
 ### Other Notable Changes
 
+- #12236: Data flow and data job entities may additionally produce container aspect that will require a corresponding upgrade of server. Otherwise server can reject the aspect.
+- #12056: The DataHub Airflow plugin now defaults to the v2 plugin implementation.
+- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
 - #11549 - Manage Operations Privilege is extended from throttle control to all system management and operations APIs.
 
 ## 0.14.1

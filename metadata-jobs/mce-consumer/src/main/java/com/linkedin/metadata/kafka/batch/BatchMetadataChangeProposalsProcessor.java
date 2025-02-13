@@ -1,28 +1,34 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
+import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.config.batch.BatchMetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
@@ -39,12 +45,9 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
-  private static final String CONSUMER_GROUP_ID_VALUE =
-      "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}";
-
   private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
-  private final Producer<String, IndexedRecord> kafkaProducer;
+  private final EventProducer kafkaProducer;
 
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
@@ -61,7 +64,7 @@ public class BatchMetadataChangeProposalsProcessor {
           + "}")
   private String fmcpTopicName;
 
-  @Value(CONSUMER_GROUP_ID_VALUE)
+  @Value(MCP_CONSUMER_GROUP_ID_VALUE)
   private String mceConsumerGroupId;
 
   @PostConstruct
@@ -70,47 +73,68 @@ public class BatchMetadataChangeProposalsProcessor {
   }
 
   @KafkaListener(
-      id = CONSUMER_GROUP_ID_VALUE,
+      id = MCP_CONSUMER_GROUP_ID_VALUE,
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = "kafkaEventConsumer",
-      batch = "true")
+      containerFactory = MCP_EVENT_CONSUMER_NAME,
+      batch = "true",
+      autoStartup = "false")
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
-      List<MetadataChangeProposal> metadataChangeProposals =
-          new ArrayList<>(consumerRecords.size());
-      for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
-        kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-        final GenericRecord record = consumerRecord.value();
+    List<MetadataChangeProposal> metadataChangeProposals = new ArrayList<>(consumerRecords.size());
+    String topicName = null;
 
-        log.info(
-            "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
-            consumerRecord.key(),
-            consumerRecord.topic(),
-            consumerRecord.partition(),
-            consumerRecord.offset(),
-            consumerRecord.serializedValueSize(),
-            consumerRecord.timestamp());
+    for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final GenericRecord record = consumerRecord.value();
 
-        MetadataChangeProposal event = new MetadataChangeProposal();
-        try {
-          event = EventUtils.avroToPegasusMCP(record);
-        } catch (Throwable throwable) {
-          log.error("MCP Processor Error", throwable);
-          log.error("Message: {}", record);
-          KafkaListenerUtil.sendFailedMCP(event, throwable, fmcpTopicName, kafkaProducer);
-        }
-        metadataChangeProposals.add(event);
+      log.info(
+          "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
+
+      if (topicName == null) {
+        topicName = consumerRecord.topic();
       }
 
+      final MetadataChangeProposal event;
       try {
-        List<String> urns =
-            entityClient.batchIngestProposals(
-                systemOperationContext, metadataChangeProposals, false);
-        log.info("Successfully processed MCP event urns: {}", urns);
-      } catch (Exception e) {
-        // Java client should never throw this
-        log.error("Exception in batch ingest", e);
+        event = EventUtils.avroToPegasusMCP(record);
+        metadataChangeProposals.add(event);
+      } catch (IOException e) {
+        log.error(
+            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
       }
     }
+
+    List<SystemMetadata> systemMetadataList =
+        metadataChangeProposals.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
+    systemOperationContext.withQueueSpan(
+        "consume",
+        systemMetadataList,
+        topicName,
+        () -> {
+          try {
+            List<String> urns =
+                entityClient.batchIngestProposals(
+                    systemOperationContext, metadataChangeProposals, false);
+            log.info("Successfully processed MCP event urns: {}", urns);
+          } catch (Throwable throwable) {
+            log.error("MCP Processor Error", throwable);
+            Span currentSpan = Span.current();
+            currentSpan.recordException(throwable);
+            currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
+            currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+            kafkaProducer.produceFailedMetadataChangeProposal(
+                systemOperationContext, metadataChangeProposals, throwable);
+          }
+        },
+        BATCH_SIZE_ATTR,
+        String.valueOf(metadataChangeProposals.size()),
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "consume"));
   }
 }

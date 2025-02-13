@@ -110,9 +110,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest = self._get_connector_manifest(
                 connector_name, connector_url
             )
-            if (
-                connector_manifest is None
-                or not self.config.connector_patterns.allowed(connector_manifest.name)
+            if connector_manifest is None or not self.config.connector_patterns.allowed(
+                connector_manifest.name
             ):
                 self.report.report_dropped(connector_name)
                 continue

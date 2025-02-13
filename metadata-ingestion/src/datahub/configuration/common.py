@@ -200,8 +200,7 @@ class IgnorableError(MetaError):
 
 @runtime_checkable
 class ExceptionWithProps(Protocol):
-    def get_telemetry_props(self) -> Dict[str, Any]:
-        ...
+    def get_telemetry_props(self) -> Dict[str, Any]: ...
 
 
 def should_show_stack_trace(exc: Exception) -> bool:

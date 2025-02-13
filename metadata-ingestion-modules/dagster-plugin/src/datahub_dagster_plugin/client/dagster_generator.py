@@ -41,19 +41,6 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata._schema_classes import (
-    AuditStampClass,
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
-    GlobalTagsClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    QuerySubjectClass,
-    QuerySubjectsClass,
-    TagAssociationClass,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -70,10 +57,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
+    GlobalTagsClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
 )
 from datahub.metadata.urns import CorpUserUrn
@@ -507,7 +505,7 @@ class DagsterGenerator:
         job_property_bag: Dict[str, str] = {}
         if input_datasets:
             self.logger.info(
-                f"Input datasets for {op_def_snap.name} are { list(input_datasets.get(op_def_snap.name, []))}"
+                f"Input datasets for {op_def_snap.name} are {list(input_datasets.get(op_def_snap.name, []))}"
             )
             inlets.update(input_datasets.get(op_def_snap.name, []))
 
@@ -515,7 +513,7 @@ class DagsterGenerator:
 
         if output_datasets:
             self.logger.info(
-                f"Output datasets for {op_def_snap.name} are { list(output_datasets.get(op_def_snap.name, []))}"
+                f"Output datasets for {op_def_snap.name} are {list(output_datasets.get(op_def_snap.name, []))}"
             )
             datajob.outlets = list(output_datasets.get(op_def_snap.name, []))
 
@@ -606,7 +604,7 @@ class DagsterGenerator:
         if run.status not in status_result_map:
             raise Exception(
                 f"Job run status should be either complete, failed or cancelled and it was "
-                f"{run.status }"
+                f"{run.status}"
             )
 
         if run_stats.start_time is not None:
@@ -673,7 +671,7 @@ class DagsterGenerator:
         if run_step_stats.status not in status_result_map:
             raise Exception(
                 f"Step run status should be either complete, failed or cancelled and it was "
-                f"{run_step_stats.status }"
+                f"{run_step_stats.status}"
             )
 
         if run_step_stats.start_time is not None:

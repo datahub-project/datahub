@@ -1,6 +1,6 @@
 from dagster import Definitions
-from datahub.ingestion.graph.client import DatahubClientConfig
 
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubDagsterSourceConfig,
     make_datahub_sensor,

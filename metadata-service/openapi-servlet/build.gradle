@@ -36,6 +36,10 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdk
+  implementation externalDependency.opentelemetrySdkTrace
+
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')
   testImplementation externalDependency.springBoot

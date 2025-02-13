@@ -1,9 +1,10 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import dataclasses
 import functools
 import logging
 import traceback
 from collections import defaultdict
-from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pydantic.dataclasses
@@ -441,9 +442,9 @@ def _create_table_ddl_cll(
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
-    assert (
-        output_table is not None
-    ), "output_table must be set for create DDL statements"
+    assert output_table is not None, (
+        "output_table must be set for create DDL statements"
+    )
 
     create_schema: sqlglot.exp.Schema = statement.this
     sqlglot_columns = create_schema.expressions

@@ -59,7 +59,7 @@ public class PatchItemImpl implements PatchMCP {
   private final Urn urn;
   // aspectName name of the aspect being inserted
   private final String aspectName;
-  private final SystemMetadata systemMetadata;
+  private SystemMetadata systemMetadata;
   private final AuditStamp auditStamp;
 
   private final JsonPatch patch;
@@ -102,6 +102,14 @@ public class PatchItemImpl implements PatchMCP {
           GenericRecordUtils.serializeAspect(
               EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
       return mcp;
+    }
+  }
+
+  @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    this.systemMetadata = systemMetadata;
+    if (this.metadataChangeProposal != null) {
+      this.metadataChangeProposal.setSystemMetadata(systemMetadata);
     }
   }
 

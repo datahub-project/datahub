@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_dagster_plugin/__init__.py") as fp:
+with open("./src/datahub_dagster_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -51,9 +51,8 @@ base_dev_requirements = {
     "dagster-aws >= 0.11.0",
     "dagster-snowflake >= 0.11.0",
     "dagster-snowflake-pandas >= 0.11.0",
-    "black==22.12.0",
     "coverage>=5.1",
-    "ruff==0.9.1",
+    "ruff==0.9.2",
     "mypy>=1.4.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.

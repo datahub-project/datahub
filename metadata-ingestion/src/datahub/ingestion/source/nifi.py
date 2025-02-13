@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -184,9 +185,9 @@ class NifiSourceConfig(EnvConfigMixin):
 
     @validator("site_url")
     def validator_site_url(cls, site_url: str) -> str:
-        assert site_url.startswith(
-            ("http://", "https://")
-        ), "site_url must start with http:// or https://"
+        assert site_url.startswith(("http://", "https://")), (
+            "site_url must start with http:// or https://"
+        )
 
         if not site_url.endswith("/"):
             site_url = site_url + "/"
@@ -452,7 +453,7 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 @dataclass
 class NifiSourceReport(SourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -487,9 +488,7 @@ class NifiSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(
-        self, pg_flow_dto: Dict, recursion_level: int = 0
-    ) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:  # noqa: C901
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -548,16 +547,16 @@ class NifiSource(Source):
         for inputPort in flow_dto.get("inputPorts", []):
             component = inputPort.get("component")
             if inputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.INPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.INPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:
@@ -576,16 +575,16 @@ class NifiSource(Source):
         for outputPort in flow_dto.get("outputPorts", []):
             component = outputPort.get("component")
             if outputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.OUTPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.OUTPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:

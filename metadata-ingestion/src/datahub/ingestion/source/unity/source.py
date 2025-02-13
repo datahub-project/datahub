@@ -205,9 +205,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[
-            Tuple[TableReference, str]
-        ] = FileBackedDict()
+        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
+            FileBackedDict()
+        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()

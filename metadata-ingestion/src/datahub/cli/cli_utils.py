@@ -9,7 +9,7 @@ import click
 import requests
 from requests.sessions import Session
 
-import datahub
+import datahub._version as datahub_version
 from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -412,7 +412,7 @@ def generate_access_token(
 def ensure_has_system_metadata(
     event: Union[
         MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
-    ]
+    ],
 ) -> None:
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
@@ -422,5 +422,5 @@ def ensure_has_system_metadata(
     if metadata.properties is None:
         metadata.properties = {}
     props = metadata.properties
-    props["clientId"] = datahub.__package_name__
-    props["clientVersion"] = datahub.__version__
+    props["clientId"] = datahub_version.__package_name__
+    props["clientVersion"] = datahub_version.__version__
