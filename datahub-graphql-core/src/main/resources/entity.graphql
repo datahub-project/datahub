@@ -7827,6 +7827,11 @@ enum TimeRange {
     QUARTER
 
     """
+    Last half year
+    """
+    HALF_YEAR
+
+    """
     Last year
     """
     YEAR

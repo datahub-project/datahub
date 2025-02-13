@@ -25,7 +25,6 @@ export const GRAPH_LOOKBACK_WINDOWS_OPTIONS = [
 ];
 
 const getTimeRangeLabel = (value: TimeRange) => {
-    // Todo: add the 6 month time range when it's implemented
     switch (value) {
         case TimeRange.Week:
             return 'Last Week';
@@ -33,6 +32,8 @@ const getTimeRangeLabel = (value: TimeRange) => {
             return 'Last 30 days';
         case TimeRange.Quarter:
             return 'Last 3 months';
+        case TimeRange.HalfYear:
+            return 'Last 6 months';
         case TimeRange.Year:
             return 'Last Year';
         default:
@@ -40,8 +41,13 @@ const getTimeRangeLabel = (value: TimeRange) => {
     }
 };
 
-// Todo: add the 6 month time range when it's implemented
-const QUERY_COUNT_TIME_RANGE_OPTIONS = [TimeRange.Week, TimeRange.Month, TimeRange.Quarter, TimeRange.Year];
+const QUERY_COUNT_TIME_RANGE_OPTIONS = [
+    TimeRange.Week,
+    TimeRange.Month,
+    TimeRange.Quarter,
+    TimeRange.HalfYear,
+    TimeRange.Year,
+];
 
 export const AGGRAGATION_TIME_RANGE_OPTIONS = Object.values(QUERY_COUNT_TIME_RANGE_OPTIONS).map((value) => ({
     label: getTimeRangeLabel(value),

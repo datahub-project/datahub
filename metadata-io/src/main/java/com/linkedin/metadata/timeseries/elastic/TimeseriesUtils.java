@@ -52,6 +52,9 @@ public class TimeseriesUtils {
     } else if (range == UsageTimeRange.QUARTER) {
       // Assuming a quarter is 91 days.
       return currentEpochMillis - (92 * oneDayMillis + 1);
+    } else if (range == UsageTimeRange.HALF_YEAR) {
+      // Assuming half a year is 182 days.
+      return currentEpochMillis - (183 * oneDayMillis + 1);
     } else if (range == UsageTimeRange.YEAR) {
       return currentEpochMillis - (366 * oneDayMillis + 1);
     } else if (range == UsageTimeRange.ALL) {

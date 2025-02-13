@@ -73,7 +73,6 @@ export function addMonthOverMonthValue<T>(
 export function getStartTimeByTimeRange(range: TimeRange): number | undefined {
     const endTimemillis = dayjs().utc(true).startOf('day').toDate().getTime();
 
-    // Todo: add the 6 month time range when it's implemented
     switch (range) {
         case TimeRange.Day:
             return getTimeWindowStart(endTimemillis, DateInterval.Day, 1);
@@ -83,6 +82,8 @@ export function getStartTimeByTimeRange(range: TimeRange): number | undefined {
             return getTimeWindowStart(endTimemillis, DateInterval.Month, 1);
         case TimeRange.Quarter:
             return getTimeWindowStart(endTimemillis, DateInterval.Month, 3);
+        case TimeRange.HalfYear:
+            return getTimeWindowStart(endTimemillis, DateInterval.Month, 6);
         case TimeRange.Year:
             return getTimeWindowStart(endTimemillis, DateInterval.Year, 1);
         case TimeRange.All:
