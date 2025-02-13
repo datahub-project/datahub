@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
-from pydantic.fields import Field
+from pydantic import Field
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -74,6 +74,7 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
+    platform: str = Field(default="neo4j", hidden_from_docs=True)
     username: str = Field(description="Neo4j Username")
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
@@ -94,13 +95,15 @@ class Neo4jSourceReport(StaleEntityRemovalSourceReport):
 class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
     RELATIONSHIP = "relationship"
-    PLATFORM = "neo4j"
     config: Neo4jConfig
     report: Neo4jSourceReport
 
     def __init__(self, config: Neo4jConfig, ctx: PipelineContext):
         self.ctx = ctx
         self.config = config
+        self.platform = self.config.platform
+        self.platform_instance = self.config.platform_instance
+        self.env = self.config.env
         self.report = Neo4jSourceReport()
 
     @classmethod
@@ -152,10 +155,10 @@ class Neo4jSource(StatefulIngestionSourceBase):
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn_with_platform_instance(
-                platform=self.PLATFORM,
+                platform=self.platform,
                 name=dataset,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
+                platform_instance=self.platform_instance,
+                env=self.env,
             ),
             aspect=dataset_properties,
         ).as_workunit()
@@ -171,14 +174,14 @@ class Neo4jSource(StatefulIngestionSourceBase):
             ]
             wu = MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn_with_platform_instance(
-                    platform=self.PLATFORM,
+                    platform=self.platform,
                     name=dataset,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
-                    platform=make_data_platform_urn(self.PLATFORM),
+                    platform=make_data_platform_urn(self.platform),
                     version=0,
                     hash="",
                     platformSchema=OtherSchemaClass(rawSchema=""),
@@ -344,10 +347,10 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=make_dataset_urn_with_platform_instance(
-                        platform=self.PLATFORM,
+                        platform=self.platform,
                         name=row["key"],
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
                     ),
                     aspect=SubTypesClass(
                         typeNames=[
