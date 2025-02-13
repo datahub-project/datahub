@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Modal, Button, Form, Input } from 'antd';
+import { Typography, Modal, Form, Input } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { EMAIL_SINK, NotificationSink, PlatformNotificationOptions, SLACK_SINK } from '../types';
 
 type Props = {
@@ -41,14 +43,14 @@ export const PlatformNotificationOptionsModal = ({ initialState, visible, sinks,
             visible={visible}
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button onClick={onClose} variant="text" color="gray">
                         Cancel
                     </Button>
                     <Button id="updatePlatformNotificationOptionsButton" onClick={() => onDone(options)}>
                         Update
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form layout="vertical">

@@ -122,7 +122,7 @@ const ByQuestionCompleted = ({ closeModal }: Omit<Props, 'handleViewRemaining'>)
             <SmileTwoTone twoToneColor="#11ADA0" />
             You Did It!
         </h4>
-        <p>{`You've successfully completed the documentation requests for all assets. Well done!`}</p>
+        <p>{`You've successfully completed the compliance tasks for all assets. Well done!`}</p>
         <Button type="primary" onClick={closeModal}>
             Close
         </Button>

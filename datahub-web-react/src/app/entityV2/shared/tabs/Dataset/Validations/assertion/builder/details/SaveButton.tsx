@@ -1,6 +1,5 @@
 import React from 'react';
 
-import { SaveOutlined } from '@ant-design/icons';
 import { PrimaryButton } from './PrimaryButton';
 
 type Props = {
@@ -11,7 +10,5 @@ type Props = {
 };
 
 export const SaveButton = ({ title = 'Save', disabled, tooltip, onClick }: Props) => {
-    return (
-        <PrimaryButton icon={<SaveOutlined />} title={title} disabled={disabled} tooltip={tooltip} onClick={onClick} />
-    );
+    return <PrimaryButton title={title} disabled={disabled} tooltip={tooltip} onClick={onClick} />;
 };

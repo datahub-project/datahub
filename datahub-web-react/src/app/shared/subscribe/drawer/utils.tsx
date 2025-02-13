@@ -1,7 +1,7 @@
 import React, { Key } from 'react';
 import _ from 'lodash';
 import { Typography, message, notification } from 'antd';
-import { Tooltip } from '@components';
+import { colors, Tooltip } from '@components';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -360,6 +360,7 @@ export const deleteSubscriptionFunction = ({
                 description,
                 placement: 'bottomLeft',
                 duration: 3,
+                icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
             });
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
@@ -441,7 +442,7 @@ export const createSubscriptionFunction = ({
                 description,
                 placement: 'bottomLeft',
                 duration: 3,
-                icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+                icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
             });
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
@@ -572,7 +573,7 @@ export const updateSubscriptionFunction = ({
                     description,
                     placement: 'bottomLeft',
                     duration: 3,
-                    icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+                    icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
                 });
                 if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
             })

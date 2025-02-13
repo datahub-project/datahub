@@ -1,10 +1,10 @@
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { message, Modal, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { Button } from '@src/alchemy-components';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, ActionRequestStatus, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
@@ -49,6 +49,11 @@ const RightContentContainer = styled.div`
     display: flex;
     justify-content: right;
     align-items: middle;
+`;
+
+const ButtonContainer = styled.div`
+    display: flex;
+    gap: 16px;
 `;
 
 type Props = {
@@ -174,21 +179,16 @@ export default function MetadataAssociationRequestItem({
         );
     } else {
         actionResultView = (
-            <>
-                <Button
-                    type="primary"
-                    style={{ background: REDESIGN_COLORS.TITLE_PURPLE }}
-                    onClick={acceptRequest}
-                    data-testid="approve-button"
-                >
+            <ButtonContainer>
+                <Button onClick={acceptRequest} data-testid="approve-button" variant="outline">
                     <CheckOutlined />
                     Approve
                 </Button>
-                <Button type="text" onClick={rejectRequest} data-testid="decline-button">
+                <Button variant="outline" color="red" onClick={rejectRequest} data-testid="decline-button">
                     <CloseCircleOutlined />
                     Decline
                 </Button>
-            </>
+            </ButtonContainer>
         );
     }
 

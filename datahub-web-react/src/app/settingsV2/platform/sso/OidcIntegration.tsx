@@ -1,24 +1,11 @@
 import { InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
-import {
-    Button,
-    Divider,
-    Form,
-    Input,
-    message,
-    Switch,
-    Typography,
-    Row,
-    Col,
-    Alert,
-    Collapse,
-    Radio,
-    Space,
-} from 'antd';
+import { Divider, Form, Input, message, Switch, Typography, Row, Col, Alert, Collapse, Radio, Space } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import _ from 'lodash';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import { green, yellow } from '@ant-design/colors';
+import { Button } from '@src/alchemy-components';
 import { Link } from 'react-router-dom';
 import analytics, { EventType, ObfuscatedOidcSettings } from '@src/app/analytics';
 import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '../../../../graphql/settings.generated';
@@ -56,22 +43,7 @@ const ExampleDiscoveryUrl = styled(Typography.Text)`
     color: ${getColor('gray', 400)};
     display: inline-block;
 `;
-const UpdateButton = styled(Button)`
-    font-size: 0.8rem;
-    padding: 12px 20px;
-    height: auto;
-    width: auto;
-    margin-bottom: 24px;
-    border: 0;
-    color: white;
-    background-color: ${getColor('violet', 500)};
-    &:hover,
-    &:active,
-    &:focus {
-        color: white;
-        background-color: ${getColor('violet', 400)};
-    }
-`;
+
 const ConfigSuccessfulBanner = styled.div`
     background-color: ${green[0]};
     color: ${green[8]};
@@ -504,9 +476,9 @@ export const OidcIntegration = () => {
                                 </Collapse.Panel>
                             </Collapse>
                         </Form>
-                        <UpdateButton onClick={saveOidcSettings}>
+                        <Button style={{ marginBottom: 20 }} onClick={saveOidcSettings}>
                             {isIntegrationConfigured ? 'Update' : 'Connect'}
-                        </UpdateButton>
+                        </Button>
                     </Col>
                 </Row>
             </ContentContainer>

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
-import { Button, message } from 'antd';
-import { Tooltip } from '@components';
+import { message } from 'antd';
+import { Button, Tooltip } from '@components';
 import { jsonToYaml, yamlToJson } from '../../../../../ingest/source/utils';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import { YamlBuilder } from './YamlBuilder';
@@ -39,10 +39,17 @@ const ToggleViewButtonWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     margin-bottom: 10px;
+    gap: 16px;
 `;
 
 const ActionButton = styled(Button)`
     margin-right: 8px;
+`;
+
+const ButtonContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: end;
 `;
 
 type YamlStepProps = {
@@ -128,34 +135,33 @@ export const YamlStep = ({
                 <YamlBuilder initialValue={jsonToYaml(state?.definition?.json || '{}')} onChange={updateStagedYaml} />
             )) || <div>{children}</div>}
             <ControlsContainer>
-                {(onPrev && <Button onClick={onPrev}>Back</Button>) || <div> </div>}
+                {(onPrev && (
+                    <Button variant="outline" color="gray" onClick={onPrev}>
+                        Back
+                    </Button>
+                )) || <div> </div>}
                 <ToggleViewButtonWrapper>
                     <Tooltip title="Use Form builder to author your test (recommended)">
-                        <StyledButton type="text" $isSelected={!showYamlEditor} onClick={() => onChangeView(false)}>
+                        <StyledButton variant="text" $isSelected={!showYamlEditor} onClick={() => onChangeView(false)}>
                             <FormOutlined /> Form
                         </StyledButton>
                     </Tooltip>
                     <Tooltip title="Use YAML builder to author your test">
-                        <StyledButton type="text" $isSelected={showYamlEditor} onClick={() => onChangeView(true)}>
+                        <StyledButton variant="text" $isSelected={showYamlEditor} onClick={() => onChangeView(true)}>
                             <CodeOutlined /> YAML
                         </StyledButton>
                     </Tooltip>
                 </ToggleViewButtonWrapper>
-                <div>
+                <ButtonContainer>
                     {onAction && (
-                        <ActionButton onClick={handleOnAction}>
+                        <ActionButton variant="outline" onClick={handleOnAction}>
                             <Tooltip title={actionTip}>{actionTitle}</Tooltip>
                         </ActionButton>
                     )}
-                    <Button
-                        data-testid="modal-next-button"
-                        type="primary"
-                        onClick={handleOnNext}
-                        disabled={nextDisabled}
-                    >
+                    <Button data-testid="modal-next-button" onClick={handleOnNext} disabled={nextDisabled}>
                         Next
                     </Button>
-                </div>
+                </ButtonContainer>
             </ControlsContainer>
         </Container>
     );

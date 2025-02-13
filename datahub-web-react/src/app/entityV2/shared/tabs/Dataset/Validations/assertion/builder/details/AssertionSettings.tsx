@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-import { Button, Form } from 'antd';
-import { Tooltip } from '@components';
+import { Form } from 'antd';
+import { Button, Tooltip } from '@components';
 import styled from 'styled-components';
 import { Assertion, AssertionType, Monitor, Entity } from '../../../../../../../../../types.generated';
 import { EditButton } from './EditButton';
@@ -148,6 +148,7 @@ export const AssertionSettings = (props: Props) => {
                                         }
                                     >
                                         <StyledButton
+                                            variant="outline"
                                             onClick={tryTestAssertion}
                                             disabled={isTestAssertionActionDisabled}
                                         >

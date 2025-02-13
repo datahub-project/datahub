@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
-import { Modal, Button } from 'antd';
-
+import { Modal } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { YamlEditor } from '../../ingest/source/builder/YamlEditor';
 
 import { Configure } from '../fields/configure';
@@ -9,7 +10,7 @@ import { getYaml } from '../utils';
 
 import { useAutomationContext } from './AutomationProvider';
 
-import { AutomationsModalHeader, AutomationModalFooter, AutomationsDescription, AutomationLogo } from './components';
+import { AutomationsModalHeader, AutomationsDescription, AutomationLogo } from './components';
 import { useIsFormDisabled } from './hooks';
 
 type AutomationEditModalProps = {
@@ -62,14 +63,14 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
                 </AutomationsModalHeader>
             }
             footer={
-                <AutomationModalFooter>
-                    <div>
-                        <Button onClick={closeModal}>Cancel</Button>
-                        <Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
-                            {formInfo.submitContent}
-                        </Button>
-                    </div>
-                </AutomationModalFooter>
+                <ModalButtonContainer>
+                    <Button color="gray" variant="text" onClick={closeModal}>
+                        Cancel
+                    </Button>
+                    <Button onClick={formInfo.submitFn} disabled={isDisabled}>
+                        {formInfo.submitContent}
+                    </Button>
+                </ModalButtonContainer>
             }
             onCancel={closeModal}
             open={isOpen}

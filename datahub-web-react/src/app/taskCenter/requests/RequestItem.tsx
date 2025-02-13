@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
 
-import { List, Typography, Button } from 'antd';
-
+import { List } from 'antd';
+import styled from 'styled-components';
+import { Button, colors } from '@src/alchemy-components';
 import EntityFormModal from '../../entity/shared/entityForm/EntityFormModal';
 import { FormType } from '../../../types.generated';
 import { pluralize } from '../../shared/textUtil';
 import analytics, { DocRequestCTASource, EventType } from '../../analytics';
 import { useAppConfig } from '../../useAppConfig';
 import { FormView } from '../../entity/shared/entityForm/EntityFormContext';
+
+const Title = styled.div`
+    color: ${colors.gray[800]};
+    font-weight: 600;
+    font-size: 14px;
+`;
+
+const SubHeader = styled.div`
+    color: ${colors.gray[1700]};
+    font-size: 14px;
+`;
 
 type Props = {
     request: any;
@@ -26,13 +38,13 @@ export const RequestItem = ({ request, refetch }: Props) => {
     const isVerificationForm = type === FormType.Verification;
 
     // Messaging
-    let message = isVerificationForm ? `New Verification Request` : `New Documention Request`;
+    let message = isVerificationForm ? `New Verification Tasks` : `New Compliance Tasks`;
     if (owners && owners.length > 0) {
         const ownerName = owners[0].owner.info.displayName;
         if (ownerName)
             message = isVerificationForm
-                ? `New Verification Request from ${ownerName}`
-                : `New Documention Request from ${ownerName}`;
+                ? `New Verification Tasks from ${ownerName}`
+                : `New Compliance Tasks from ${ownerName}`;
     }
 
     // Close modal & refetch
@@ -54,11 +66,18 @@ export const RequestItem = ({ request, refetch }: Props) => {
     return (
         <>
             <List.Item key={form.urn}>
-                <Typography.Text>
-                    <strong>{message}</strong> <br />
-                    Please complete {name} for {displayedNumEntities} {pluralize(numEntitiesToComplete, 'asset')}
-                </Typography.Text>
-                <Button onClick={openModal}>Open in Documentation Center</Button>
+                <div>
+                    <Title>{message}</Title>
+                    <SubHeader>
+                        Please complete {name} for{' '}
+                        <b>
+                            {displayedNumEntities} {pluralize(numEntitiesToComplete, 'asset')}
+                        </b>
+                    </SubHeader>
+                </div>
+                <Button variant="text" onClick={openModal}>
+                    Open in Compliance Center
+                </Button>
             </List.Item>
             <EntityFormModal
                 selectedFormUrn={form.urn}

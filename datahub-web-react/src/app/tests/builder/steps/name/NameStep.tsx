@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Form, Input, Typography } from 'antd';
+import { Form, Input, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
 import { StepProps } from '../../types';
 import { CategorySelect } from './CategorySelect';
 import { isSupportedCategory, isCustomCategory } from '../../../utils';
@@ -89,10 +90,11 @@ export const NameStep = ({ state, updateState, prev, submit }: StepProps) => {
                 </Form.Item>
             </StyledForm>
             <ControlsContainer>
-                <Button onClick={prev}>Back</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Back
+                </Button>
                 <SaveButton
                     disabled={!(state.name !== undefined && state.name.length > 0)}
-                    type="primary"
                     onClick={() => onClickCreate()}
                 >
                     Save

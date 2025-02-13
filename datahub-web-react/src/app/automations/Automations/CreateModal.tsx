@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 
-import { Modal, Button } from 'antd';
+import { Modal } from 'antd';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { getYaml } from '@app/automations/utils';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
 import { Configure } from '../fields/configure';
 import { templates } from '../recipes';
 import { useAutomationContext } from './AutomationProvider';
@@ -11,7 +13,6 @@ import {
     PremadeAutomations,
     PremadeAutomationCard,
     AutomationsModalHeader,
-    AutomationModalFooter,
     AutomationsDescription,
     AutomationLogo,
 } from './components';
@@ -112,17 +113,17 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
                 )
             }
             footer={
-                <AutomationModalFooter>
-                    <div>
-                        {showForm || (showYaml && <Button onClick={goBack}>Back</Button>)}
-                        <Button onClick={closeModal}>Cancel</Button>
-                    </div>
+                <ModalButtonContainer>
+                    {showForm || (showYaml && <Button onClick={goBack}>Back</Button>)}
+                    <Button color="gray" variant="text" onClick={closeModal}>
+                        Cancel
+                    </Button>
                     {type ? (
-                        <Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
+                        <Button onClick={formInfo.submitFn} disabled={isDisabled}>
                             {formInfo.submitContent}
                         </Button>
                     ) : null}
-                </AutomationModalFooter>
+                </ModalButtonContainer>
             }
             onCancel={closeModal}
             open={isOpen}

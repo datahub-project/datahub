@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Checkbox, Typography } from 'antd';
+import { Checkbox, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
 import { StepProps } from '../types';
 import { AssertionActionType } from '../../../../../../../../../types.generated';
 import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
@@ -66,9 +67,10 @@ export const ConfigureActionsStep = ({ state, updateState, prev, submit }: StepP
                 </Section>
             </Form>
             <ControlsContainer>
-                <Button onClick={prev}>Back</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Back
+                </Button>
                 <Button
-                    type="primary"
                     onClick={async () => {
                         try {
                             setSubmitting(true);

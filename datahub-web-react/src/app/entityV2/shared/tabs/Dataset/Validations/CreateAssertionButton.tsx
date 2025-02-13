@@ -3,8 +3,8 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useAppConfig } from '@src/app/useAppConfig';
 import styled from 'styled-components';
-import { Button, Dropdown, message } from 'antd';
-import { Tooltip } from '@components';
+import { Dropdown, message } from 'antd';
+import { Button, Tooltip } from '@components';
 import { PlusOutlined } from '@ant-design/icons';
 import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
@@ -13,23 +13,6 @@ import { getColor } from '@src/alchemy-components/theme/utils';
 import { useSiblingOptionsForAssertionBuilder } from './AssertionList/utils';
 import { EntityStagedForAssertion } from './AssertionList/types';
 
-const CreateButton = styled(Button)`
-    &&& {
-        background-color: #5c3fd1;
-        height: 40px;
-        color: white;
-        justify-content: center;
-        align-items: end;
-        border-radius: 5px;
-
-        &:disabled {
-            background-color: #e0e0e0 !important;
-            height: 40px;
-            color: #a0a0a0;
-            opacity: 0.8;
-        }
-    }
-`;
 const SiblingSelectionDropdownLink = styled.div`
     margin-bottom: 4px;
     padding: 4px 8px;
@@ -153,9 +136,9 @@ export const CreateAssertionButton = ({
     }));
 
     const renderDefaultButton = (props: RenderButtonProps) => (
-        <CreateButton {...props}>
+        <Button {...props}>
             <PlusOutlined /> Create
-        </CreateButton>
+        </Button>
     );
 
     const renderButton = renderCustomButton || renderDefaultButton;

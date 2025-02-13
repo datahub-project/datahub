@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
+import { Button } from '@src/alchemy-components';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { AssertionActionsSection } from './actions/AssertionActionsSection';
 import { SchemaAssertionBuilder } from './schema/SchemaAssertionBuilder';
@@ -45,12 +45,16 @@ export const ConfigureDatasetSchemaAssertionStep = ({ state, updateState, goTo, 
                 <AssertionActionsSection state={state} updateState={updateState} />
             </div>
             <Controls>
-                {prev && <Button onClick={prev}>Back</Button>}
-                <ControlsGroup>
-                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
-                    <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
-                        Next
+                {prev && (
+                    <Button variant="outline" color="gray" onClick={prev}>
+                        Back
                     </Button>
+                )}
+                <ControlsGroup>
+                    <Button variant="outline" onClick={handleTestAssertionSubmit}>
+                        Try it out
+                    </Button>
+                    <Button onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>Next</Button>
                 </ControlsGroup>
             </Controls>
             <TestAssertionModal

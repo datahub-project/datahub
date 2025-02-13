@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Form, Input, Button, Space } from 'antd';
-import { Tooltip } from '@components';
+import { Typography, Form, Input, Space } from 'antd';
+import { Button, Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
@@ -31,9 +31,7 @@ const StyledLabel = styled(Typography.Text)`
     font-size: 14px;
 `;
 
-const StyledButton = styled(Button)`
-    background: #00615f;
-`;
+const StyledButton = styled(Button)``;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)<{ $isChannelUpdated: boolean }>`
     margin-right: 5px;
@@ -100,9 +98,8 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                                 title={!isSlackEnabled ? 'Slack notifications are currently disabled.' : undefined}
                             >
                                 <Button
-                                    size="small"
+                                    variant="outline"
                                     disabled={!isSlackEnabled || editing}
-                                    type="default"
                                     onClick={() => setEditing(true)}
                                 >
                                     Edit
@@ -123,7 +120,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                                     }
                                 }}
                             />
-                            <StyledButton type="primary" onClick={onSave} disabled={!isSlackEnabled}>
+                            <StyledButton onClick={onSave} disabled={!isSlackEnabled}>
                                 Save
                             </StyledButton>
                         </>

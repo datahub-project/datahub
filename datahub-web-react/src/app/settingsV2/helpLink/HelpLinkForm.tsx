@@ -1,6 +1,7 @@
-import { Button, Switch } from 'antd';
+import { Switch } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import useHelpLinkForm from './useHelpLinkForm';
 import LinkInput, { getLinkWithoutPrefix } from './LinkInput';
 import { InputLabel, InputWrapper, RequiredIcon, StyledInput } from './components';
@@ -53,7 +54,7 @@ export default function HelpLinkForm() {
                             <StyledInput value={label} onChange={(e) => setLabel(e.target.value)} />
                         </InputWrapper>
                         <LinkInput />
-                        <Button type="primary" onClick={saveHelpLink} disabled={!label || !linkWithoutPrefix}>
+                        <Button onClick={saveHelpLink} disabled={!label || !linkWithoutPrefix}>
                             Save
                         </Button>
                     </ButtonInputsWrapper>
