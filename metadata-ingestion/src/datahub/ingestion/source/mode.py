@@ -759,9 +759,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 return platform, database
         else:
             self.report.report_warning(
-                title="Failed to create Data Platform Urn",
-                message=f"Cannot create datasource urn for datasource id: "
-                f"{data_source_id}",
+                title="Unable to construct upstream lineage",
+                message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
+                context=f"Data Source ID: {data_source_id}",
             )
         return None, None
 
