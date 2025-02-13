@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 class VertexAIConfig(EnvConfigMixin):
-    project_id: str = Field(description=("Project ID"))
+    project_id: str = Field(description=("Project ID in Google Cloud Platform"))
     region: str = Field(
-        description=("Region"),
+        description=("Region of your project in Google Cloud Platform"),
     )
     bucket_uri: Optional[str] = Field(
         default=None,
-        description=("Bucket URI"),
+        description=("Bucket URI used in your GCP project"),
     )
 
     model_name_separator: str = Field(
@@ -53,7 +53,7 @@ class VertexAIConfig(EnvConfigMixin):
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for vertexai Registered Models and Model Versions",
 )
-@capability(SourceCapability.TAGS, "Extract tags for vertexai Registered Model Stages")
+@capability(SourceCapability.TAGS, "Extract tags for VertexAI Registered Model Stages")
 class VertexAISource(Source):
     platform = "vertexai"
 
@@ -81,7 +81,7 @@ class VertexAISource(Source):
 
     def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
-        Traverse each Registered Model in Model Registry and generate a corresponding workunit.
+        Fetch List of Models in Model Registry and generate a corresponding workunit.
         """
         registered_models = self.client.Model.list()
         for model in registered_models:
