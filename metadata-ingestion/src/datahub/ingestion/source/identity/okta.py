@@ -78,7 +78,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     )
     ingest_groups_users: bool = Field(
         default=True,
-        description="This option is useful only when `ingest_users` is set to False and `ingest_group_membership` to True. As effect, only the users which belongs to the selected groups will be ingested.",
+        description="Only ingest users belonging to the selected groups. This option is only useful when `ingest_users` is set to False and `ingest_group_membership` to True.",
     )
 
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
