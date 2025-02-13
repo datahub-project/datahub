@@ -31,7 +31,7 @@ public class DataHubGuestAuthenticator implements Authenticator {
 
   @Override
   public void init(final Map<String, Object> config, final AuthenticatorContext context) {
-    if (config != null){
+    if (config != null) {
       if (config.containsKey(GUEST_USER)) {
         guestUser = (String) config.get(GUEST_USER);
       }

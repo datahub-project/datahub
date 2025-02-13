@@ -31,15 +31,21 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 @SpringBootTest
 @TestPropertySource(properties = {"authorization.restApiAuthorization=true"})
 public class AuthUtilTest {
 
-  // TODO: The AuthUtil @PostConstruct is not really getting called from the unit test, so is really
-  // relying on
-  // the default being true.
+  // The AuthUtil @PostConstruct is not getting called from the unit tests, so calling
+  // it explicitly.
+  @BeforeClass
+  public void beforeAll() {
+    authUtil = new AuthUtil();
+    authUtil.restApiAuthorizationEnabled = true;
+    authUtil.init();
+  }
 
   @Autowired private AuthUtil authUtil;
 
