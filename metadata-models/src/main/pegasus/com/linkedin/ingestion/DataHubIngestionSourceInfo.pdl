@@ -22,7 +22,8 @@ record DataHubIngestionSourceInfo {
    * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
    */
   @Searchable = {
-   "fieldType": "KEYWORD"
+   "fieldType": "KEYWORD",
+   "queryByDefault": false
   }
   type: string
 
@@ -55,7 +56,8 @@ record DataHubIngestionSourceInfo {
       */
       @Searchable = {
          "fieldName": "sourceExecutorId",
-         "fieldType": "KEYWORD"
+         "fieldType": "KEYWORD",
+         "queryByDefault": false
       }
       executorId: optional string
 
@@ -81,7 +83,8 @@ record DataHubIngestionSourceInfo {
          */
         @Searchable = {
            "fieldName": "sourceType",
-           "fieldType": "KEYWORD"
+           "fieldType": "KEYWORD",
+           "queryByDefault": false
         }
         type: enum DataHubIngestionSourceSourceType {
             /**
