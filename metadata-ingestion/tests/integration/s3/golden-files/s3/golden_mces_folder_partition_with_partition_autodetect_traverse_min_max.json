@@ -46,30 +46,6 @@
             },
             "fields": [
                 {
-                    "fieldPath": "color",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "height",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "integer",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "name",
                     "nullable": false,
                     "type": {
@@ -92,8 +68,54 @@
                     "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847820000
         }
     },
     "systemMetadata": {
@@ -141,19 +163,13 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
-    "aspectName": "operation",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847820000
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -184,10 +200,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "path": []
         }
     },
     "systemMetadata": {
@@ -198,12 +214,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": []
+            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
         }
     },
     "systemMetadata": {
@@ -258,28 +274,6 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
-            },
-            "name": "folder_aa",
-            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -347,6 +341,28 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa",
+            "env": "UAT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -361,12 +377,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -385,22 +401,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -438,16 +438,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
-            },
-            "name": "folder_aaa",
-            "env": "UAT"
+            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
         }
     },
     "systemMetadata": {
@@ -460,10 +454,16 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -492,12 +492,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Folder"
-            ]
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -510,10 +508,12 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "typeNames": [
+                "Folder"
+            ]
         }
     },
     "systemMetadata": {
@@ -571,10 +571,27 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "removed": false
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                },
+                {
+                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -630,42 +647,6 @@
             },
             "fields": [
                 {
-                    "fieldPath": "color",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "healthy",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.BooleanType": {}
-                        }
-                    },
-                    "nativeDataType": "bool",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "height",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "name",
                     "nullable": false,
                     "type": {
@@ -688,39 +669,42 @@
                     "nativeDataType": "int64",
                     "recursive": false,
                     "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
                 },
                 {
-                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -771,6 +755,39 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                },
+                {
+                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -783,7 +800,7 @@
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
             "created": {
-                "time": 1586847860000
+                "time": 1586847870000
             },
             "lastModified": {
                 "time": 1586847980000
@@ -823,55 +840,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "effect_changes",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "effect_changes.effect_entries.effect",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_changes.effect_entries.language.is_native",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -907,7 +876,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "effect_changes.version_group",
+                    "fieldPath": "effect_changes.effect_entries.language.is_native",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "str",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes.effect_entries.language",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -915,6 +896,18 @@
                         }
                     },
                     "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes.effect_entries",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -943,7 +936,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "effect_entries",
+                    "fieldPath": "effect_changes.version_group",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "effect_changes",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -963,18 +968,6 @@
                         }
                     },
                     "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "effect_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1003,6 +996,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "effect_entries.language",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "effect_entries.short_effect",
                     "nullable": false,
                     "type": {
@@ -1015,7 +1020,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "flavor_text_entries",
+                    "fieldPath": "effect_entries",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -1035,18 +1040,6 @@
                         }
                     },
                     "nativeDataType": "str",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "flavor_text_entries.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1075,7 +1068,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "flavor_text_entries.version_group",
+                    "fieldPath": "flavor_text_entries.language",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -1111,7 +1104,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "generation",
+                    "fieldPath": "flavor_text_entries.version_group",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -1119,6 +1112,18 @@
                         }
                     },
                     "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "flavor_text_entries",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1143,6 +1148,18 @@
                         }
                     },
                     "nativeDataType": "str",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "generation",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1183,30 +1200,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "names",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {}
-                        }
-                    },
-                    "nativeDataType": "list",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "names.language",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "names.language.name",
                     "nullable": false,
                     "type": {
@@ -1231,6 +1224,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "names.language",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "names.name",
                     "nullable": false,
                     "type": {
@@ -1243,7 +1248,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "pokemon",
+                    "fieldPath": "names",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -1263,18 +1268,6 @@
                         }
                     },
                     "nativeDataType": "bool",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "pokemon.pokemon",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.RecordType": {}
-                        }
-                    },
-                    "nativeDataType": "dict",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -1303,6 +1296,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "pokemon.pokemon",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "dict",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "pokemon.slot",
                     "nullable": false,
                     "type": {
@@ -1313,80 +1318,18 @@
                     "nativeDataType": "int",
                     "recursive": false,
                     "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "partitionsSummary",
-    "aspect": {
-        "json": {
-            "minPartition": {
-                "partition": "year=2019/month=feb",
-                "createdTime": 1586847860000,
-                "lastModifiedTime": 1586847870000
-            },
-            "maxPartition": {
-                "partition": "year=2022/month=jan",
-                "createdTime": 1586847980000,
-                "lastModifiedTime": 1586847980000
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
                 },
                 {
-                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
-                },
-                {
-                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
-                },
-                {
-                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                    "fieldPath": "pokemon",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -1410,7 +1353,32 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847990000
+            "lastUpdatedTimestamp": 1586847980000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "partitionsSummary",
+    "aspect": {
+        "json": {
+            "minPartition": {
+                "partition": "year=2019/month=feb",
+                "createdTime": 1586847870000,
+                "lastModifiedTime": 1586847870000
+            },
+            "maxPartition": {
+                "partition": "year=2022/month=jan",
+                "createdTime": 1586847980000,
+                "lastModifiedTime": 1586847980000
+            }
         }
     },
     "systemMetadata": {
@@ -1460,6 +1428,38 @@
                     "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_with_partition_autodetect_traverse_min_max.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
