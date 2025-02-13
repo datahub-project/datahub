@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from datetime import datetime
 from typing import (
@@ -20,6 +22,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import MultipleSubtypesWarning, SdkUsageError
 from datahub.metadata.urns import (
+    ContainerUrn,
     CorpGroupUrn,
     CorpUserUrn,
     DataJobUrn,
@@ -177,17 +180,31 @@ class HasOwnership(Entity):
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
 
 
-ContainerInputType: TypeAlias = Union["Container", ContainerKey]
+# If you pass in a container object, we can build on top of its browse path.
+# If you pass in a ContainerKey, we can use parent_key() to build the browse path.
+# If you pass in a list of urns, we'll use that as the browse path. Any non-urn strings
+# will be treated as raw ids.
+ParentContainerInputType: TypeAlias = Union["Container", ContainerKey, List[UrnOrStr]]
 
 
 class HasContainer(Entity):
     __slots__ = ()
 
-    def _set_container(self, container: Optional[ContainerInputType]) -> None:
+    @staticmethod
+    def _maybe_parse_as_urn(urn: UrnOrStr) -> UrnOrStr:
+        if isinstance(urn, Urn):
+            return urn
+        elif urn.startswith("urn:li:"):
+            return Urn.from_string(urn)
+        else:
+            return urn
+
+    def _set_container(self, container: Optional[ParentContainerInputType]) -> None:
         # We need to allow container to be None. It won't happen for datasets much, but
         # will be required for root containers.
         from datahub.sdk.container import Container
 
+        container_urn: Optional[str]
         browse_path: List[Union[str, models.BrowsePathEntryClass]] = []
         if isinstance(container, Container):
             container_urn = container.urn.urn()
@@ -203,6 +220,29 @@ class HasContainer(Entity):
                     id=container_urn,
                     urn=container_urn,
                 ),
+            ]
+        elif isinstance(container, list):
+            parsed_path = [self._maybe_parse_as_urn(entry) for entry in container]
+
+            # Use the last container in the path as the container urn.
+            container_urns = [
+                urn.urn() for urn in parsed_path if isinstance(urn, ContainerUrn)
+            ]
+            container_urn = container_urns[-1] if container_urns else None
+
+            browse_path = [
+                (
+                    models.BrowsePathEntryClass(
+                        id=str(entry),
+                        urn=str(entry),
+                    )
+                    if isinstance(entry, Urn)
+                    else models.BrowsePathEntryClass(
+                        id=entry,
+                        urn=None,
+                    )
+                )
+                for entry in parsed_path
             ]
         elif container is not None:
             container_urn = container.as_urn()

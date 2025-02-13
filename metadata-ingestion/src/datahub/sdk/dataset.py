@@ -19,7 +19,6 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
-    ContainerInputType,
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
@@ -30,6 +29,7 @@ from datahub.sdk._shared import (
     HasTags,
     HasTerms,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
@@ -37,7 +37,6 @@ from datahub.sdk._shared import (
 )
 
 SchemaFieldInputType: TypeAlias = Union[
-    str,
     Tuple[str, str],  # (name, type)
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,
@@ -352,8 +351,8 @@ class Dataset(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
+        parent_container: Optional[ParentContainerInputType] = None,
         subtype: Optional[str] = None,
-        container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
@@ -395,8 +394,8 @@ class Dataset(
 
         if subtype is not None:
             self.set_subtype(subtype)
-        if container is not None:
-            self._set_container(container)
+        if parent_container is not None:
+            self._set_container(parent_container)
         if owners is not None:
             self.set_owners(owners)
         if tags is not None:
@@ -536,14 +535,6 @@ class Dataset(
                 ),
                 nativeDataType=field_type,
                 description=description,
-            )
-        elif isinstance(schema_field_input, str):
-            # TODO: Not sure this branch makes sense - we should probably just require types?
-            return models.SchemaFieldClass(
-                fieldPath=schema_field_input,
-                type=models.SchemaFieldDataTypeClass(models.NullTypeClass()),
-                nativeDataType="unknown",
-                description=None,
             )
         else:
             assert_never(schema_field_input)

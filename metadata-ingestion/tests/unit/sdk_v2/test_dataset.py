@@ -83,7 +83,7 @@ def _build_complex_dataset() -> Dataset:
         platform="snowflake",
         platform_instance="my_instance",
         name="my_db.my_schema.my_table",
-        container=schema,
+        parent_container=schema,
         subtype=DatasetSubTypes.TABLE,
         schema=[
             ("field1", "string"),

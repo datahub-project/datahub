@@ -73,7 +73,7 @@ def test_dataset_creation(
         platform="snowflake",
         name="test_db.test_schema.table_1",
         env="prod",
-        container=schema,
+        parent_container=schema,
         schema=[
             ("col1", "string"),
             ("col2", "int"),
