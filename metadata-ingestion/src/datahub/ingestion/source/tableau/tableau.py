@@ -2190,6 +2190,10 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                logger.warning(
+                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                )
+                continue
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
@@ -2628,6 +2632,15 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
+        if (
+            not is_embedded_ds
+            and self._get_published_datasource_project_luid(datasource) is None
+        ):
+            logger.warning(
+                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2851,6 +2864,11 @@ class TableauSiteSource:
             query_filter=tables_filter,
             page_size=self.config.effective_database_table_page_size,
         ):
+            if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
+                logger.warning(
+                    f"Skipping table {tableau_table[c.ID]} due to filtered out published datasource"
+                )
+                continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
             ]
@@ -2905,6 +2923,7 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
+            return
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
