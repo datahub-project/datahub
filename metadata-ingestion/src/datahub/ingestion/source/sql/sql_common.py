@@ -387,6 +387,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
+
+        # if connecting to oracle with thick_mode client it must be initialized before calling create_engine
+        if type(self).__name__ == "OracleSource":
+            if self.config.thick_mode:
+                import oracledb  # isort: skip
+                import platform as platform_pylib  # isort: skip
+
+                operating_system = platform_pylib.system()
+                if operating_system == "Darwin" or operating_system == "Windows":
+                    # windows and mac os require lib_dir to be set explicitly
+                    logger.debug(
+                        f"initializing oracle thick mode on {operating_system} with lib_dir: {self.config.lib_dir}"
+                    )
+                    oracledb.init_oracle_client(lib_dir=self.config.lib_dir)
+                else:
+                    # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                    logger.debug(
+                        f"initializing oracle thick mode on {operating_system}"
+                    )
+                    oracledb.init_oracle_client()
+
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
             inspector = inspect(conn)

@@ -85,6 +85,16 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="The data dictionary views mode, to extract information about schema objects "
         "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
     )
+    # oracledb settings to enable thick mode and client library location
+    thick_mode: Optional[bool] = Field(
+        default=False,
+        description="Connection defaults to thin mode. Set to True to enable thick mode.",
+    )
+    lib_dir: Optional[str] = Field(
+        default=None,
+        description="If using thick mode on Windows or Mac, set lib_dir to the oracle client libraries path. "
+        "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
