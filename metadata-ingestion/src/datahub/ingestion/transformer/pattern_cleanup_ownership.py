@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import List, Optional, Set, cast
 
@@ -11,7 +12,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+logger = logging.getLogger(__name__)
+
 _USER_URN_PREFIX: str = "urn:li:corpuser:"
+_GROUP_URN_PREFIX: str = "urn:li:corpGroup:"
 
 
 class PatternCleanUpOwnershipConfig(ConfigModel):
@@ -58,11 +62,19 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         # clean all the owners based on the parameters received from config
         cleaned_owner_urns: List[str] = []
         for owner_urn in current_owner_urns:
-            user_id: str = owner_urn.split(_USER_URN_PREFIX)[1]
-            for value in self.config.pattern_for_cleanup:
-                user_id = re.sub(value, "", user_id)
-
-            cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
+            try:
+                user_id: str = owner_urn.split(_USER_URN_PREFIX)[1]
+                for value in self.config.pattern_for_cleanup:
+                    user_id = re.sub(value, "", user_id)
+                cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
+            except IndexError:
+                try:
+                    group_id: str = owner_urn.split(_GROUP_URN_PREFIX)[1]
+                    for value in self.config.pattern_for_cleanup:
+                        group_id = re.sub(value, "", group_id)
+                    cleaned_owner_urns.append(_GROUP_URN_PREFIX + group_id)[1]
+                except IndexError:
+                    logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
             OwnershipTypeClass.DATAOWNER
