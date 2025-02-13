@@ -20,6 +20,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #12580: The OpenAPI source handled nesting incorrectly. 12580 fixes it to create proper nested field paths, however, this will re-write the incorrect schemas of existing OpenAPI runs.
+
 - #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
 
 ### Known Issues
