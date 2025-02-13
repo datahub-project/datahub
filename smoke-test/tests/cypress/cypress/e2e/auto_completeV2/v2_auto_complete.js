@@ -2,7 +2,9 @@ describe("auto-complete", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
+    cy.hideOnboardingTour();
     cy.login();
+    cy.ignoreResizeObserverLoop();
     // look for a dataset
     cy.visit("/");
     cy.wait(2000);

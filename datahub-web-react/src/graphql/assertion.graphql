@@ -410,3 +410,10 @@ mutation runAssertion($urn: String!, $saveResult: Boolean, $async: Boolean) {
         ...assertionResultDetails
     }
 }
+
+query getAssertionWithRunEvents($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithRunEvents
+    }
+}

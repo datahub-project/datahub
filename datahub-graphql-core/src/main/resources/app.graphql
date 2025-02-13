@@ -1207,8 +1207,8 @@ type FeatureFlagsConfig {
   documentationAiEnabled: Boolean!
 
   """
-  Allows the V2 Acryl theme to be turned on.
-  Only available as part of Acryl, it includes new UX for home page, search, entity profiles, and lineage.
+  Allows the V2 theme to be turned on.
+  Includes new UX for home page, search, entity profiles, and lineage.
   If false, then the V2 experience will be unavailable even if themeV2Default or themeV2Toggleable are true.
   """
   themeV2Enabled: Boolean!
@@ -1221,7 +1221,7 @@ type FeatureFlagsConfig {
   themeV2Default: Boolean!
 
   """
-  Allows the V2 Acryl theme to be toggled by users.
+  Allows the V2 theme to be toggled by users.
   """
   themeV2Toggleable: Boolean!
 

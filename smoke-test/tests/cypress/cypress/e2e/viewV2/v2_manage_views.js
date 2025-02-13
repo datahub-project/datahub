@@ -7,7 +7,8 @@ describe("manage views", () => {
 
     cy.login();
     cy.goToViewsSettings();
-    cy.waitTextVisible("Platform");
+    cy.waitTextVisible("Settings");
+    cy.wait(1000);
     cy.clickOptionWithText("Create new View");
     cy.get(".ant-input-affix-wrapper > input[type='text']")
       .first()

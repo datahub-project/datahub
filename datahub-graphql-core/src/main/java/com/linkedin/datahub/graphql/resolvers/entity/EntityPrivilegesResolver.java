@@ -123,8 +123,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
-    result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     // Schema Field Edits are a bit of a hack.
+    result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     result.setCanEditSchemaFieldTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, "ignored"));
     result.setCanEditSchemaFieldGlossaryTerms(
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));

@@ -70,7 +70,7 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, s
     };
 
     return (
-        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} style={style}>
+        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} style={style} data-testid="nav-menu-links">
             {menu.items.map((item) => renderMenuItem(item))}
         </StyledMenu>
     );

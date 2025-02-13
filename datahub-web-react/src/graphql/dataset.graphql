@@ -483,6 +483,17 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
     }
 }
 
+fragment assertionsQueryWithRunEvents on Dataset {
+    assertions(start: 0, count: 1000) {
+        start
+        count
+        total
+        assertions {
+            ...assertionDetailsWithRunEvents
+        }
+    }
+}
+
 query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
     dataset(urn: $urn) {
         operationsStats(input: $input) {
@@ -548,6 +559,26 @@ query getOperationsStats($urn: String!, $range: TimeRange!) {
                 customOperationsMap {
                     key
                     value
+                }
+            }
+        }
+    }
+}
+
+query getDatasetAssertionsWithRunEvents($urn: String!) {
+    dataset(urn: $urn) {
+        ...assertionsQueryWithRunEvents
+        siblings {
+            isPrimary
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...assertionsQueryWithRunEvents
                 }
             }
         }

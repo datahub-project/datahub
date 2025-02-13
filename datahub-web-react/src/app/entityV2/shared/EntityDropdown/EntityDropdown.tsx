@@ -66,7 +66,6 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         display: flex;
         font-size: 20px;
         padding: 2px;
-
         :hover {
             color: ${REDESIGN_COLORS.TITLE_PURPLE};
         }

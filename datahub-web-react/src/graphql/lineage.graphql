@@ -2,6 +2,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
     urn
     type
     ... on DataJob {
+        urn
+        type
         exists
         dataFlow {
             ...nonRecursiveDataFlowFields
@@ -116,6 +118,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
     ... on Dashboard {
         exists
+        urn
+        type
         tool
         dashboardId
         properties {
@@ -277,6 +281,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
     ... on MLModelGroup {
         exists
+        urn
+        type
         name
         description
         origin
@@ -320,6 +326,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
     ... on MLModel {
         exists
+        urn
+        type
         name
         description
         origin

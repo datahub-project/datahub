@@ -22,6 +22,8 @@ export function getTimestampMillisNumDaysAgo(numDays) {
   return dayjs().subtract(numDays, "day").valueOf();
 }
 
+const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
+
 Cypress.Commands.add("login", () => {
   cy.request({
     method: "POST",
@@ -31,7 +33,7 @@ Cypress.Commands.add("login", () => {
       password: Cypress.env("ADMIN_PASSWORD"),
     },
     retryOnStatusCodeFailure: true,
-  });
+  }).then(() => localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true"));
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
@@ -45,6 +47,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
   }
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -461,7 +464,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.mouseover("#title").click();
     cy.waitTextVisible("Other").click();
     cy.get("[type=submit]").click();
-    cy.waitTextVisible("Welcome to DataHub");
+    cy.waitTextVisible("Welcome");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.logout();
@@ -599,6 +602,15 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
       });
+    }
+  });
+});
+
+Cypress.Commands.add("ignoreResizeObserverLoop", () => {
+  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
+  cy.on("uncaught:exception", (err) => {
+    if (err.message.includes(resizeObserverLoopErrRe)) {
+      return false;
     }
   });
 });

@@ -1690,6 +1690,11 @@ fragment entityDisplayNameFields on Entity {
     ... on SchemaFieldEntity {
         fieldPath
     }
+    ... on OwnershipTypeEntity {
+        info {
+            name
+        }
+    }
 }
 
 fragment entityPlatformFields on Entity {

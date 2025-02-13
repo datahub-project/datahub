@@ -1,8 +1,9 @@
 {
     "styles": {
-        "primary-color": "#1890ff",
-        "primary-color-light": "#F0F5FF",
-        "primary-color-dark": "#002766",
+        "primary-color": "#5280E2",
+        "primary-color-dark": "#5C3FD1",
+        "primary-color-light": "#ece9f8",
+        "link-color": "#5280E2",
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",
@@ -23,40 +24,31 @@
         "box-shadow-hover": "0px 1px 0px 0.5px rgb(239 239 239)",
         "box-shadow-navbar-redesign": "0 0 6px 0px rgba(93, 102, 139, 0.20)",
         "border-radius-navbar-redesign": "12px",
-        "highlight-color": "#E6F4FF",
-        "highlight-border-color": "#BAE0FF"
+        "highlight-color": "#ece9f8",
+        "highlight-border-color": "#07878180"
     },
     "assets": {
-        "logoUrl": "/assets/logos/datahub-logo.png"
+        "logoUrl": "/assets/logo.png"
     },
     "content": {
         "title": "DataHub",
         "homepage": {
-            "homepageMessage": "Find data you can count on"
+            "homepageMessage": "Bring clarity to your data"
         },
         "search": {
-            "searchbarMessage": "Search Tables, Dashboards, People, & more..."
+            "searchbarMessage": "Find tables, dashboards, people, and more"
         },
         "menu": {
             "items": [
                 {
-                    "label": "Project",
+                    "label": "DataHub Project",
                     "path": "https://datahubproject.io",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": true,
+                    "description": "Explore DataHub Project website"
                 },
                 {
-                    "label": "Docs",
-                    "path": "https://datahubproject.io/docs",
-                    "shouldOpenInNewTab": true
-                },
-                {
-                    "label": "Releases",
-                    "path": "https://datahubproject.io/docs/releases/",
-                    "shouldOpenInNewTab": true
-                },
-                {
-                    "label": "GitHub",
-                    "path": "https://github.com/datahub-project/datahub",
+                    "label": "DataHub GitHub",
+                    "path": "https://github.com/linkedin/datahub",
                     "shouldOpenInNewTab": true
                 }
             ]

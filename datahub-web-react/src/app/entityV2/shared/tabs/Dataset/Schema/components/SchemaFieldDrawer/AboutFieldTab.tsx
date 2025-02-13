@@ -60,6 +60,9 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
 
     const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
 
+    const delayedRefetchNotes = () =>
+        setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000);
+
     return (
         <>
             {expandedField && (
@@ -69,15 +72,14 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         deprecation={expandedField?.schemaFieldEntity?.deprecation}
                         fieldPath={properties.expandedDrawerFieldPath}
                         refetch={() => setTimeout(() => refetch?.(), 2000)}
+                        refetchNotes={delayedRefetchNotes}
                     />
                     <MetadataSections>
                         <NotesSection
                             urn={datasetUrn}
                             subResource={properties.expandedDrawerFieldPath ?? undefined}
                             notes={notes}
-                            refetch={() =>
-                                setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000)
-                            }
+                            refetch={delayedRefetchNotes}
                         />
                         {!!notes?.length && <StyledDivider dashed />}
                         <FieldDescription

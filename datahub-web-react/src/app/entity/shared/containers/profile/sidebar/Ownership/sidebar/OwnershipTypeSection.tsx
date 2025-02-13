@@ -25,6 +25,7 @@ const OwnersContainer = styled.div`
     flex-direction: row;
     flex-wrap: wrap;
     margin-top: 8px;
+    gap: 6px;
 `;
 
 interface Props {

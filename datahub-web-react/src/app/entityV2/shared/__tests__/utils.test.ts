@@ -160,7 +160,7 @@ describe('entity V2 utils test ->', () => {
         it('should return whether summary has stats or not', () => {
             const mockPayload: DatasetStatsSummary = {
                 __typename: 'DatasetStatsSummary',
-                topUsersLast30Days: [{ urn: 'test_urn', type: EntityType.Anomaly, username: 'test_username' }],
+                topUsersLast30Days: [{ urn: 'test_urn', type: EntityType.CorpUser, username: 'test_username' }],
             };
             expect(summaryHasStats(mockPayload)).toBe(true);
         });

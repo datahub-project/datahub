@@ -7708,7 +7708,6 @@ type DashboardStatsSummary {
     The view count in the last 30 days
     """
     viewCountLast30Days: Int
-
     """
     The relative percentile for view count in the past 30 days
     """
@@ -7718,7 +7717,6 @@ type DashboardStatsSummary {
     The unique user count in the past 30 days
     """
     uniqueUserCountLast30Days: Int
-
     """
     The relative percentile for number of unique users in the last 30 days
     """
@@ -7749,7 +7747,6 @@ type ChartStatsSummary {
     The view count in the last 30 days
     """
     viewCountLast30Days: Int
-
     """
     The relative percentile for view count in the past 30 days
     """

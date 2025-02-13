@@ -77,9 +77,10 @@ type FieldDetailsProps = {
     deprecation?: Deprecation | null;
     usageStats?: UsageQueryResult | null;
     refetch?: () => void;
+    refetchNotes?: () => void;
 };
 
-export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch }: FieldDetailsProps) => {
+export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refetchNotes }: FieldDetailsProps) => {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
@@ -108,7 +109,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch }: Fi
                     subResource={fieldPath}
                     urn={datasetUrn}
                     onClose={() => setIsPostModalVisible(false)}
-                    onCreate={refetch}
+                    onCreate={refetchNotes}
                 />
             )}
             <FieldDetailsContent>

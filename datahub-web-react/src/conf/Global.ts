@@ -41,12 +41,9 @@ export enum PageRoutes {
     SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     SETTINGS_HELP_LINK = '/settings/helpLink',
+    INTRODUCE = '/introduce',
     // Temporary route to view all data products
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
-}
-
-export enum AcrylPageRoutes {
-    INTRODUCE = '/introduce',
 }
 
 export enum HelpLinkRoutes {
