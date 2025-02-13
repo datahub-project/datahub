@@ -70,6 +70,7 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
