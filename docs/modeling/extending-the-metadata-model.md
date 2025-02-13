@@ -362,6 +362,8 @@ It takes the following parameters:
 This annotation is applied to fields inside an Aspect. It instructs DataHub to index the field so it can be retrieved
 via the search APIs.
 
+:::note If you are adding @Searchable to a field that already has data, you'll want to restore indices [via api](https://datahubproject.io/docs/api/restli/restore-indices/) or [via upgrade step](https://github.com/datahub-project/datahub/blob/master/metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndices.java) to have it be populated with existing data.
+
 It takes the following parameters:
 
 - **fieldType**: string - The settings for how each field is indexed is defined by the field type. Each field type is

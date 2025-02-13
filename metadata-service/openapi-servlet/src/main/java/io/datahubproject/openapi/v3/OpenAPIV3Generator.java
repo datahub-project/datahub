@@ -114,7 +114,8 @@ public class OpenAPIV3Generator {
 
     // --> Aspect components
     components.addSchemas(
-        ASPECTS + ASPECT_RESPONSE_SUFFIX, buildAspectsRefResponseSchema(entityRegistry));
+        ASPECTS + ASPECT_RESPONSE_SUFFIX,
+        buildAspectsRefResponseSchema(entityRegistry, definitionNames));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -724,7 +725,8 @@ public class OpenAPIV3Generator {
    * @param entityRegistry entity registry
    * @return schema
    */
-  private static Schema buildAspectsRefResponseSchema(final EntityRegistry entityRegistry) {
+  private static Schema buildAspectsRefResponseSchema(
+      final EntityRegistry entityRegistry, final Set<String> definitionNames) {
     final Schema result =
         new Schema<>()
             .type(TYPE_OBJECT)
@@ -734,7 +736,11 @@ public class OpenAPIV3Generator {
     // Create a list of reference schemas for each aspect
     List<Schema> aspectRefs =
         entityRegistry.getAspectSpecs().values().stream()
-            .map(aspect -> new Schema<>().$ref(PATH_DEFINITIONS + toUpperFirst(aspect.getName())))
+            .filter(a -> definitionNames.contains(a.getName()))
+            .map(
+                aspect ->
+                    new Schema<>()
+                        .$ref(PATH_DEFINITIONS + toUpperFirst(aspect.getPegasusSchema().getName())))
             .distinct()
             .collect(Collectors.toList());
 
