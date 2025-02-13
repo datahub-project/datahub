@@ -25,22 +25,28 @@ import lombok.extern.slf4j.Slf4j;
 public class DataHubGuestAuthenticator implements Authenticator {
 
   public static final String GUEST_USER = "guestUser";
+  public static final String ENABLED = "enabled";
   String guestUser = null;
+  boolean enabled = false;
 
   @Override
   public void init(final Map<String, Object> config, final AuthenticatorContext context) {
-    if (config != null && config.containsKey(GUEST_USER)) {
-      guestUser = (String) config.get(GUEST_USER);
+    if (config != null){
+      if (config.containsKey(GUEST_USER)) {
+        guestUser = (String) config.get(GUEST_USER);
+      }
+      if (config.containsKey(ENABLED)) {
+        enabled = Boolean.parseBoolean((String) config.get(ENABLED));
+      }
     }
   }
 
   @Override
   public Authentication authenticate(@Nonnull AuthenticationRequest context)
       throws AuthenticationException {
-    if (guestUser == null) {
-      return null; // Guest user is not enabled, so fall through the chain.
+    if ((guestUser == null) || !enabled) {
+      throw new AuthenticationException("Guest Authentication is disabled");
     }
-    // TODO: Also ensure either the user is the guest user or not specified at all
     return new Authentication(new Actor(ActorType.USER, guestUser), "guestUser");
   }
 }
