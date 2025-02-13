@@ -328,38 +328,46 @@ class Neo4jSource(StatefulIngestionSourceBase):
         df = self.get_neo4j_metadata(
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
         )
-        if df:
-            for _, row in df.iterrows():
-                try:
-                    yield from self.generate_neo4j_object(
-                        columns=row["property_data_types"],
-                        dataset=row["key"],
-                    )
+        if df is None:
+            log.warning("No metadata retrieved from Neo4j")
+            return
 
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=make_dataset_urn_with_platform_instance(
-                            platform=self.PLATFORM,
-                            name=row["key"],
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
-                        ),
-                        aspect=SubTypesClass(
-                            typeNames=[
-                                DatasetSubTypes.NEO4J_NODE
-                                if row["obj_type"] == self.NODE
-                                else DatasetSubTypes.NEO4J_RELATIONSHIP
-                            ]
-                        ),
-                    ).as_workunit()
+        for _, row in df.iterrows():
+            try:
+                yield from self.generate_neo4j_object(
+                    columns=row["property_data_types"],
+                    dataset=row["key"],
+                )
 
-                    yield from self.add_properties(
-                        dataset=row["key"],
-                        custom_properties=None,
-                        description=row["description"],
-                    )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=make_dataset_urn_with_platform_instance(
+                        platform=self.PLATFORM,
+                        name=row["key"],
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    ),
+                    aspect=SubTypesClass(
+                        typeNames=[
+                            DatasetSubTypes.NEO4J_NODE
+                            if row["obj_type"] == self.NODE
+                            else DatasetSubTypes.NEO4J_RELATIONSHIP
+                        ]
+                    ),
+                ).as_workunit()
 
-                except Exception as e:
-                    raise e
+                yield from self.add_properties(
+                    dataset=row["key"],
+                    custom_properties=None,
+                    description=row["description"],
+                )
+
+            except Exception as e:
+                log.error(f"Failed to process row {row['key']}: {str(e)}")
+                self.report.report_failure(
+                    message="Error processing Neo4j metadata",
+                    context=row["key"],
+                    exc=e,
+                )
 
     def get_report(self):
         return self.report
