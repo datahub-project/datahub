@@ -95,7 +95,9 @@ class _StatementSplitter:
         pattern = rf"^{keyword}\b"
         match = re.match(pattern, sql[pos:], re.IGNORECASE)
         is_match = bool(match)
-        actual_match = sql[pos:][match.start() : match.end()] if match is not None else ""
+        actual_match = (
+            sql[pos:][match.start() : match.end()] if match is not None else ""
+        )
         return is_match, actual_match
 
     def _look_ahead_for_keywords(self, keywords: List[str]) -> Tuple[bool, str, int]:
