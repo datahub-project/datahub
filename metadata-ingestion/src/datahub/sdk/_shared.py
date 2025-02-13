@@ -87,6 +87,13 @@ class HasPlatformInstance(Entity):
         )
 
     @property
+    def platform(self) -> Optional[DataPlatformUrn]:
+        dataPlatform = self._get_aspect(models.DataPlatformInstanceClass)
+        if dataPlatform and dataPlatform.platform:
+            return DataPlatformUrn.from_string(dataPlatform.platform)
+        return None
+
+    @property
     def platform_instance(self) -> Optional[DataPlatformInstanceUrn]:
         dataPlatformInstance = self._get_aspect(models.DataPlatformInstanceClass)
         if dataPlatformInstance and dataPlatformInstance.instance:

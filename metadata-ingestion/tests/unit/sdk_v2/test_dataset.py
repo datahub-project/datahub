@@ -41,6 +41,8 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     assert str(d.urn) in repr(d)
 
     # Check most attributes.
+    assert d.platform is not None
+    assert d.platform.platform_name == "bigquery"
     assert d.platform_instance is None
     assert d.tags is None
     assert d.terms is None
@@ -111,6 +113,8 @@ def _build_complex_dataset() -> Dataset:
         ],
         domain=DomainUrn("Marketing"),
     )
+    assert d.platform is not None
+    assert d.platform.platform_name == "snowflake"
     assert d.platform_instance is not None
     assert (
         str(d.platform_instance)

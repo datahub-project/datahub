@@ -39,6 +39,8 @@ def test_container_basic() -> None:
     assert str(c.urn) in repr(c)
 
     # Check most attributes.
+    assert c.platform is not None
+    assert c.platform.platform_name == "bigquery"
     assert c.platform_instance is None
     assert c.tags is None
     assert c.terms is None
@@ -98,6 +100,8 @@ def test_container_complex() -> None:
         ],
         domain=DomainUrn("Marketing"),
     )
+    assert c.platform is not None
+    assert c.platform.platform_name == "snowflake"
     assert c.platform_instance is not None
     assert (
         str(c.platform_instance)

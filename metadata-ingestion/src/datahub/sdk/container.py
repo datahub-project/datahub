@@ -56,9 +56,7 @@ class Container(
         self,
         /,
         # Identity.
-        # TODO: We need to strongly recommend against passing ContainerUrn?
-        # Maybe we should just allow an incorrect type annotation?
-        container_key: ContainerKey | ContainerUrn,
+        container_key: ContainerKey,
         *,
         # Container attributes.
         display_name: str,
@@ -77,6 +75,8 @@ class Container(
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
     ):
+        # Hack: while the type annotations say container_key is always a ContainerKey,
+        # we allow ContainerUrn to make the graph-based constructor work.
         if isinstance(container_key, ContainerUrn):
             urn = container_key
         else:
@@ -141,7 +141,8 @@ class Container(
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, ContainerUrn)
-        entity = cls(urn, display_name="__dummy_value__")
+
+        entity = cls(urn, display_name="__dummy_value__", parent_container=None)  # type: ignore[arg-type]
         return entity._init_from_graph(current_aspects)
 
     def _ensure_container_props(
