@@ -1085,6 +1085,7 @@ def _sqlglot_lineage_inner(
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
     )
+    # TODO: support table name normalization rules for non-fast fingerprinting
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
         original_statement, dialect
     )
