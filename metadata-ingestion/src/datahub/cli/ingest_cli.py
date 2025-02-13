@@ -352,27 +352,6 @@ def deploy(
         extra_args_dict.append({"key": "extra_pip_requirements", "value": extra_pip})
         variables["input"]["config"]["extraArgs"] = extra_args_dict
 
-    # """
-    # {
-    #   "urn": "urn:li:dataHubIngestionSource:0ba905ad-5aca-4943-9ae7-e093be99535d",
-    #   "input": {
-    #     "type": "demo-data",
-    #     "name": "demo",
-    #     "config": {
-    #       "recipe": "{\"source\":{\"type\":\"demo-data\",\"config\":{}}}",
-    #       "executorId": "default",
-    #       "debugMode": true,
-    #       "extraArgs": [
-    #         {
-    #           "key": "extra_pip_requirements",
-    #           "value": "[\"memray\"]"
-    #         }
-    #       ]
-    #     }
-    #   }
-    # }
-    # """
-
     # The updateIngestionSource endpoint can actually do upserts as well.
     graphql_query: str = textwrap.dedent(
         """
