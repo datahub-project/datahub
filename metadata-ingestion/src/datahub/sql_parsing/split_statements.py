@@ -8,11 +8,11 @@ END_KEYWORD = "END"
 
 CONTROL_FLOW_KEYWORDS = [
     "GO",
-    r"BEGIN\w+TRY",
-    r"BEGIN\w+CATCH",
+    r"BEGIN\s+TRY",
+    r"BEGIN\s+CATCH",
     "BEGIN",
-    r"END\w+TRY",
-    r"END\w+CATCH",
+    r"END\s+TRY",
+    r"END\s+CATCH",
     # This isn't strictly correct, but we assume that IF | (condition) | (block) should all be split up
     # This mainly ensures that IF statements don't get tacked onto the previous statement incorrectly
     "IF",
@@ -21,6 +21,7 @@ CONTROL_FLOW_KEYWORDS = [
     END_KEYWORD,
     # "ELSE",  # else is also valid in CASE, so we we can't use it here.
 ]
+
 
 # There's an exception to this rule, which is when the statement
 # is preceded by a CTE. For those, we have to check if the character
@@ -73,25 +74,29 @@ class _StatementSplitter:
         # what a given END is closing.
         self.current_case_statements = 0
 
-    def _is_keyword_at_position(self, pos: int, keyword: str) -> bool:
+    def _is_keyword_at_position(self, pos: int, keyword: str) -> Tuple[bool, str]:
         """
         Check if a keyword exists at the given position using regex word boundaries.
         """
         sql = self.sql
 
-        if pos + len(keyword) > len(sql):
-            return False
+        keyword_length = len(keyword.replace(r"\s+", " "))
+
+        if pos + keyword_length > len(sql):
+            return False, ""
 
         # If we're not at a word boundary, we can't generate a keyword.
         if pos > 0 and not (
             bool(re.match(r"\w\W", sql[pos - 1 : pos + 1]))
             or bool(re.match(r"\W\w", sql[pos - 1 : pos + 1]))
         ):
-            return False
+            return False, ""
 
-        pattern = rf"^{re.escape(keyword)}\b"
+        pattern = rf"^{keyword}\b"
         match = re.match(pattern, sql[pos:], re.IGNORECASE)
-        return bool(match)
+        is_match = bool(match)
+        actual_match = sql[pos:][match.start() : match.end()] if is_match else ""
+        return is_match, actual_match
 
     def _look_ahead_for_keywords(self, keywords: List[str]) -> Tuple[bool, str, int]:
         """
@@ -99,7 +104,8 @@ class _StatementSplitter:
         """
 
         for keyword in keywords:
-            if self._is_keyword_at_position(self.i, keyword):
+            is_match, keyword = self._is_keyword_at_position(self.i, keyword)
+            if is_match:
                 return True, keyword, len(keyword)
         return False, "", 0
 
@@ -181,7 +187,7 @@ class _StatementSplitter:
     def _process_normal(self, most_recent_real_char: str) -> Iterator[str]:
         c = self.sql[self.i]
 
-        if self._is_keyword_at_position(self.i, CASE_KEYWORD):
+        if self._is_keyword_at_position(self.i, CASE_KEYWORD)[0]:
             self.current_case_statements += 1
 
         is_control_keyword, keyword, keyword_len = self._look_ahead_for_keywords(
