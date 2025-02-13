@@ -23,9 +23,12 @@ authentication:
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
+#    - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
+#      configs:
+#        guestUser: guest
 
   # Normally failures are only warnings, enable this to throw them.
-  logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:false}
+  logAuthenticatorExceptions: ${METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED:true}
 
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
