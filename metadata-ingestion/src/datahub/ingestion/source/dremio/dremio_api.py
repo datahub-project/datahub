@@ -769,6 +769,7 @@ class DremioAPIOperations:
                     url=f"/catalog/{source.get('id')}",
                 )
 
+                logger.debug(f"Source information for {source}: {source_resp}")
                 source_config = source_resp.get("config", {})
                 db = source_config.get(
                     "database", source_config.get("databaseName", "")
