@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -27,11 +27,13 @@ from datahub.sdk._shared import (
     HasTags,
     HasTerms,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.utilities.sentinels import Auto, auto
 
 
 class Container(
@@ -54,6 +56,8 @@ class Container(
         self,
         /,
         # Identity.
+        # TODO: We need to strongly recommend against passing ContainerUrn?
+        # Maybe we should just allow an incorrect type annotation?
         container_key: ContainerKey | ContainerUrn,
         *,
         # Container attributes.
@@ -66,6 +70,7 @@ class Container(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
+        parent_container: Union[Auto, ParentContainerInputType, None] = auto,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
@@ -85,8 +90,6 @@ class Container(
         if isinstance(container_key, ContainerKey):
             self._set_platform_instance(container_key.platform, container_key.instance)
 
-            self._set_container(container_key.parent_key())
-
             self.set_custom_properties(
                 {
                     **container_key.property_dict(),
@@ -100,6 +103,18 @@ class Container(
             env = container_key.env if container_key.env in ALL_ENV_TYPES else None
             if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES and env is not None:
                 self._ensure_container_props().env = env
+        else:
+            self.set_custom_properties(extra_properties or {})
+
+        if parent_container is auto:
+            if not isinstance(container_key, ContainerKey):
+                raise SdkUsageError(
+                    "Either a container_key or parent_container must be provided"
+                )
+
+            self._set_container(container_key.parent_key())
+        else:
+            self._set_container(parent_container)
 
         if description is not None:
             self.set_description(description)

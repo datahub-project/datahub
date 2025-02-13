@@ -13,3 +13,10 @@ class Unset(Enum):
 
 
 unset: Final = Unset.token
+
+
+class Auto(Enum):
+    token = 0
+
+
+auto: Final = Auto.token
