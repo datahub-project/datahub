@@ -116,7 +116,7 @@ def test_real_model_workunit(source, real_model, model_version):
 
 
 @patch("google.cloud.aiplatform.Model.list")
-def test_mock_models_workunits(
+def test_mock_models_and_versions_workunits(
     mock_list, source, real_model, model_version, mock_models
 ):
     mock_list.return_value = mock_models
@@ -129,6 +129,19 @@ def test_mock_models_workunits(
     assert wcs[1].metadata.aspect.name == mock_models[1].name
     assert wcs[1].metadata.aspect.description == mock_models[1].description
     assert wcs[1].metadata.aspect.createdAt == mock_models[1].create_time
+
+
+@pytest.mark.skip(reason="Skipping, this is for debugging purpose")
+def test_real_models_and_versions_workunits(source):
+    """
+    Disabled as default
+    Use real model registered in the Vertex AI Model Registry
+    """
+    wcs = [wc for wc in source._get_ml_model_workunits()]
+    assert len(wcs) == 2
+    # aspect is MLModelGroupPropertiesClass or MLModelPropertiesClass
+    # assert using real name in GCP model registry
+    # assert wcs[0].metadata.aspect.name == "mock_prediction_model_1"
 
 
 def test_config_model_name_separator(source, model_version):
