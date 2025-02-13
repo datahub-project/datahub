@@ -52,6 +52,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                 )}/Quality/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
                 return (
                     <Tooltip
+                        key={status.text}
                         title={
                             status.resultType && (
                                 <>
@@ -68,9 +69,11 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                         }
                     >
                         <SummaryContainer>
-                            <StyledSummaryLabel background={status.backgroundColor} color={status.color}>
-                                {group.summary[key]} {status.text}
-                            </StyledSummaryLabel>
+                            <Link to={url} onClick={(event) => event.stopPropagation()}>
+                                <StyledSummaryLabel background={status.backgroundColor} color={status.color}>
+                                    {group.summary[key]} {status.text}
+                                </StyledSummaryLabel>{' '}
+                            </Link>
                         </SummaryContainer>
                     </Tooltip>
                 );
