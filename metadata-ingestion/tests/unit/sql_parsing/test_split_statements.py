@@ -1,4 +1,4 @@
-from split_statements import split_statements
+from datahub.sql_parsing.split_statements import split_statements
 
 
 def test_split_statements_complex() -> None:
