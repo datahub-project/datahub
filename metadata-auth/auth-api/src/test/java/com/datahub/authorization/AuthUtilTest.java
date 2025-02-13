@@ -1,6 +1,5 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.Constants.REST_API_AUTHORIZATION_ENABLED_ENV;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -29,21 +28,20 @@ import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Listeners;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.testng.annotations.Test;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
-import uk.org.webcompere.systemstubs.testng.SystemStub;
-import uk.org.webcompere.systemstubs.testng.SystemStubsListener;
 
-@Listeners(SystemStubsListener.class)
+@SpringBootTest
+@TestPropertySource(properties = {"authorization.restApiAuthorization=true"})
 public class AuthUtilTest {
-  @SystemStub private EnvironmentVariables setEnvironment;
 
-  @BeforeClass
-  public void beforeAll() {
-    setEnvironment.set(REST_API_AUTHORIZATION_ENABLED_ENV, "true");
-  }
+  // TODO: The AuthUtil @PostConstruct is not really getting called from the unit test, so is really
+  // relying on
+  // the default being true.
+
+  @Autowired private AuthUtil authUtil;
 
   private static final Authentication TEST_AUTH_A =
       new Authentication(new Actor(ActorType.USER, "testA"), "");
@@ -55,11 +53,6 @@ public class AuthUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,2,PROD)");
   private static final Urn TEST_ENTITY_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,3,PROD)");
-
-  @Test
-  public void testSystemEnvInit() {
-    assertEquals(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV), "true");
-  }
 
   @Test
   public void testSimplePrivilegeGroupBuilder() {
