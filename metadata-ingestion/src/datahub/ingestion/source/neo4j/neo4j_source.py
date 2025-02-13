@@ -95,6 +95,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
     RELATIONSHIP = "relationship"
     PLATFORM = "neo4j"
+    config: Neo4jConfig
+    report: Neo4jSourceReport
 
     def __init__(self, config: Neo4jConfig, ctx: PipelineContext):
         self.ctx = ctx
@@ -370,5 +372,5 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-    def get_report(self):
+    def get_report(self) -> "Neo4jSourceReport":
         return self.report
