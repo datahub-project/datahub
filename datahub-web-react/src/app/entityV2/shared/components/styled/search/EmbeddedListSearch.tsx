@@ -355,7 +355,7 @@ export const EmbeddedListSearch = ({
     let errorMessage = '';
     if (error) {
         console.error('Failed to load results', error);
-        errorMessage = `Failed to load results due to an unexpected error (${error.message}). Please try again later.`;
+        errorMessage = `Failed to load results due to an unexpected error. Please try again later.`;
     }
 
     return (
