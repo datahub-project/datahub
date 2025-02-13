@@ -473,10 +473,10 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
-                dataset_name,
-                project_id,
-                bigquery_dataset.labels,
-                (
+                dataset=dataset_name,
+                project_id=project_id,
+                tags=bigquery_dataset.labels,
+                extra_properties=(
                     {"location": bigquery_dataset.location}
                     if bigquery_dataset.location
                     else None
