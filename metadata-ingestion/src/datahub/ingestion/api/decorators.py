@@ -1,12 +1,21 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, TypeVar
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (  # noqa: I250
     Source,
     SourceCapability as SourceCapability,
 )
+
+
+class SourceTypeLinter:
+    def __init__(self):
+        self.__capabilities: Dict[Any, Any] = {}
+        self.get_capabilities: Optional[Callable] = None
+
+
+T = TypeVar("T", bound=SourceTypeLinter)
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -92,12 +101,12 @@ class CapabilitySetting:
 
 def capability(
     capability_name: SourceCapability, description: str, supported: bool = True
-) -> Callable[[Type], Type]:
+) -> Callable[[Type[T]], Type[T]]:
     """
     A decorator to mark a source as having a certain capability
     """
 
-    def wrapper(cls: Type) -> Type:
+    def wrapper(cls: Type[T]) -> Type[T]:
         if not hasattr(cls, "__capabilities") or any(
             # It's from this class and not a superclass.
             cls.__capabilities is getattr(base, "__capabilities", None)
