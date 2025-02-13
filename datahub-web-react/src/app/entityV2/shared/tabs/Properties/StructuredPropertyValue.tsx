@@ -1,6 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { Entity, EntityType } from '@src/types.generated';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
+import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
+import { Entity, EntityType } from '@src/types.generated';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -66,6 +67,7 @@ interface Props {
     truncateText?: boolean;
     isFieldColumn?: boolean;
     size?: number;
+    hydratedEntityMap?: Record<string, Entity>;
 }
 
 export default function StructuredPropertyValue({
@@ -75,6 +77,7 @@ export default function StructuredPropertyValue({
     truncateText,
     isFieldColumn,
     size = 12,
+    hydratedEntityMap,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -83,9 +86,14 @@ export default function StructuredPropertyValue({
             ? getSchemaFieldParentLink(entity.urn)
             : entityRegistry.getEntityUrl(entity.type, entity.urn);
 
-    return (
-        <ValueText size={size}>
-            {value.entity ? (
+    let valueEntityRender = <></>;
+    if (value.entity) {
+        if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
+            valueEntityRender = (
+                <CompactEntityNameComponent entity={hydratedEntityMap[value.entity.urn]} showFullTooltip />
+            );
+        } else {
+            valueEntityRender = (
                 <EntityWrapper>
                     <IconWrapper>
                         <EntityIcon entity={value.entity} size={size} />
@@ -97,6 +105,14 @@ export default function StructuredPropertyValue({
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
                 </EntityWrapper>
+            );
+        }
+    }
+
+    return (
+        <ValueText size={size}>
+            {value.entity ? (
+                valueEntityRender
             ) : (
                 <>
                     {isRichText ? (
