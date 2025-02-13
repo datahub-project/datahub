@@ -36,6 +36,8 @@ class Entity:
 
     def _init_from_graph(self, current_aspects: models.AspectBag) -> Self:
         self._prev_aspects = current_aspects
+
+        self._aspects = {}
         aspect: models._Aspect
         for aspect_name, aspect in (current_aspects or {}).items():  # type: ignore
             aspect_copy = type(aspect).from_obj(aspect.to_obj())

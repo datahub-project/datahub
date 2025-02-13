@@ -35,6 +35,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
     Tuple[str, str],  # (name, type)
@@ -351,7 +352,7 @@ class Dataset(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
-        parent_container: Optional[ParentContainerInputType] = None,
+        parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,
@@ -392,10 +393,10 @@ class Dataset(
         if last_modified is not None:
             self.set_last_modified(last_modified)
 
+        if parent_container is not unset:
+            self._set_container(parent_container)
         if subtype is not None:
             self.set_subtype(subtype)
-        if parent_container is not None:
-            self._set_container(parent_container)
         if owners is not None:
             self.set_owners(owners)
         if tags is not None:

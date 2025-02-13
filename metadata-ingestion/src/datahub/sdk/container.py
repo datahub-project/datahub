@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Type
 
 from typing_extensions import Self
 
@@ -68,7 +68,7 @@ class Container(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
-        parent_container: Union[Auto, ParentContainerInputType, None] = auto,
+        parent_container: Auto | ParentContainerInputType | None = auto,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         tags: Optional[TagsInputType] = None,

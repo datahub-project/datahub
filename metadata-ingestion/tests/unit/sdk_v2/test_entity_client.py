@@ -116,6 +116,30 @@ def test_dataset_read_modify_write(
     )
 
 
+def test_container_read_modify_write(
+    pytestconfig: pytest.Config, client: DataHubClient, mock_graph: Mock
+) -> None:
+    database_key = DatabaseKey(platform="snowflake", database="test_db")
+    container_urn = database_key.as_urn_typed()
+
+    # Setup mocks for the container.
+    mock_graph.exists.return_value = True
+    mock_graph.get_entity_semityped.return_value = {
+        "containerProperties": models.ContainerPropertiesClass(
+            name="test_db",
+        )
+    }
+
+    # Get and update the container
+    container = client.entities.get(container_urn)
+    container.set_description("updated description")
+
+    client.entities.update(container)
+    assert_client_golden(
+        pytestconfig, client, _GOLDEN_DIR / "test_container_update_golden.json"
+    )
+
+
 def test_create_existing_dataset_fails(client: DataHubClient, mock_graph: Mock) -> None:
     mock_graph.exists.return_value = True
 
