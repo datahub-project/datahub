@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Button, message, Modal, Typography } from 'antd';
+import { message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
 import { usePollForData } from '@src/app/shared/polling/utils';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { AssertionResult, AssertionResultType } from '../../../../../../../../../../types.generated';
 import { AssertionStatusTag } from './AssertionStatusTag';
 import { RunAssertionResult } from './RunAssertionResult';
@@ -109,9 +111,9 @@ export const RunAssertionModal = ({ urn, visible, handleClose }: Props) => {
             open={visible}
             onCancel={handleClose}
             footer={
-                <Button type="primary" onClick={handleClose}>
-                    Ok
-                </Button>
+                <ModalButtonContainer>
+                    <Button onClick={handleClose}>Done</Button>
+                </ModalButtonContainer>
             }
         >
             {assertionResult && (

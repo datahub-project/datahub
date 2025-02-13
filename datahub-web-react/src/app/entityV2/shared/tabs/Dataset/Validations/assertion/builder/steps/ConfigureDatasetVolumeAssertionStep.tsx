@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersInput,
@@ -49,7 +48,11 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
                 <AssertionActionsSection state={state} updateState={updateState} />
             </div>
             <Controls>
-                {prev && <Button onClick={prev}>Back</Button>}
+                {prev && (
+                    <Button variant="outline" color="gray" onClick={prev}>
+                        Back
+                    </Button>
+                )}
                 <ControlsGroup>
                     <Tooltip
                         title={
@@ -58,13 +61,15 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
                                 : 'Try this assertion out!'
                         }
                     >
-                        <Button onClick={handleTestAssertionSubmit} disabled={isTestAssertionActionDisabled}>
+                        <Button
+                            variant="outline"
+                            onClick={handleTestAssertionSubmit}
+                            disabled={isTestAssertionActionDisabled}
+                        >
                             Try it out
                         </Button>
                     </Tooltip>
-                    <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
-                        Next
-                    </Button>
+                    <Button onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>Next</Button>
                 </ControlsGroup>
             </Controls>
             <TestAssertionModal

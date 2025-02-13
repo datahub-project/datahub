@@ -1,8 +1,9 @@
 import React from 'react';
 
-import { Button, Modal, Typography } from 'antd';
+import { Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { green, red } from '@ant-design/colors';
+import { Button } from '@src/alchemy-components';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { NotificationConnectionTestResult } from '@src/app/shared/notifications/types';
@@ -10,6 +11,7 @@ import { getErrorDisplayContentFromSlackErrorCode } from '@src/app/shared/notifi
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import Loading from '@src/app/shared/Loading';
 import { TEST_NOTIFICATION_RESULT_STATUS } from './constants';
+import { ModalButtonContainer } from '../button/styledComponents';
 
 const ModalHeader = styled.div`
     align-items: center;
@@ -96,7 +98,11 @@ export const TestNotificationModal = ({
         <Modal
             open
             onCancel={closeModal}
-            footer={<Button onClick={closeModal}>Done</Button>}
+            footer={
+                <ModalButtonContainer>
+                    <Button onClick={closeModal}>Done</Button>
+                </ModalButtonContainer>
+            }
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     {capitalizeFirstLetter(integrationName)} Notification Test

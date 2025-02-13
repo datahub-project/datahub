@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Button } from 'antd';
+import { Button } from '@src/alchemy-components';
 import {
     selectHasNotificationType,
     selectHasSlackChannel,
@@ -19,8 +19,6 @@ const FooterContainer = styled.div`
     margin-bottom: 16px;
     gap: 8px;
 `;
-
-const FooterButton = styled(Button)``;
 
 interface Props {
     canManageSubscription?: boolean | null;
@@ -49,16 +47,17 @@ export default function Footer({
     const showUnsubscribe = isSubscribed && !forSubResource;
     return (
         <FooterContainer>
-            <FooterButton
-                danger={showUnsubscribe}
+            <Button
+                variant="outline"
+                color={showUnsubscribe ? 'red' : undefined}
                 onClick={() => onCancelOrUnsubscribe(showUnsubscribe)}
                 data-testid="cancel-button"
             >
                 {showUnsubscribe ? 'Unsubscribe' : 'Cancel'}
-            </FooterButton>
-            <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">
+            </Button>
+            <Button onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">
                 {isSubscribed ? 'Update' : subscribeText}
-            </FooterButton>
+            </Button>
         </FooterContainer>
     );
 }

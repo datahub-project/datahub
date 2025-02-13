@@ -1,0 +1,104 @@
+import { GraphCard, LineChart } from '@src/alchemy-components';
+import { Datum } from '@src/alchemy-components/components/LineChart/types';
+import TimeRangeSelect from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
+import {
+    GRAPH_LOOKBACK_WINDOWS_OPTIONS,
+    LookbackWindowType,
+} from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import useGetTimeRangeOptionsByLookbackWindow from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
+import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import React, { useCallback, useMemo, useState } from 'react';
+import MoreInfoModalContent from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
+import useStatsTabContext from '../../../../../hooks/useStatsTabContext';
+import { useExtractMetricStats } from '../hooks/useExtractMetricStats';
+import { usePrepareMetricStats } from '../hooks/usePrepareMetricStats';
+import useGetBottomAxisPropsByLookbackWindowType from '../hooks/useGetBottomAxisPropsByLookbackWindowType';
+import MetricChartPopover from './MetricChartPopover';
+import useDefaultLookbackWindowType from '../hooks/useDefaultLookbackWindowType';
+
+export interface MetricLineChartProps {
+    metric: string;
+    metricLabel?: string;
+    title: string;
+    subTitle: string;
+    renderPopoverDatumMetric?: (datum: Datum) => React.ReactNode;
+    dataAggregationFunction?: (values: number[]) => number;
+}
+
+export default function MetricLineChart({
+    metric,
+    metricLabel,
+    title,
+    subTitle,
+    renderPopoverDatumMetric,
+    dataAggregationFunction,
+}: MetricLineChartProps) {
+    const { properties } = useStatsTabContext();
+    const loading = properties?.profilesDataLoading;
+    const fieldPath = properties?.expandedField?.fieldPath;
+    const profiles = properties?.profiles;
+    const data = useExtractMetricStats(profiles, fieldPath, metric);
+    const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(GRAPH_LOOKBACK_WINDOWS_OPTIONS, data?.[0]?.x);
+    const availableLookbackWindowTyles = useMemo(
+        () => timeRangeOptions.map((option) => option.value),
+        [timeRangeOptions],
+    );
+    const defaultLoockbackWindowType = useDefaultLookbackWindowType(data, availableLookbackWindowTyles);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindowType | null | string>(
+        defaultLoockbackWindowType,
+    );
+    const dataToShow = usePrepareMetricStats(data, lookbackWindow, dataAggregationFunction);
+    const bottomAxisProps = useGetBottomAxisPropsByLookbackWindowType(lookbackWindow);
+
+    const renderDatumMetric = useCallback(
+        (datum: Datum) => {
+            if (renderPopoverDatumMetric) return renderPopoverDatumMetric(datum);
+
+            return (
+                <>
+                    {metricLabel ?? `${capitalizeFirstLetterOnly(metric)} Value`}: {datum.y}
+                </>
+            );
+        },
+        [renderPopoverDatumMetric, metric, metricLabel],
+    );
+
+    return (
+        <GraphCard
+            title={title}
+            subTitle={subTitle}
+            loading={loading}
+            graphHeight="180px"
+            isEmpty={dataToShow.length === 0}
+            renderControls={() => (
+                <>
+                    <TimeRangeSelect
+                        options={timeRangeOptions}
+                        values={lookbackWindow ? [lookbackWindow] : []}
+                        onUpdate={(values) => setLookbackWindow(values[0])}
+                        loading={loading}
+                    />
+                </>
+            )}
+            renderGraph={() => (
+                <LineChart
+                    data={dataToShow}
+                    isEmpty={dataToShow.length === 0}
+                    xScale={{ type: 'time' }}
+                    yScale={{
+                        type: 'linear',
+                        nice: true,
+                        round: true,
+                        zero: true,
+                    }}
+                    leftAxisProps={{ hideZero: true }}
+                    bottomAxisProps={bottomAxisProps}
+                    popoverRenderer={(datum) => (
+                        <MetricChartPopover datum={datum} renderDatumMetric={renderDatumMetric} />
+                    )}
+                />
+            )}
+            moreInfoModalContent={<MoreInfoModalContent />}
+        />
+    );
+}

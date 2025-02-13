@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 
-import { Button, message } from 'antd';
-import { green } from '@ant-design/colors';
+import { message } from 'antd';
 import { CheckCircleOutlined } from '@ant-design/icons';
-
+import { Button } from '@src/alchemy-components';
 import TestConnectionModal from '../../../ingest/source/builder/RecipeForm/TestConnection/TestConnectionModal';
 import { FAILURE, RUNNING, getSourceConfigs } from '../../../ingest/source/utils';
 import { SourceConfig } from '../../../ingest/source/builder/types';
@@ -110,8 +109,8 @@ export const TestConnection = ({ configValues }: Props) => {
 
     return (
         <>
-            <Button type="default" onClick={handleTest} disabled={isDisabled}>
-                <CheckCircleOutlined style={{ color: green[5] }} />
+            <Button variant="outline" onClick={handleTest} disabled={isDisabled}>
+                <CheckCircleOutlined />
                 Test Connection
             </Button>
             {isTestConnectionModalVisible && (

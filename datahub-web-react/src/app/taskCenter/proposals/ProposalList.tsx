@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Checkbox, Empty, List, message, Modal, Pagination, Typography } from 'antd';
+import { Checkbox, Empty, List, message, Modal, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Button } from '@src/alchemy-components';
 import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import {
@@ -56,7 +57,10 @@ const CheckboxContainer = styled.div`
     gap: 12px;
 `;
 
-const BulkActions = styled.div``;
+const BulkButtonContainer = styled.div`
+    display: flex;
+    gap: 16px;
+`;
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -212,16 +216,16 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                         {selectedCount > 0 ? <>{selectedCount} requests selected</> : null}
                     </Typography.Text>
                 </CheckboxContainer>
-                <BulkActions>
-                    <Button disabled={!selectedUrns.size} onClick={acceptSelectedProposals} type="primary">
+                <BulkButtonContainer>
+                    <Button disabled={!selectedUrns.size} onClick={acceptSelectedProposals}>
                         <CheckOutlined />
                         Approve All
                     </Button>
-                    <Button disabled={!selectedUrns.size} onClick={rejectSelectedProposals} type="text">
+                    <Button disabled={!selectedUrns.size} onClick={rejectSelectedProposals} color="red">
                         <CloseCircleOutlined />
                         Decline All
                     </Button>
-                </BulkActions>
+                </BulkButtonContainer>
             </TabToolbar>
             <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}

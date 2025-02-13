@@ -63,7 +63,7 @@ export const PopularGlossaryTerms = () => {
                 limit: 10,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         skip: !userUrn,
     });
     const recommendationModules = data?.listRecommendations?.modules;

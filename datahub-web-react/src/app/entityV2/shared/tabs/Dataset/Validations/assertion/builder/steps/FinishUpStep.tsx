@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import styled from 'styled-components';
-import { Button } from 'antd';
+import { Button } from '@src/alchemy-components';
 
 import { StepProps } from '../types';
 import { FinishUpBuilder } from './finish/FinishUpBuilder';
@@ -32,9 +32,10 @@ export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) =>
         <Step>
             <FinishUpBuilder state={state} updateState={updateState} onValidityChange={setIsFormValid} />
             <ControlsContainer>
-                <Button onClick={prev}>Back</Button>
+                <Button variant="outline" color="gray" onClick={prev}>
+                    Back
+                </Button>
                 <Button
-                    type="primary"
                     onClick={async () => {
                         try {
                             setSubmitting(true);

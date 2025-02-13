@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { Button, Modal, Typography } from 'antd';
+import { Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Button } from '@src/alchemy-components';
 import {
     AssertionResult,
     AssertionResultType,
@@ -64,11 +65,7 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             title="Assertion Result"
             open={visible}
             onCancel={handleClose}
-            footer={
-                <Button type="primary" onClick={handleClose}>
-                    Ok
-                </Button>
-            }
+            footer={<Button onClick={handleClose}>Done</Button>}
         >
             {data?.testAssertion && (
                 <>

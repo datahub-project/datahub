@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Empty, Form, Select, Tag, message } from 'antd';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import { Button } from '@src/alchemy-components';
 import {
     DataHubConnection,
     EntityType,
@@ -23,7 +24,7 @@ import {
     InstanceIcon,
     StyledLabel,
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { StyledCheckbox, StyledButton, StyledModal, ModalTitle } from '../../styledComponents';
+import { StyledCheckbox, StyledModal, ModalTitle } from '../../styledComponents';
 import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
 
 const StyledShareIcon = styled(ShareIcon)`
@@ -378,16 +379,10 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         />
                         {selectedInstances.length > 0 && (
                             <ActionButtons>
-                                <StyledButton $color={REDESIGN_COLORS.RED_ERROR} onClick={handleUnshare}>
+                                <Button variant="outline" color="red" onClick={handleUnshare}>
                                     Unshare
-                                </StyledButton>
-                                <StyledButton
-                                    $color={REDESIGN_COLORS.TITLE_PURPLE}
-                                    $type="filled"
-                                    onClick={() => handleShare(selectedInstances, true)}
-                                >
-                                    Resync
-                                </StyledButton>
+                                </Button>
+                                <Button onClick={() => handleShare(selectedInstances, true)}>Resync</Button>
                             </ActionButtons>
                         )}
                     </StyledContainer>
@@ -451,14 +446,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         />
                         Share assets upstream and downstream of {entityRegistry.getDisplayName(entityType, entityData)}
                     </LineageBoxWrapper>
-                    <StyledButton
-                        $type="filled"
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        onClick={() => handleShare(instancesToShare, false)}
-                    >
-                        Share
-                    </StyledButton>
+                    <Button onClick={() => handleShare(instancesToShare, false)}>Share</Button>
                 </ButtonContainer>
             )}
 

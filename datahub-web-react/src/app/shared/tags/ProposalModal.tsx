@@ -1,8 +1,10 @@
 import React from 'react';
 
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
 import styled from 'styled-components';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '../button/styledComponents';
 import { ActionRequest } from '../../../types.generated';
 
 type ProposalModalProps = {
@@ -39,12 +41,13 @@ export default function ProposalModal({
             title="Review Proposal"
             footer={
                 <ProposalModalFooter>
-                    <div>
+                    <ModalButtonContainer>
                         <Button
                             onClick={(e) => {
                                 onCloseProposalDecisionModal(e);
                             }}
-                            type="text"
+                            variant="text"
+                            color="gray"
                         >
                             Close
                         </Button>
@@ -55,7 +58,6 @@ export default function ProposalModal({
                                 onProposalAcceptance(actionRequest);
                                 onCloseProposalDecisionModal(e);
                             }}
-                            type="primary"
                         >
                             Accept
                         </Button>
@@ -66,10 +68,12 @@ export default function ProposalModal({
                                 onProposalRejection(actionRequest);
                                 onCloseProposalDecisionModal(e);
                             }}
+                            color="red"
+                            variant="outline"
                         >
                             Reject
                         </Button>
-                    </div>
+                    </ModalButtonContainer>
                 </ProposalModalFooter>
             }
         >

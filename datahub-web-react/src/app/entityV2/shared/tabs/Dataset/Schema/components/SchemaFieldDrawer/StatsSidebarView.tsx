@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
+import { DatasetFieldProfile, DatasetProfile, SchemaField } from '../../../../../../../../types.generated';
 import StatsSidebarHeader, { StatsViewType } from './StatsSidebarHeader';
 import { StatsSidebarContent } from './StatsSidebarContent';
 import StatsSidebarColumnTab from './StatsSidebarColumnTab';
@@ -16,7 +16,7 @@ export interface StatsProps {
     properties: {
         expandedField: SchemaField;
         fieldProfile: DatasetFieldProfile | undefined;
-        profiles: any[];
+        profiles: DatasetProfile[];
         fetchDataWithLookbackWindow: (lookbackWindow: any) => void;
         profilesDataLoading: boolean;
     };

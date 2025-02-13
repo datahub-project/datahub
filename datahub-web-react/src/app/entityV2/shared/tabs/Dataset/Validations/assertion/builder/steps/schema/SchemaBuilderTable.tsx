@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DeleteOutline } from '@mui/icons-material';
-import { Button, Input, Select, Table } from 'antd';
-import { Tooltip } from '@components';
+import { Input, Select, Table } from 'antd';
+import { Button, Tooltip } from '@components';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { SchemaAssertionField, SchemaFieldDataType } from '../../../../../../../../../../types.generated';
@@ -191,8 +191,9 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
                             disabled={disabled || !editing}
                             onClick={() => handleRemoveAll()}
-                            icon={<DeleteOutline style={{ fontSize: 16 }} />}
-                        />
+                        >
+                            <DeleteOutline style={{ fontSize: 16 }} />
+                        </Button>
                     </Tooltip>
                 </div>
             ),
@@ -204,8 +205,9 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
                             disabled={disabled || !editing}
                             onClick={() => handleRemove(record.key)}
-                            icon={<DeleteOutline style={{ fontSize: 16 }} />}
-                        />
+                        >
+                            <DeleteOutline style={{ fontSize: 16 }} />
+                        </Button>
                     </Tooltip>
                 </div>
             ),
@@ -248,7 +250,7 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                 }}
             />
             {editing ? (
-                <Button type="default" onClick={handleAdd} style={{ marginBottom: 16 }}>
+                <Button onClick={handleAdd} style={{ marginBottom: 16 }}>
                     <StyledPlusOutlined /> Add Column
                 </Button>
             ) : null}

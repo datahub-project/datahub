@@ -16,7 +16,13 @@ import { roundToEven } from './utils';
 import { AxisProps, GridProps } from '../BarChart/types';
 import { GLYPH_DROP_SHADOW_FILTER } from './constants';
 import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
-import useMaxDataValue from '../BarChart/hooks/useMaxDataValue';
+// FIY: tooltip has a bug when glyph and vertical/horizontal crosshair can be shown behind the graph
+// issue: https://github.com/airbnb/visx/issues/1333
+// We have this problem when LineChart shown on Drawer
+// That can be fixed by adding z-idex
+// But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
+// https://github.com/styled-components/styled-components/issues/2620
+import './customTooltip.css';
 
 const commonTickLabelProps: TickLabelProps<Datum> = {
     fontSize: 10,
@@ -59,7 +65,7 @@ export const lineChartDefault: LineChartProps = {
             const widthOfAxis = width - margin.right - margin.left;
             const maxCountOfTicks = Math.ceil(widthOfAxis / widthOfTick);
             const numOfTicks = roundToEven(maxCountOfTicks / 2);
-            return Math.min(numOfTicks, data.length - 1);
+            return Math.max(Math.min(numOfTicks, data.length - 1), 1);
         },
         hideAxisLine: true,
         hideTicks: true,
@@ -121,10 +127,9 @@ export function LineChart({
         left: (margin?.left ?? 0) + 50,
     };
 
-    const xAccessor = (datum: Datum) => datum.x;
+    const xAccessor = (datum: Datum) => datum?.x;
     const yAccessor = (datum: Datum) => datum.y;
-    const maxDataValue = useMaxDataValue(data, yAccessor);
-    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
+    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
 
     const accessors = { xAccessor, yAccessor };
 

@@ -28,7 +28,7 @@ export const PendingRequests = ({ count }: Props) => {
     return (
         <TaskSummaryCard loading={false} onClick={navigateToTaskCenter}>
             <Content>
-                <b>{formatNumber(count)} assets</b> with pending documentation requests
+                <b>{formatNumber(count)} assets</b> with pending compliance tasks
             </Content>
         </TaskSummaryCard>
     );

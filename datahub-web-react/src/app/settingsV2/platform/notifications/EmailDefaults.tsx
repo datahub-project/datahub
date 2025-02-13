@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Typography, Form, Input, Button, Space } from 'antd';
-import { Tooltip } from '@components';
+import { Typography, Form, Input, Space } from 'antd';
+import { Button, Tooltip } from '@components';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -21,9 +21,7 @@ const StyledLabel = styled(Typography.Text)`
     font-size: 14px;
 `;
 
-const StyledButton = styled(Button)`
-    background: #00615f;
-`;
+const StyledButton = styled(Button)``;
 
 interface Props {
     isEmailEnabled: boolean;
@@ -68,9 +66,8 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
                                 title={!isEmailEnabled ? 'Email notifications are currently disabled.' : undefined}
                             >
                                 <Button
-                                    size="small"
+                                    variant="outline"
                                     disabled={!isEmailEnabled || editing}
-                                    type="default"
                                     onClick={() => setEditing(true)}
                                 >
                                     Edit
@@ -90,11 +87,7 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
                                     }
                                 }}
                             />
-                            <StyledButton
-                                type="primary"
-                                onClick={onSave}
-                                disabled={!isEmailEnabled || !inputValue?.length}
-                            >
+                            <StyledButton onClick={onSave} disabled={!isEmailEnabled || !inputValue?.length}>
                                 Save
                             </StyledButton>
                         </>

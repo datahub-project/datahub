@@ -3,7 +3,7 @@ import { SelectOption, SimpleSelect } from '@src/alchemy-components';
 
 type TimeRangeSelectProps = {
     options: SelectOption[];
-    loading: boolean;
+    loading?: boolean;
     values: string[];
     onUpdate: (values: string[]) => void;
 };

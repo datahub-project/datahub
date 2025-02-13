@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { isEqual } from 'lodash';
-import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image, Modal } from 'antd';
+import { Button as AntButton, Divider, Form, Input, message, Typography, Alert, Radio, Image, Modal } from 'antd';
 import { InfoCircleFilled } from '@ant-design/icons';
 import { blue, green } from '@ant-design/colors';
 import { Link } from 'react-router-dom';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { Button } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
@@ -106,7 +107,7 @@ const TroubleshootLabel = styled(Typography.Text)`
     display: block;
 `;
 
-const NewInstallButton = styled(Button)`
+const NewInstallButton = styled(AntButton)`
     background-color: transparent;
     border: 0;
     box-shadow: none;
@@ -254,6 +255,7 @@ export const SlackIntegration = () => {
         return (
             <>
                 <Button
+                    variant="outline"
                     onClick={() =>
                         updateSlackSettings(isOnAppConfigTab, () => {
                             // If we are using the app-token path, redirect once settings are updated.
