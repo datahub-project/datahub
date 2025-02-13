@@ -14,6 +14,7 @@ export default function SamplesTable({ samples, fieldType, onViewSample, maxItem
     const truncatedSamples = useMemo(() => samples.slice(0, maxItems), [samples, maxItems]);
 
     const columns: Column<string>[] = useMemo(() => {
+        const isPreviewMode = maxItems !== undefined;
         const columnsToShow: Column<string>[] = [
             {
                 title: 'Sample Values',
@@ -21,20 +22,22 @@ export default function SamplesTable({ samples, fieldType, onViewSample, maxItem
                 render: (record) => {
                     return <SampleValueCell sample={record} onViewSample={onViewSample} />;
                 },
-                sorter: (sourceA, sourceB) => {
-                    if (fieldType !== SchemaFieldDataType.Number) return sourceA.localeCompare(sourceB);
+                sorter: isPreviewMode
+                    ? undefined
+                    : (sourceA, sourceB) => {
+                          if (fieldType !== SchemaFieldDataType.Number) return sourceA.localeCompare(sourceB);
 
-                    try {
-                        return Number(sourceA) - Number(sourceB);
-                    } catch {
-                        return sourceA.localeCompare(sourceB);
-                    }
-                },
+                          try {
+                              return Number(sourceA) - Number(sourceB);
+                          } catch {
+                              return sourceA.localeCompare(sourceB);
+                          }
+                      },
             },
         ];
 
         return columnsToShow;
-    }, [fieldType, onViewSample]);
+    }, [fieldType, onViewSample, maxItems]);
 
     return <Table data={truncatedSamples} isScrollable columns={columns} />;
 }

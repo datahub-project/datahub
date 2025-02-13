@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { COLOR_SCHEMAS } from './constants';
+import { COLOR_SCHEMES } from './constants';
 
 export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
     return Array(length)
@@ -26,7 +26,7 @@ export function generateMockDataHorizontal(length = 5, maxValue = 50_000, minVal
             return {
                 y: index,
                 x: Math.max(Math.random() * maxValue, minValue),
-                colorScheme: COLOR_SCHEMAS?.[index % (COLOR_SCHEMAS.length - 1)],
+                colorScheme: COLOR_SCHEMES?.[index % (COLOR_SCHEMES.length - 1)],
                 label: `Value-${index}${' text'.repeat(index)}`,
             };
         });

@@ -26,7 +26,7 @@ export const GREEN_COLOR_SCHEME_PARAMS: ColorSchemeParams = {
     alternativeColor: colors.green[200],
 };
 
-export const COLOR_SCHEMAS: ColorScheme[] = Object.values(ColorScheme);
+export const COLOR_SCHEMES: ColorScheme[] = Object.values(ColorScheme);
 
 export const DEFAULT_COLOR_SCHEME = ColorScheme.Violet;
 

@@ -6,6 +6,7 @@ import MaxValuesChart from './charts/MaxValuesChart';
 import MinValuesChart from './charts/MinValuesChart';
 import MedianValuesChart from './charts/MedianValuesChart';
 import MeanValuesChart from './charts/MeanValuesChart';
+import RowCountByValueChart from './charts/RowCountByValueChart';
 
 export default function ChartsSection() {
     return (
@@ -17,6 +18,7 @@ export default function ChartsSection() {
             <MinValuesChart />
             <MedianValuesChart />
             <MeanValuesChart />
+            <RowCountByValueChart />
         </>
     );
 }

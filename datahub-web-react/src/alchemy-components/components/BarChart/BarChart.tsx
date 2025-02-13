@@ -1,11 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { colors } from '@src/alchemy-components/theme';
-import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { TickLabelProps } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
 import { Axis, AxisScale, BarSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
 import { Popover } from '../Popover';
 import { ChartWrapper, StyledBarSeries } from './components';
 import { AxisProps, BarChartProps, ColorAccessor, Datum, GridProps, XAccessor, YAccessor } from './types';
@@ -14,52 +11,9 @@ import useMergedProps from './hooks/useMergedProps';
 import useAdaptYScaleToZeroValues from './hooks/useAdaptYScaleToZeroValues';
 import useAdaptYAccessorToZeroValue from './hooks/useAdaptYAccessorToZeroValues';
 import useMaxDataValue from './hooks/useMaxDataValue';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME, DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL } from './constants';
+import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
 import TruncatableTick from './components/TruncatableTick';
-
-const commonTickLabelProps: TickLabelProps<Datum> = {
-    fontSize: 10,
-    fontFamily: 'Mulish',
-    fill: colors.gray[1700],
-};
-
-export const barChartDefault: BarChartProps = {
-    data: [],
-
-    xScale: { type: 'band', paddingInner: 0.4, paddingOuter: 0.1 },
-    yScale: { type: 'linear', nice: true, round: true },
-
-    leftAxisProps: {
-        tickFormat: abbreviateNumber,
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'end',
-            width: 50,
-        },
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    maxLengthOfLeftAxisLabel: DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL,
-    showLeftAxisLine: false,
-    bottomAxisProps: {
-        tickFormat: (value) => dayjs(value).format('DD MMM'),
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'middle',
-            verticalAnchor: 'start',
-            width: 20,
-        },
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    gridProps: {
-        rows: true,
-        columns: false,
-        stroke: '#e0e0e0',
-        strokeWidth: 1,
-        lineStyle: {},
-    },
-};
+import { barChartDefault } from './defaults';
 
 export function BarChart({
     data,
@@ -74,7 +28,7 @@ export function BarChart({
     margin,
 
     leftAxisProps = barChartDefault.leftAxisProps,
-    maxLengthOfLeftAxisLabel: leftAxisLabelLimitOfChars = barChartDefault.maxLengthOfLeftAxisLabel,
+    maxLengthOfLeftAxisLabel = barChartDefault.maxLengthOfLeftAxisLabel,
     showLeftAxisLine = barChartDefault.showLeftAxisLine,
     bottomAxisProps = barChartDefault.bottomAxisProps,
     gridProps = barChartDefault.gridProps,
@@ -185,7 +139,7 @@ export function BarChart({
                                 orientation="left"
                                 numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                                 tickComponent={(props) => (
-                                    <TruncatableTick {...props} limit={leftAxisLabelLimitOfChars} />
+                                    <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
                                 )}
                                 {...mergedLeftAxisProps}
                             />
@@ -238,6 +192,8 @@ export function BarChart({
                             />
 
                             <Tooltip<Datum>
+                                // needed for bounds to update correctly (https://airbnb.io/visx/tooltip)
+                                key={Math.random()}
                                 snapTooltipToDatumX
                                 snapTooltipToDatumY
                                 unstyled
@@ -248,7 +204,9 @@ export function BarChart({
                                             <Popover
                                                 open
                                                 defaultOpen
-                                                placement="topLeft"
+                                                // adjust offset for horizontal barchart to prevent blinking of popover and hover state
+                                                align={horizontal ? { offset: [0, 20] } : undefined}
+                                                placement={horizontal ? 'bottomRight' : 'topLeft'}
                                                 key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
                                                 content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
                                             />
