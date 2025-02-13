@@ -37,7 +37,7 @@ class VertexAIConfig(EnvConfigMixin):
     )
     bucket_uri: Optional[str] = Field(
         default=None,
-        description=("Bucket URI used in your GCP project"),
+        description=("Bucket URI used in your project"),
     )
 
     model_name_separator: str = Field(
