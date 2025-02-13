@@ -55,6 +55,7 @@ We use [uv](https://github.com/astral-sh/uv)'s compile and sync subcommands to m
 
 ```sh
 # First, add the dependency to pyproject.toml
+vim pyproject.toml
 
 # Then run the following command to update the lockfile and install deps.
 ./scripts/lockfile.sh
@@ -64,6 +65,7 @@ We use [uv](https://github.com/astral-sh/uv)'s compile and sync subcommands to m
 
 ```sh
 # First, update the dependency's lower bound in pyproject.toml
+vim pyproject.toml
 
 # Update the lockfiles and venv:
 ./scripts/lockfile.sh
@@ -73,10 +75,10 @@ Alternative approach: updating requirements without updating pyproject.toml.
 
 ```sh
 # Upgrade a single package:
-uv pip compile -o requirements.txt requirements-local.in --upgrade-package <package>
+./scripts/lockfile.sh --upgrade-package <package>
 
 # Upgrade all packages:
-uv pip compile -o requirements.txt requirements-local.in --upgrade
+./scripts/lockfile.sh --upgrade
 
 # Either way, run the same lockfile and venv update commands as above.
 ```

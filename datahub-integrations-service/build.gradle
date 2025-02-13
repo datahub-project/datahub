@@ -40,7 +40,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
     outputs.file(sentinel_file)
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools && " +
+        "${venv_name}/bin/python -m pip install --upgrade uv && " +
         "touch ${sentinel_file}"
 }
 
@@ -64,6 +64,17 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
 task install(dependsOn: [installPackage])
 
 task installDev(dependsOn: [install])
+
+task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile.sh"
+}
+task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile-check.sh"
+}
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
@@ -94,6 +105,7 @@ task cleanPythonCache(type: Exec) {
 }
 
 build.dependsOn install
+check.dependsOn lockfileCheck
 check.dependsOn lint
 check.dependsOn test
 
