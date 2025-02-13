@@ -258,6 +258,16 @@ class DeployOptions(ConfigModel):
     required=False,
     default="UTC",
 )
+@click.option(
+    "--debug", type=bool, help="Should we debug.", required=False, default=False
+)
+@click.option(
+    "--extra-pip",
+    type=str,
+    help='Extra pip packages. e.g. ["memray"]',
+    required=False,
+    default=None,
+)
 def deploy(
     name: Optional[str],
     config: str,
@@ -266,6 +276,8 @@ def deploy(
     cli_version: Optional[str],
     schedule: Optional[str],
     time_zone: str,
+    extra_pip: Optional[str],
+    debug: bool = False,
 ) -> None:
     """
     Deploy an ingestion recipe to your DataHub instance.
@@ -318,41 +330,54 @@ def deploy(
 
     variables: dict = {
         "urn": urn,
-        "name": deploy_options.name,
-        "type": pipeline_config["source"]["type"],
-        "recipe": json.dumps(pipeline_config),
-        "executorId": deploy_options.executor_id,
-        "version": deploy_options.cli_version,
+        "input": {
+            "name": deploy_options.name,
+            "type": pipeline_config["source"]["type"],
+            "config": {
+                "recipe": json.dumps(pipeline_config),
+                "executorId": deploy_options.executor_id,
+                "debugMode": debug,
+                "version": deploy_options.cli_version,
+            },
+        },
     }
 
     if deploy_options.schedule is not None:
-        variables["schedule"] = {
+        variables["input"]["schedule"] = {
             "interval": deploy_options.schedule,
             "timezone": deploy_options.time_zone,
         }
+    if extra_pip is not None:
+        extra_args_dict = variables.get("input").get("config").get("extraArgs", [])
+        extra_args_dict.append({"key": "extra_pip_requirements", "value": extra_pip})
+        variables["input"]["config"]["extraArgs"] = extra_args_dict
+
+    # """
+    # {
+    #   "urn": "urn:li:dataHubIngestionSource:0ba905ad-5aca-4943-9ae7-e093be99535d",
+    #   "input": {
+    #     "type": "demo-data",
+    #     "name": "demo",
+    #     "config": {
+    #       "recipe": "{\"source\":{\"type\":\"demo-data\",\"config\":{}}}",
+    #       "executorId": "default",
+    #       "debugMode": true,
+    #       "extraArgs": [
+    #         {
+    #           "key": "extra_pip_requirements",
+    #           "value": "[\"memray\"]"
+    #         }
+    #       ]
+    #     }
+    #   }
+    # }
+    # """
 
     # The updateIngestionSource endpoint can actually do upserts as well.
     graphql_query: str = textwrap.dedent(
         """
-        mutation updateIngestionSource(
-            $urn: String!,
-            $name: String!,
-            $type: String!,
-            $schedule: UpdateIngestionSourceScheduleInput,
-            $recipe: String!,
-            $executorId: String!
-            $version: String) {
-
-            updateIngestionSource(urn: $urn, input: {
-                name: $name,
-                type: $type,
-                schedule: $schedule,
-                config: {
-                    recipe: $recipe,
-                    executorId: $executorId,
-                    version: $version,
-                }
-            })
+        mutation updateIngestionSource($urn: String!, $input: UpdateIngestionSourceInput!) {
+            updateIngestionSource(urn: $urn, input: $input)
         }
         """
     )
