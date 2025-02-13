@@ -22,6 +22,10 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
 
+### Known Issues
+
+- #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
+
 ### Potential Downtime
 
 ### Deprecations

@@ -85,13 +85,14 @@ def check_golden_file(
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
-    copy_output = pytestconfig.getoption("--copy-output-files")
+    # TODO: Remove the pytestconfig parameter since it's redundant.
+    # Or more straightforward - we can remove the `check_golden_file` method
+    # and use assert_metadata_files_equal directly. Maybe call it "check_golden_metadata"?
+    # In a lot of cases, the output_path is also just annoying - our pytest setup
+    # should be responsible for figuring out where to put the temp file.
     assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
-        update_golden=update_golden,
-        copy_output=copy_output,
         ignore_paths=ignore_paths,
         ignore_paths_v2=ignore_paths_v2,
         ignore_order=ignore_order,
@@ -99,7 +100,6 @@ def check_golden_file(
 
 
 def check_goldens_stream(
-    pytestconfig: pytest.Config,
     outputs: List,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
@@ -108,8 +108,7 @@ def check_goldens_stream(
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
 
-        check_golden_file(
-            pytestconfig=pytestconfig,
+        assert_metadata_files_equal(
             output_path=f.name,
             golden_path=golden_path,
             ignore_paths=ignore_paths,

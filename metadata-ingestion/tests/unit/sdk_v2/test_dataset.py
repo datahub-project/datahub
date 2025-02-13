@@ -65,9 +65,7 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
         # This should fail. Eventually we should make it suggest calling set_owners instead.
         d.owners = []  # type: ignore
 
-    assert_entity_golden(
-        pytestconfig, d, _GOLDEN_DIR / "test_dataset_basic_golden.json"
-    )
+    assert_entity_golden(d, _GOLDEN_DIR / "test_dataset_basic_golden.json")
 
 
 def _build_complex_dataset() -> Dataset:
@@ -161,17 +159,13 @@ def _build_complex_dataset() -> Dataset:
     return d
 
 
-def test_dataset_complex(pytestconfig: pytest.Config) -> None:
+def test_dataset_complex() -> None:
     d = _build_complex_dataset()
-    assert_entity_golden(
-        pytestconfig, d, _GOLDEN_DIR / "test_dataset_complex_golden.json"
-    )
+    assert_entity_golden(d, _GOLDEN_DIR / "test_dataset_complex_golden.json")
 
 
-def test_dataset_ingestion(pytestconfig: pytest.Config) -> None:
+def test_dataset_ingestion() -> None:
     with change_default_attribution(KnownAttribution.INGESTION):
         d = _build_complex_dataset()
 
-        assert_entity_golden(
-            pytestconfig, d, _GOLDEN_DIR / "test_dataset_ingestion_golden.json"
-        )
+        assert_entity_golden(d, _GOLDEN_DIR / "test_dataset_ingestion_golden.json")

@@ -1,5 +1,4 @@
 import logging
-import os
 import pathlib
 from typing import Any, Dict, Optional
 
@@ -8,10 +7,9 @@ import deepdiff
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
+from datahub.testing.pytest_hooks import get_golden_settings
 
 logger = logging.getLogger(__name__)
-
-UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "true"
 
 
 def assert_sql_result_with_resolver(
@@ -22,6 +20,8 @@ def assert_sql_result_with_resolver(
     allow_table_error: bool = False,
     **kwargs: Any,
 ) -> None:
+    settings = get_golden_settings()
+
     # HACK: Our BigQuery source overwrites this value and doesn't undo it.
     # As such, we need to handle that here.
     BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = "_yyyymmdd"
@@ -47,15 +47,14 @@ def assert_sql_result_with_resolver(
         )
 
     txt = res.json(indent=4)
-    if UPDATE_FILES:
+    if settings.update_golden:
         expected_file.write_text(txt)
         return
 
     if not expected_file.exists():
         expected_file.write_text(txt)
         raise AssertionError(
-            f"Expected file {expected_file} does not exist. "
-            "Created it with the expected output. Please verify it."
+            f"Missing expected golden file; run with --update-golden-files to create it: {expected_file}"
         )
 
     expected = SqlParsingResult.parse_raw(expected_file.read_text())
