@@ -1,15 +1,10 @@
 import styled from 'styled-components';
 
-export const GraphCardHeaderRow = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-`;
-
 export const GraphCardHeader = styled.div`
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 16px;
+    justify-content: space-between;
 `;
 
 export const GraphCardBody = styled.div`

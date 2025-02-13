@@ -14,6 +14,8 @@ import useMaxDataValue from './hooks/useMaxDataValue';
 import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
 import TruncatableTick from './components/TruncatableTick';
 import { barChartDefault } from './defaults';
+import LeftAxisMarginSetter from './components/LeftAxisMarginSetter';
+import { abbreviateNumber } from '../dataviz/utils';
 
 export function BarChart({
     data,
@@ -37,14 +39,18 @@ export function BarChart({
 }: BarChartProps) {
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
     const [howeredBarIndex, setHoweredBarIndex] = useState<number | null>(null);
+    const [leftAxisMargin, setLeftAxisMargin] = useState<number>(0);
 
     // FYI: additional margins to show left and bottom axises
-    const internalMargin = {
-        top: (margin?.top ?? 0) + 30,
-        right: margin?.right ?? 0,
-        bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 50,
-    };
+    const internalMargin = useMemo(
+        () => ({
+            top: (margin?.top ?? 0) + 30,
+            right: (margin?.right ?? 0) + 0,
+            bottom: (margin?.bottom ?? 0) + 35,
+            left: (margin?.left ?? 0) + leftAxisMargin + 6,
+        }),
+        [leftAxisMargin, margin],
+    );
 
     const xAccessor: XAccessor = (datum) => datum.x;
     const yAccessor: YAccessor = (datum) => datum.y;
@@ -142,6 +148,12 @@ export function BarChart({
                                     <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
                                 )}
                                 {...mergedLeftAxisProps}
+                            />
+                            <LeftAxisMarginSetter
+                                setLeftMargin={setLeftAxisMargin}
+                                formatter={leftAxisProps?.tickFormat ?? abbreviateNumber}
+                                maxMargin={45}
+                                numOfTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                             />
 
                             <Axis

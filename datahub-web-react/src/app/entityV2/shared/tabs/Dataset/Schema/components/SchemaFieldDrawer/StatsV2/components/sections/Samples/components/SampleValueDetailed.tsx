@@ -19,6 +19,7 @@ const Container = styled.div`
 
 const Sample = styled(Text)`
     text-wrap: auto;
+    overflow-wrap: anywhere;
 `;
 
 export default function SampleValueDetailed({ sample }: SampleValueDetailedProps) {

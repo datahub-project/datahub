@@ -1,4 +1,11 @@
-import { getPopoverTimeFormat, getXAxisTickFormat, groupTimeData, TimeInterval } from '../utils';
+import {
+    getPopoverTimeFormat,
+    getXAxisTickFormat,
+    groupTimeData,
+    MAX_VALUE_AGGREGATION,
+    SUM_VALUES_AGGREGATION,
+    TimeInterval,
+} from '../utils';
 
 const barChartData = [
     {
@@ -23,7 +30,7 @@ const getGroupedData = (
         interval,
         (d) => d.time,
         (d) => d.value,
-        (values) => (interval === TimeInterval.DAY ? Math.max(...values) : values.reduce((sum, val) => sum + val, 0)),
+        interval === TimeInterval.DAY ? MAX_VALUE_AGGREGATION : SUM_VALUES_AGGREGATION,
     );
 };
 

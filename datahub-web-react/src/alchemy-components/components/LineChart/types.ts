@@ -16,7 +16,7 @@ export type LineChartProps = {
 
     lineColor?: string;
     areaColor?: string;
-    margin?: Margin;
+    margin?: Partial<Margin>;
 
     leftAxisProps?: AxisProps;
     showLeftAxisLine?: boolean;

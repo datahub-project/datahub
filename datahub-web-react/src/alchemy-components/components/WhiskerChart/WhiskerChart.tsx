@@ -40,19 +40,19 @@ function InternalWhiskerChart({
     const finalBoxSize = boxSize ?? DEFAULT_BOX_SIZE;
     const finalGap = gap ?? DEFAULT_GAP_BETWEEN_WHISKERS;
 
-    const dataWithOffsets = useMemo(() => {
-        return data.map((datum, index) => ({
-            datum,
-            offset: computeWhiskerOffset(data.length, index, finalBoxSize, height, finalGap),
-        }));
-    }, [data, height, finalBoxSize, finalGap]);
-
-    const minY = margin.bottom;
+    const minY = 0;
     const maxY = height - margin.bottom;
     const minX = margin.left;
     const maxX = width - margin.right;
     const chartHeight = maxY - minY;
     const chartWidth = maxX - minX;
+
+    const dataWithOffsets = useMemo(() => {
+        return data.map((datum, index) => ({
+            datum,
+            offset: computeWhiskerOffset(data.length, index, finalBoxSize, chartHeight, finalGap),
+        }));
+    }, [data, chartHeight, finalBoxSize, finalGap]);
 
     const minValue = useMemo(() => Math.min(...data.map((datum) => datum.min)), [data]);
     const maxValue = useMemo(() => Math.max(...data.map((datum) => datum.max)), [data]);

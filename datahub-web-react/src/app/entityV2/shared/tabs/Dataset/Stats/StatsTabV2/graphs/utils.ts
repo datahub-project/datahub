@@ -6,6 +6,18 @@ import { LookbackWindow } from '../../lookbackWindows';
 
 dayjs.extend(utc);
 
+export type TimeSeriesDatum = {
+    time: number;
+    value: number;
+};
+
+export type AggregationFunction = (values: number[]) => number | undefined;
+
+export const MAX_VALUE_AGGREGATION: AggregationFunction = (values) => Math.max(...values);
+export const MIN_VALUE_AGGREGATION: AggregationFunction = (values) => Math.min(...values);
+export const LATEST_VALUE_AGGREGATION: AggregationFunction = (values) => values.at(-1);
+export const SUM_VALUES_AGGREGATION: AggregationFunction = (values) => values.reduce((sum, val) => sum + val, 0);
+
 /**
  * Groups time data by interval (day, week, etc)
  * Only `day` interval is supported for now
@@ -15,8 +27,8 @@ export function groupTimeData<T>(
     interval: TimeInterval,
     timeAccessor: (datum: T) => string | number,
     valueAccessor: (datum: T) => number,
-    aggregationFuncttion: (values: number[]) => number,
-) {
+    aggregationFuncttion: AggregationFunction,
+): TimeSeriesDatum[] {
     const aggregated: Record<number, number[]> = {};
 
     data.forEach((datum) => {
@@ -27,10 +39,16 @@ export function groupTimeData<T>(
         aggregated[date] = [...(aggregated[date] || []), value];
     });
 
-    return Object.entries(aggregated).map(([date, values]) => ({
-        time: parseInt(date, 10),
-        value: aggregationFuncttion(values),
-    }));
+    const isTimeSeriesDatum = (item: Partial<TimeSeriesDatum>): item is TimeSeriesDatum => {
+        return item.value !== undefined && item.time !== undefined;
+    };
+
+    return Object.entries(aggregated)
+        .map(([date, values]) => ({
+            time: parseInt(date, 10),
+            value: aggregationFuncttion(values),
+        }))
+        .filter(isTimeSeriesDatum);
 }
 
 /**

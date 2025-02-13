@@ -1,96 +1,24 @@
-import { colors } from '@src/alchemy-components/theme';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
-import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
 import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
-import React, { useState } from 'react';
-import { Popover } from '../Popover';
-import { ChartWrapper, Glyph, TooltipGlyph } from './components';
-import { Datum, LineChartProps } from './types';
-import { getMockedProps } from '../BarChart/utils';
-import useMergedProps from '../BarChart/hooks/useMergedProps';
-import { roundToEven } from './utils';
-import { AxisProps, GridProps } from '../BarChart/types';
-import { GLYPH_DROP_SHADOW_FILTER } from './constants';
+import React, { useMemo, useState } from 'react';
 import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import useMergedProps from '../BarChart/hooks/useMergedProps';
+import { AxisProps, GridProps } from '../BarChart/types';
+import { getMockedProps } from '../BarChart/utils';
+import { Popover } from '../Popover';
+import { ChartWrapper } from './components';
+import { Datum, LineChartProps } from './types';
 // FIY: tooltip has a bug when glyph and vertical/horizontal crosshair can be shown behind the graph
 // issue: https://github.com/airbnb/visx/issues/1333
 // We have this problem when LineChart shown on Drawer
 // That can be fixed by adding z-idex
 // But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
 // https://github.com/styled-components/styled-components/issues/2620
+import LeftAxisMarginSetter from '../BarChart/components/LeftAxisMarginSetter';
 import './customTooltip.css';
-
-const commonTickLabelProps: TickLabelProps<Datum> = {
-    fontSize: 10,
-    fontFamily: 'Mulish',
-    fill: colors.gray[1700],
-};
-
-export const lineChartDefault: LineChartProps = {
-    data: [],
-    isEmpty: false,
-
-    xScale: { type: 'time' },
-    yScale: { type: 'log', nice: true, round: true, base: 2 },
-
-    lineColor: colors.violet[500],
-    areaColor: 'url(#line-gradient)',
-    margin: { top: 0, right: 0, bottom: 0, left: 0 },
-
-    leftAxisProps: {
-        tickFormat: abbreviateNumber,
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'end',
-            width: 50,
-        },
-        computeNumTicks: () => 5,
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    showLeftAxisLine: false,
-    bottomAxisProps: {
-        tickFormat: (x) => dayjs(x).format('D MMM'),
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'middle',
-            verticalAnchor: 'start',
-        },
-        computeNumTicks: (width, _, margin, data) => {
-            const widthOfTick = 80;
-            const widthOfAxis = width - margin.right - margin.left;
-            const maxCountOfTicks = Math.ceil(widthOfAxis / widthOfTick);
-            const numOfTicks = roundToEven(maxCountOfTicks / 2);
-            return Math.max(Math.min(numOfTicks, data.length - 1), 1);
-        },
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    showBottomAxisLine: true,
-    gridProps: {
-        rows: true,
-        columns: false,
-        stroke: '#e0e0e0',
-        computeNumTicks: () => 5,
-        lineStyle: {},
-    },
-
-    renderGradients: () => (
-        <LinearGradient id="line-gradient" from={colors.violet[200]} to={colors.white} toOpacity={0.6} />
-    ),
-    toolbarVerticalCrosshairStyle: {
-        stroke: colors.white,
-        strokeWidth: 2,
-        filter: GLYPH_DROP_SHADOW_FILTER,
-    },
-    renderTooltipGlyph: (props) => <TooltipGlyph {...props} />,
-    showGlyphOnSingleDataPoint: true,
-    renderGlyphOnSingleDataPoint: Glyph,
-};
+import { lineChartDefault } from './defaults';
 
 export function LineChart({
     data,
@@ -118,20 +46,24 @@ export function LineChart({
     renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
 }: LineChartProps) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
+    const [leftAxisMargin, setLeftAxisMargin] = useState<number>(0);
 
     // FYI: additional margins to show left and bottom axises
-    const internalMargin = {
-        top: (margin?.top ?? 0) + 30,
-        right: (margin?.right ?? 0) + 30,
-        bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 50,
-    };
+    const internalMargin = useMemo(
+        () => ({
+            top: (margin?.top ?? 0) + 30,
+            right: (margin?.right ?? 0) + 30,
+            bottom: (margin?.bottom ?? 0) + 35,
+            left: (margin?.left ?? 0) + leftAxisMargin + 6,
+        }),
+        [leftAxisMargin, margin],
+    );
 
     const xAccessor = (datum: Datum) => datum?.x;
     const yAccessor = (datum: Datum) => datum.y;
-    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
-
     const accessors = { xAccessor, yAccessor };
+
+    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
@@ -174,6 +106,11 @@ export function LineChart({
                                 orientation="left"
                                 numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                                 {...mergedLeftAxisProps}
+                            />
+                            <LeftAxisMarginSetter
+                                setLeftMargin={setLeftAxisMargin}
+                                formatter={leftAxisProps?.tickFormat ?? abbreviateNumber}
+                                numOfTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                             />
 
                             <Axis

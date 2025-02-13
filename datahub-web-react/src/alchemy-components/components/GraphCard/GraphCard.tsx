@@ -9,13 +9,11 @@ import {
     EmptyMessageContainer,
     GraphCardBody,
     GraphCardHeader,
-    GraphCardHeaderRow,
     GraphContainer,
     LoaderContainer,
 } from './components';
 import { GraphCardProps } from './types';
 import MoreInfoModal from './MoreInfoModal';
-import { SubTitle } from '../PageTitle/components';
 
 const EmptyMessageWrapper = styled.div`
     text-align: center;
@@ -49,13 +47,8 @@ export function GraphCard({
     return (
         <CardContainer maxWidth={width}>
             <GraphCardHeader>
-                <GraphCardHeaderRow>
-                    <PageTitle title={title} variant="sectionHeader" />
-                    <ControlsContainer>{renderControls?.()}</ControlsContainer>
-                </GraphCardHeaderRow>
-                <GraphCardHeaderRow>
-                    <SubTitle variant="sectionHeader">{subTitle}</SubTitle>
-                </GraphCardHeaderRow>
+                <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
+                <ControlsContainer>{renderControls?.()}</ControlsContainer>
             </GraphCardHeader>
 
             {loading && (

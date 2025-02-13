@@ -9,6 +9,7 @@ import useGetTimeRangeOptionsByLookbackWindow from '@src/app/entityV2/shared/tab
 import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
 import React, { useCallback, useMemo, useState } from 'react';
 import MoreInfoModalContent from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
+import { AggregationFunction } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import useStatsTabContext from '../../../../../hooks/useStatsTabContext';
 import { useExtractMetricStats } from '../hooks/useExtractMetricStats';
 import { usePrepareMetricStats } from '../hooks/usePrepareMetricStats';
@@ -22,7 +23,7 @@ export interface MetricLineChartProps {
     title: string;
     subTitle: string;
     renderPopoverDatumMetric?: (datum: Datum) => React.ReactNode;
-    dataAggregationFunction?: (values: number[]) => number;
+    dataAggregationFunction?: AggregationFunction;
 }
 
 export default function MetricLineChart({

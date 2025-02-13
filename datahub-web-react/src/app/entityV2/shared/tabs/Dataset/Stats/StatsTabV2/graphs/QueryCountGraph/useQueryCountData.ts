@@ -3,7 +3,13 @@ import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types
 import { useEffect, useState } from 'react';
 import moment from 'moment';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
+import {
+    addMonthOverMonthValue,
+    groupTimeData,
+    MAX_VALUE_AGGREGATION,
+    SUM_VALUES_AGGREGATION,
+    TimeInterval,
+} from '../utils';
 
 const MAX_NUM_DAYS_PER_MONTH = 31;
 const MAX_NUM_DAYS_PER_QUARTER = 95;
@@ -33,7 +39,7 @@ const getChartData = (rawData: UsageAggregation[], interval: TimeInterval) => {
         interval,
         (d) => d.bucket || 0,
         (d) => d.metrics?.totalSqlQueries || 0,
-        (values) => (interval === TimeInterval.DAY ? Math.max(...values) : values.reduce((sum, val) => sum + val, 0)),
+        interval === TimeInterval.DAY ? MAX_VALUE_AGGREGATION : SUM_VALUES_AGGREGATION,
     );
 
     return addMonthOverMonthValue(

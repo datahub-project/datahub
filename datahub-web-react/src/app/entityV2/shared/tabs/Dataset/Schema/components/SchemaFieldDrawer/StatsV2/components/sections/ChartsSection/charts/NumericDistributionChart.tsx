@@ -33,7 +33,7 @@ export default function NumericDistributionChart() {
         <GraphCard
             title="Numeric Column Distribution"
             subTitle="Numeric distribution for this column"
-            graphHeight="160px"
+            graphHeight="200px"
             renderGraph={() => <WhiskerChart data={[whiskerData]} axisLabel="Column Value" />}
         />
     );

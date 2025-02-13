@@ -3,17 +3,20 @@ import {
     GRAPH_LOOKBACK_WINDOWS,
     LookbackWindowType,
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
-import { groupTimeData, TimeInterval } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
+import {
+    AggregationFunction,
+    groupTimeData,
+    MAX_VALUE_AGGREGATION,
+    TimeInterval,
+} from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useMemo } from 'react';
-
-const DEFAULT_AGGREGATION_FUNCTION = (values: number[]) => Math.max(...values);
 
 export const usePrepareMetricStats = (
     data: Datum[],
     windowType: LookbackWindowType | string | null,
-    aggregationFunction: ((values: number[]) => number) | undefined,
-) => {
+    aggregationFunction?: AggregationFunction,
+): Datum[] => {
     return useMemo(() => {
         const windowSize = windowType ? GRAPH_LOOKBACK_WINDOWS[windowType]?.windowSize : undefined;
         if (windowSize === undefined) return [];
@@ -27,11 +30,13 @@ export const usePrepareMetricStats = (
             TimeInterval.DAY,
             (datum) => datum.x,
             (datum) => datum.y,
-            (values) => (aggregationFunction ?? DEFAULT_AGGREGATION_FUNCTION)(values),
-        ).map((datum) => ({
-            x: datum.time,
-            y: datum.value,
-        }));
+            aggregationFunction ?? MAX_VALUE_AGGREGATION,
+        )
+            .filter((datum) => datum.value !== undefined)
+            .map((datum) => ({
+                x: datum.time,
+                y: datum.value ?? 0, // the value can't be undefined here as it was filtered above
+            }));
 
         return dataGroupedByDays;
     }, [data, windowType, aggregationFunction]);

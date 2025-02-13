@@ -45,7 +45,7 @@ export type BarChartProps = {
     maxYDomainForZeroData?: number;
     minYForZeroData?: number;
 
-    margin?: Margin;
+    margin?: Partial<Margin>;
 
     leftAxisProps?: AxisProps;
     showLeftAxisLine?: boolean;

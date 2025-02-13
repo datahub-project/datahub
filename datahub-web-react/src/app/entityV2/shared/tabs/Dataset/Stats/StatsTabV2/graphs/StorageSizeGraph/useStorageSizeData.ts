@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
-import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
+import { addMonthOverMonthValue, groupTimeData, MAX_VALUE_AGGREGATION, TimeInterval } from '../utils';
 
 export interface StorageSizeData extends Datum {
     mom?: number | null;
@@ -51,7 +51,7 @@ export default function useStorageSizeData(
             TimeInterval.DAY,
             (d) => d.timeMs,
             (d) => d.value,
-            (values) => Math.max(...values),
+            MAX_VALUE_AGGREGATION,
         );
 
         const convertedData = groupedData.map((datum) => ({ x: datum.time, y: datum.value }));

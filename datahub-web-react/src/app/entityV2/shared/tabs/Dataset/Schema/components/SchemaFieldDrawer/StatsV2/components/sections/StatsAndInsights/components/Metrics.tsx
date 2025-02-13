@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { SchemaFieldDataType } from '@src/types.generated';
 import { StatsProps } from '../../../../../StatsSidebarView';
 import useStatsTabContext from '../../../../hooks/useStatsTabContext';
 import { formatNumber } from '../../../../utils';
@@ -22,6 +23,8 @@ interface MetricRenderingRules {
     value: (properties?: StatsProps['properties']) => string | undefined | null;
     isHidden?: (properties?: StatsProps['properties']) => boolean;
 }
+
+const EMPTY_VALUE = '-';
 
 const METRICS: MetricRenderingRules[] = [
     {
@@ -64,6 +67,13 @@ const METRICS: MetricRenderingRules[] = [
             if (!isValuePresent(max)) return null;
             return formatNumber(parseFloat(max as string));
         },
+        isHidden: (properties) => {
+            const fieldType = properties?.expandedField?.type;
+            if (fieldType === undefined) return true;
+            return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
+                fieldType,
+            );
+        },
     },
     {
         label: 'Min',
@@ -72,6 +82,13 @@ const METRICS: MetricRenderingRules[] = [
             const min = properties?.fieldProfile?.min;
             if (!isValuePresent(min)) return null;
             return formatNumber(parseFloat(min as string));
+        },
+        isHidden: (properties) => {
+            const fieldType = properties?.expandedField?.type;
+            if (fieldType === undefined) return true;
+            return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
+                fieldType,
+            );
         },
     },
     {
@@ -82,6 +99,7 @@ const METRICS: MetricRenderingRules[] = [
             if (!isValuePresent(median)) return null;
             return formatNumber(parseFloat(median as string));
         },
+        isHidden: (properties) => properties?.expandedField?.type !== SchemaFieldDataType.Number,
     },
     {
         label: 'Standard Deviation',
@@ -95,8 +113,8 @@ const METRICS: MetricRenderingRules[] = [
 
             return formatNumber(stdevPercent)?.concat('%');
         },
+        isHidden: (properties) => properties?.expandedField?.type !== SchemaFieldDataType.Number,
     },
-    // TODO: add empty string metric
 ];
 
 export default function Metrics() {
@@ -106,12 +124,15 @@ export default function Metrics() {
         <MetricsContainer>
             {METRICS.map((metric) => {
                 if (metric.isHidden?.(properties)) return null;
-
                 const value = metric.value(properties);
-
-                if (!isValuePresent(value)) return null;
-
-                return <Metric label={metric.label} value={value as string} key={metric.key} dataTestId={metric.key} />;
+                return (
+                    <Metric
+                        label={metric.label}
+                        value={value || EMPTY_VALUE}
+                        key={metric.key}
+                        dataTestId={metric.key}
+                    />
+                );
             })}
         </MetricsContainer>
     );
