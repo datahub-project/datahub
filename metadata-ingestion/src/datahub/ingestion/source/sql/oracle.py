@@ -1,5 +1,6 @@
 import datetime
 import logging
+import platform
 import re
 
 # This import verifies that the dependencies are available.
@@ -84,6 +85,16 @@ class OracleConfig(BasicSQLAlchemyConfig):
         default="ALL",
         description="The data dictionary views mode, to extract information about schema objects "
         "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
+    )
+    # oracledb settings to enable thick mode and client library location
+    thick_mode: Optional[bool] = Field(
+        default=False,
+        description="Connection defaults to thin mode. Set to True to enable thick mode.",
+    )
+    lib_dir: Optional[str] = Field(
+        default=None,
+        description="If using thick mode on Windows or Mac, set lib_dir to the oracle client libraries path. "
+        "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
 
     @pydantic.validator("service_name")
@@ -608,6 +619,16 @@ class OracleSource(SQLAlchemySource):
         return db_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
+        # if connecting to oracle with thick_mode client it must be initialized before calling
+        # create_engine, which is called in super().get_inspectors()
+        if self.config.thick_mode:
+            if platform.system() == "Darwin" or platform.system() == "Windows":
+                # windows and mac os require lib_dir to be set explicitly
+                oracledb.init_oracle_client(lib_dir=self.config.lib_dir)
+            else:
+                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                oracledb.init_oracle_client()
+
         for inspector in super().get_inspectors():
             event.listen(
                 inspector.engine, "before_cursor_execute", before_cursor_execute
