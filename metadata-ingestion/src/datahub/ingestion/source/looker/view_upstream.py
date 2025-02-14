@@ -126,7 +126,7 @@ def fix_derived_view_urn(
 
 
 def _platform_names_have_2_parts(platform: str) -> bool:
-    return platform in {"hive", "mysql", "athena"}
+    return platform in {"hive", "mysql", "athena", "delta-lake"}
 
 
 def _drop_hive_dot(urn: str) -> str:
