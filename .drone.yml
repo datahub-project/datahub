@@ -15,7 +15,7 @@ anchors:
       - setup 
 
   docker_build_config: &docker_build_config
-    image: plugins/ecr
+    image: plugins/ecr:20.18.5
     environment:
       ARTIFACTORY_PASSWORD:
         from_secret: ARTIFACTORY_PASSWORD
