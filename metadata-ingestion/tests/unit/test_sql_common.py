@@ -8,6 +8,13 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaField,
+    SchemaFieldDataType,
+)
+from datahub.metadata.schema_classes import (
+    StringTypeClass,
+)
 
 
 class _TestSQLAlchemyConfig(SQLCommonConfig):
@@ -138,3 +145,60 @@ def test_test_connection_failure():
     assert not report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason
     assert "Connection refused" in report.basic_connectivity.failure_reason
+
+
+@pytest.mark.parametrize(
+    "upstream_field_path,downstream_field_path,expected_simplified_upstream,expected_simplified_downstream",
+    [
+        (
+            "[version=2.0].[type=string].employee_id",
+            "[version=2.0].[type=string].employee_id",
+            "employee_id",
+            "employee_id",
+        ),
+        (
+            "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+            "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+            "job_history",
+            "job_history",
+        ),
+        (
+            "[version=2.0].[type=struct].[type=array].[type=string].skills",
+            "[version=2.0].[type=struct].[type=array].[type=string].skills",
+            "skills",
+            "skills",
+        ),
+        (" spaced . field ", "spaced.field", "spaced.field", "spaced.field"),
+    ],
+)
+def test_fine_grained_lineages(
+    upstream_field_path,
+    downstream_field_path,
+    expected_simplified_upstream,
+    expected_simplified_downstream,
+):
+    source = get_test_sql_alchemy_source()
+
+    downstream_field = SchemaField(
+        fieldPath=downstream_field_path,
+        type=SchemaFieldDataType(type=StringTypeClass()),
+        nativeDataType="string",
+    )
+
+    lineages = source.get_fine_grained_lineages(
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:TEST,test_db.test_schema.downstream_table,PROD)",
+        upstream_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:TEST,test_db.test_schema.upstream_table,PROD)",
+        schema_fields=[downstream_field],
+    )
+
+    assert lineages is not None
+    assert len(lineages) == 1
+
+    def get_field_from_urn(urn):
+        return urn.split(",")[-1].rstrip(")")
+
+    actual_downstream = get_field_from_urn(lineages[0].downstreams[0])
+    actual_upstream = get_field_from_urn(lineages[0].upstreams[0])
+
+    assert actual_downstream == expected_simplified_downstream
+    assert actual_upstream == expected_simplified_upstream

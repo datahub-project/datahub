@@ -27,7 +27,6 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
-from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -110,6 +109,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     SubTypesClass,
     TagAssociationClass,
+    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -262,6 +262,33 @@ def get_schema_metadata(
         schema_metadata.foreignKeys = foreign_keys
 
     return schema_metadata
+
+
+def simplify_field_path(field_path: str) -> str:
+    """
+    Simplifies a field path by extracting the actual field name from versioned paths.
+    For example: "[version=2.0].[type=string].employee_id" -> "employee_id"
+
+    Args:
+        field_path: The field path to simplify
+
+    Returns:
+        Simplified field path
+    """
+    if not field_path:
+        return ""
+
+    try:
+        # For versioned paths, take the last component after the final dot
+        if field_path.startswith("[version="):
+            return field_path.split(".")[-1]
+
+        # For regular paths, just clean up whitespace
+        return field_path.strip()
+
+    except Exception as e:
+        logger.warning(f"Error simplifying field path {field_path}: {str(e)}")
+        return field_path
 
 
 # config flags to emit telemetry for
@@ -953,28 +980,31 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         upstream_dataset_urn: str,
         schema_fields: List[SchemaField],
     ) -> Optional[List[FineGrainedLineage]]:
-        def simplify_field_path(field_path):
-            return Dataset._simplify_field_path(field_path)
-
         fine_grained_lineages: List[FineGrainedLineage] = []
+
         for schema_field in schema_fields:
-            field_path_v1 = simplify_field_path(schema_field.fieldPath)
-            fine_grained_lineages.append(
-                FineGrainedLineage(
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(
-                            upstream_dataset_urn,
-                            simplify_field_path(schema_field.fieldPath),
-                        )
-                    ],
+            try:
+                field_path_v1 = simplify_field_path(schema_field.fieldPath)
+                fine_grained_lineages.append(
+                    FineGrainedLineage(
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(
+                                upstream_dataset_urn,
+                                simplify_field_path(schema_field.fieldPath),
+                            )
+                        ],
+                    )
                 )
-            )
-        if fine_grained_lineages:
-            return fine_grained_lineages
-        return None
+            except Exception as e:
+                logger.warning(
+                    f"Error processing field path for {dataset_urn}: {str(e)}"
+                )
+                continue
+
+        return fine_grained_lineages if fine_grained_lineages else None
 
     def get_schema_fields(
         self,
