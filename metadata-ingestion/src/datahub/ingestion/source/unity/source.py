@@ -470,7 +470,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
                         message="schema-parse",
-                        context=schema,
+                        context=str(schema),
                         title=f"Error parsing schema {schema}",
                         exc=e,
                     )
