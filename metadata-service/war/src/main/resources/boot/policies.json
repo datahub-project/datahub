@@ -142,7 +142,7 @@
       "privileges": [
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
-        "VIEW_DATASET_OPERATIONS_PRIVILEGE"
+        "VIEW_DATASET_OPERATIONS"
       ],
       "displayName": "All Users - View Dataset Sensitive Information",
       "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
