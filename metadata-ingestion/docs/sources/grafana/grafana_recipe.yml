@@ -1,0 +1,27 @@
+
+source:
+    type: grafana
+    config:
+        # Coordinates
+        platform_instance: production # optional
+        env: PROD # optional
+        url: https://grafana.company.com
+        service_account_token: ${GRAFANA_SERVICE_ACCOUNT_TOKEN}
+
+        # SSL verification for HTTPS connections
+        verify_ssl: true # optional, default is true
+
+        # Source type mapping for lineage
+        connection_to_platform_map:
+            postgres:
+                platform: postgres
+                database: grafana  # optional
+                database_schema: grafana  # optional
+                platform_instance: database_2  # optional
+                env: PROD  # optional
+            mysql_uid_1:  # Grafana datasource UID
+                platform: mysql
+                platform_instance: database_1  # optional
+                database: my_database  # optional
+sink:
+  # sink configs

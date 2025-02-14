@@ -82,8 +82,8 @@ def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
             )
             for col in columns
         ]
-    except (IndexError, ValueError, StopIteration):
-        logger.warning(f"Failed to parse SQL {target.get('rawSql')}")
+    except (IndexError, ValueError, StopIteration) as e:
+        logger.warning(f"Failed to parse SQL {target.get('rawSql')}", e)
         return []
 
 

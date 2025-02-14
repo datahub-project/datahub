@@ -48,6 +48,10 @@ class GrafanaSourceConfig(
         default=True,
         description="Whether to ingest owners from Grafana dashboards and charts",
     )
+    page_size: int = Field(
+        default=100,
+        description="Number of grafana entities to query through each Grafana API call",
+    )
     connection_to_platform_map: Dict[str, PlatformConnectionConfig] = Field(
         default={},
         description="Map of Grafana connection names to their upstream platform details",

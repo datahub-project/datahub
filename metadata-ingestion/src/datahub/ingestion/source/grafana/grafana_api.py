@@ -21,10 +21,12 @@ class GrafanaAPIClient:
         base_url: str,
         token: SecretStr,
         verify_ssl: bool,
+        page_size: int,
         report: GrafanaSourceReport,
     ) -> None:
         self.base_url = base_url
         self.verify_ssl = verify_ssl
+        self.page_size = page_size
         self.report = report
         self.session = self._create_session(token)
 
@@ -50,7 +52,7 @@ class GrafanaAPIClient:
         """Fetch all folders from Grafana with pagination."""
         folders: List[Folder] = []
         page = 1
-        per_page = 100
+        per_page = self.page_size
 
         while True:
             try:
@@ -94,7 +96,7 @@ class GrafanaAPIClient:
         """Fetch all dashboards from search endpoint with pagination."""
         dashboards: List[Dashboard] = []
         page = 1
-        per_page = 100
+        per_page = self.page_size
 
         while True:
             try:

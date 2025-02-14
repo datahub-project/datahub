@@ -93,20 +93,6 @@ class LineageExtractor:
             env=self.env,
         )
 
-    def _process_platform_lineage(
-        self, ds_uid: str, raw_sql: Optional[str], ds_urn: str
-    ) -> Optional[MetadataChangeProposalWrapper]:
-        """Process lineage for a specific platform."""
-        platform_config = self.connection_map[ds_uid]
-
-        if raw_sql:
-            parsed_sql = self._parse_sql(raw_sql, platform_config)
-            if parsed_sql:
-                return self._create_column_lineage(ds_urn, parsed_sql)
-
-        # Basic lineage fallback
-        return self._create_basic_lineage(ds_uid, platform_config, ds_urn)
-
     def _create_basic_lineage(
         self, ds_uid: str, platform_config: PlatformConnectionConfig, ds_urn: str
     ) -> MetadataChangeProposalWrapper:

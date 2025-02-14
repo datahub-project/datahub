@@ -116,41 +116,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
     - Fine-grained lineage at both dataset and column levels
     - Automated tag extraction
     - Support for both HTTP and HTTPS connections with optional SSL verification
-
-    Prerequisites:
-    1. A running Grafana instance
-    2. A service account token with permissions to:
-       - Read dashboards and folders
-       - Access data source configurations
-       - View user information
-
-    A sample configuration file:
-    ```yaml
-    source:
-        type: grafana
-        config:
-            # Coordinates
-            platform_instance: production # optional
-            env: PROD # optional
-            url: https://grafana.company.com
-            service_account_token: ${GRAFANA_SERVICE_ACCOUNT_TOKEN}
-
-            # SSL verification for HTTPS connections
-            verify_ssl: true # optional, default is true
-
-            # Source type mapping for lineage
-            connection_to_platform_map:
-                postgres:
-                    platform: postgres
-                    database: grafana  # optional
-                    database_schema: grafana  # optional
-                    platform_instance: database_2  # optional
-                    env: PROD  # optional
-                mysql_uid_1:  # Grafana datasource UID
-                    platform: mysql
-                    platform_instance: database_1  # optional
-                    database: my_database  # optional
-    ```
     """
 
     config: GrafanaSourceConfig
@@ -169,6 +134,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             base_url=self.config.url,
             token=self.config.service_account_token,
             verify_ssl=self.config.verify_ssl,
+            page_size=self.config.page_size,
             report=self.report,
         )
 
