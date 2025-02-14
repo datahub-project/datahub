@@ -401,7 +401,7 @@ class SQLServerSource(SQLAlchemySource):
                 data_job.add_property(name=data_name, value=str(data_value))
             yield from self.construct_job_workunits(data_job)
 
-    def loop_stored_procedures(  # noqa: C901
+    def loop_stored_procedures(
         self,
         inspector: Inspector,
         schema: str,

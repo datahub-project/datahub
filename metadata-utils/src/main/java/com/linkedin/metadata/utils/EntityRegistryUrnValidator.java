@@ -3,7 +3,7 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.linkedin.metadata.entity.validation;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.message.Message;
@@ -15,7 +15,6 @@ import com.linkedin.data.schema.validator.ValidatorContext;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.List;
