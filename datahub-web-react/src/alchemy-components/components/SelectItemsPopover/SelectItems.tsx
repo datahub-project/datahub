@@ -5,7 +5,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Entity, EntityType } from '@src/types.generated';
 import { CheckboxValueType } from 'antd/lib/checkbox/Group';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { AcrylListSearch } from '@src/app/entityV2/shared/components/ListSearch/AcrylListSearch';
+import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityOperations } from './hooks'; // Import your custom hook
 import { SelectItemCheckboxGroup } from './SelectItemCheckboxGroup';
@@ -148,7 +148,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     const emptyMessage = `No ${entityName} found`;
     return (
         <StyledSelectContainer onClick={handleContainerClick}>
-            <AcrylListSearch
+            <InlineListSearch
                 searchText={searchText}
                 debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
