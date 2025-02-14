@@ -158,10 +158,10 @@ def test_split_statement_with_empty_string_in_query():
     test_sql = """\
 SELECT
     a,
-    b as B,
+    b as B
+FROM myTable
 WHERE
-    a = ''
-FROM myTable"""
+    a = ''"""
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql]
     assert statements == expected
@@ -171,10 +171,10 @@ def test_split_statement_with_quotes_in_sting_in_query():
     test_sql = """\
 SELECT
     a,
-    b as B,
+    b as B
+FROM myTable
 WHERE
-    a = 'hi, my name''s tim.'
-FROM myTable"""
+    a = 'hi, my name''s tim.'"""
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql]
     assert statements == expected
