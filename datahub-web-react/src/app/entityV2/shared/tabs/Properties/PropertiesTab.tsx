@@ -2,7 +2,6 @@ import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColu
 import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
-import { str } from 'storybook/internal/docs-tools';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
@@ -72,7 +71,9 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
-    const entityUrnsToHydrate = structuredPropertyRowsRaw.flatMap((row) => row.values?.map((v) => str(v.value)));
+    const entityUrnsToHydrate = structuredPropertyRowsRaw
+        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
+        .filter(Boolean);
 
     const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
 
