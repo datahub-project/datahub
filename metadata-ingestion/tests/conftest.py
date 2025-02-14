@@ -41,7 +41,7 @@ try:
 except ImportError:
     pass
 
-import freezegun  # noqa: F401,E402
+import freezegun  # noqa: E402
 
 # The freezegun library has incomplete type annotations.
 # See https://github.com/spulec/freezegun/issues/469
