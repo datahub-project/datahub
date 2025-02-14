@@ -12,6 +12,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.Topics;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -265,7 +267,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
         now, // createdOn
         "urn:li:corpuser:testUser", // createdBy
         null, // createdFor
-        null // systemMetadata
+        RecordUtils.toJsonString(
+            SystemMetadataUtils.createDefaultSystemMetadata()) // systemMetadata
         );
   }
 }
