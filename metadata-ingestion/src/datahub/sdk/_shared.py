@@ -291,6 +291,18 @@ class HasContainer(Entity):
             )
         )
 
+    @property
+    def browse_path(self) -> Optional[List[UrnOrStr]]:
+        if browse_path := self._get_aspect(models.BrowsePathsV2Class):
+            path: List[UrnOrStr] = []
+            for entry in browse_path.path:
+                if entry.urn:
+                    path.append(Urn.from_string(entry.urn))
+                else:
+                    path.append(entry.id)
+            return path
+        return None
+
 
 TagInputType: TypeAlias = Union[str, TagUrn, models.TagAssociationClass]
 TagsInputType: TypeAlias = List[TagInputType]

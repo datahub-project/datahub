@@ -44,6 +44,7 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     assert d.platform is not None
     assert d.platform.platform_name == "bigquery"
     assert d.platform_instance is None
+    assert d.browse_path is None
     assert d.tags is None
     assert d.terms is None
     assert d.created is None
@@ -77,6 +78,8 @@ def _build_complex_dataset() -> Dataset:
         database="MY_DB",
         schema="MY_SCHEMA",
     )
+    db = schema.parent_key()
+    assert db is not None
 
     created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
@@ -113,6 +116,7 @@ def _build_complex_dataset() -> Dataset:
         ],
         domain=DomainUrn("Marketing"),
     )
+
     assert d.platform is not None
     assert d.platform.platform_name == "snowflake"
     assert d.platform_instance is not None
@@ -120,7 +124,14 @@ def _build_complex_dataset() -> Dataset:
         str(d.platform_instance)
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
     )
-    assert d.subtype == "Table"
+    assert schema.parent_key() is not None
+    assert d.browse_path == [
+        d.platform_instance,
+        db.as_urn_typed(),
+        schema.as_urn_typed(),
+    ]
+
+    # Properties.
     assert d.description == "test"
     assert d.display_name == "MY_TABLE"
     assert d.qualified_name == "MY_DB.MY_SCHEMA.MY_TABLE"
@@ -130,6 +141,7 @@ def _build_complex_dataset() -> Dataset:
     assert d.custom_properties == {"key1": "value1", "key2": "value2"}
 
     # Check standard aspects.
+    assert d.subtype == "Table"
     assert d.domain == DomainUrn("Marketing")
     assert d.tags is not None
     assert len(d.tags) == 2
