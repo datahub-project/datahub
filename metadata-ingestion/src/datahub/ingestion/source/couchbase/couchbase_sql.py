@@ -1,0 +1,4 @@
+##
+
+SELECT_DOC_IDS = "SELECT meta().id FROM {}"
+SELECT_COLLECTION_COUNT = "SELECT COUNT(*) AS count FROM {}"
