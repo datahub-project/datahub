@@ -292,6 +292,7 @@ class BigQuerySchemaApi:
                         if hasattr(d, "_properties") and isinstance(d._properties, dict)
                         else None
                     ),
+                    comment=self.bq_client.get_dataset(d.reference).description,
                 )
                 for d in datasets
             ]
