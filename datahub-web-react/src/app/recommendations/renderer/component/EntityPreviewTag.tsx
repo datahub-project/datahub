@@ -1,10 +1,10 @@
-import React from 'react';
-import { Divider, Image, Tag } from 'antd';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
-import { Link } from 'react-router-dom';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { Divider, Image, Tag } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const EntityTag = styled(Tag)`
@@ -69,6 +69,7 @@ type Props = {
     onClick?: () => void;
     columnName?: string;
     dataTestId?: string;
+    showNameTooltip?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -89,6 +90,7 @@ export const EntityPreviewTag = ({
     onClick,
     columnName,
     dataTestId,
+    showNameTooltip = true,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
@@ -110,11 +112,11 @@ export const EntityPreviewTag = ({
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>
-                        <Tooltip title={displayName} showArrow={false}>
+                        <Tooltip title={displayName} showArrow={false} open={showNameTooltip ? undefined : false}>
                             <span className="test-mini-preview-class">{displayName}</span>
                         </Tooltip>
                         {columnName && (
-                            <Tooltip title={columnName} showArrow={false}>
+                            <Tooltip title={columnName} showArrow={false} open={showNameTooltip ? undefined : false}>
                                 <StyledDivider type="vertical" />
                                 <ColumnName>{columnName}</ColumnName>
                             </Tooltip>
