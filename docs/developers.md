@@ -141,17 +141,10 @@ acryl-datahub, version unavailable (installed in develop mode)
 
 ### Refreshing Other Components
 
-To refresh other components with local changes:
-```shell
-cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose \
-    -p datahub \
-    -f docker-compose-without-neo4j.yml \
-    -f docker-compose-without-neo4j.override.yml \
-    -f docker-compose.dev.yml \
-    up -d --no-deps --force-recreate --build <container_name>
+To refresh other components with local changes, just run:
+```commandline
+./gradlew quickstartDebug
 ```
-
-Replace `<container_name>` with the name of the component you want to update.
 
 
 ## IDE Support
