@@ -51,7 +51,8 @@ jobs:
                 "acrylJonny",
                 "chakru-r",
                 "brock-acryl",
-                "mminichino"
+                "mminichino",
+                "jayacryl"
               ]'), 
               github.actor
             ) 

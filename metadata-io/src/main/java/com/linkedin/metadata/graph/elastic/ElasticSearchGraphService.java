@@ -39,7 +39,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;

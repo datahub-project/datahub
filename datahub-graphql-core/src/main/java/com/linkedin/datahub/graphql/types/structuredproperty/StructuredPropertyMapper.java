@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertySettings;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeUrnMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -30,7 +31,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class StructuredPropertyMapper
     implements ModelMapper<EntityResponse, StructuredPropertyEntity> {
 
@@ -141,8 +144,21 @@ public class StructuredPropertyMapper
     final TypeQualifier typeQualifier = new TypeQualifier();
     List<String> allowedTypes = gmsTypeQualifier.get(ALLOWED_TYPES);
     if (allowedTypes != null) {
+      // filter out correct allowedTypes
+      List<String> validAllowedTypes =
+          allowedTypes.stream()
+              .filter(EntityTypeUrnMapper::isValidEntityType)
+              .collect(Collectors.toList());
+      if (validAllowedTypes.size() != allowedTypes.size()) {
+        log.error(
+            String.format(
+                "Property has invalid allowed types set. Current list of allowed types: %s",
+                allowedTypes));
+      }
       typeQualifier.setAllowedTypes(
-          allowedTypes.stream().map(this::createEntityTypeEntity).collect(Collectors.toList()));
+          validAllowedTypes.stream()
+              .map(this::createEntityTypeEntity)
+              .collect(Collectors.toList()));
     }
     return typeQualifier;
   }

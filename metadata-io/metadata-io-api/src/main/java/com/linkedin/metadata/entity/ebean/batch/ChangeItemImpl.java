@@ -14,11 +14,11 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -151,6 +151,14 @@ public class ChangeItemImpl implements ChangeMCP {
   }
 
   @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    this.systemMetadata = systemMetadata;
+    if (this.metadataChangeProposal != null) {
+      this.metadataChangeProposal.setSystemMetadata(systemMetadata);
+    }
+  }
+
+  @Override
   public Map<String, String> getHeaders() {
     return Optional.ofNullable(metadataChangeProposal)
         .filter(MetadataChangeProposal::hasHeaders)
@@ -183,6 +191,10 @@ public class ChangeItemImpl implements ChangeMCP {
         this.headers = Map.of();
       }
 
+      if (this.urn == null && this.metadataChangeProposal != null) {
+        this.urn = this.metadataChangeProposal.getEntityUrn();
+      }
+
       ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
@@ -210,7 +222,7 @@ public class ChangeItemImpl implements ChangeMCP {
           this.headers);
     }
 
-    public static ChangeItemImpl build(
+    public ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
 
       log.debug("entity type = {}", mcp.getEntityType());
@@ -303,15 +315,17 @@ public class ChangeItemImpl implements ChangeMCP {
     return "ChangeItemImpl{"
         + "changeType="
         + changeType
-        + ", urn="
-        + urn
+        + ", auditStamp="
+        + auditStamp
+        + ", systemMetadata="
+        + systemMetadata
+        + ", recordTemplate="
+        + recordTemplate
         + ", aspectName='"
         + aspectName
         + '\''
-        + ", recordTemplate="
-        + recordTemplate
-        + ", systemMetadata="
-        + systemMetadata
+        + ", urn="
+        + urn
         + '}';
   }
 }

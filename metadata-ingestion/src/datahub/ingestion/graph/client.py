@@ -33,13 +33,14 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+from datahub.ingestion.graph.config import (
     DatahubClientConfig as DatahubClientConfig,
 )
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -125,7 +126,7 @@ def _graphql_entity_type(entity_type: str) -> str:
     return entity_type
 
 
-class DataHubGraph(DatahubRestEmitter):
+class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(

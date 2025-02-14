@@ -36,7 +36,7 @@ export const SidebarSiblingsSection = () => {
         );
     }
 
-    const siblingEntities = entityData?.siblings?.siblings || [];
+    const siblingEntities = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
     const entityDataWithoutSiblings = stripSiblingsFromEntity(dataNotCombinedWithSiblings.dataset);
 
     const allSiblingsInGroup = showSeparateSiblings
