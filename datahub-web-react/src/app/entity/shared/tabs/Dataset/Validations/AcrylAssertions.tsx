@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { Tooltip } from '@components';
+import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
+
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
@@ -18,7 +20,6 @@ import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
-import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -90,7 +91,7 @@ export const AcrylAssertions = () => {
                 </TabToolbar>
             )}
             {loading ? (
-                <AcrylAssertionsSummaryLoading />
+                <TableLoadingSkeleton />
             ) : (
                 <>
                     <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />

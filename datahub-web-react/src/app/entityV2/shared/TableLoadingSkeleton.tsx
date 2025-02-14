@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Skeleton } from 'antd';
-import { ANTD_GRAY } from '../../../constants';
+import { ANTD_GRAY } from './constants';
 
 const Header = styled.div`
     width: 100%;
@@ -38,7 +38,7 @@ const CardSkeleton = styled(Skeleton.Input)`
     }
 `;
 
-export const AcrylAssertionsSummaryLoading = () => {
+export const TableLoadingSkeleton = () => {
     return (
         <>
             <Header>

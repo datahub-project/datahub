@@ -3,6 +3,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { Tooltip } from '@components';
 import { DataPlatform } from '@src/types.generated';
+
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
@@ -20,7 +21,7 @@ import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
-import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
+import { TableLoadingSkeleton } from '../../../TableLoadingSkeleton';
 
 /**
  * @deprecated
@@ -95,7 +96,7 @@ export const AcrylAssertions = () => {
                 </TabToolbar>
             )}
             {loading ? (
-                <AcrylAssertionsSummaryLoading />
+                <TableLoadingSkeleton />
             ) : (
                 <>
                     <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />

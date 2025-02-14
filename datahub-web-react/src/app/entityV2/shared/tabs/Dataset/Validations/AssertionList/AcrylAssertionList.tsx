@@ -3,6 +3,8 @@ import { Empty, message } from 'antd';
 import styled from 'styled-components';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
+import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
+
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
@@ -11,7 +13,6 @@ import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/s
 import { getFilteredTransformedAssertionData } from './utils';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
-import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTable, AssertionListFilter, EntityStagedForAssertion } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
@@ -80,7 +81,7 @@ export const AcrylAssertionList = () => {
 
     const renderListTable = () => {
         if (loading) {
-            return <AcrylAssertionsSummaryLoading />;
+            return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
             return (
