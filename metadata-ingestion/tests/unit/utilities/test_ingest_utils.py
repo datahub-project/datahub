@@ -27,7 +27,7 @@ def test_deploy_source_vars():
 
     deploy_vars = deploy_source_vars(
         name,
-        config,
+        str(config),
         urn,
         executor_id,
         cli_version,
