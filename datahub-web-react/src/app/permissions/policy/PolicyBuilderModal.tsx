@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Button, Modal, Steps } from 'antd';
+import { Modal, Steps } from 'antd';
+import { Button } from '@src/alchemy-components';
 import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
@@ -182,16 +183,20 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                        {activeStepIndex > 0 && (
+                            <Button variant="outline" color="gray" onClick={() => prev()}>
+                                Previous
+                            </Button>
+                        )}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                            <Button id="nextButton" type="primary" onClick={() => next()}>
+                            <Button id="nextButton" onClick={() => next()}>
                                 Next
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                            <Button id="saveButton" type="primary" onClick={onSavePolicy}>
+                            <Button id="saveButton" onClick={onSavePolicy}>
                                 Save
                             </Button>
                         )}
