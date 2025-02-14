@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Menu } from 'antd';
-import { Popover } from '@components';
+import { Dropdown, Menu } from 'antd';
+import { Button, Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { IconStyleType } from '../../entity/Entity';
@@ -95,7 +95,8 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
             menu={{ items }}
             dropdownRender={(menu) => <FieldMenu>{menu}</FieldMenu>}
         >
-            <AddFilterButton type="text" icon={<StyledPlusOutlined />}>
+            <AddFilterButton variant="text">
+                <StyledPlusOutlined />
                 Add filter
             </AddFilterButton>
         </Dropdown>

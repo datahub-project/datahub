@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
+import { message, Modal, Typography, Form } from 'antd';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
@@ -71,14 +73,14 @@ function MoveDomainModal(props: Props) {
             visible
             onCancel={onClose}
             footer={
-                <>
-                    <Button onClick={onClose} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={moveDomain} data-testid="move-domain-modal-move-button">
+                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
                         Move
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form form={form} initialValues={{}} layout="vertical">

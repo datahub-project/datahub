@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Button, message, Typography } from 'antd';
+import { message, Typography } from 'antd';
+import { Button } from '@src/alchemy-components';
 import YAML from 'yamljs';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -45,6 +46,7 @@ const Title = styled(Typography.Title)`
 const ButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    gap: 16px;
 `;
 
 const HeaderContainer = styled.div`
@@ -94,7 +96,8 @@ function RecipeBuilder(props: Props) {
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
-                        type="text"
+                        variant="text"
+                        color="gray"
                         $isSelected={isViewingForm}
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
@@ -102,7 +105,8 @@ function RecipeBuilder(props: Props) {
                         <FormOutlined /> Form
                     </StyledButton>
                     <StyledButton
-                        type="text"
+                        variant="text"
+                        color="gray"
                         $isSelected={!isViewingForm}
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
@@ -128,10 +132,10 @@ function RecipeBuilder(props: Props) {
                         <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
                     </BorderedSection>
                     <ControlsContainer>
-                        <Button disabled={isEditing} onClick={goToPrevious}>
+                        <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                             Previous
                         </Button>
-                        <Button type="primary" data-testid="recipe-builder-next-button" onClick={onClickNext}>
+                        <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
                             Next
                         </Button>
                     </ControlsContainer>
