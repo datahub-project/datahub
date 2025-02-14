@@ -41,10 +41,6 @@ public class UserDeleteValidator extends AspectPayloadValidator {
         i -> {
           final Urn entityUrn = i.getUrn();
 
-          if (!entityUrn.getEntityType().equals(Constants.CORP_USER_ENTITY_NAME)) {
-            return;
-          }
-
           final Aspect aspect =
               retrieverContext
                   .getAspectRetriever()

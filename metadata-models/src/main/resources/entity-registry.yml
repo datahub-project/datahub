@@ -693,13 +693,6 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.UserDeleteValidator'
-      enabled: true
-      supportedOperations:
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: corpuser
-          aspectName: '*'
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
       enabled: true
       spring:

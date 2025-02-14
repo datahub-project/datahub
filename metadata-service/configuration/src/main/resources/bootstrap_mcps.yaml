@@ -7,7 +7,7 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v1
+      version: v2
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"

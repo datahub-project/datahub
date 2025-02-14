@@ -155,7 +155,7 @@ public class BackfillCorpUserInfoStep implements UpgradeStep {
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
-            "Error ingesting default browsePathsV2 aspect for urn {}", searchEntity.getEntity(), e);
+            "Error ingesting default corpUserInfo aspect for urn {}", searchEntity.getEntity(), e);
       }
     }
 

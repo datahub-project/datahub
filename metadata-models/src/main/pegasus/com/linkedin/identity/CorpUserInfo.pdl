@@ -109,5 +109,5 @@ record CorpUserInfo includes CustomProperties {
     "fieldType": "BOOLEAN",
     "queryByDefault": false
   }
-  system: boolean = false
+  system: optional boolean = false
 }
