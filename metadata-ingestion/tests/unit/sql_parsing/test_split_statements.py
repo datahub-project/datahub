@@ -61,8 +61,8 @@ drop table #temp1
     statements = [statement.strip() for statement in split_statements(test_sql)]
     assert statements == [
         "DROP TABLE #temp1",
-        "SELECT 'foo' into #temp1",
-        "DROP table #temp1",
+        "select 'foo' into #temp1",
+        "drop table #temp1",
     ]
 
 
@@ -117,3 +117,62 @@ SELECT 1 as a INTO #foo
         "TRUNCATE TABLE #foo",
         "SELECT 1 as a INTO #foo",
     ]
+
+
+def test_split_statement_with_try_catch():
+    test_sql = """\
+BEGIN TRY
+    -- Generate divide-by-zero error.
+    SELECT 1 / 0;
+END TRY
+
+BEGIN CATCH
+    -- Execute error retrieval routine.
+    SELECT ERROR_MESSAGE() AS ErrorMessage;
+END CATCH;
+        """
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [
+        "BEGIN TRY",
+        "-- Generate divide-by-zero error.",
+        "SELECT 1 / 0",
+        "END TRY",
+        "BEGIN CATCH",
+        "-- Execute error retrieval routine.",
+        "SELECT ERROR_MESSAGE() AS ErrorMessage",
+        "END CATCH",
+    ]
+    assert statements == expected
+
+
+def test_split_statement_with_empty_query():
+    test_sql = ""
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected: list[str] = []
+    assert statements == expected
+
+
+def test_split_statement_with_empty_string_in_query():
+    test_sql = """\
+SELECT
+    a,
+    b as B,
+WHERE
+    a = ''
+FROM myTable"""
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql]
+    assert statements == expected
+
+
+def test_split_statement_with_quotes_in_sting_in_query():
+    test_sql = """\
+SELECT
+    a,
+    b as B,
+WHERE
+    a = 'hi, my name''s tim.'
+FROM myTable"""
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql]
+    assert statements == expected
