@@ -11,9 +11,7 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
-)
-from datahub.metadata.schema_classes import (
-    StringTypeClass,
+    StringType,
 )
 
 
@@ -181,7 +179,7 @@ def test_fine_grained_lineages(
 
     downstream_field = SchemaField(
         fieldPath=downstream_field_path,
-        type=SchemaFieldDataType(type=StringTypeClass()),
+        type=SchemaFieldDataType(type=StringType()),
         nativeDataType="string",
     )
 
