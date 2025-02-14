@@ -207,6 +207,7 @@ def test_run_cypress(auth_session):
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
+    reporter_arg = " --reporter cypress-junit-reporter --reporter-options 'mochaFile=junit.cypress.xml'"
     if record_key:
         record_arg = " --record "
         batch_number = os.getenv("BATCH_NUMBER")
@@ -225,7 +226,7 @@ def test_run_cypress(auth_session):
     test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
-    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
+    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg} {reporter_arg}"
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
