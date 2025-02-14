@@ -1,7 +1,5 @@
 describe("models", () => {
   it("can visit models and groups", () => {
-    cy.visit("/");
-    cy.login();
     cy.visit(
       "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Summary?is_lineage_mode=false",
     );
