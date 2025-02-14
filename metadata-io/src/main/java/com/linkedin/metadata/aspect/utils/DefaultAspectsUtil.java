@@ -23,12 +23,12 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -133,11 +133,15 @@ public class DefaultAspectsUtil {
               return defaultAspects.stream()
                   .map(
                       entry ->
-                          ChangeItemImpl.ChangeItemImplBuilder.build(
-                              getProposalFromAspectForDefault(
-                                  entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
-                              templateItem.getAuditStamp(),
-                              opContext.getAspectRetriever()))
+                          ChangeItemImpl.builder()
+                              .build(
+                                  getProposalFromAspectForDefault(
+                                      entry.getKey(),
+                                      entry.getValue(),
+                                      entityKeyAspect,
+                                      templateItem),
+                                  templateItem.getAuditStamp(),
+                                  opContext.getAspectRetriever()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());

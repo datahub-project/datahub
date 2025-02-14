@@ -582,8 +582,11 @@ class Mapper:
             if tile.dataset is not None and tile.dataset.webUrl is not None:
                 custom_properties[Constant.DATASET_WEB_URL] = tile.dataset.webUrl
 
-            if tile.report is not None and tile.report.id is not None:
-                custom_properties[Constant.REPORT_ID] = tile.report.id
+            if tile.report_id is not None:
+                custom_properties[Constant.REPORT_ID] = tile.report_id
+
+            if tile.report is not None and tile.report.webUrl is not None:
+                custom_properties[Constant.REPORT_WEB_URL] = tile.report.webUrl
 
             return custom_properties
 
@@ -1053,6 +1056,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
+        dashboard_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi report to Datahub dashboard
@@ -1074,6 +1078,7 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
+            dashboards=dashboard_edges,
         )
 
         info_mcp = self.new_mcp(
@@ -1167,8 +1172,28 @@ class Mapper:
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
+        # find all dashboards with a Tile referencing this report
+        downstream_dashboards_edges = []
+        for d in workspace.dashboards.values():
+            if any(t.report_id == report.id for t in d.tiles):
+                dashboard_urn = builder.make_dashboard_urn(
+                    platform=self.__config.platform_name,
+                    platform_instance=self.__config.platform_instance,
+                    name=d.get_urn_part(),
+                )
+                edge = EdgeClass(
+                    destinationUrn=dashboard_urn,
+                    sourceUrn=None,
+                    created=None,
+                    lastModified=None,
+                    properties=None,
+                )
+                downstream_dashboards_edges.append(edge)
+
         # Let's convert report to datahub dashboard
-        report_mcps = self.report_to_dashboard(workspace, report, chart_mcps, user_mcps)
+        report_mcps = self.report_to_dashboard(
+            workspace, report, chart_mcps, user_mcps, downstream_dashboards_edges
+        )
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)

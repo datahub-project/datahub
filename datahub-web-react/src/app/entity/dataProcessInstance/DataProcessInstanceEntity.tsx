@@ -1,16 +1,14 @@
 import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import {
-    DataProcessInstance,
-    Entity as GeneratedEntity,
-    EntityType,
-    OwnershipType,
-    SearchResult,
-} from '../../../types.generated';
+import { Entity as GraphQLEntity } from '@types';
+import { DataProcessInstance, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetDataProcessInstanceQuery } from '../../../graphql/dataProcessInstance.generated';
+import {
+    GetDataProcessInstanceQuery,
+    useGetDataProcessInstanceQuery,
+} from '../../../graphql/dataProcessInstance.generated';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -20,35 +18,23 @@ import { GenericEntityProperties } from '../shared/types';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-// import SummaryTab from './profile/DataProcessInstaceSummary';
+import SummaryTab from './profile/DataProcessInstanceSummary';
 
-// const getProcessPlatformName = (data?: DataProcessInstance): string => {
-//     return (
-//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
-//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-//         ''
-//     );
-// };
-
-const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    if (!parentEntity?.entity) return [];
+    if (!parentEntity || !parentEntity.entity) {
+        return [];
+    }
 
-    // Convert to GeneratedEntity
-    return [
-        {
-            type: parentEntity.entity.type,
-            urn: (parentEntity.entity as any).urn, // Make sure urn exists
-            relationships: (parentEntity.entity as any).relationships,
-        },
-    ];
+    // First cast to unknown, then to Entity with proper type
+    return [parentEntity.entity];
 };
+
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */
@@ -74,9 +60,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         );
     };
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => false;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     isLineageEnabled = () => true;
 
@@ -97,18 +83,13 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             urn={urn}
             entityType={EntityType.DataProcessInstance}
             useEntityQuery={this.useEntityQuery}
-            // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
-                // {
-                //     name: 'Documentation',
-                //     component: DocumentationTab,
-                // },
-                // {
-                //     name: 'Summary',
-                //     component: SummaryTab,
-                // },
+                {
+                    name: 'Summary',
+                    component: SummaryTab,
+                },
                 {
                     name: 'Lineage',
                     component: LineageTab,
@@ -117,14 +98,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-                // {
-                //     name: 'Incidents',
-                //     component: IncidentTab,
-                //     getDynamicName: (_, processInstance) => {
-                //         const activeIncidentCount = processInstance?.dataProcessInstance?.activeIncidents.total;
-                //         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
-                //     },
-                // },
             ]}
             sidebarSections={this.getSidebarSections()}
         />
@@ -156,12 +129,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     ];
 
     getOverridePropertiesFromEntity = (processInstance?: DataProcessInstance | null): GenericEntityProperties => {
-        const name = processInstance?.name;
-        const externalUrl = processInstance?.externalUrl;
         return {
-            name,
-            externalUrl,
-            platform: processInstance?.dataPlatformInstance?.platform,
+            name: processInstance && this.displayName(processInstance),
+            platform: (processInstance as GetDataProcessInstanceQuery['dataProcessInstance'])?.optionalPlatform,
         };
     };
 
@@ -171,23 +141,18 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name || ''}
+                name={this.displayName(data)}
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
-                platformName={
-                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
-                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
-                }
-                platformLogo={data?.dataPlatformInstance?.platform?.properties?.logoUrl}
+                platformName={genericProperties?.platform?.properties?.displayName ?? undefined}
+                platformLogo={genericProperties?.platform?.properties?.logoUrl}
                 owners={null}
                 globalTags={null}
-                // domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // health={data.health}
             />
         );
     };
@@ -196,23 +161,21 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         const data = result.entity as DataProcessInstance;
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
+
+        const firstState = data?.state && data.state.length > 0 ? data.state[0] : undefined;
+
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name || ''}
+                name={this.displayName(data)}
                 subType={data.subTypes?.typeNames?.[0]}
                 description=""
-                platformName={
-                    data?.dataPlatformInstance?.platform?.properties?.displayName ||
-                    capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name)
-                }
-                platformLogo={data.dataPlatformInstance?.platform?.properties?.logoUrl}
-                platformInstanceId={data.dataPlatformInstance?.instanceId}
+                platformName={genericProperties?.platform?.properties?.displayName ?? undefined}
+                platformLogo={genericProperties?.platform?.properties?.logoUrl}
+                platformInstanceId={genericProperties?.dataPlatformInstance?.instanceId}
                 owners={null}
                 globalTags={null}
-                //                domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
-                //                deprecation={data.deprecation}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
@@ -220,24 +183,25 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // duration={data?.state?.[0]?.durationMillis}
-                // status={data?.state?.[0]?.result?.resultType}
-                // startTime={data?.state?.[0]?.timestampMillis}
-                //                health={data.health}
+                dataProcessInstanceProps={{
+                    startTime: firstState?.timestampMillis,
+                    duration: firstState?.durationMillis ?? undefined,
+                    status: firstState?.result?.resultType ?? undefined,
+                }}
             />
         );
     };
 
     getLineageVizConfig = (entity: DataProcessInstance) => {
+        const properties = this.getGenericEntityProperties(entity);
         return {
             urn: entity?.urn,
             name: this.displayName(entity),
             type: EntityType.DataProcessInstance,
             subtype: entity?.subTypes?.typeNames?.[0],
-            icon: entity?.dataPlatformInstance?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.dataPlatformInstance?.platform,
+            icon: properties?.platform?.properties?.logoUrl ?? undefined,
+            platform: properties?.platform ?? undefined,
             container: entity?.container,
-            //            health: entity?.health || undefined,
         };
     };
 

@@ -38,7 +38,7 @@ buildscript {
   ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
-  ext.openTelemetryVersion = '1.18.0'
+  ext.openTelemetryVersion = '1.45.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
@@ -186,7 +186,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.4.9',
+    'jsonSmart': 'net.minidev:json-smart:2.5.2',
     'json': 'org.json:json:20231013',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'junit': 'junit:junit:4.13.2',
@@ -220,7 +220,10 @@ project.ext.externalDependency = [
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
+    'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
+    'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
@@ -416,7 +419,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.116.Final')
+        implementation('io.netty:netty-all:4.1.118.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

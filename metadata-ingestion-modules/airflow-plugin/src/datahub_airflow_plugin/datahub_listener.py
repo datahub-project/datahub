@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
 
-    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc]
         return f
 
 else:

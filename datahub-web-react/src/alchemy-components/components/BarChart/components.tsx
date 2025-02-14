@@ -12,11 +12,18 @@ export const StyledBarSeries = styled(BarSeries)<{
     $hasSelectedItem?: boolean;
     $color?: string;
     $selectedColor?: string;
+    $isEmpty?: boolean;
 }>`
     & {
         cursor: pointer;
 
-        fill: ${(props) => (props.$hasSelectedItem ? props.$selectedColor : props.$color) || colors.violet[500]};
+        ${(props) => props.$isEmpty && 'pointer-events: none;'}
+
+        fill: ${(props) => {
+            if (props.$isEmpty) return colors.transparent;
+            return (props.$hasSelectedItem ? props.$selectedColor : props.$color) || colors.violet[500];
+        }};
+
         ${(props) => props.$hasSelectedItem && 'opacity: 0.3;'}
 
         :hover {

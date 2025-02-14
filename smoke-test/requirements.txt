@@ -18,3 +18,4 @@ types-PyYAML
 requests<=2.31.0
 # Missing numpy requirement in 8.0.0
 deepdiff!=8.0.0
+opensearch-py==2.6.0

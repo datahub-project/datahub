@@ -154,6 +154,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Udemy](https://www.udemy.com/)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
+- [Wealthsimple](https://www.wealthsimple.com)
 - [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
