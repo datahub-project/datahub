@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import (  # noqa: I250
+from datahub.ingestion.api.source import (
     Source,
     SourceCapability as SourceCapability,
 )
@@ -24,6 +24,8 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
         ):
             # add the create method only if it has not been overridden from the base Source.create method
             cls.create = classmethod(default_create)
+
+            # TODO: Once we're on Python 3.10, we should call abc.update_abstractmethods here.
 
         return cls
 

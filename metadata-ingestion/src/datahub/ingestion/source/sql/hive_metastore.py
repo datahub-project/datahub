@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 from collections import namedtuple
-from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
@@ -58,6 +57,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.str_enum import StrEnum
 
@@ -67,7 +67,7 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class HiveMetastoreConfigMode(StrEnum):
-    hive: str = "hive"  # noqa: F811
+    hive: str = "hive"
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"
     trino: str = "trino"
@@ -490,7 +490,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
 
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -647,7 +647,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         )
 
         iter_res = self._alchemy_client.execute_query(statement)
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
 
             schema_name = (

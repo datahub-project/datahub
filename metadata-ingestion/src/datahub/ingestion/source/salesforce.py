@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -60,6 +61,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +148,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         return config_clean.remove_trailing_slashes(v)
 
 
+@dataclass
 class SalesforceSourceReport(SourceReport):
-    filtered: List[str] = []
+    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -236,12 +239,12 @@ class SalesforceSource(Source):
         try:
             if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
                 logger.debug("Access Token Provided in Config")
-                assert (
-                    self.config.access_token is not None
-                ), "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
-                assert (
-                    self.config.instance_url is not None
-                ), "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                assert self.config.access_token is not None, (
+                    "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
+                )
+                assert self.config.instance_url is not None, (
+                    "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     instance_url=self.config.instance_url,
@@ -250,15 +253,15 @@ class SalesforceSource(Source):
                 )
             elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
                 logger.debug("Username/Password Provided in Config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.password is not None
-                ), "Config password is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.security_token is not None
-                ), "Config security_token is required for USERNAME_PASSWORD auth"
+                assert self.config.username is not None, (
+                    "Config username is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.password is not None, (
+                    "Config password is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.security_token is not None, (
+                    "Config security_token is required for USERNAME_PASSWORD auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
@@ -269,15 +272,15 @@ class SalesforceSource(Source):
 
             elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
                 logger.debug("Json Web Token provided in the config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.consumer_key is not None
-                ), "Config consumer_key is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.private_key is not None
-                ), "Config private_key is required for JSON_WEB_TOKEN auth"
+                assert self.config.username is not None, (
+                    "Config username is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.consumer_key is not None, (
+                    "Config consumer_key is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.private_key is not None, (
+                    "Config private_key is required for JSON_WEB_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
@@ -439,7 +442,8 @@ class SalesforceSource(Source):
         dataPlatformInstance = DataPlatformInstanceClass(
             builder.make_data_platform_urn(self.platform),
             instance=builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance  # type:ignore
+                self.platform,
+                self.config.platform_instance,  # type:ignore
             ),
         )
 

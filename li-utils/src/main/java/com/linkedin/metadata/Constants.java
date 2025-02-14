@@ -10,6 +10,9 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
@@ -103,6 +106,7 @@ public class Constants {
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
+  public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
 
   /** Aspects */
   // Common
@@ -128,6 +132,7 @@ public class Constants {
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
+  public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -209,6 +214,9 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
   public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME =
       "dataPlatformInstanceProperties";
+
+  // PlatformResource
+  public static final String PLATFORM_RESOURCE_INFO_ASPECT_NAME = "platformResourceInfo";
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
@@ -421,6 +429,10 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+  public static final String DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME = "dataProcessInstanceInput";
+  public static final String DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME = "dataProcessInstanceOutput";
+  public static final String DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME = "dataProcessInstanceKey";
+  public static final String ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME = "mlTrainingRunProperties";
 
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
@@ -459,6 +471,20 @@ public class Constants {
 
   // Incidents
   public static final String ENTITY_REF = "entities";
+
+  // Version Set
+  public static final String VERSION_SET_ENTITY_NAME = "versionSet";
+  public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
+  public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+  public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
+  public static final String IS_LATEST_FIELD_NAME = "isLatest";
+  public static final String VERSION_SET_FIELD_NAME = "versionSet";
+  public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";

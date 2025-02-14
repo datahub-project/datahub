@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iceberg-catalog-integration-test"
+version = "0.0.0"
+description = ""
+authors = [
+	{ name="Acryl Data", email="eng@acryl.io" },
+]
+requires-python = ">=3.9"
+
+
+[tool.black]
+extend-exclude = '''
+# A regex preceded with ^/ will apply only to files and directories
+# in the root of the project.
+tmp
+venv
+'''
+include = '\.pyi?$'
+target-version = ['py310']
+
+[tool.isort]
+profile = 'black'
+
+[tool.ruff.lint]
+ignore = [
+	'E501', # Ignore line length, since black handles that.
+	'D203', # Ignore 1 blank line required before class docstring.
+]
+
+[tool.mypy]
+exclude = "^(venv/|build/|dist/)"
+ignore_missing_imports = true
+namespace_packages = false
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_configs = true
+# eventually we'd like to enable these
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[tool.pyright]
+extraPaths = ['tests']

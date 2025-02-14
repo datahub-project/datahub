@@ -18,6 +18,7 @@ on:
       - "metadata-models/**"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -38,7 +39,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
@@ -60,16 +61,21 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion-modules/prefect-plugin/
           fail_ci_if_error: false
-          flags: prefect-${{ matrix.python-version }}
-          name: pytest-prefect
+          flags: ingestion-prefect-plugin
+          name: pytest-prefect-${{ matrix.python-version }}
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest

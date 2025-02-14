@@ -69,7 +69,8 @@ public class BatchUpdateDeprecationResolverTest {
             "test",
             ImmutableList.of(
                 new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
-                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)),
+            null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
@@ -134,7 +135,8 @@ public class BatchUpdateDeprecationResolverTest {
             "test",
             ImmutableList.of(
                 new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
-                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)),
+            null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
@@ -192,7 +194,8 @@ public class BatchUpdateDeprecationResolverTest {
             "test",
             ImmutableList.of(
                 new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
-                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)),
+            null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -215,7 +218,8 @@ public class BatchUpdateDeprecationResolverTest {
             "test",
             ImmutableList.of(
                 new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
-                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)),
+            null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -244,7 +248,8 @@ public class BatchUpdateDeprecationResolverTest {
             "test",
             ImmutableList.of(
                 new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
-                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
+                new ResourceRefInput(TEST_ENTITY_URN_2, null, null)),
+            null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 

@@ -1,0 +1,89 @@
+fragment versionProperties on VersionProperties {
+    versionSet {
+        urn
+        type
+    }
+    isLatest
+    version {
+        versionTag
+    }
+    aliases {
+        versionTag
+    }
+    comment
+    created {
+        time
+        actor {
+            urn
+            ...entityDisplayNameFields
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+    createdInSource {
+        time
+        actor {
+            urn
+            ...entityDisplayNameFields
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+}
+
+fragment versionsSearchResults on SearchResults {
+    count
+    total
+    searchResults {
+        entity {
+            urn
+            type
+            ... on SupportsVersions {
+                versionProperties {
+                    ...versionProperties
+                }
+            }
+        }
+    }
+}
+
+fragment entityProfileVersionProperties on SupportsVersions {
+    versionProperties {
+        ...versionProperties
+        versionSet {
+            urn
+            type
+            versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+                ...versionsSearchResults
+            }
+        }
+    }
+}
+
+query searchAcrossVersions($versionSetUrn: String!, $input: SearchAcrossEntitiesInput!) {
+    versionSet(urn: $versionSetUrn) {
+        versionsSearch(input: $input) {
+            ...versionsSearchResults
+        }
+    }
+}
+
+mutation linkAssetVersion($input: LinkVersionInput!) {
+    linkAssetVersion(input: $input) {
+        versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+            ...versionsSearchResults
+        }
+    }
+}
+
+mutation unlinkAssetVersion($input: UnlinkVersionInput!) {
+    unlinkAssetVersion(input: $input) {
+        versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+            ...versionsSearchResults
+        }
+    }
+}
