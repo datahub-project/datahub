@@ -22,6 +22,7 @@ export interface NavBarMenuBaseElement {
     onClick?: () => void;
     disabled?: boolean;
     href?: string;
+    dataTestId?: string;
 }
 
 export type Badge = {
