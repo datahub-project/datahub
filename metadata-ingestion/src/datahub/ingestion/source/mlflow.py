@@ -277,15 +277,20 @@ class MLflowSource(Source):
             )
 
     def _get_run_workunits(
-        self, experiment: Experiment, run: Run
+            self, experiment: Experiment, run: Run
     ) -> List[MetadataWorkUnit]:
         experiment_key = ContainerKeyWithId(
-            platform=str(DataPlatformUrn.create_from_id("mlflow")), id=experiment.name
+            platform=str(DataPlatformUrn.create_from_id("mlflow")),
+            id=experiment.name
         )
 
-        data_process_instance = DataProcessInstance.from_container(
-            container_key=experiment_key, id=run.info.run_name
+        dpi_id = run.info.run_name or run.info.run_id
+        data_process_instance = DataProcessInstance(
+            id=dpi_id,
+            orchestrator="mlflow",
+            template_urn=None,
         )
+
         self.entity_map.run_id_to_urn[run.info.run_id] = str(data_process_instance.urn)
         workunits = []
 
@@ -310,7 +315,15 @@ class MLflowSource(Source):
             ).as_workunit()
         )
 
-        # get model from run
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=ContainerClass(
+                    container=experiment_key.as_urn()
+                ),
+            ).as_workunit()
+        )
+
         model_versions = self.get_mlflow_model_versions_from_run(run.info.run_id)
         if model_versions:
             model_version_urn = self._make_ml_model_urn(model_versions[0])
@@ -335,26 +348,8 @@ class MLflowSource(Source):
             ).as_workunit()
         )
 
-        # map experiment urn to run
-        experiment_urn = self.entity_map.experiment_id_to_urn.get(
-            experiment.experiment_id
-        )
-
-        existing_container = self.graph.get_aspect(
-            entity_urn=str(data_process_instance.urn),
-            aspect_type=ContainerClass
-        )
-
-        if existing_container is None:
-            workunits.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
-                    aspect=ContainerClass(container=experiment_urn),
-                ).as_workunit()
-            )
-
-        duration_millis = run.info.end_time - run.info.start_time
         if run.info.end_time:
+            duration_millis = run.info.end_time - run.info.start_time
             workunits.append(
                 MetadataChangeProposalWrapper(
                     entityUrn=str(data_process_instance.urn),
@@ -369,28 +364,6 @@ class MLflowSource(Source):
                     ),
                 ).as_workunit()
             )
-
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=str(DataPlatformUrn.create_from_id("mlflow"))
-                ),
-            ).as_workunit()
-        )
-
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=DataProcessInstancePropertiesClass(  # Changed from RunEventClass
-                    name=run.info.run_name or run.info.run_id,
-                    created=AuditStampClass(
-                        time=created_time,
-                        actor=created_actor,
-                    ),
-                ),
-            ).as_workunit()
-        )
 
         workunits.append(
             MetadataChangeProposalWrapper(
@@ -598,30 +571,8 @@ class MLflowSource(Source):
             model_version: ModelVersion,
             version_set_urn: VersionSetUrn,
     ) -> List[MetadataWorkUnit]:
-        import time
 
         ml_model_urn = self._make_ml_model_urn(model_version)
-
-        # Try up to 3 times to get the version set
-        max_attempts = 3
-        attempt = 0
-        response = None
-
-        while attempt < max_attempts and response is None:
-            print("!!!! exists?", self.graph.exists(str(version_set_urn)))
-            response = self.graph.get_aspect(
-                entity_urn=str(version_set_urn),
-                aspect_type=VersionSetKeyClass
-            )
-
-            if not response:
-                attempt += 1
-                print(f"Version Set {version_set_urn} not found, attempt {attempt}/{max_attempts}")
-                if attempt < max_attempts:
-                    time.sleep(30)
-
-        if not response:
-            raise Exception(f"Version Set {version_set_urn} not found after {max_attempts} attempts")
 
         # get mlmodel name from ml model urn
         ml_model_version_properties = VersionPropertiesClass(
