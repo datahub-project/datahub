@@ -1,4 +1,5 @@
-import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '../../../types.generated';
@@ -31,6 +32,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.LINK_VERSION,
 ]);
 
 /**
@@ -79,6 +81,8 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
         return {
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            name: mlModel && this.displayName(mlModel),
             externalUrl: mlModel?.properties?.externalUrl,
         };
     };
@@ -101,6 +105,11 @@ export class MLModelEntity implements Entity<MlModel> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    name: 'Lineage',
+                    component: LineageTab,
+                    icon: PartitionOutlined,
                 },
                 {
                     name: 'Properties',
@@ -192,7 +201,7 @@ export class MLModelEntity implements Entity<MlModel> {
     getLineageVizConfig = (entity: MlModel) => {
         return {
             urn: entity.urn,
-            name: entity.name,
+            name: entity && this.displayName(entity),
             type: EntityType.Mlmodel,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
@@ -201,11 +210,16 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     displayName = (data: MlModel) => {
-        return data.name || data.urn;
+        // eslint-disable-next-line @typescript-eslint/dot-notation
+        return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModel: MlModel) => {
-        return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
+        return getDataForEntityType({
+            data: mlModel,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
     };
 
     supportedCapabilities = () => {

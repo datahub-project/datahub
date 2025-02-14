@@ -132,7 +132,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                         <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
                             {item.title}
                         </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} colorScheme="violet" />}
+                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="violet" />}
                     </ItemTitleContentWrapper>
                 )}
             </StyledMenuItem>

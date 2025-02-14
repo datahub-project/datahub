@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.versioning;
 
 import static com.linkedin.metadata.Constants.INITIAL_VERSION_SORT_ID;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -13,16 +14,13 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.RollbackResult;
-import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -34,12 +32,13 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.versionset.VersionSetProperties;
 import com.linkedin.versionset.VersioningScheme;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -108,45 +107,44 @@ public class EntityVersioningServiceTest {
         .thenReturn(Map.of(TEST_VERSION_SET_URN, false));
 
     // Capture the proposals
-    ArgumentCaptor<AspectsBatch> aspectsCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
-    when(mockEntityService.ingestProposal(eq(mockOpContext), aspectsCaptor.capture(), eq(false)))
-        .thenReturn(List.of());
+    ArgumentCaptor<MetadataChangeProposal> aspectsCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    when(mockEntityService.ingestProposal(
+            eq(mockOpContext), aspectsCaptor.capture(), any(), eq(false)))
+        .thenReturn(null);
 
     // Execute
     versioningService.linkLatestVersion(
         mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN, input);
 
     // Verify
-    List<AspectsBatch> capturedAspects = aspectsCaptor.getAllValues();
-    List<RecordTemplate> versionPropertiesAspect =
-        capturedAspects.get(0).getMCPItems().stream()
+    List<MetadataChangeProposal> capturedAspects = aspectsCaptor.getAllValues();
+    MetadataChangeProposal versionPropertiesProposal =
+        capturedAspects.stream()
             .filter(mcpItem -> VERSION_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
-            .map(mcpItem -> mcpItem.getAspect(VersionProperties.class))
-            .collect(Collectors.toList());
+            .collect(Collectors.toList())
+            .get(0);
+    VersionProperties versionProps =
+        GenericRecordUtils.deserializeAspect(
+            versionPropertiesProposal.getAspect().getValue(),
+            versionPropertiesProposal.getAspect().getContentType(),
+            VersionProperties.class);
 
     // Verify VersionProperties has initial sort ID
-    VersionProperties versionProps =
-        (VersionProperties)
-            versionPropertiesAspect.stream()
-                .filter(a -> a instanceof VersionProperties)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("VersionProperties not found"));
-
     assertEquals(versionProps.getSortId(), INITIAL_VERSION_SORT_ID);
     assertEquals(versionProps.getComment(), "Test comment");
     assertEquals(versionProps.getVersionSet(), TEST_VERSION_SET_URN);
 
-    List<RecordTemplate> versionSetPropertiesAspect =
-        capturedAspects.get(0).getMCPItems().stream()
+    MetadataChangeProposal versionSetPropertiesProposal =
+        capturedAspects.stream()
             .filter(mcpItem -> VERSION_SET_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
-            .map(mcpItem -> mcpItem.getAspect(VersionSetProperties.class))
-            .collect(Collectors.toList());
+            .collect(Collectors.toList())
+            .get(0);
     VersionSetProperties versionSetProperties =
-        (VersionSetProperties)
-            versionSetPropertiesAspect.stream()
-                .filter(aspect -> aspect instanceof VersionSetProperties)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Version Set Properties not found"));
+        GenericRecordUtils.deserializeAspect(
+            versionSetPropertiesProposal.getAspect().getValue(),
+            versionSetPropertiesProposal.getAspect().getContentType(),
+            VersionSetProperties.class);
     assertEquals(versionSetProperties.getLatest(), TEST_DATASET_URN);
     assertEquals(
         versionSetProperties.getVersioningScheme(),
@@ -186,30 +184,30 @@ public class EntityVersioningServiceTest {
         .thenReturn(mockVersionPropertiesAspect);
 
     // Capture the proposals
-    ArgumentCaptor<AspectsBatch> aspectsCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
-    when(mockEntityService.ingestProposal(eq(mockOpContext), aspectsCaptor.capture(), eq(false)))
-        .thenReturn(List.of());
+    ArgumentCaptor<MetadataChangeProposal> aspectsCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    when(mockEntityService.ingestProposal(
+            eq(mockOpContext), aspectsCaptor.capture(), any(), eq(false)))
+        .thenReturn(null);
 
     // Execute
     versioningService.linkLatestVersion(
         mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN_2, input);
 
     // Verify
-    List<AspectsBatch> capturedAspects = aspectsCaptor.getAllValues();
-    List<RecordTemplate> aspects =
-        capturedAspects.get(0).getMCPItems().stream()
+    List<MetadataChangeProposal> capturedAspects = aspectsCaptor.getAllValues();
+    MetadataChangeProposal versionPropertiesProposal =
+        capturedAspects.stream()
             .filter(mcpItem -> VERSION_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
-            .map(mcpItem -> mcpItem.getAspect(VersionProperties.class))
-            .collect(Collectors.toList());
+            .collect(Collectors.toList())
+            .get(0);
+    VersionProperties versionProps =
+        GenericRecordUtils.deserializeAspect(
+            versionPropertiesProposal.getAspect().getValue(),
+            versionPropertiesProposal.getAspect().getContentType(),
+            VersionProperties.class);
 
     // Verify VersionProperties has incremented sort ID
-    VersionProperties versionProps =
-        (VersionProperties)
-            aspects.stream()
-                .filter(a -> a instanceof VersionProperties)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("VersionProperties not found"));
-
     assertEquals(versionProps.getSortId(), "AAAAAAAB");
     assertEquals(versionProps.getComment(), "Test comment");
     assertEquals(versionProps.getVersionSet(), TEST_VERSION_SET_URN);
@@ -253,8 +251,6 @@ public class EntityVersioningServiceTest {
             null,
             false,
             0);
-    RollbackRunResult rollbackRunResult =
-        new RollbackRunResult(new ArrayList<>(), 1, List.of(versionSetDeleteResult));
     RollbackResult versionPropsDeleteResult =
         new RollbackResult(
             TEST_DATASET_URN,
@@ -268,15 +264,25 @@ public class EntityVersioningServiceTest {
             false,
             0);
 
-    when(mockEntityService.deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN)))
-        .thenReturn(rollbackRunResult);
     when(mockEntityService.deleteAspect(
-            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true)))
+        .thenReturn(Optional.of(versionSetDeleteResult));
+    when(mockEntityService.deleteAspect(
+            eq(mockOpContext),
+            anyString(),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
     // Mock graph retriever response
     SearchEntityArray relatedEntities = new SearchEntityArray();
-    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
@@ -289,15 +295,22 @@ public class EntityVersioningServiceTest {
 
     // Verify
     assertEquals(results.size(), 2);
-    verify(mockEntityService).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
+    verify(mockEntityService)
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true));
     verify(mockEntityService)
         .deleteAspect(
             eq(mockOpContext),
             eq(TEST_DATASET_URN.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true));
-    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any(), any());
   }
 
   @Test
@@ -350,7 +363,12 @@ public class EntityVersioningServiceTest {
             false,
             0);
     when(mockEntityService.deleteAspect(
-            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+            eq(mockOpContext),
+            anyString(),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
     // Execute
@@ -365,9 +383,17 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true));
     verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), eq(false));
-    verify(mockEntityService, never()).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true));
   }
 
   @Test
@@ -424,6 +450,7 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN_2.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
@@ -439,8 +466,16 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN_2.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true));
-    verify(mockEntityService, never()).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true));
   }
 
   @Test
@@ -492,7 +527,12 @@ public class EntityVersioningServiceTest {
             false,
             0);
     when(mockEntityService.deleteAspect(
-            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+            eq(mockOpContext),
+            anyString(),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
     // Execute
@@ -507,9 +547,17 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN_2.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true));
     verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), eq(false));
-    verify(mockEntityService, never()).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true));
   }
 
   @Test
@@ -562,7 +610,12 @@ public class EntityVersioningServiceTest {
             false,
             0);
     when(mockEntityService.deleteAspect(
-            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+            eq(mockOpContext),
+            anyString(),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
     // Execute
@@ -577,9 +630,17 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN_3.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
+            eq(true),
             eq(true));
     verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), eq(false));
-    verify(mockEntityService, never()).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_KEY_ASPECT_NAME),
+            anyMap(),
+            eq(true),
+            eq(true));
   }
 
   @Test

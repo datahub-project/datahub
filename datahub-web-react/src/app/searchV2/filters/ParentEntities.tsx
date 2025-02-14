@@ -28,9 +28,10 @@ const DEFAULT_NUM_VISIBLE = 2;
 interface Props {
     parentEntities: Entity[];
     numVisible?: number;
+    linksDisabled?: boolean; // don't allow links to parent entities
 }
 
-export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE }: Props) {
+export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, linksDisabled }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -72,6 +73,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                             <ContextPathEntityLink
                                 key={parentEntity.urn}
                                 entity={parentEntity}
+                                linkDisabled={linksDisabled}
                                 style={{ fontSize: '12px' }}
                             />
                             {index !== visibleNodes.length - 1 && <ContextPathSeparator />}

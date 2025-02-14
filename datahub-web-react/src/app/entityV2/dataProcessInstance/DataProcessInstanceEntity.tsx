@@ -1,4 +1,6 @@
+import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity as GraphQLEntity } from '@types';
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -11,24 +13,20 @@ import { getDataProduct } from '@app/entityV2/shared/utils';
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
-import { DataProcessInstance, Entity as GeneratedEntity, EntityType, SearchResult } from '../../../types.generated';
+import { DataProcessInstance, EntityType, SearchResult } from '../../../types.generated';
 import Preview from './preview/Preview';
 
-const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+const getParentEntities = (data: DataProcessInstance): GraphQLEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    if (!parentEntity?.entity) return [];
+    if (!parentEntity || !parentEntity.entity) {
+        return [];
+    }
 
-    // Convert to GeneratedEntity
-    return [
-        {
-            type: parentEntity.entity.type,
-            urn: (parentEntity.entity as any).urn, // Make sure urn exists
-            relationships: (parentEntity.entity as any).relationships,
-        },
-    ];
+    // First cast to unknown, then to Entity with proper type
+    return [parentEntity.entity];
 };
 
 /**
@@ -81,10 +79,12 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             useEntityQuery={this.useEntityQuery}
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
-            }
+            headerDropdownItems={new Set([EntityMenuItems.SHARE])}
             tabs={[
+                {
+                    name: 'Summary',
+                    component: DataProcessInstanceSummary,
+                },
                 {
                     name: 'Lineage',
                     component: LineageTab,
@@ -113,6 +113,8 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 (processInstance as GetDataProcessInstanceQuery['dataProcessInstance'])?.optionalPlatform ||
                 parent?.platform,
             parent,
+            // Not currently rendered in V2
+            lastRunEvent: processInstance?.state?.[0],
         };
     };
 
