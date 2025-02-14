@@ -56,7 +56,8 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
     _client =
-        new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+        new Neo4jGraphService(
+            operationContext, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
     _client.clear();
   }
 

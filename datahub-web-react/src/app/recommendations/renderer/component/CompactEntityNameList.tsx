@@ -1,7 +1,7 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
+import { TooltipPlacement } from 'antd/es/tooltip';
 import { Entity, EntityType, SchemaFieldEntity } from '../../../../types.generated';
 import { IconStyleType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -12,6 +12,7 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 const NameWrapper = styled.span<{ addMargin }>`
     display: inline-flex;
     align-items: center;
+    max-width: 100%;
     ${(props) => props.addMargin && 'margin: 2px 0;'}
 `;
 
@@ -26,10 +27,17 @@ type Props = {
     linkUrlParams?: Record<string, string | boolean>;
     showTooltips?: boolean;
     showArrows?: boolean;
+    placement?: TooltipPlacement;
 };
-export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTooltips = true, showArrows }: Props) => {
+export const CompactEntityNameList = ({
+    entities,
+    onClick,
+    linkUrlParams,
+    showTooltips = true,
+    showArrows,
+    placement,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
 
     return (
         <>
@@ -52,29 +60,25 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn, linkUrlParams);
                 return (
                     <NameWrapper addMargin={showArrow}>
-                        <span
-                            onClickCapture={(e) => {
-                                // prevents the search links from taking over
-                                e.preventDefault();
-                                history.push(url);
-                            }}
+                        <HoverEntityTooltip
+                            entity={entity}
+                            canOpen={showTooltips}
+                            placement={placement}
+                            showArrow={false}
                         >
-                            <HoverEntityTooltip entity={entity} canOpen={showTooltips}>
-                                <span data-testid={`compact-entity-link-${entity.urn}`}>
-                                    <EntityPreviewTag
-                                        displayName={displayName}
-                                        url={url}
-                                        platformLogoUrl={platformLogoUrl || undefined}
-                                        platformLogoUrls={genericProps?.siblingPlatforms?.map(
-                                            (platform) => platform.properties?.logoUrl,
-                                        )}
-                                        logoComponent={fallbackIcon}
-                                        onClick={() => onClick?.(index)}
-                                        columnName={columnName}
-                                    />
-                                </span>
-                            </HoverEntityTooltip>
-                        </span>
+                            <EntityPreviewTag
+                                displayName={displayName}
+                                url={url}
+                                platformLogoUrl={platformLogoUrl || undefined}
+                                platformLogoUrls={genericProps?.siblingPlatforms?.map(
+                                    (platform) => platform.properties?.logoUrl,
+                                )}
+                                logoComponent={fallbackIcon}
+                                onClick={() => onClick?.(index)}
+                                columnName={columnName}
+                                dataTestId={`compact-entity-link-${entity.urn}`}
+                            />
+                        </HoverEntityTooltip>
                         {showArrow && <StyledArrow />}
                     </NameWrapper>
                 );

@@ -1,0 +1,92 @@
+plugins {
+    id 'java'
+}
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+ext {
+    python_executable = 'python3'
+    venv_name = 'venv'
+}
+
+dependencies {
+    implementation project(':metadata-service:services')
+    implementation project(':metadata-models')
+    implementation project(':metadata-utils')
+    implementation project(':metadata-operation-context')
+    implementation project(':metadata-integration:java:datahub-schematron:lib')
+    implementation 'org.apache.iceberg:iceberg-core:1.6.1'
+    implementation 'org.apache.iceberg:iceberg-aws:1.6.1'
+    implementation 'software.amazon.awssdk:sts:2.26.12'
+    implementation 'software.amazon.awssdk:iam-policy-builder:2.26.12'
+    implementation externalDependency.awsS3
+
+    implementation externalDependency.reflections
+    implementation externalDependency.springBoot
+    implementation externalDependency.springCore
+    implementation(externalDependency.springDocUI) {
+        exclude group: 'org.springframework.boot'
+    }
+    implementation externalDependency.springWeb
+    implementation externalDependency.springWebMVC
+    implementation externalDependency.springBeans
+    implementation externalDependency.springContext
+    implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.servletApi
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+    implementation externalDependency.antlr4Runtime
+    implementation externalDependency.antlr4
+    implementation externalDependency.javaxInject
+    implementation externalDependency.avro
+    implementation externalDependency.guava
+
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.springBootTest
+    testImplementation project(':mock-entity-registry')
+    testImplementation externalDependency.springBoot
+    testImplementation externalDependency.testContainers
+    testImplementation externalDependency.testContainersKafka
+    testImplementation externalDependency.springKafka
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.logbackClassic
+    testImplementation externalDependency.jacksonCore
+    testImplementation externalDependency.jacksonDataBind
+    testImplementation externalDependency.springBootStarterWeb
+}
+
+task installDev(type: Exec) {
+    inputs.file file('pyproject.toml')
+    inputs.file file('requirements.txt')
+    outputs.file("${venv_name}/.build_install_dev_sentinel")
+    commandLine 'bash', '-c',
+        "set -x && " +
+            "${python_executable} -m venv ${venv_name} && " +
+            "${venv_name}/bin/python -m pip install --upgrade uv && " +
+            "set +x && source ${venv_name}/bin/activate && set -x && " +
+            "uv pip install -r requirements.txt && " +
+            "touch ${venv_name}/.build_install_dev_sentinel"
+}
+
+task integrationTestQuick(type: Exec, dependsOn: installDev) {
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+            "pytest -m quick"
+}
+
+task integrationTest(type: Exec, dependsOn: installDev) {
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+            "pytest"
+}
+
+
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/integrationTest/ && " +
+    "ruff format src/integrationTest/ "
+}
