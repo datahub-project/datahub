@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { GroupBySelect } from '@src/app/entityV2/shared/GroupBySelect';
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
 import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
-import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS } from './constant';
@@ -131,10 +131,11 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     </StyledFilterContainer>
                     {/* ************Render Group By Component ************************* */}
                     <div>
-                        <AcryAssertionTypeSelect
+                        <GroupBySelect
                             options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                             selectedValue={selectedGroupBy}
                             onSelect={handleAssertionTypeChange}
+                            width={50}
                         />
                     </div>
                 </FiltersContainer>
