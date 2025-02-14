@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { IconLabelProps, IconType } from './types';
-import { IconLabelContainer, ImageContainer, Label } from './component';
+import { IconLabelContainer, ImageContainer, Label } from './components';
 import { isValidImageUrl } from './utils';
 
 export const IconLabel = ({ icon, name, type, style, imageUrl }: IconLabelProps) => {
