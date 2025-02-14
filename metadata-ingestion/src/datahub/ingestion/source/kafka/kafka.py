@@ -349,7 +349,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 decoded_value = reader.read(decoder)
 
                                 if isinstance(decoded_value, (dict, list)):
-                                    # Flatten nested structures
+                                    # Don't flatten keys - return them as is
+                                    if is_key:
+                                        return decoded_value
+                                    # Only flatten non-key values
                                     if isinstance(decoded_value, list):
                                         decoded_value = {"item": decoded_value}
                                     return flatten_json(decoded_value)
@@ -359,17 +362,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 "Failed to decode Avro message for topic", topic, exc=e
                             )
 
-                # Fallback to JSON decode if no schema or Avro decode fails
-                try:
-                    decoded = json.loads(data.decode("utf-8"))
-                    if isinstance(decoded, (dict, list)):
-                        if isinstance(decoded, list):
-                            decoded = {"item": decoded}
-                        return flatten_json(decoded)
-                    return decoded
-                except Exception:
-                    # If JSON fails, use base64 as last resort
-                    return base64.b64encode(data).decode("utf-8")
+                    # Fallback to JSON decode if no schema or Avro decode fails
+                    try:
+                        decoded = json.loads(data.decode("utf-8"))
+                        if isinstance(decoded, (dict, list)):
+                            # Don't flatten keys - return them as is
+                            if is_key:
+                                return decoded
+                            # Only flatten non-key values
+                            if isinstance(decoded, list):
+                                decoded = {"item": decoded}
+                            return flatten_json(decoded)
+                        return decoded
+                    except Exception:
+                        # If JSON fails, use base64 as last resort
+                        return base64.b64encode(data).decode("utf-8")
 
             except Exception as e:
                 logger.warning(f"Failed to process message part: {e}")
@@ -377,7 +384,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         return data
 
-    def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
+    def get_sample_messages(self, topic: str) -> Optional[List[Dict[str, Any]]]:
         """Get sample messages including historical data"""
         samples: List[Dict[str, Any]] = []
         try:
