@@ -140,6 +140,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
       }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
