@@ -25,4 +25,7 @@ public class VisualConfiguration {
 
   /** Search result related configurations */
   public SearchResultVisualConfig searchResult;
+
+  /** Boolean flag enabled shows the full title of an entity in lineage view by default */
+  public boolean showFullTitleInLineage;
 }
