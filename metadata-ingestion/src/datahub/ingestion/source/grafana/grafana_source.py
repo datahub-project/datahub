@@ -22,6 +22,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.grafana.entity_mcp_builder import (
+    build_chart_mcps,
+    build_dashboard_mcps,
+)
 from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.grafana_config import (
@@ -37,10 +41,6 @@ from datahub.ingestion.source.grafana.models import (
 )
 from datahub.ingestion.source.grafana.report import (
     GrafanaSourceReport,
-)
-from datahub.ingestion.source.grafana.snapshots import (
-    build_chart_mce,
-    build_dashboard_mce,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -237,7 +237,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 yield lineage.as_workunit()
 
             # Create chart MCE
-            dataset_urn, chart_mce = build_chart_mce(
+            dataset_urn, chart_urn, chart_mcps = build_chart_mcps(
                 panel=panel,
                 dashboard=dashboard,
                 platform=self.config.platform,
@@ -246,12 +246,10 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 base_url=self.config.url,
                 ingest_tags=self.config.ingest_tags,
             )
-            chart_urns.append(chart_mce.urn)
+            chart_urns.append(chart_urn)
 
-            yield MetadataWorkUnit(
-                id=f"grafana-chart-{dashboard.uid}-{panel.id}",
-                mce=MetadataChangeEventClass(proposedSnapshot=chart_mce),
-            )
+            for mcp in chart_mcps:
+                yield mcp.as_workunit()
 
             # Add chart to dashboard container
             chart_urn = make_chart_urn(
@@ -273,8 +271,8 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 dataset_urn=chart_urn,
             )
 
-        # Create dashboard MCE
-        dashboard_mce = build_dashboard_mce(
+        # Create dashboard MCPs
+        dashboard_urn, dashboard_mcps = build_dashboard_mcps(
             dashboard=dashboard,
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
@@ -284,15 +282,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
             ingest_tags=self.config.ingest_tags,
         )
 
-        yield MetadataWorkUnit(
-            id=f"grafana-dashboard-{dashboard.uid}",
-            mce=MetadataChangeEventClass(proposedSnapshot=dashboard_mce),
-        )
+        # Add each dashboard MCP as a work unit
+        for mcp in dashboard_mcps:
+            yield mcp.as_workunit()
 
         # Add dashboard entity to its container
         yield from add_dataset_to_container(
             container_key=dashboard_container_key,
-            dataset_urn=dashboard_mce.urn,
+            dataset_urn=dashboard_urn,
         )
 
     def _add_dashboard_to_folder(
@@ -403,12 +400,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             if dashboard and dashboard.tags:
                 tags = []
                 for tag in dashboard.tags:
-                    if ":" in tag:
-                        key, value = tag.split(":", 1)
-                        tag_urn = make_tag_urn(f"{key}.{value}")
-                    else:
-                        tag_urn = make_tag_urn(tag)
-                    tags.append(TagAssociationClass(tag=tag_urn))
+                    tags.append(TagAssociationClass(tag=make_tag_urn(tag)))
 
                 if tags:
                     dataset_snapshot.aspects.append(GlobalTagsClass(tags=tags))

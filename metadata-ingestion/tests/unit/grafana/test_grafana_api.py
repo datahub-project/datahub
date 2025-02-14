@@ -22,6 +22,7 @@ def api_client(mock_session):
         base_url="http://grafana.test",
         token=SecretStr("test-token"),
         verify_ssl=True,
+        page_size=100,
         report=report,
     )
 
@@ -32,6 +33,7 @@ def test_create_session(mock_session):
         base_url="http://grafana.test",
         token=SecretStr("test-token"),
         verify_ssl=True,
+        page_size=100,
         report=report,
     )
 

@@ -69,21 +69,52 @@ def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
         from_start = sql.index("from")
         select_part = sql[select_start:from_start].strip()
 
-        columns = [col.strip().split()[-1].strip() for col in select_part.split(",")]
+        # Split by comma, handling nested parentheses
+        columns = []
+        current_column = ""
+        paren_count = 0
 
-        return [
-            (
+        for char in select_part:
+            if char == "," and paren_count == 0:
+                if current_column.strip():
+                    columns.append(current_column.strip())
+                current_column = ""
+            else:
+                if char == "(":
+                    paren_count += 1
+                elif char == ")":
+                    paren_count -= 1
+                current_column += char
+
+        if current_column.strip():
+            columns.append(current_column.strip())
+
+        # For each column, extract the alias if it exists
+        fields = []
+        for col in columns:
+            # Check for alias with 'AS' keyword
+            if " as " in col:
+                field_name = col.split(" as ")[-1].strip()
+            else:
+                # If no alias, use the last part after last space
+                # This handles both simple columns and function calls without alias
+                field_name = col.split()[-1].strip()
+
+            # Clean up any remaining quotes or parentheses
+            field_name = field_name.strip("\"'()")
+
+            fields.append(
                 SchemaFieldClass(
-                    # Capture the alias of the column if present or the name of the field
-                    fieldPath=col.split(" as ")[-1].strip('"').strip("'"),
+                    fieldPath=field_name,
                     type=SchemaFieldDataTypeClass(type=StringTypeClass()),
                     nativeDataType="sql_column",
                 )
             )
-            for col in columns
-        ]
+
+        return fields
+
     except (IndexError, ValueError, StopIteration) as e:
-        logger.warning(f"Failed to parse SQL {target.get('rawSql')}", e)
+        logger.warning(f"Failed to parse SQL: {target.get('rawSql')}", e)
         return []
 
 

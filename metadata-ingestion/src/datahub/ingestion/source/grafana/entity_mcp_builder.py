@@ -9,14 +9,13 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
     make_user_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.grafana.models import Dashboard, Panel
 from datahub.ingestion.source.grafana.types import CHART_TYPE_MAPPINGS
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     ChartInfoClass,
-    ChartSnapshotClass,
     DashboardInfoClass,
-    DashboardSnapshotClass,
     DataPlatformInstanceClass,
     GlobalTagsClass,
     OwnerClass,
@@ -27,7 +26,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def build_chart_mce(
+def build_chart_mcps(
     panel: Panel,
     dashboard: Dashboard,
     platform: str,
@@ -35,19 +34,22 @@ def build_chart_mce(
     env: str,
     base_url: str,
     ingest_tags: bool,
-) -> Tuple[Optional[str], ChartSnapshotClass]:
-    """Build chart metadata change event"""
+) -> Tuple[Optional[str], str, List[MetadataChangeProposalWrapper]]:
+    """Build chart metadata change proposals"""
     ds_urn = None
+    mcps = []
+
     chart_urn = make_chart_urn(
         platform,
         f"{dashboard.uid}.{panel.id}",
         platform_instance,
     )
 
-    chart_snapshot = ChartSnapshotClass(
-        urn=chart_urn,
-        aspects=[
-            DataPlatformInstanceClass(
+    # Platform instance aspect
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=DataPlatformInstanceClass(
                 platform=make_data_platform_urn(platform),
                 instance=make_dataplatform_instance_urn(
                     platform=platform,
@@ -56,12 +58,16 @@ def build_chart_mce(
                 if platform_instance
                 else None,
             ),
-            StatusClass(removed=False),
-        ],
+        )
     )
 
-    # Ensure title exists
-    title = panel.title or f"Panel {panel.id}"
+    # Status aspect
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=StatusClass(removed=False),
+        )
+    )
 
     # Get input datasets
     input_datasets = []
@@ -79,21 +85,27 @@ def build_chart_mce(
         )
         input_datasets.append(ds_urn)
 
-    chart_info = ChartInfoClass(
-        type=CHART_TYPE_MAPPINGS.get(panel.type) if panel.type else None,
-        description=panel.description,
-        title=title,
-        lastModified=ChangeAuditStampsClass(),
-        chartUrl=f"{base_url}/d/{dashboard.uid}?viewPanel={panel.id}",
-        customProperties=_build_custom_properties(panel),
-        inputs=input_datasets,
+    # Chart info aspect
+    title = panel.title or f"Panel {panel.id}"
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=ChartInfoClass(
+                type=CHART_TYPE_MAPPINGS.get(panel.type) if panel.type else None,
+                description=panel.description,
+                title=title,
+                lastModified=ChangeAuditStampsClass(),
+                chartUrl=f"{base_url}/d/{dashboard.uid}?viewPanel={panel.id}",
+                customProperties=_build_custom_properties(panel),
+                inputs=input_datasets,
+            ),
+        )
     )
-    chart_snapshot.aspects.append(chart_info)
 
+    # Tags aspect
     if dashboard.tags and ingest_tags:
         tags = []
         for tag in dashboard.tags:
-            # Handle both simple tags and key:value tags from Grafana
             if ":" in tag:
                 key, value = tag.split(":", 1)
                 tag_urn = make_tag_urn(f"{key}.{value}")
@@ -102,12 +114,17 @@ def build_chart_mce(
             tags.append(TagAssociationClass(tag=tag_urn))
 
         if tags:
-            chart_snapshot.aspects.append(GlobalTagsClass(tags=tags))
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=GlobalTagsClass(tags=tags),
+                )
+            )
 
-    return ds_urn, chart_snapshot
+    return ds_urn, chart_urn, mcps
 
 
-def build_dashboard_mce(
+def build_dashboard_mcps(
     dashboard: Dashboard,
     platform: str,
     platform_instance: Optional[str],
@@ -115,14 +132,16 @@ def build_dashboard_mce(
     base_url: str,
     ingest_owners: bool,
     ingest_tags: bool,
-) -> DashboardSnapshotClass:
-    """Build dashboard metadata change event"""
+) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+    """Build dashboard metadata change proposals"""
+    mcps = []
     dashboard_urn = make_dashboard_urn(platform, dashboard.uid, platform_instance)
 
-    dashboard_snapshot = DashboardSnapshotClass(
-        urn=dashboard_urn,
-        aspects=[
-            DataPlatformInstanceClass(
+    # Platform instance aspect
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=DataPlatformInstanceClass(
                 platform=make_data_platform_urn(platform),
                 instance=make_dataplatform_instance_urn(
                     platform=platform,
@@ -131,36 +150,55 @@ def build_dashboard_mce(
                 if platform_instance
                 else None,
             ),
-        ],
+        )
     )
 
-    # Add basic info
-    dashboard_info = DashboardInfoClass(
-        description=dashboard.description,
-        title=dashboard.title,
-        charts=chart_urns,
-        lastModified=ChangeAuditStampsClass(),
-        dashboardUrl=f"{base_url}/d/{dashboard.uid}",
-        customProperties=_build_dashboard_properties(dashboard),
+    # Dashboard info aspect
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=DashboardInfoClass(
+                description=dashboard.description,
+                title=dashboard.title,
+                charts=chart_urns,
+                lastModified=ChangeAuditStampsClass(),
+                dashboardUrl=f"{base_url}/d/{dashboard.uid}",
+                customProperties=_build_dashboard_properties(dashboard),
+            ),
+        )
     )
-    dashboard_snapshot.aspects.append(dashboard_info)
 
-    # Add ownership
+    # Ownership aspect
     if dashboard.uid and ingest_owners:
         owner = _build_ownership(dashboard)
         if owner:
-            dashboard_snapshot.aspects.append(owner)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=owner,
+                )
+            )
 
-    # Add tags
+    # Tags aspect
     if dashboard.tags and ingest_tags:
         tags = [TagAssociationClass(tag=make_tag_urn(tag)) for tag in dashboard.tags]
         if tags:
-            dashboard_snapshot.aspects.append(GlobalTagsClass(tags=tags))
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=GlobalTagsClass(tags=tags),
+                )
+            )
 
-    # Add status
-    dashboard_snapshot.aspects.append(StatusClass(removed=False))
+    # Status aspect
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=StatusClass(removed=False),
+        )
+    )
 
-    return dashboard_snapshot
+    return dashboard_urn, mcps
 
 
 def _build_custom_properties(panel: Panel) -> Dict[str, str]:

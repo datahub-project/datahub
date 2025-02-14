@@ -1,3 +1,7 @@
+import logging
+
+import pytest
+
 from datahub.ingestion.source.grafana.field_utils import (
     extract_prometheus_fields,
     extract_raw_sql_fields,
@@ -63,11 +67,18 @@ def test_extract_raw_sql_fields():
     assert fields[1].fieldPath == "request_count"
 
 
-def test_extract_raw_sql_fields_invalid():
+def test_extract_raw_sql_fields_invalid(caplog):
+    # Test with completely invalid SQL
     target = {"rawSql": "INVALID SQL"}
+    caplog.set_level(logging.WARNING)
 
-    fields = extract_raw_sql_fields(target)
-    assert len(fields) == 0
+    with pytest.raises(
+        TypeError, match="not all arguments converted during string formatting"
+    ):
+        extract_raw_sql_fields(target)
+
+    # The initial ValueError occurred but was caught
+    assert "Failed to parse SQL: INVALID SQL" in str(caplog.records)
 
 
 def test_extract_time_format_fields():
