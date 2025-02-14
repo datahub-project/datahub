@@ -99,6 +99,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
     report: Neo4jSourceReport
 
     def __init__(self, config: Neo4jConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
         self.platform = self.config.platform
