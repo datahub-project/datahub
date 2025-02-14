@@ -1511,6 +1511,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
+            if look.deleted:
+                self.reporter.info(
+                    title="Dropped deleted Look",
+                    message="Dropped due to being deleted",
+                    context=f"Look ID: {look.id}",
+                )
+                continue
+
             if self.source_config.skip_personal_folders:
                 if look.folder is not None and (
                     look.folder.is_personal or look.folder.is_personal_descendant
