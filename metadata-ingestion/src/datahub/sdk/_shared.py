@@ -312,8 +312,7 @@ class HasTags(Entity):
     __slots__ = ()
 
     def _ensure_tags(self) -> List[models.TagAssociationClass]:
-        tags = self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
-        return tags
+        return self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
@@ -368,8 +367,9 @@ class HasTerms(Entity):
     __slots__ = ()
 
     def _ensure_terms(self) -> List[models.GlossaryTermAssociationClass]:
-        terms = self._setdefault_aspect(models.GlossaryTermsClass(terms=[])).terms
-        return terms
+        return self._setdefault_aspect(
+            models.GlossaryTermsClass(terms=[], auditStamp=self._terms_audit_stamp())
+        ).terms
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
