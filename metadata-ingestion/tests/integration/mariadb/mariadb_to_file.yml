@@ -1,14 +1,20 @@
-run_id: mysql-test
+run_id: mariadb-test
 
 source:
-  type: mysql
+  type: mariadb
   config:
     username: root
-    password: example
-    host_port: localhost:53307
-    database: northwind
-    include_stored_procedures: false
-    include_stored_procedures_code: false
+    password: password
+    host_port: localhost:53300
+    database: test_db
+    include_stored_procedures: true
+    include_stored_procedures_code: true
+    include_lineage: true
+    procedure_pattern:
+      allow:
+        - "test_db.*"
+      deny:
+        - ".*_temp$"
     profiling:
       enabled: True
       include_field_null_count: true
@@ -21,11 +27,8 @@ source:
       include_field_distinct_value_frequencies: true
       include_field_histogram: true
       include_field_sample_values: true
-    domain:
-      "urn:li:domain:sales":
-        allow:
-          - "^northwind"
+
 sink:
   type: file
   config:
-    filename: "./mysql_mces.json"
+    filename: "./mariadb_mces.json"
