@@ -1,3 +1,5 @@
+import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -6,7 +8,6 @@ import {
     DataPlatform,
     DisplayProperties,
     Domain,
-    Entity,
     EntityType,
     Post,
 } from '../../../../../../types.generated';
@@ -149,14 +150,7 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const containerPath =
-        entityData?.parentContainers?.containers ||
-        entityData?.parentDomains?.domains ||
-        entityData?.parentNodes?.nodes ||
-        [];
-    const parentPath: Entity[] = entityData?.parent ? [entityData.parent as Entity] : [];
-    const parentEntities = containerPath.length ? containerPath : parentPath;
-
+    const contextPath = getContextPath(entityData);
     return (
         <>
             <Row>
@@ -223,6 +217,10 @@ export const DefaultEntityHeader = ({
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}
                                         />
+                                        <VersioningBadge
+                                            versionProperties={entityData?.versionProperties ?? undefined}
+                                            showPopover
+                                        />
                                     </TitleRow>
                                     <HeaderRow>
                                         <ContextPath
@@ -231,7 +229,7 @@ export const DefaultEntityHeader = ({
                                             type={displayedEntityType}
                                             entityType={entityType}
                                             browsePaths={entityData?.browsePathV2}
-                                            parentEntities={parentEntities}
+                                            parentEntities={contextPath}
                                             contentRef={contentRef}
                                             isContentTruncated={isContentTruncated}
                                         />

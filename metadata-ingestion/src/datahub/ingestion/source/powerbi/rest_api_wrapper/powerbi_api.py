@@ -625,13 +625,26 @@ class PowerBiAPI:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
-                # set the dataset for tiles
+                # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
+                    # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
+                    # https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-new-workspaces
+                    if tile.report_id:
+                        tile.report = workspace.reports.get(tile.report_id)
+                        if tile.report is None:
+                            self.reporter.info(
+                                title="Missing Report Lineage For Tile",
+                                message="A Report reference that failed to be resolved. Please ensure that 'extract_reports' is set to True in the configuration.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, report-id: {tile.report_id}",
+                            )
+                    # However, semantic models (aka datasets) can be shared accross workspaces
+                    # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
+                    # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
                             self.reporter.info(
-                                title="Missing Lineage For Tile",
+                                title="Missing Dataset Lineage For Tile",
                                 message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                                 context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
                             )
@@ -653,10 +666,10 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
+        # fill reports first since some dashboard may reference a report
+        fill_reports()
         if self.__config.extract_dashboards:
             fill_dashboards()
-
-        fill_reports()
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
 

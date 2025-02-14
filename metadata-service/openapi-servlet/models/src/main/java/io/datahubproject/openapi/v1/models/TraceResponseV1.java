@@ -2,7 +2,6 @@ package io.datahubproject.openapi.v1.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.systemmetadata.TraceStatus;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.AllArgsConstructor;

@@ -12,12 +12,12 @@ export const TitleSuffix = styled.div`
 `;
 
 export const SectionsContainer = styled.div`
-    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 `;
 
-export const Section = styled.div`
-    margin-top: 12px;
-`;
+export const Section = styled.div``;
 
 export const SectionHeader = styled.div`
     display: flex;
@@ -31,11 +31,13 @@ export const SectionTitle = styled.div`
 `;
 
 export const Content = styled.div`
-    margin: 4px 0;
+    margin-top: 4px;
+    color: ${colors.gray[1700]};
+    font-size: 14px;
 `;
 
 export const Container = styled.div`
-    ${Section}:first-child {
-        margin-top: 0px;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 `;

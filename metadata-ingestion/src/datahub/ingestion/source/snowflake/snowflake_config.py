@@ -98,6 +98,11 @@ class SnowflakeFilterConfig(SQLFilterConfig):
     )
     # table_pattern and view_pattern are inherited from SQLFilterConfig
 
+    stream_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for streams to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -274,6 +279,11 @@ class SnowflakeV2Config(
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
+    include_streams: bool = Field(
+        default=True,
+        description="If enabled, streams will be ingested as separate entities from tables/views.",
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -306,6 +316,13 @@ class SnowflakeV2Config(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
         " assertions CLI in snowflake",
+    )
+
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
     )
 
     @validator("convert_urns_to_lowercase")

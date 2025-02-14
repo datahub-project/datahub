@@ -98,7 +98,10 @@ public enum DataHubUsageEventType {
   SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
   SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
   FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
-  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent");
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
+  SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
+  LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
+  UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent");
 
   private final String type;
 

@@ -78,7 +78,7 @@ const CustomNavLink: React.FC<Props> = ({
                 <LinkTitle>{title}</LinkTitle>
                 {showNewTag && (
                     <PillWrapper>
-                        <Pill label="New" size="xs" clickable={false} colorScheme="blue" />
+                        <Pill label="New" size="xs" clickable={false} color="blue" />
                     </PillWrapper>
                 )}
             </TitleWrapper>

@@ -69,6 +69,11 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
     return fieldPathA === fieldPathB || fieldPathA === downgradeV2FieldPath(fieldPathB);
 }
 
+// should use pathMatchesExact when rendering editable info so the user edits the correct field
+export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string | null) {
+    return fieldPathA === fieldPathB;
+}
+
 // group schema fields by fieldPath and grouping for hierarchy in schema table
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
