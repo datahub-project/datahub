@@ -1,3 +1,5 @@
+from typing import List
+
 from datahub.sql_parsing.split_statements import split_statements
 
 
@@ -148,7 +150,7 @@ END CATCH;
 def test_split_statement_with_empty_query():
     test_sql = ""
     statements = [statement.strip() for statement in split_statements(test_sql)]
-    expected: list[str] = []
+    expected: List[str] = []
     assert statements == expected
 
 
