@@ -355,6 +355,10 @@ TermsInputType: TypeAlias = List[TermInputType]
 class HasTerms(Entity):
     __slots__ = ()
 
+    def _ensure_terms(self) -> List[models.GlossaryTermAssociationClass]:
+        terms = self._setdefault_aspect(models.GlossaryTermsClass(terms=[])).terms
+        return terms
+
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
     def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
@@ -388,6 +392,24 @@ class HasTerms(Entity):
                 ],
                 auditStamp=self._terms_audit_stamp(),
             )
+        )
+
+    @classmethod
+    def _terms_key(self, term: models.GlossaryTermAssociationClass) -> str:
+        return term.urn
+
+    def add_term(self, term: TermInputType) -> None:
+        add_list_unique(
+            self._ensure_terms(),
+            self._terms_key,
+            self._parse_glossary_term_association_class(term),
+        )
+
+    def remove_term(self, term: TermInputType) -> None:
+        remove_list_unique(
+            self._ensure_terms(),
+            self._terms_key,
+            self._parse_glossary_term_association_class(term),
         )
 
 

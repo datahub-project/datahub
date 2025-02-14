@@ -20,7 +20,9 @@ def add_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
     lst.append(item)
 
 
-def remove_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
+def remove_list_unique(
+    lst: List[T], key: Callable[[T], K], item: T, *, missing_ok: bool = True
+) -> None:
     # Poor man's patch implementation.
     item_key = key(item)
     removed = False
@@ -29,5 +31,5 @@ def remove_list_unique(lst: List[T], key: Callable[[T], K], item: T) -> None:
             lst.pop(i)
             removed = True
             # Tricky: no break. In case there's already duplicates, we want to remove all of them.
-    if not removed:
-        raise ItemNotFoundError(f"Item {item} not found in list")
+    if not removed and not missing_ok:
+        raise ItemNotFoundError(f"Cannot remove item {item} from list: not found")
