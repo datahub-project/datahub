@@ -5,6 +5,7 @@ import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.
 import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
@@ -36,6 +37,12 @@ public class IcebergBatch {
         new AuditStamp()
             .setActor(operationContext.getActorContext().getActorUrn())
             .setTime(System.currentTimeMillis());
+  }
+
+  @VisibleForTesting
+  IcebergBatch(OperationContext operationContext, AuditStamp auditStamp) {
+    this.operationContext = operationContext;
+    this.auditStamp = auditStamp;
   }
 
   @RequiredArgsConstructor(access = AccessLevel.PRIVATE)

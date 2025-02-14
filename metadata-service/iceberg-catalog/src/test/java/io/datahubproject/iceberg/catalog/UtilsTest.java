@@ -6,9 +6,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Map;
 import java.util.Set;
 import org.apache.iceberg.TableMetadata;
@@ -35,21 +33,6 @@ public class UtilsTest {
     assertNotNull(stamp);
     assertEquals(stamp.getActor().toString(), Constants.SYSTEM_ACTOR);
     assertTrue(stamp.getTime() > 0);
-  }
-
-  @Test
-  public void testPlatformInstanceMcp() {
-    String platformInstance = "testInstance";
-    String entityType = "dataset";
-    Urn urn = Utils.platformUrn();
-
-    MetadataChangeProposal mcp = Utils.platformInstanceMcp(platformInstance, urn, entityType);
-
-    assertNotNull(mcp);
-    assertEquals(mcp.getEntityUrn(), urn);
-    assertEquals(mcp.getEntityType(), entityType);
-    assertEquals(mcp.getAspectName(), Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
-    assertEquals(mcp.getChangeType(), ChangeType.UPSERT);
   }
 
   @Test

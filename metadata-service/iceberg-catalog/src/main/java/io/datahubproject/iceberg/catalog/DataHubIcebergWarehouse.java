@@ -163,23 +163,54 @@ public class DataHubIcebergWarehouse {
     return Optional.ofNullable(result);
   }
 
-  public IcebergCatalogInfo getIcebergMetadata(TableIdentifier tableIdentifier) {
-    Optional<DatasetUrn> datasetUrn = getDatasetUrn(tableIdentifier);
-    if (datasetUrn.isEmpty()) {
-      return null;
+  private Optional<EnvelopedAspect> getLatestEnvelopedAspectNonRemoved(Urn urn, String aspectName)
+      throws URISyntaxException {
+
+    Map<Urn, List<EnvelopedAspect>> aspectsMap =
+        entityService.getLatestEnvelopedAspects(
+            operationContext, Set.of(urn), Set.of(STATUS_ASPECT_NAME, aspectName), false);
+
+    if (aspectsMap == null || aspectsMap.isEmpty()) {
+      return Optional.empty();
+    }
+    List<EnvelopedAspect> aspects = aspectsMap.get(urn);
+    if (aspects == null || aspects.isEmpty()) {
+      return Optional.empty();
     }
 
-    IcebergCatalogInfo icebergMeta =
-        (IcebergCatalogInfo)
-            entityService.getLatestAspect(
-                operationContext, datasetUrn.get(), DATASET_ICEBERG_METADATA_ASPECT_NAME);
+    EnvelopedAspect result = null;
 
-    if (icebergMeta == null) {
-      throw new IllegalStateException(
+    for (EnvelopedAspect aspect : aspects) {
+      if (STATUS_ASPECT_NAME.equals(aspect.getName())) {
+        Status status = new Status(aspect.getValue().data());
+        if (status.isRemoved()) {
+          return Optional.empty();
+        }
+      } else {
+        result = aspect;
+      }
+    }
+
+    return Optional.ofNullable(result);
+  }
+
+  public Optional<IcebergCatalogInfo> getIcebergMetadata(TableIdentifier tableIdentifier) {
+    Optional<DatasetUrn> datasetUrn = getDatasetUrn(tableIdentifier);
+    if (datasetUrn.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Optional<IcebergCatalogInfo> icebergMeta =
+        getLatestAspectNonRemoved(datasetUrn.get(), DATASET_ICEBERG_METADATA_ASPECT_NAME);
+
+    if (icebergMeta.isEmpty()) {
+      // possibly some deletion cleanup is pending; log error & return as if dataset doesn't exist.
+      log.error(
           String.format(
               "IcebergMetadata not found for resource %s, dataset %s",
               resourceUrn(tableIdentifier), datasetUrn.get()));
     }
+
     return icebergMeta;
   }
 
@@ -191,19 +222,19 @@ public class DataHubIcebergWarehouse {
     }
 
     try {
-      EnvelopedAspect existingEnveloped =
-          entityService.getLatestEnvelopedAspect(
-              operationContext,
-              DATASET_ENTITY_NAME,
-              datasetUrn.get(),
-              DATASET_ICEBERG_METADATA_ASPECT_NAME);
-      if (existingEnveloped == null) {
-        throw new IllegalStateException(
+      Optional<EnvelopedAspect> existingEnveloped =
+          getLatestEnvelopedAspectNonRemoved(
+              datasetUrn.get(), DATASET_ICEBERG_METADATA_ASPECT_NAME);
+      if (existingEnveloped.isEmpty()) {
+        // possibly some deletion cleanup is pending; log error & return as if dataset doesn't
+        // exist.
+        log.error(
             String.format(
                 "IcebergMetadata not found for resource %s, dataset %s",
                 resourceUrn(tableIdentifier), datasetUrn.get()));
+        return null;
       }
-      return Pair.of(existingEnveloped, datasetUrn.get());
+      return Pair.of(existingEnveloped.get(), datasetUrn.get());
     } catch (Exception e) {
       throw new RuntimeException(
           "Error fetching IcebergMetadata aspect for dataset " + datasetUrn.get(), e);

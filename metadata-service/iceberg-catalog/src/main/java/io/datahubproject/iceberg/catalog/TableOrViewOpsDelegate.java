@@ -24,6 +24,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -67,13 +68,13 @@ abstract class TableOrViewOpsDelegate<M> {
   }
 
   public M refresh() {
-    IcebergCatalogInfo icebergMeta = warehouse.getIcebergMetadata(tableIdentifier);
+    Optional<IcebergCatalogInfo> icebergMeta = warehouse.getIcebergMetadata(tableIdentifier);
 
-    if (icebergMeta == null || !isExpectedType(icebergMeta.isView())) {
+    if (icebergMeta.isEmpty() || !isExpectedType(icebergMeta.get().isView())) {
       return null;
     }
 
-    String location = icebergMeta.getMetadataPointer();
+    String location = icebergMeta.get().getMetadataPointer();
     if (io == null) {
       String locationDir = location.substring(0, location.lastIndexOf("/"));
       io =
