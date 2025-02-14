@@ -215,8 +215,9 @@ public class TraceContext implements ContextInterface {
     }
   }
 
-  public SystemMetadata withTraceId(@Nonnull SystemMetadata systemMetadata) {
+  public SystemMetadata withTraceId(@Nonnull SystemMetadata systemMetadata, boolean force) {
     if (systemMetadata.getProperties() == null
+        || force
         || !systemMetadata.getProperties().containsKey(TELEMETRY_TRACE_KEY)) {
       SpanContext currentSpanContext = Span.current().getSpanContext();
 

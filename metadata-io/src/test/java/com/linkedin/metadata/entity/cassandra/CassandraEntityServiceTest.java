@@ -53,8 +53,10 @@ public class CassandraEntityServiceTest
   public CassandraEntityServiceTest() throws EntityRegistryException {}
 
   @BeforeClass
-  public void setupContainer() {
+  public void beforeClass() {
     _cassandraContainer = CassandraTestUtils.setupContainer();
+    _mockProducer = mock(EventProducer.class);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
   }
 
   @AfterClass
@@ -69,11 +71,13 @@ public class CassandraEntityServiceTest
   }
 
   private void configureComponents() {
+    reset(_mockProducer);
+    reset(_mockUpdateIndicesService);
+
     CqlSession session = CassandraTestUtils.createTestSession(_cassandraContainer);
     _aspectDao = new CassandraAspectDao(session);
     _aspectDao.setConnectionValidated(true);
-    _mockProducer = mock(EventProducer.class);
-    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
