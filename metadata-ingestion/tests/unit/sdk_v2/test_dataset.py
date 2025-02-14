@@ -82,8 +82,8 @@ def _build_complex_dataset() -> Dataset:
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
     d = Dataset(
-        platform="snowflake",
-        platform_instance="my_instance",
+        platform=schema.platform,
+        platform_instance=schema.instance,
         name="my_db.my_schema.my_table",
         parent_container=schema,
         subtype=DatasetSubTypes.TABLE,
