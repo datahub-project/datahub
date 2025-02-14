@@ -17,7 +17,7 @@ const Title = styled.div`
     font-weight: bold;
 `;
 
-const Item = styled.div`
+const Item = styled.pre`
     padding: 6px;
     font-size: 12px;
     border-radius: 2px;

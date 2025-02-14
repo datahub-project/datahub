@@ -7,11 +7,12 @@ import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '..
 import { useAppConfig } from '../../useAppConfig';
 import {
     convertLegacyResourceFilter,
-    getFieldCondition,
     getFieldValues,
+    getFieldCondition,
     mapResourceTypeToDisplayName,
 } from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -72,11 +73,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
-
-    const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
+    const resourceTypes = getFieldValues(resources?.filter, TYPE, RESOURCE_TYPE) || [];
     const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
-    const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
-    const policyMatchCondition = getFieldCondition(resources?.filter, 'URN');
+    const resourceEntities = getFieldValues(resources?.filter, URN, RESOURCE_URN) || [];
+    const resourceFilterCondition =
+        getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {
@@ -109,6 +110,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 </Link>
             )) || <Typography.Text>{criterionValue.value}</Typography.Text>
         );
+    };
+
+    const getWildcardUrnTag = (criterionValue) => {
+        return <Typography.Text>{criterionValue.value}*</Typography.Text>;
     };
 
     const resourceOwnersField = (actors) => {
@@ -169,7 +174,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             <Typography.Title level={5}>Asset Condition</Typography.Title>
                             <ThinDivider />
                             <PoliciesTag>
-                                {policyMatchCondition === PolicyMatchCondition.NotEquals ? 'Excludes' : 'Includes'}
+                                {resourceFilterCondition === PolicyMatchCondition.NotEquals ? 'Excludes' : 'Includes'}
                             </PoliciesTag>
                         </div>
                         <div>
@@ -180,7 +185,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`resource-${value.value}-${key}`}>
-                                            {getEntityTag(value)}
+                                            {resourceFilterCondition &&
+                                            resourceFilterCondition === PolicyMatchCondition.StartsWith
+                                                ? getWildcardUrnTag(value)
+                                                : getEntityTag(value)}
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}

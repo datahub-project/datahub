@@ -5,6 +5,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/java-coverage.gradle"
 
 ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -19,6 +20,7 @@ dependencies {
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle
 
+  implementation externalDependency.mustache
   implementation externalDependency.javaxInject
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
@@ -58,7 +60,7 @@ dependencies {
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:3.7.1"
+  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -83,6 +85,7 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
+  testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
 
   constraints {
@@ -119,6 +122,46 @@ task run(type: Exec) {
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
           "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
+/**
+ * Runs RestoreIndices on locally running system. The batchSize are set to
+ * test the process with pagination and not designed for optimal performance.
+ */
+task runRestoreIndices(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the restore indices process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+}
+
+task runRestoreIndicesUrn(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the restore indices process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
+}
+
+task runNoCode(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the NoCodeDataMigration process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "NoCodeDataMigration", "-a", "batchSize=100", "-a", "dbType=MYSQL"
 }
 
 docker {

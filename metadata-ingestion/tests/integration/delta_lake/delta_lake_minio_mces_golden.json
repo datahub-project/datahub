@@ -400,5 +400,27 @@
         "runId": "delta-lake-test",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655664815399
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]

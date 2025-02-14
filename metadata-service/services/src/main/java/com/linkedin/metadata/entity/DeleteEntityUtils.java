@@ -1,5 +1,14 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.FormAssociation;
+import com.linkedin.common.FormAssociationArray;
+import com.linkedin.common.FormVerificationAssociation;
+import com.linkedin.common.FormVerificationAssociationArray;
+import com.linkedin.common.Forms;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
@@ -9,8 +18,22 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptArray;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -206,5 +229,148 @@ public class DeleteEntityUtils {
       }
     }
     return aspectList;
+  }
+
+  /*
+   * Form Deletion Section
+   */
+
+  // We need to update assets that have this form on them in one way or another
+  public static Filter getFilterForFormDeletion(@Nonnull final Urn deletedUrn) {
+    // first, get all entities with this form assigned on it
+    final CriterionArray incompleteFormsArray = new CriterionArray();
+    incompleteFormsArray.add(
+        buildCriterion("incompleteForms", Condition.EQUAL, deletedUrn.toString()));
+    final CriterionArray completedFormsArray = new CriterionArray();
+    completedFormsArray.add(
+        buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
+    // next, get all metadata tests created for this form
+    final CriterionArray metadataTestSourceArray = new CriterionArray();
+    metadataTestSourceArray.add(
+        buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
+    metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(incompleteFormsArray),
+                new ConjunctiveCriterion().setAnd(completedFormsArray),
+                new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
+  }
+
+  @Nullable
+  public static MetadataChangeProposal removeFormFromFormsAspect(
+      @Nonnull Forms formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    final AtomicReference<Forms> updatedAspect;
+    try {
+      updatedAspect = new AtomicReference<>(formsAspect.copy());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to copy the forms aspect for updating", e);
+    }
+
+    List<FormAssociation> incompleteForms =
+        formsAspect.getIncompleteForms().stream()
+            .filter(incompleteForm -> !incompleteForm.getUrn().equals(deletedUrn))
+            .collect(Collectors.toList());
+    List<FormAssociation> completedForms =
+        formsAspect.getCompletedForms().stream()
+            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
+            .collect(Collectors.toList());
+    final List<FormVerificationAssociation> verifications =
+        formsAspect.getVerifications().stream()
+            .filter(verification -> !verification.getForm().equals(deletedUrn))
+            .collect(Collectors.toList());
+
+    updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
+    updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
+    updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
+
+    if (!formsAspect.equals(updatedAspect.get())) {
+      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
+    }
+    return null;
+  }
+
+  // all assets that could have a form associated with them
+  public static List<String> getEntityNamesForFormDeletion() {
+    return ImmutableList.of(
+        "dataset",
+        "dataJob",
+        "dataFlow",
+        "chart",
+        "dashboard",
+        "corpuser",
+        "corpGroup",
+        "domain",
+        "container",
+        "glossaryTerm",
+        "glossaryNode",
+        "mlModel",
+        "mlModelGroup",
+        "mlFeatureTable",
+        "mlFeature",
+        "mlPrimaryKey",
+        "schemaField",
+        "dataProduct",
+        "test");
+  }
+
+  /*
+   * Structured Property Deletion Section
+   */
+
+  // get forms that have this structured property referenced in a prompt
+  public static Filter getFilterForStructuredPropertyDeletion(@Nonnull final Urn deletedUrn) {
+    final CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(
+        CriterionUtils.buildCriterion(
+            "structuredPropertyPromptUrns", Condition.EQUAL, deletedUrn.toString()));
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
+  }
+
+  // only need to update forms manually when deleting structured props
+  public static List<String> getEntityNamesForStructuredPropertyDeletion() {
+    return ImmutableList.of("form");
+  }
+
+  @Nullable
+  public static MetadataChangeProposal createFormInfoUpdateProposal(
+      @Nonnull FormInfo formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    final FormInfo updatedFormInfo = removePromptsFromFormInfoAspect(formsAspect, deletedUrn);
+
+    if (!formsAspect.equals(updatedFormInfo)) {
+      return AspectUtils.buildMetadataChangeProposal(assetUrn, "formInfo", updatedFormInfo);
+    }
+
+    return null;
+  }
+
+  // remove any prompts referencing the deleted structured property urn
+  @Nonnull
+  public static FormInfo removePromptsFromFormInfoAspect(
+      @Nonnull FormInfo formsAspect, @Nonnull final Urn deletedUrn) {
+    final AtomicReference<FormInfo> updatedAspect;
+    try {
+      updatedAspect = new AtomicReference<>(formsAspect.copy());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to copy the formInfo aspect for updating", e);
+    }
+
+    // filter out any prompt that has this structured property referenced on it
+    List<FormPrompt> filteredPrompts =
+        formsAspect.getPrompts().stream()
+            .filter(
+                prompt -> {
+                  if (prompt.getStructuredPropertyParams() != null
+                      && prompt.getStructuredPropertyParams().getUrn() != null) {
+                    return !prompt.getStructuredPropertyParams().getUrn().equals(deletedUrn);
+                  }
+                  return true;
+                })
+            .collect(Collectors.toList());
+
+    updatedAspect.get().setPrompts(new FormPromptArray(filteredPrompts));
+
+    return updatedAspect.get();
   }
 }

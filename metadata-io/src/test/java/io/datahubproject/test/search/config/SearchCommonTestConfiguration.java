@@ -44,11 +44,19 @@ public class SearchCommonTestConfiguration {
     return searchConfiguration;
   }
 
-  @Bean
-  public CustomSearchConfiguration customSearchConfiguration() throws Exception {
+  @Bean("defaultTestCustomSearchConfig")
+  public CustomSearchConfiguration defaultTestCustomSearchConfig() throws Exception {
     CustomConfiguration customConfiguration = new CustomConfiguration();
     customConfiguration.setEnabled(true);
     customConfiguration.setFile("search_config_builder_test.yml");
+    return customConfiguration.resolve(new YAMLMapper());
+  }
+
+  @Bean("fixtureCustomSearchConfig")
+  public CustomSearchConfiguration fixtureCustomSearchConfig() throws Exception {
+    CustomConfiguration customConfiguration = new CustomConfiguration();
+    customConfiguration.setEnabled(true);
+    customConfiguration.setFile("search_config_fixture_test.yml");
     return customConfiguration.resolve(new YAMLMapper());
   }
 

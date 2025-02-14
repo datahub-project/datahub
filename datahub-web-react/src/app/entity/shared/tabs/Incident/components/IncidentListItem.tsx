@@ -14,6 +14,7 @@ import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutat
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
+import MarkdownViewer from '../../../components/legacy/MarkdownViewer';
 
 type Props = {
     incident: any;
@@ -227,12 +228,12 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
-                                <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
+                                <MarkdownViewer source={incident?.description} />
                                 {incident.status.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.status.message || 'No additional details'}
+                                            {incident?.status?.message || 'No additional details'}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -263,15 +264,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status.message === null ? (
+                                    incident?.status?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated && (
+                                    {incident?.status?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
                                         </Tooltip>

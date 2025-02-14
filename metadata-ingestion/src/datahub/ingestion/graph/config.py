@@ -8,9 +8,9 @@ class DatahubClientConfig(ConfigModel):
 
     # TODO: Having a default for the server doesn't make a ton of sense. This should be handled
     # by callers / the CLI, but the actual client should not have any magic.
-    server: str = "http://localhost:8080"
+    server: str
     token: Optional[str] = None
-    timeout_sec: Optional[int] = None
+    timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
     extra_headers: Optional[Dict[str, str]] = None

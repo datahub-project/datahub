@@ -5,14 +5,13 @@ from datahub.emitter.mce_builder import (
     make_data_job_urn_with_flow,
     make_dataset_urn,
 )
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     DateTypeClass,
     NumberTypeClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
-
 from tests.setup.lineage.constants import (
     AIRFLOW_DATA_PLATFORM,
     SNOWFLAKE_DATA_PLATFORM,
@@ -116,11 +115,11 @@ AIRFLOW_SNOWFLAKE_ETL = Pipeline(
 )
 
 
-def ingest_data_job_change(emitter: DatahubRestEmitter) -> None:
+def ingest_data_job_change(graph_client: DataHubGraph) -> None:
     # Case 2. Data job changes from temperature_etl_1 to temperature_etl_2
-    emit_mcps(emitter, create_node(DAILY_TEMPERATURE_DATASET))
-    emit_mcps(emitter, create_node(MONTHLY_TEMPERATURE_DATASET))
-    emit_mcps(emitter, create_nodes_and_edges(AIRFLOW_SNOWFLAKE_ETL))
+    emit_mcps(graph_client, create_node(DAILY_TEMPERATURE_DATASET))
+    emit_mcps(graph_client, create_node(MONTHLY_TEMPERATURE_DATASET))
+    emit_mcps(graph_client, create_nodes_and_edges(AIRFLOW_SNOWFLAKE_ETL))
 
 
 def get_data_job_change_urns() -> List[str]:

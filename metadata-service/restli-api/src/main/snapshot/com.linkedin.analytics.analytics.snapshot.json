@@ -56,7 +56,7 @@
                         "type" : "enum",
                         "name" : "Condition",
                         "doc" : "The matching condition in a filter criterion",
-                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
+                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IEQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
                         "symbolDocs" : {
                           "ANCESTORS_INCL" : "Represent the relation: URN field matches any nested parent in addition to the given URN",
                           "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
@@ -66,6 +66,7 @@
                           "EXISTS" : "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
                           "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
                           "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+                          "IEQUAL" : "Represent the relation: field = value and support case insensitive values, e.g. platform = hdfs",
                           "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
                           "IS_NULL" : "Represent the relation: field is null, e.g. platform is null",
                           "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",

@@ -4,7 +4,7 @@ import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 // import Image from "@theme/IdealImage";
 // import { useColorMode } from "@docusaurus/theme-common";
-// import { QuestionCircleOutlined } from "@ant-design/icons";
+import { HeartOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 // import CodeBlock from "@theme/CodeBlock";
@@ -69,7 +69,7 @@ const Hero = ({ onOpenTourModal }) => {
             </div>
             <div className="hero__cta">
               <Link className="cta__primary" to="/cloud">
-                Book a Demo
+                Get Cloud
               </Link>
               <a
                 className="cta__secondary"
@@ -80,12 +80,15 @@ const Hero = ({ onOpenTourModal }) => {
               </a>
             </div>
             <Link className="hero__footer_cta" to="/docs">
-              Get started with Core →
+              Get started with Open Source →
             </Link>
           </div>
           <div className="hero__img">
             <img src={useBaseUrl("/img/hero.png")} />
           </div>
+        </div>
+        <div className="hero__content_footer">
+          Built with&nbsp;<HeartOutlined />&nbsp;by&nbsp;<a href="https://acryldata.io" target="_blank">Acryl Data</a>&nbsp;and&nbsp;<a href="https://www.acryldata.io/press/founded-by-airbnb-and-linkedin-data-veterans-acryl-data-re-imagines-metadata-management-with-dollar9-million-in-seed-funding" target="_blank">LinkedIn</a>.
         </div>
       </div>
     </header>

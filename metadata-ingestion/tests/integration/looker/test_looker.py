@@ -1,10 +1,12 @@
 import json
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 from unittest import mock
 
 import pytest
+from _pytest.config import Config
 from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
@@ -29,7 +31,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.source.looker import looker_common, looker_usage
-from datahub.ingestion.source.looker.looker_common import LookerExplore
+from datahub.ingestion.source.looker.looker_common import (
+    LookerDashboardSourceReport,
+    LookerExplore,
+)
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -81,6 +86,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -317,25 +323,53 @@ def setup_mock_look(mocked_client):
     mocked_client.all_looks.return_value = [
         Look(
             id="1",
+            user_id="1",
             title="Outer Look",
             description="I am not part of any Dashboard",
             query_id="1",
             folder=FolderBase(name="Shared", id="shared-folder-id"),
-        )
+        ),
+        Look(
+            id="2",
+            title="Personal Look",
+            user_id="2",
+            description="I am not part of any Dashboard and in personal folder",
+            query_id="2",
+            folder=FolderBase(
+                name="Personal",
+                id="personal-folder-id",
+                is_personal=True,
+                is_personal_descendant=True,
+            ),
+        ),
     ]
 
-    mocked_client.look.return_value = LookWithQuery(
-        query=Query(
-            id="1",
-            view="sales_explore",
-            model="sales_model",
-            fields=[
-                "sales.profit",
-            ],
-            dynamic_fields=None,
-            filters=None,
-        )
-    )
+    mocked_client.look.side_effect = [
+        LookWithQuery(
+            query=Query(
+                id="1",
+                view="sales_explore",
+                model="sales_model",
+                fields=[
+                    "sales.profit",
+                ],
+                dynamic_fields=None,
+                filters=None,
+            )
+        ),
+        LookWithQuery(
+            query=Query(
+                id="2",
+                view="order_explore",
+                model="order_model",
+                fields=[
+                    "order.placed_date",
+                ],
+                dynamic_fields=None,
+                filters=None,
+            )
+        ),
+    ]
 
 
 def setup_mock_soft_deleted_look(mocked_client):
@@ -383,7 +417,9 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
     )
 
 
-def setup_mock_dashboard_with_usage(mocked_client):
+def setup_mock_dashboard_with_usage(
+    mocked_client: mock.MagicMock, skip_look: bool = False
+) -> None:
     mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
     mocked_client.dashboard.return_value = Dashboard(
         id="1",
@@ -406,7 +442,13 @@ def setup_mock_dashboard_with_usage(mocked_client):
                 ),
             ),
             DashboardElement(
-                id="3", type="", look=LookWithQuery(id="3", view_count=30)
+                id="3",
+                type="" if skip_look else "vis",  # Looks only ingested if type == `vis`
+                look=LookWithQuery(
+                    id="3",
+                    view_count=30,
+                    query=Query(model="look_data", view="look_view"),
+                ),
             ),
         ],
     )
@@ -533,6 +575,20 @@ def setup_mock_user(mocked_client):
     mocked_client.user.side_effect = get_user
 
 
+def setup_mock_all_user(mocked_client):
+    def all_users(
+        fields: Optional[str] = None,
+        transport_options: Optional[transport.TransportOptions] = None,
+    ) -> List[User]:
+        return [
+            User(id="1", email="test-1@looker.com"),
+            User(id="2", email="test-2@looker.com"),
+            User(id="3", email="test-3@looker.com"),
+        ]
+
+    mocked_client.all_users.side_effect = all_users
+
+
 def side_effect_query_inline(
     result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
 ) -> str:
@@ -562,6 +618,12 @@ def side_effect_query_inline(
                 },
                 {
                     HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-07",
+                    HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
+                },
+                {
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "5",
                     HistoryViewField.HISTORY_CREATED_DATE: "2022-07-07",
                     HistoryViewField.HISTORY_DASHBOARD_USER: 1,
                     HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
@@ -686,6 +748,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
         setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
@@ -742,6 +805,70 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
             output_path=temp_output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_filter_usage_history(pytestconfig, tmp_path, mock_time):
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard_with_usage(mocked_client, skip_look=True)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
+        setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+
+        temp_output_file = f"{tmp_path}/looker_mces.json"
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": True,
+                        "max_threads": 1,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": temp_output_file,
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+        # There should be 4 dashboardUsageStatistics aspects (one absolute and 3 timeseries)
+        dashboard_usage_aspect_count = 0
+        # There should be 0 chartUsageStatistics -- filtered by set of ingested charts
+        chart_usage_aspect_count = 0
+        with open(temp_output_file) as f:
+            temp_output_dict = json.load(f)
+            for element in temp_output_dict:
+                if (
+                    element.get("entityType") == "dashboard"
+                    and element.get("aspectName") == "dashboardUsageStatistics"
+                ):
+                    dashboard_usage_aspect_count = dashboard_usage_aspect_count + 1
+                if (
+                    element.get("entityType") == "chart"
+                    and element.get("aspectName") == "chartUsageStatistics"
+                ):
+                    chart_usage_aspect_count = chart_usage_aspect_count + 1
+
+        assert dashboard_usage_aspect_count == 4
+        assert chart_usage_aspect_count == 0
+
+        source_report = cast(LookerDashboardSourceReport, pipeline.source.get_report())
+        # From timeseries query
+        assert str(source_report.dashboards_skipped_for_usage) == str(["5"])
+        # From dashboard element
+        assert str(source_report.charts_skipped_for_usage) == str(["3"])
 
 
 @freeze_time(FROZEN_TIME)
@@ -875,7 +1002,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 @freeze_time(FROZEN_TIME)
 def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
     """
-    if extract_independent_looks is enabled then stateful_ingestion.enabled should also be enabled
+    if extract_independent_looks is enabled, then stateful_ingestion.enabled should also be enabled
     """
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/output")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
@@ -888,13 +1015,18 @@ def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
         Pipeline.create(new_recipe)
 
 
-@freeze_time(FROZEN_TIME)
-def test_independent_looks_ingest(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
+def ingest_independent_looks(
+    pytestconfig: Config,
+    tmp_path: Path,
+    mock_time: float,
+    mock_datahub_graph: mock.MagicMock,
+    skip_personal_folders: bool,
+    golden_file_name: str,
+) -> None:
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
     new_recipe["source"]["config"]["extract_independent_looks"] = True
+    new_recipe["source"]["config"]["skip_personal_folders"] = skip_personal_folders
     new_recipe["source"]["config"]["stateful_ingestion"] = {
         "enabled": True,
         "state_provider": {
@@ -913,6 +1045,8 @@ def test_independent_looks_ingest(
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -920,13 +1054,40 @@ def test_independent_looks_ingest(
         pipeline = Pipeline.create(new_recipe)
         pipeline.run()
         pipeline.raise_from_status()
-        mce_out_file = "golden_test_independent_look_ingest.json"
 
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
-            golden_path=f"{test_resources_dir}/{mce_out_file}",
+            golden_path=f"{test_resources_dir}/{golden_file_name}",
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest_with_personal_folder(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    ingest_independent_looks(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        mock_time=mock_time,
+        mock_datahub_graph=mock_datahub_graph,
+        skip_personal_folders=False,
+        golden_file_name="golden_test_independent_look_ingest.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest_without_personal_folder(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    ingest_independent_looks(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        mock_time=mock_time,
+        mock_datahub_graph=mock_datahub_graph,
+        skip_personal_folders=True,
+        golden_file_name="golden_test_non_personal_independent_look.json",
+    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -935,9 +1096,9 @@ def test_file_path_in_view_naming_pattern(
 ):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
-    new_recipe["source"]["config"][
-        "view_naming_pattern"
-    ] = "{project}.{file_path}.view.{name}"
+    new_recipe["source"]["config"]["view_naming_pattern"] = (
+        "{project}.{file_path}.view.{name}"
+    )
 
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -987,7 +1148,6 @@ def test_independent_soft_deleted_looks(
     mocked_client = mock.MagicMock()
 
     with mock.patch("looker_sdk.init40") as mock_sdk:
-
         mock_sdk.return_value = mocked_client
         setup_mock_look(mocked_client)
         setup_mock_soft_deleted_look(mocked_client)
@@ -1003,9 +1163,10 @@ def test_independent_soft_deleted_looks(
             soft_deleted=True,
         )
 
-        assert len(looks) == 2
+        assert len(looks) == 3
         assert looks[0].title == "Outer Look"
-        assert looks[1].title == "Soft Deleted"
+        assert looks[1].title == "Personal Look"
+        assert looks[2].title == "Soft Deleted"
 
 
 @freeze_time(FROZEN_TIME)

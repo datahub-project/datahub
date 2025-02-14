@@ -103,7 +103,6 @@ class ReplaceExternalUrlContainer(ContainerPropertiesTransformer, ReplaceUrl):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_container_properties_aspect: ContainerPropertiesClass = cast(
             ContainerPropertiesClass, aspect
         )

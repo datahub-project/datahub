@@ -14,10 +14,10 @@ node {
   }
 
   // Version of node to use.
-  version = '21.2.0'
+  version = '22.12.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.1'
+  yarnVersion = '1.22.22'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -64,9 +64,9 @@ task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
 task yarnInstall(type: YarnTask) {
   logger.info('CI = "{}"', System.env.CI)
   if (System.env.CI != null && System.env.CI == "true") {
-    args = ['install','--frozen-lockfile']
+    args = ['install', '--frozen-lockfile', '--network-timeout', '300000']
   } else {
-    args = ['install']
+    args = ['install', '--network-timeout', '300000']
   }
 
   // The node_modules directory can contain built artifacts, so
@@ -83,11 +83,7 @@ task yarnInstall(type: YarnTask) {
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
-    ':metadata-ingestion:buildWheel',
-    ':metadata-ingestion-modules:airflow-plugin:buildWheel',
-    ':metadata-ingestion-modules:dagster-plugin:buildWheel',
-    ':metadata-ingestion-modules:prefect-plugin:buildWheel',
-    ':metadata-ingestion-modules:gx-plugin:buildWheel',
+    ':python-build:buildWheels',
     ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }

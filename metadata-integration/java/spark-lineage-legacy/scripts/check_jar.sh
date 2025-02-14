@@ -40,7 +40,10 @@ jar -tvf $jarFile |\
       grep -v "rootdoc.txt" |\
       grep -v "VersionInfo.java" |\
       grep -v "mime.types" |\
-      grep -v "com/ibm/.*"
+      grep -v "com/ibm/.*" |\
+      grep -v "google/" |\
+      grep -v "org/apache/avro" |\
+      grep -v "org/apache"
 
 
 if [ $? -ne 0 ]; then

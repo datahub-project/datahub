@@ -1,6 +1,8 @@
 import collections
 import itertools
+import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import (
@@ -15,17 +17,20 @@ from typing import (
     Tuple,
     Union,
 )
+from urllib.parse import urlparse
 
 import humanfriendly
 import sqlglot
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -51,16 +56,19 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
 )
+from datahub.ingestion.source.gcs import gcs_utils
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
 from datahub.ingestion.source_report.ingestion_stage import LINEAGE_EXTRACTION
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    SchemaMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -247,6 +255,7 @@ class BigqueryLineageExtractor:
             format_queries=True,
         )
         self.report.sql_aggregator = self.aggregator.report
+        self.gcs_uris_regex = re.compile(r"uris=\[([^\]]+)\]")
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -282,16 +291,15 @@ class BigqueryLineageExtractor:
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
         for project in projects:
-            if self.config.lineage_parse_view_ddl:
-                for view in view_refs_by_project[project]:
-                    self.datasets_skip_audit_log_lineage.add(view)
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(view)
-                        ),
-                        view_definition=view_definitions[view],
-                        default_db=project,
-                    )
+            for view in view_refs_by_project[project]:
+                self.datasets_skip_audit_log_lineage.add(view)
+                self.aggregator.add_view_definition(
+                    view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                        BigQueryTableRef.from_string_name(view)
+                    ),
+                    view_definition=view_definitions[view],
+                    default_db=project,
+                )
 
             for snapshot_ref in snapshot_refs_by_project[project]:
                 snapshot = snapshots_by_ref[snapshot_ref]
@@ -313,32 +321,20 @@ class BigqueryLineageExtractor:
     def get_lineage_workunits(
         self,
         projects: List[str],
-        view_refs_by_project: Dict[str, Set[str]],
-        view_definitions: FileBackedDict[str],
-        snapshot_refs_by_project: Dict[str, Set[str]],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
 
-        yield from self.get_lineage_workunits_for_views_and_snapshots(
-            projects,
-            view_refs_by_project,
-            view_definitions,
-            snapshot_refs_by_project,
-            snapshots_by_ref,
-        )
-
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
 
         for project in projects:
-            self.report.set_ingestion_stage(project, LINEAGE_EXTRACTION)
-            yield from self.generate_lineage(
-                project,
-                table_refs,
-            )
+            with self.report.new_stage(f"{project}: {LINEAGE_EXTRACTION}"):
+                yield from self.generate_lineage(
+                    project,
+                    table_refs,
+                )
 
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
@@ -372,8 +368,8 @@ class BigqueryLineageExtractor:
             self.report.lineage_metadata_entries[project_id] = len(lineage)
             logger.info(f"Built lineage map containing {len(lineage)} entries.")
             logger.debug(f"lineage metadata is {lineage}")
-            self.report.lineage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[project_id] = timer.elapsed_seconds(
+                digits=2
             )
             self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
                 memory_footprint.total_size(lineage)
@@ -701,7 +697,7 @@ class BigqueryLineageExtractor:
                         if parsed_queries[-1]:
                             query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
                             (
-                                {parsed_queries[-1].sql(dialect='bigquery')}
+                                {parsed_queries[-1].sql(dialect="bigquery")}
                             )"""
                         else:
                             query = e.query
@@ -813,11 +809,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[
-                            ref_temp_table_upstream
-                        ] = _merge_lineage_edge_columns(
-                            upstreams.get(ref_temp_table_upstream),
-                            collapsed_lineage,
+                        upstreams[ref_temp_table_upstream] = (
+                            _merge_lineage_edge_columns(
+                                upstreams.get(ref_temp_table_upstream),
+                                collapsed_lineage,
+                            )
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(
@@ -918,3 +914,188 @@ class BigqueryLineageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def gen_lineage_workunits_for_external_table(
+        self,
+        dataset_urn: str,
+        ddl: Optional[str],
+        graph: Optional[DataHubGraph] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        if not ddl:
+            return
+
+        # Expect URIs in `uris=[""]` format
+        uris_match = self.gcs_uris_regex.search(ddl)
+        if not uris_match:
+            self.report.num_skipped_external_table_lineage += 1
+            logger.warning(f"Unable to parse GCS URI from the provided DDL {ddl}.")
+            return
+
+        uris_str = uris_match.group(1)
+        try:
+            source_uris = json.loads(f"[{uris_str}]")
+        except json.JSONDecodeError as e:
+            self.report.num_skipped_external_table_lineage += 1
+            logger.warning(
+                f"Json load failed on loading source uri with error: {e}. The field value was: {uris_str}"
+            )
+            return
+
+        lineage_info = self.get_lineage_for_external_table(
+            dataset_urn=dataset_urn,
+            source_uris=source_uris,
+            graph=graph,
+        )
+
+        if lineage_info:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=lineage_info
+            ).as_workunit()
+
+    def get_lineage_for_external_table(
+        self,
+        dataset_urn: str,
+        source_uris: List[str],
+        graph: Optional[DataHubGraph] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        upstreams_list: List[UpstreamClass] = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        gcs_urns: Set[str] = set()
+
+        for source_uri in source_uris:
+            # Check that storage_location have the gs:// prefix.
+            # Right now we are only supporting GCS lineage
+            if not gcs_utils.is_gcs_uri(source_uri):
+                continue
+            gcs_path = self._get_gcs_path(source_uri)
+
+            if gcs_path is None:
+                continue
+
+            path = gcs_utils.strip_gcs_prefix(gcs_path)
+            urn = mce_builder.make_dataset_urn_with_platform_instance(
+                platform="gcs",
+                name=path,
+                env=self.config.env,
+                platform_instance=(
+                    self.config.platform_instance
+                    if self.config.platform_instance is not None
+                    else None
+                ),
+            )
+            gcs_urns.add(urn)
+
+        upstreams_list.extend(
+            [
+                UpstreamClass(
+                    dataset=source_dataset_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+                for source_dataset_urn in gcs_urns
+            ]
+        )
+
+        if not upstreams_list:
+            return None
+
+        if self.config.include_column_lineage_with_gcs:
+            assert graph
+            schema_metadata: Optional[SchemaMetadataClass] = graph.get_schema_metadata(
+                dataset_urn
+            )
+            for gcs_dataset_urn in gcs_urns:
+                schema_metadata_for_gcs: Optional[SchemaMetadataClass] = (
+                    graph.get_schema_metadata(gcs_dataset_urn)
+                )
+                if schema_metadata and schema_metadata_for_gcs:
+                    fine_grained_lineage = self.get_fine_grained_lineages_with_gcs(
+                        dataset_urn,
+                        gcs_dataset_urn,
+                        schema_metadata,
+                        schema_metadata_for_gcs,
+                    )
+                    if not fine_grained_lineage:
+                        logger.warning(
+                            f"Failed to retrieve fine-grained lineage for dataset {dataset_urn} and GCS {gcs_dataset_urn}. "
+                            f"Check schema metadata: {schema_metadata} and GCS metadata: {schema_metadata_for_gcs}."
+                        )
+                        continue
+
+                    fine_grained_lineages.extend(fine_grained_lineage)
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=upstreams_list, fineGrainedLineages=fine_grained_lineages or None
+        )
+        return upstream_lineage
+
+    def _get_gcs_path(self, path: str) -> Optional[str]:
+        if self.config.gcs_lineage_config:
+            for path_spec in self.config.gcs_lineage_config.path_specs:
+                if not path_spec.allowed(path):
+                    logger.debug(
+                        f"Skipping gcs path {path} as it does not match any path spec."
+                    )
+                    self.report.num_lineage_dropped_gcs_path += 1
+                    continue
+
+                _, table_path = path_spec.extract_table_name_and_path(path)
+                return table_path
+
+            if (
+                self.config.gcs_lineage_config.ignore_non_path_spec_path
+                and len(self.config.gcs_lineage_config.path_specs) > 0
+            ):
+                self.report.num_lineage_dropped_gcs_path += 1
+                logger.debug(
+                    f"Skipping gcs path {path} as it does not match any path spec."
+                )
+                return None
+
+            if self.config.gcs_lineage_config.strip_urls:
+                if "/" in urlparse(path).path:
+                    return str(path.rsplit("/", 1)[0])
+
+        return path
+
+    def get_fine_grained_lineages_with_gcs(
+        self,
+        dataset_urn: str,
+        gcs_dataset_urn: str,
+        schema_metadata: SchemaMetadata,
+        schema_metadata_for_gcs: SchemaMetadata,
+    ) -> Optional[List[FineGrainedLineageClass]]:
+        def simplify_field_path(field_path):
+            return Dataset._simplify_field_path(field_path)
+
+        if schema_metadata and schema_metadata_for_gcs:
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            for field in schema_metadata.fields:
+                field_path_v1 = simplify_field_path(field.fieldPath)
+                matching_gcs_field = next(
+                    (
+                        f
+                        for f in schema_metadata_for_gcs.fields
+                        if simplify_field_path(f.fieldPath) == field_path_v1
+                    ),
+                    None,
+                )
+                if matching_gcs_field:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                mce_builder.make_schema_field_urn(
+                                    dataset_urn, field_path_v1
+                                )
+                            ],
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                mce_builder.make_schema_field_urn(
+                                    gcs_dataset_urn,
+                                    simplify_field_path(matching_gcs_field.fieldPath),
+                                )
+                            ],
+                        )
+                    )
+            return fine_grained_lineages
+        return None

@@ -3,6 +3,8 @@ plugins {
   id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
   implementation project(':metadata-auth:auth-api')
@@ -33,6 +35,10 @@ dependencies {
   implementation group: 'io.github.deblockt', name: 'json-diff', version: '1.1.0'
 
   annotationProcessor externalDependency.lombok
+
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdk
+  implementation externalDependency.opentelemetrySdkTrace
 
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')

@@ -50,26 +50,25 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
+    SchemaFieldClass as SchemaField,
+    SchemaFieldDataTypeClass as SchemaFieldDataType,
     SchemalessClass,
-    SchemaMetadata,
+    SchemaMetadataClass as SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-)
 from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +144,7 @@ class MongoDBConfig(
 
 @dataclass
 class MongoDBSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -290,8 +289,10 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
         # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
         self.mongo_client = MongoClient(
-            self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options
-        )  # type: ignore
+            self.config.connect_uri,
+            datetime_conversion="DATETIME_AUTO",
+            **options,  # type: ignore
+        )
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -410,6 +411,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
 
                 dataset_properties = DatasetPropertiesClass(
+                    name=collection_name,
                     tags=[],
                     customProperties={},
                 )
@@ -471,9 +473,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties[
-                "schema.totalFields"
-            ] = f"{collection_schema_size}"
+            dataset_properties.customProperties["schema.totalFields"] = (
+                f"{collection_schema_size}"
+            )
 
         logger.debug(f"Size of collection fields = {len(collection_fields)}")
         # append each schema field (sort so output is consistent)

@@ -13,6 +13,15 @@ module.exports = {
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        httpEquiv: 'Content-Security-Policy',
+        content: "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*"
+      }
+    },
+  ],
   scripts: [
     {
       src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
@@ -65,6 +74,20 @@ module.exports = {
     //     isCloseable: false,
     //   },
     // }),
+    announcementBar: {
+          id: "announcement-3",
+          content:
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0 launching at our 5th birthday party!</p><a href="https://lu.ma/0j5jcocn" target="_blank" class="button">Register<span> →</span></a></div>',
+          backgroundColor: "#111",
+          textColor: "#ffffff",
+          isCloseable: false,
+        },
+    colorMode: {
+      // Only support light mode.
+      defaultMode: 'light',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
+    },
     navbar: {
       title: null,
       logo: {
@@ -74,21 +97,34 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
-          activeBasePath: "docs",
-          label: "Docs",
+          type: "dropdown",
+          label: "Solutions",
           position: "right",
+          items: [
+            {
+              to: "/solutions/discovery",
+              label: "Discovery",
+            },
+            {
+              to: "/solutions/observability",
+              label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
+            },
+          ]
         },
         {
           to: "/cloud",
           activeBasePath: "cloud",
-          html: "Cloud",
+          label: "Cloud",
           position: "right",
         },
         {
-          to: "/learn",
-          activeBasePath: "learn",
-          label: "Learn",
+          to: "docs/",
+          activeBasePath: "docs",
+          label: "Docs",
           position: "right",
         },
         {
@@ -96,6 +132,34 @@ module.exports = {
           activeBasePath: "integrations",
           label: "Integrations",
           position: "right",
+        },
+        {
+          type: "dropdown",
+          activeBasePath: "learn",
+          label: "Learn",
+          position: "right",
+          items: [
+            {
+              to: "https://www.acryldata.io/webinars/weekly-live-demo",
+              label: "Weekly Demo",
+            },
+            {
+              to: "/learn",
+              label: "Use Cases",
+            },
+            {
+              to: "/adoption-stories",
+              label: "Adoption Stories",
+            },
+            {
+              href: "https://blog.datahubproject.io/",
+              label: "Blog",
+            },
+            {
+              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "YouTube",
+            },
+          ],
         },
         {
           type: "dropdown",
@@ -125,87 +189,29 @@ module.exports = {
           ],
         },
         {
-          type: "dropdown",
-          label: "Resources",
+          href: "/slack",
+          html: `
+            <style>
+              .slack-logo:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <img class='slack-logo' src='https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
+          `,
           position: "right",
-          items: [
-            {
-              href: "https://demo.datahubproject.io/",
-              label: "Demo",
-            },
-            {
-              href: "https://blog.datahubproject.io/",
-              label: "Blog",
-            },
-            {
-              href: "https://feature-requests.datahubproject.io/roadmap",
-              label: "Roadmap",
-            },
-            {
-              href: "https://github.com/datahub-project/datahub",
-              label: "GitHub",
-            },
-            {
-              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-              label: "YouTube",
-            },
-            {
-              href: "/adoption-stories",
-              label: "Adoption Stories",
-            },
-            {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
-              label: "DataHub Basics",
-            },
-          ],
         },
         {
-          type: "docsVersionDropdown",
-          position: "left",
-          dropdownActiveClassDisabled: true,
-            dropdownItemsAfter: [
-                {
-                type: 'html',
-                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
-                },
-                {
-                type: 'html',
-                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
-                },
-                {
-                value: `
-                   <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-                type: "html",
-                },
-                {
-                value: `
-                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-                type: "html",
-                },
-                {
-                value: `
-                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-                type: "html",
-                },
-                {
-                value: `
-                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-                type: "html",
-                },
-            ],
-        },
+          href: "/cloud",
+          html: `
+            <style>
+              .cloud-cta:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
+          `,
+          position: "right",
+        }
       ],
     },
     footer: {
@@ -245,7 +251,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              to: "docs/#adoption",
+              href: "/adoption-stories",
             },
           ],
         },
@@ -329,6 +335,8 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
+            require.resolve("./src/components/SecondNavbar/styles.module.scss"),
+            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {

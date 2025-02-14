@@ -6,18 +6,21 @@ import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.SystemGraphRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -27,9 +30,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import javax.annotation.Nonnull;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -53,21 +58,31 @@ public class SystemUpdateConfig {
   public SystemUpdate systemUpdate(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
       final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep) {
-    return new SystemUpdate(blockingSystemUpgrades, nonBlockingSystemUpgrades, dataHubStartupStep);
+      final DataHubStartupStep dataHubStartupStep,
+      @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking,
+      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
+    return new SystemUpdate(
+        blockingSystemUpgrades,
+        nonBlockingSystemUpgrades,
+        dataHubStartupStep,
+        bootstrapMCPBlocking,
+        bootstrapMCPNonBlocking);
   }
 
   @Bean(name = "systemUpdateBlocking")
   public SystemUpdateBlocking systemUpdateBlocking(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep) {
-    return new SystemUpdateBlocking(blockingSystemUpgrades, List.of(), dataHubStartupStep);
+      final DataHubStartupStep dataHubStartupStep,
+      @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking) {
+    return new SystemUpdateBlocking(
+        blockingSystemUpgrades, dataHubStartupStep, bootstrapMCPBlocking);
   }
 
   @Bean(name = "systemUpdateNonBlocking")
   public SystemUpdateNonBlocking systemUpdateNonBlocking(
-      final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades) {
-    return new SystemUpdateNonBlocking(List.of(), nonBlockingSystemUpgrades, null);
+      final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
+      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
+    return new SystemUpdateNonBlocking(nonBlockingSystemUpgrades, bootstrapMCPNonBlocking);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
@@ -145,10 +160,11 @@ public class SystemUpdateConfig {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -159,6 +175,9 @@ public class SystemUpdateConfig {
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
 
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
+
     OperationContext systemOperationContext =
         OperationContext.asSystem(
             operationContextConfig,
@@ -168,11 +187,19 @@ public class SystemUpdateConfig {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
-                .build());
+                .build(),
+            ValidationContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                .build(),
+            null,
+            true);
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;

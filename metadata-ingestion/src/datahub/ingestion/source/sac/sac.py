@@ -13,12 +13,9 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DEFAULT_ENV,
-    DatasetSourceConfigMixin,
-    EnvConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
     dataset_urn_to_key,
     make_dashboard_urn,
     make_data_platform_urn,
@@ -329,7 +326,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn,
             aspect=DashboardInfoClass(
                 title=resource.name,
-                description=resource.description,
+                description=resource.description
+                if resource.description is not None
+                else "",
                 lastModified=ChangeAuditStampsClass(
                     created=AuditStampClass(
                         time=round(resource.created_time.timestamp() * 1000),
@@ -402,7 +401,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             columns = self.get_import_data_model_columns(model_id=model.model_id)
             for column in columns:
-
                 schema_field = SchemaFieldClass(
                     fieldPath=column.name,
                     type=self.get_schema_field_data_type(column),
@@ -559,7 +557,14 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         retries = 3
         backoff_factor = 10
-        status_forcelist = (500,)
+
+        # The Resources and Data Import Service APIs of SAP Analytics Cloud can be somewhat unstable, occasionally
+        # returning HTTP errors for some requests, even though the APIs are generally operational. Therefore, we must
+        # retry these requests to increase the likelihood that the ingestion is successful. For the same reason we
+        # should also retry requests that receive a 401 HTTP status; however, this status also legitimately indicates
+        # that the provided OAuth credentials are invalid or that the OAuth client does not have the correct
+        # permissions assigned, therefore requests that receive a 401 HTTP status must not be retried.
+        status_forcelist = (400, 500, 503)
 
         retry = Retry(
             total=retries,
@@ -611,7 +616,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         entity: pyodata.v2.service.EntityProxy
         for entity in entities:
             resource_id: str = entity.resourceId
-            name: str = entity.name.strip()
+            name: str = (
+                entity.name.strip() if entity.name is not None else entity.resourceId
+            )
 
             if not self.config.resource_id_pattern.allowed(
                 resource_id
@@ -655,8 +662,12 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     ResourceModel(
                         namespace=namespace,
                         model_id=model_id,
-                        name=nav_entity.name.strip(),
-                        description=nav_entity.description.strip(),
+                        name=nav_entity.name.strip()
+                        if nav_entity.name is not None
+                        else f"{namespace}:{model_id}",
+                        description=nav_entity.description.strip()
+                        if nav_entity.description is not None
+                        else None,
                         system_type=nav_entity.systemType,  # BW or HANA
                         connection_id=nav_entity.connectionId,
                         external_id=nav_entity.externalId,  # query:[][][query] or view:[schema][schema.namespace][view]
@@ -678,7 +689,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 resource_subtype=entity.resourceSubtype,
                 story_id=entity.storyId,
                 name=name,
-                description=entity.description.strip(),
+                description=entity.description.strip()
+                if entity.description is not None
+                else None,
                 created_time=entity.createdTime,
                 created_by=created_by,
                 modified_time=entity.modifiedTime,
@@ -715,7 +728,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             columns.append(
                 ImportDataModelColumn(
                     name=column["columnName"].strip(),
-                    description=column["descriptionName"].strip(),
+                    description=(
+                        column["descriptionName"].strip()
+                        if column.get("descriptionName") is not None
+                        else None
+                    ),
                     property_type=column["propertyType"],
                     data_type=column["columnDataType"],
                     max_length=column.get("maxLength"),

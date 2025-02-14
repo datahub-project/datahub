@@ -14,13 +14,21 @@
     {
       "name": "Visa",
       "slug": "visa",
-      "imageUrl": "/img/logos/companies/visa.png",
-      "imageSize": "large",
       "link": "https://blog.datahubproject.io/how-visa-uses-datahub-to-scale-data-governance-cace052d61c5",
       "linkType": "blog",
       "tagline": "How Visa uses DataHub to scale data governance",
       "category": "Financial & Fintech",
       "description": "<i>\"We found DataHub to provide excellent coverage for our needs. What we appreciate most about DataHub is <b>its powerful API platform.</b>\"<br /><br /><div style='color: gray;'>— Jean-Pierre Dijcks, Sr. Dir. Product Management at VISA</div></i><br />"
+    },
+    {
+      "name": "Apple",
+      "slug": "apple",
+      "link": "https://youtu.be/5eFZuzG4c-s?feature=shared",
+      "linkType": "video",
+      "tagline": "How Apple built a solid foundation for observability, governance, and data sharing with DataHub",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "Discover how DataHub provides a solid foundation for observability, governance, and data sharing, while we explore its role in managing AI and data metadata."
     },
     {
       "name": "Notion",
@@ -57,6 +65,12 @@
       "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
     },
     {
+      "name": "Snap, Inc.",
+      "slug": "snap",
+      "imageUrl": "/img/logos/companies/snap.png",
+      "imageSize": "small"
+    },
+    {
       "name": "Airtel",
       "slug": "airtel",
       "imageUrl": "/img/logos/companies/airtel.png",
@@ -88,6 +102,42 @@
       "tagline": "Zynga's DataHub Implementation",
       "category": "B2B & B2C",
       "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
+    },
+    {
+      "name": "Miro",
+      "slug": "miro",
+      "imageUrl": "/img/logos/companies/miro.png",
+      "imageSize": "medium",
+      "link": "https://miro.com/careers/life-at-miro/tech/data-products-reliability-the-power-of-metadata/",
+      "linkType": "blog",
+      "tagline": "Data Products Reliability: The Power of Metadata",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"Leveraging our Datahub catalog, we have centralized metadata access for all data products. This integration eliminates the dependency on Airflow metadata alone for defining contracts, enabling flexible definitions for both building blocks and business metrics.\"</i>"
+    },
+    {
+      "name": "Foursquare",
+      "slug": "foursquare",
+      "imageUrl": "/img/logos/companies/foursquare.png",
+      "imageSize": "medium",
+      "link": "https://location.foursquare.com/resources/blog/leadership/foursquare-data-platform-from-fragmentation-to-control-plane/",
+      "linkType": "blog",
+      "tagline": "Foursquare Data Platform: From Fragmentation to Control (Plane)",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"After evaluating several options (...) we chose DataHub as the control plane for our data platform and partnered with Acryl Data, which offers DataHub Cloud, a premium hosted version of DataHub. (...) Another important thing that worked in DataHub’s favor is the rich and flexible taxonomy it offered for modeling the various aspects of a data platform.\"</i>"
+    },
+    {
+      "name": "Deutsche Telekom",
+      "slug": "deutsche-telekom",
+      "imageUrl": "/img/logos/companies/deutsche-telekom.png",
+      "imageSize": "medium",
+      "link": "https://karanjindal95.medium.com/from-chaos-to-clarity-how-datahub-transformed-our-data-utilization-5b5151efd34a",
+      "linkType": "blog",
+      "tagline": "From Chaos to Clarity: How DataHub Transformed our Data Utilization",
+      "category": "B2B & B2C",
+      "platform": "cloud",
+      "description": "<i>\"The DataHub data catalog significantly supported our AI/ML team’s efforts by offering seamless access to detailed column descriptions and table schemas through its APIs. This comprehensive data accessibility enabled the team to efficiently develop a text-to-SQL tool, which translates natural language queries into SQL commands.\"</i>"
     },
     {
       "name": "Chime",

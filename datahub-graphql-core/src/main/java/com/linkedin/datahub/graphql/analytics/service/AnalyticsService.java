@@ -78,7 +78,8 @@ public class AnalyticsService {
       Optional<String> dimension, // Length 1 for now
       Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters,
-      Optional<String> uniqueOn) {
+      Optional<String> uniqueOn,
+      String dateRangeField) {
 
     log.debug(
         String.format(
@@ -87,11 +88,11 @@ public class AnalyticsService {
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     AggregationBuilder filteredAgg =
-        getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));
+        getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange), dateRangeField);
 
     AggregationBuilder dateHistogram =
         AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
-            .field("timestamp")
+            .field(dateRangeField)
             .calendarInterval(new DateHistogramInterval(granularity.name().toLowerCase()));
     uniqueOn.ifPresent(s -> dateHistogram.subAggregation(getUniqueQuery(s)));
 
@@ -126,6 +127,25 @@ public class AnalyticsService {
           String.format("Caught exception while getting time series chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
+  }
+
+  public List<NamedLine> getTimeseriesChart(
+      String indexName,
+      DateRange dateRange,
+      DateInterval granularity,
+      Optional<String> dimension, // Length 1 for now
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn) {
+    return getTimeseriesChart(
+        indexName,
+        dateRange,
+        granularity,
+        dimension,
+        filters,
+        mustNotFilters,
+        uniqueOn,
+        "timestamp");
   }
 
   private int extractCount(MultiBucketsAggregation.Bucket bucket, boolean didUnique) {
@@ -323,20 +343,38 @@ public class AnalyticsService {
     }
   }
 
+  // Make dateRangeField as customizable
   private AggregationBuilder getFilteredAggregation(
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
-      Optional<DateRange> dateRange) {
+      Optional<DateRange> dateRange,
+      String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
     mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
     mustNotFilters.forEach(
         (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
-    dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range)));
+    dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range, dateRangeField)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }
 
+  private AggregationBuilder getFilteredAggregation(
+      Map<String, List<String>> mustFilters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<DateRange> dateRange) {
+    // Use timestamp as dateRangeField
+    return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
+  }
+
   private QueryBuilder dateRangeQuery(DateRange dateRange) {
-    return QueryBuilders.rangeQuery("timestamp").gte(dateRange.getStart()).lt(dateRange.getEnd());
+    // Use timestamp as dateRangeField
+    return dateRangeQuery(dateRange, "timestamp");
+  }
+
+  // Make dateRangeField as customizable
+  private QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
+    return QueryBuilders.rangeQuery(dateRangeField)
+        .gte(dateRange.getStart())
+        .lt(dateRange.getEnd());
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {

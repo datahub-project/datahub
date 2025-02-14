@@ -1,10 +1,11 @@
 import datetime
 import os
 import subprocess
-from typing import List, Set
+from typing import List
 
 import pytest
 
+from conftest import get_batch_start_end
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
@@ -20,6 +21,7 @@ from tests.utils import (
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"
+INCIDENT_DATA_FILENAME = "incidents_test.json"
 TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
 TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
@@ -117,7 +119,7 @@ def print_now():
     print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
 
-def ingest_data():
+def ingest_data(auth_session, graph_client):
     print_now()
     print("creating onboarding data file")
     create_datahub_step_state_aspects(
@@ -128,26 +130,44 @@ def ingest_data():
 
     print_now()
     print("ingesting test data")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    ingest_time_lineage()
+    ingest_file_via_rest(auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
+    )
+    ingest_time_lineage(graph_client)
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
     print_now()
     print("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data():
-    ingest_data()
+def ingest_cleanup_data(auth_session, graph_client):
+    ingest_data(auth_session, graph_client)
     yield
     print_now()
     print("removing test data")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    delete_urns(get_time_lineage_urns())
+    delete_urns_from_file(graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
+    )
+    delete_urns(graph_client, get_time_lineage_urns())
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{INCIDENT_DATA_FILENAME}"
+    )
 
     print_now()
     print("deleting onboarding data file")
@@ -157,37 +177,52 @@ def ingest_cleanup_data():
     print("deleted onboarding data")
 
 
-def _get_spec_map(items: Set[str]) -> str:
-    if len(items) == 0:
-        return ""
-    return ",".join([f"**/{item}/*.js" for item in items])
+def _get_js_files(base_path: str):
+    file_paths = []
+    for root, _, files in os.walk(base_path):
+        for file in files:
+            if file.endswith(".js"):
+                file_paths.append(os.path.relpath(os.path.join(root, file), base_path))
+    return sorted(file_paths)  # sort to make the order stable across batch runs
 
 
-def test_run_cypress(frontend_session, wait_for_healthchecks):
+def _get_cypress_tests_batch():
+    """
+    Batching is configured via env vars BATCH_COUNT and BATCH_NUMBER.  All cypress tests are split into exactly
+    BATCH_COUNT batches. When BATCH_NUMBER env var is set (zero based index), that batch alone is run.
+    Github workflow via test_matrix, runs all batches in parallel to speed up the test elapsed time.
+    If either of these vars are not set, all tests are run sequentially.
+    :return:
+    """
+    all_tests = _get_js_files("tests/cypress/cypress/e2e")
+
+    batch_start, batch_end = get_batch_start_end(num_tests=len(all_tests))
+
+    return all_tests[batch_start:batch_end]
+    # return test_batches[int(batch_number)]  #if BATCH_NUMBER was set, we this test just runs that one batch.
+
+
+def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
     if record_key:
         record_arg = " --record "
-        tag_arg = f" --tag {test_strategy} "
+        batch_number = os.getenv("BATCH_NUMBER")
+        batch_count = os.getenv("BATCH_COUNT")
+        if batch_number and batch_count:
+            batch_suffix = f"-{batch_number}{batch_count}"
+        else:
+            batch_suffix = ""
+        tag_arg = f" --tag {test_strategy}{batch_suffix}"
     else:
         record_arg = " "
 
-    rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
-    cypress_suite1_specs = {"mutations", "search", "views"}
-    rest_specs.difference_update(set(cypress_suite1_specs))
-    strategy_spec_map = {
-        "cypress_suite1": cypress_suite1_specs,
-        "cypress_rest": rest_specs,
-    }
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    if test_strategy is not None:
-        specs = strategy_spec_map.get(test_strategy)
-        assert specs is not None
-        specs_str = _get_spec_map(specs)
-        test_spec_arg = f" --spec '{specs_str}' "
+    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"

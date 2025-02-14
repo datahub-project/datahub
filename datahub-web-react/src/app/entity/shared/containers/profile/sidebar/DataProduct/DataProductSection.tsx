@@ -27,7 +27,8 @@ export default function DataProductSection({ readOnly }: Props) {
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
     const dataProductRelationships = entityData?.dataProduct?.relationships;
-    const siblingUrns: string[] = entityData?.siblings?.siblings?.map((sibling) => sibling?.urn || '') || [];
+    const siblingUrns: string[] =
+        entityData?.siblingsSearch?.searchResults?.map((sibling) => sibling.entity.urn || '') || [];
 
     useEffect(() => {
         if (dataProductRelationships && dataProductRelationships.length > 0) {
@@ -67,7 +68,7 @@ export default function DataProductSection({ readOnly }: Props) {
     };
 
     return (
-        <>
+        <div>
             <SidebarHeader title="Data Product" />
             {dataProduct && (
                 <DataProductLink
@@ -101,6 +102,6 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProduct={setDataProduct}
                 />
             )}
-        </>
+        </div>
     );
 }

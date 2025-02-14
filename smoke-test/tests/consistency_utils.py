@@ -3,10 +3,9 @@ import os
 import subprocess
 import time
 
-_ELASTIC_BUFFER_WRITES_TIME_IN_SEC: int = 1
 USE_STATIC_SLEEP: bool = bool(os.getenv("USE_STATIC_SLEEP", False))
 ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(
-    os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 5)
+    os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 1)
 )
 KAFKA_BOOTSTRAP_SERVER: str = str(os.getenv("KAFKA_BOOTSTRAP_SERVER", "broker:29092"))
 
@@ -28,15 +27,13 @@ def infer_kafka_broker_container() -> str:
     return lines[0]
 
 
-KAFKA_BROKER_CONTAINER: str = str(
-    os.getenv("KAFKA_BROKER_CONTAINER", infer_kafka_broker_container())
-)
-
-
 def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     if USE_STATIC_SLEEP:
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
+    KAFKA_BROKER_CONTAINER: str = str(
+        os.getenv("KAFKA_BROKER_CONTAINER", infer_kafka_broker_container())
+    )
     start_time = time.time()
     # get offsets
     lag_zero = False
@@ -71,4 +68,4 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
         )
     else:
         # we want to sleep for an additional period of time for Elastic writes buffer to clear
-        time.sleep(_ELASTIC_BUFFER_WRITES_TIME_IN_SEC)
+        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)

@@ -1,0 +1,53 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-gc
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-gc'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-gc{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
+    config:
+      version: '{{&ingestion.version}}{{^ingestion.version}}0.14.1.7rc2{{/ingestion.version}}'
+      recipe:
+        source:
+          type: 'datahub-gc'
+          config:
+            cleanup_expired_tokens: {{cleanup_expired_tokens}}{{^cleanup_expired_tokens}}false{{/cleanup_expired_tokens}}
+            truncate_indices: {{truncate_indices}}{{^truncate_indices}}true{{/truncate_indices}}
+            truncate_index_older_than_days: {{truncate_indices_retention_days}}{{^truncate_indices_retention_days}}30{{/truncate_indices_retention_days}}
+            dataprocess_cleanup:
+              enabled: {{dataprocess_cleanup.enabled}}{{^dataprocess_cleanup.enabled}}false{{/dataprocess_cleanup.enabled}}
+              retention_days: {{dataprocess_cleanup.retention_days}}{{^dataprocess_cleanup.retention_days}}10{{/dataprocess_cleanup.retention_days}}
+              delete_empty_data_jobs: {{dataprocess_cleanup.delete_empty_data_jobs}}{{^dataprocess_cleanup.delete_empty_data_jobs}}false{{/dataprocess_cleanup.delete_empty_data_jobs}}
+              delete_empty_data_flows: {{dataprocess_cleanup.delete_empty_data_flows}}{{^dataprocess_cleanup.delete_empty_data_flows}}false{{/dataprocess_cleanup.delete_empty_data_flows}}
+              hard_delete_entities: {{dataprocess_cleanup.hard_delete_entities}}{{^dataprocess_cleanup.hard_delete_entities}}false{{/dataprocess_cleanup.hard_delete_entities}}
+              keep_last_n: {{dataprocess_cleanup.keep_last_n}}{{^dataprocess_cleanup.keep_last_n}}5{{/dataprocess_cleanup.keep_last_n}}
+              batch_size: {{dataprocess_cleanup.batch_size}}{{^dataprocess_cleanup.batch_size}}500{{/dataprocess_cleanup.batch_size}}
+              max_workers: {{dataprocess_cleanup.max_workers}}{{^dataprocess_cleanup.max_workers}}10{{/dataprocess_cleanup.max_workers}}
+            soft_deleted_entities_cleanup:
+              retention_days: {{soft_deleted_entities_cleanup.retention_days}}{{^soft_deleted_entities_cleanup.retention_days}}10{{/soft_deleted_entities_cleanup.retention_days}}
+              enabled: {{soft_deleted_entities_cleanup.enabled}}{{^soft_deleted_entities_cleanup.enabled}}true{{/soft_deleted_entities_cleanup.enabled}}
+              batch_size: {{soft_deleted_entities_cleanup.batch_size}}{{^soft_deleted_entities_cleanup.batch_size}}500{{/soft_deleted_entities_cleanup.batch_size}}
+              max_workers: {{soft_deleted_entities_cleanup.max_workers}}{{^soft_deleted_entities_cleanup.max_workers}}10{{/soft_deleted_entities_cleanup.max_workers}}
+              limit_entities_delete: {{soft_deleted_entities_cleanup.limit_entities_delete}}{{^soft_deleted_entities_cleanup.limit_entities_delete}}25000{{/soft_deleted_entities_cleanup.limit_entities_delete}}
+              runtime_limit_seconds: {{soft_deleted_entities_cleanup.runtime_limit_seconds}}{{^soft_deleted_entities_cleanup.runtime_limit_seconds}}7200{{/soft_deleted_entities_cleanup.runtime_limit_seconds}}
+            execution_request_cleanup:
+              keep_history_min_count: {{execution_request_cleanup.keep_history_min_count}}{{^execution_request_cleanup.keep_history_min_count}}10{{/execution_request_cleanup.keep_history_min_count}}
+              keep_history_max_count: {{execution_request_cleanup.keep_history_max_count}}{{^execution_request_cleanup.keep_history_max_count}}1000{{/execution_request_cleanup.keep_history_max_count}}
+              keep_history_max_days: {{execution_request_cleanup.keep_history_max_days}}{{^execution_request_cleanup.keep_history_max_days}}90{{/execution_request_cleanup.keep_history_max_days}}
+              batch_read_size: {{execution_request_cleanup.batch_read_size}}{{^execution_request_cleanup.batch_read_size}}100{{/execution_request_cleanup.batch_read_size}}
+              enabled: {{execution_request_cleanup.enabled}}{{^execution_request_cleanup.enabled}}true{{/execution_request_cleanup.enabled}}
+              runtime_limit_seconds: {{execution_request_cleanup.runtime_limit_seconds}}{{^execution_request_cleanup.runtime_limit_seconds}}3600{{/execution_request_cleanup.runtime_limit_seconds}}
+              limit_entities_delete: {{execution_request_cleanup.limit_entities_delete}}{{^execution_request_cleanup.limit_entities_delete}}10000{{/execution_request_cleanup.limit_entities_delete}}
+              max_read_errors: {{execution_request_cleanup.max_read_errors}}{{^execution_request_cleanup.max_read_errors}}10{{/execution_request_cleanup.max_read_errors}}
+      extraArgs: {}
+      debugMode: false
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}

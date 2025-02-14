@@ -3,7 +3,6 @@ package com.linkedin.metadata.graph.elastic;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -14,6 +13,7 @@ import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
+import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -34,14 +34,17 @@ import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,8 +108,7 @@ public class ESGraphQueryDAO {
   static final String GROUP_BY_DESTINATION_AGG = "group_by_destination";
   static final String TOP_DOCUMENTS_AGG = "top_documents";
 
-  @Nonnull
-  public static void addFilterToQueryBuilder(
+  private static void addFilterToQueryBuilder(
       @Nonnull Filter filter, @Nullable String node, BoolQueryBuilder rootQuery) {
     BoolQueryBuilder orQuery = new BoolQueryBuilder();
     for (ConjunctiveCriterion conjunction : filter.getOr()) {
@@ -120,16 +122,22 @@ public class ESGraphQueryDAO {
       criterionArray.forEach(
           criterion ->
               andQuery.filter(
-                  QueryBuilders.termQuery(
+                  QueryBuilders.termsQuery(
                       (node == null ? "" : node + ".") + criterion.getField(),
-                      criterion.getValue())));
+                      criterion.getValues())));
       orQuery.should(andQuery);
+    }
+    if (!orQuery.should().isEmpty()) {
+      orQuery.minimumShouldMatch(1);
     }
     rootQuery.filter(orQuery);
   }
 
   private SearchResponse executeLineageSearchQuery(
-      @Nonnull final QueryBuilder query, final int offset, final int count) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final QueryBuilder query,
+      final int offset,
+      final int count) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, count);
@@ -138,13 +146,19 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "esQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esQuery"));
   }
 
   private SearchSourceBuilder sharedSourceBuilder(
@@ -162,6 +176,7 @@ public class ESGraphQueryDAO {
   }
 
   private SearchResponse executeGroupByLineageSearchQuery(
+      @Nonnull final OperationContext opContext,
       @Nonnull final QueryBuilder query,
       final int offset,
       final int count,
@@ -174,21 +189,26 @@ public class ESGraphQueryDAO {
     // directions for lineage
     // set up filters for each relationship type in the correct direction to limit buckets
     BoolQueryBuilder sourceFilterQuery = QueryBuilders.boolQuery();
-    sourceFilterQuery.minimumShouldMatch(1);
+
     validEdges.stream()
         .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
                 sourceFilterQuery.should(
                     getAggregationFilter(pair, RelationshipDirection.OUTGOING)));
+    if (!sourceFilterQuery.should().isEmpty()) {
+      sourceFilterQuery.minimumShouldMatch(1);
+    }
 
     BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
-    destFilterQuery.minimumShouldMatch(1);
     validEdges.stream()
         .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
                 destFilterQuery.should(getAggregationFilter(pair, RelationshipDirection.INCOMING)));
+    if (!destFilterQuery.should().isEmpty()) {
+      destFilterQuery.minimumShouldMatch(1);
+    }
 
     FilterAggregationBuilder sourceRelationshipTypeFilters =
         AggregationBuilders.filter(FILTER_BY_SOURCE_RELATIONSHIP, sourceFilterQuery);
@@ -221,17 +241,22 @@ public class ESGraphQueryDAO {
     searchRequest.source(searchSourceBuilder);
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "esLineageGroupByQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "esLineageGroupByQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esLineageGroupByQuery"));
   }
 
-  private BoolQueryBuilder getAggregationFilter(
+  private static BoolQueryBuilder getAggregationFilter(
       Pair<String, EdgeInfo> pair, RelationshipDirection direction) {
     BoolQueryBuilder subFilter = QueryBuilders.boolQuery();
     TermQueryBuilder relationshipTypeTerm =
@@ -258,6 +283,7 @@ public class ESGraphQueryDAO {
   }
 
   public SearchResponse getSearchResponse(
+      @Nonnull final OperationContext opContext,
       @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -268,6 +294,8 @@ public class ESGraphQueryDAO {
       final int count) {
     BoolQueryBuilder finalQuery =
         buildQuery(
+            opContext,
+            graphQueryConfiguration,
             sourceTypes,
             sourceEntityFilter,
             destinationTypes,
@@ -275,10 +303,12 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeLineageSearchQuery(finalQuery, offset, count);
+    return executeLineageSearchQuery(opContext, finalQuery, offset, count);
   }
 
   public static BoolQueryBuilder buildQuery(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final GraphQueryConfiguration graphQueryConfiguration,
       @Nullable final List<String> sourceTypes,
       @Nullable final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -286,6 +316,8 @@ public class ESGraphQueryDAO {
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
     return buildQuery(
+        opContext,
+        graphQueryConfiguration,
         sourceTypes,
         sourceEntityFilter,
         destinationTypes,
@@ -296,6 +328,8 @@ public class ESGraphQueryDAO {
   }
 
   public static BoolQueryBuilder buildQuery(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final GraphQueryConfiguration graphQueryConfiguration,
       @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -335,6 +369,9 @@ public class ESGraphQueryDAO {
           relationshipType ->
               relationshipQuery.should(
                   QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
+      if (!relationshipQuery.should().isEmpty()) {
+        relationshipQuery.minimumShouldMatch(1);
+      }
       finalQuery.filter(relationshipQuery);
     }
 
@@ -345,19 +382,23 @@ public class ESGraphQueryDAO {
     if (lifecycleOwner != null) {
       finalQuery.filter(QueryBuilders.termQuery(EDGE_FIELD_LIFECYCLE_OWNER, lifecycleOwner));
     }
+    if (!Optional.ofNullable(opContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted())
+        .orElse(false)) {
+      applyExcludeSoftDelete(graphQueryConfiguration, finalQuery);
+    }
 
     return finalQuery;
   }
 
   @WithSpan
   public LineageResponse getLineage(
+      @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
       int offset,
       int count,
-      int maxHops,
-      @Nullable LineageFlags lineageFlags) {
+      int maxHops) {
     Map<Urn, LineageRelationship> result = new HashMap<>();
     long currentTime = System.currentTimeMillis();
     long remainingTime = graphQueryConfiguration.getTimeoutSeconds() * 1000;
@@ -388,6 +429,7 @@ public class ESGraphQueryDAO {
       // Do one hop on the lineage graph
       Stream<Urn> intermediateStream =
           processOneHopLineage(
+              opContext,
               currentLevel,
               remainingTime,
               direction,
@@ -398,7 +440,6 @@ public class ESGraphQueryDAO {
               existingPaths,
               exploreMultiplePaths,
               result,
-              lineageFlags,
               i);
       currentLevel = intermediateStream.collect(Collectors.toList());
       currentTime = System.currentTimeMillis();
@@ -421,6 +462,7 @@ public class ESGraphQueryDAO {
   }
 
   private Stream<Urn> processOneHopLineage(
+      @Nonnull OperationContext opContext,
       List<Urn> currentLevel,
       Long remainingTime,
       LineageDirection direction,
@@ -431,7 +473,6 @@ public class ESGraphQueryDAO {
       Map<Urn, UrnArrayArray> existingPaths,
       boolean exploreMultiplePaths,
       Map<Urn, LineageRelationship> result,
-      LineageFlags lineageFlags,
       int i) {
 
     // Do one hop on the lineage graph
@@ -439,6 +480,7 @@ public class ESGraphQueryDAO {
     int remainingHops = maxHops - numHops;
     List<LineageRelationship> oneHopRelationships =
         getLineageRelationshipsInBatches(
+            opContext,
             currentLevel,
             direction,
             graphFilters,
@@ -448,8 +490,10 @@ public class ESGraphQueryDAO {
             remainingHops,
             remainingTime,
             existingPaths,
-            exploreMultiplePaths,
-            lineageFlags);
+            exploreMultiplePaths);
+
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+
     for (LineageRelationship oneHopRelnship : oneHopRelationships) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
         log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
@@ -487,6 +531,7 @@ public class ESGraphQueryDAO {
         if (!additionalCurrentLevel.isEmpty()) {
           Stream<Urn> ignoreAsHopUrns =
               processOneHopLineage(
+                  opContext,
                   additionalCurrentLevel,
                   remainingTime,
                   direction,
@@ -497,7 +542,6 @@ public class ESGraphQueryDAO {
                   existingPaths,
                   exploreMultiplePaths,
                   result,
-                  lineageFlags,
                   i);
           intermediateStream = Stream.concat(intermediateStream, ignoreAsHopUrns);
         }
@@ -560,6 +604,7 @@ public class ESGraphQueryDAO {
   // Get 1-hop lineage relationships asynchronously in batches with timeout
   @WithSpan
   public List<LineageRelationship> getLineageRelationshipsInBatches(
+      @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
@@ -569,8 +614,7 @@ public class ESGraphQueryDAO {
       int remainingHops,
       long remainingTime,
       Map<Urn, UrnArrayArray> existingPaths,
-      boolean exploreMultiplePaths,
-      @Nullable LineageFlags lineageFlags) {
+      boolean exploreMultiplePaths) {
     List<List<Urn>> batches = Lists.partition(entityUrns, graphQueryConfiguration.getBatchSize());
     return ConcurrencyUtils.getAllCompleted(
             batches.stream()
@@ -579,6 +623,7 @@ public class ESGraphQueryDAO {
                         CompletableFuture.supplyAsync(
                             () ->
                                 getLineageRelationships(
+                                    opContext,
                                     batchUrns,
                                     direction,
                                     graphFilters,
@@ -587,8 +632,7 @@ public class ESGraphQueryDAO {
                                     numHops,
                                     remainingHops,
                                     existingPaths,
-                                    exploreMultiplePaths,
-                                    lineageFlags)))
+                                    exploreMultiplePaths)))
                 .collect(Collectors.toList()),
             remainingTime,
             TimeUnit.MILLISECONDS)
@@ -600,6 +644,7 @@ public class ESGraphQueryDAO {
   // Get 1-hop lineage relationships
   @WithSpan
   private List<LineageRelationship> getLineageRelationships(
+      @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
@@ -608,8 +653,8 @@ public class ESGraphQueryDAO {
       int numHops,
       int remainingHops,
       Map<Urn, UrnArrayArray> existingPaths,
-      boolean exploreMultiplePaths,
-      @Nullable LineageFlags lineageFlags) {
+      boolean exploreMultiplePaths) {
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
     Map<String, List<Urn>> urnsPerEntityType =
         entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<String, List<EdgeInfo>> edgesPerEntityType =
@@ -628,12 +673,12 @@ public class ESGraphQueryDAO {
             .collect(Collectors.toSet());
 
     QueryBuilder finalQuery =
-        getLineageQuery(urnsPerEntityType, edgesPerEntityType, graphFilters, lineageFlags);
+        getLineageQuery(opContext, urnsPerEntityType, edgesPerEntityType, graphFilters);
     SearchResponse response;
     if (lineageFlags != null && lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       response =
           executeGroupByLineageSearchQuery(
-              finalQuery, 0, lineageFlags.getEntitiesExploredPerHopLimit(), validEdges);
+              opContext, finalQuery, 0, lineageFlags.getEntitiesExploredPerHopLimit(), validEdges);
       return extractRelationshipsGroupByQuery(
           entityUrnSet,
           response,
@@ -645,7 +690,9 @@ public class ESGraphQueryDAO {
           existingPaths,
           exploreMultiplePaths);
     } else {
-      response = executeLineageSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
+      response =
+          executeLineageSearchQuery(
+              opContext, finalQuery, 0, graphQueryConfiguration.getMaxResult());
       return extractRelationships(
           entityUrnSet,
           response,
@@ -660,11 +707,12 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public QueryBuilder getLineageQuery(
+  public static QueryBuilder getLineageQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull Map<String, List<Urn>> urnsPerEntityType,
       @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
-      @Nonnull GraphFilters graphFilters,
-      @Nullable LineageFlags lineageFlags) {
+      @Nonnull GraphFilters graphFilters) {
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
     BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
     // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach(
@@ -676,6 +724,9 @@ public class ESGraphQueryDAO {
                     urns, edgesPerEntityType.get(entityType), graphFilters));
           }
         });
+    if (!entityTypeQueries.should().isEmpty()) {
+      entityTypeQueries.minimumShouldMatch(1);
+    }
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
@@ -690,7 +741,7 @@ public class ESGraphQueryDAO {
         && lineageFlags.getStartTimeMillis() != null
         && lineageFlags.getEndTimeMillis() != null) {
       finalQuery.filter(
-          TimeFilterUtils.getEdgeTimeFilterQuery(
+          GraphFilterUtils.getEdgeTimeFilterQuery(
               lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis()));
     } else {
       log.debug("Empty time filter range provided. Skipping application of time filters");
@@ -700,7 +751,7 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public QueryBuilder getLineageQueryForEntityType(
+  static QueryBuilder getLineageQueryForEntityType(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> lineageEdges,
       @Nonnull GraphFilters graphFilters) {
@@ -718,6 +769,10 @@ public class ESGraphQueryDAO {
         edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
     if (!incomingEdges.isEmpty()) {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
+    }
+
+    if (!query.should().isEmpty()) {
+      query.minimumShouldMatch(1);
     }
 
     return query;
@@ -769,7 +824,7 @@ public class ESGraphQueryDAO {
    *     the Graph Store.
    */
   @VisibleForTesting
-  public static void addEdgeToPaths(
+  static void addEdgeToPaths(
       @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
       @Nonnull final Urn parentUrn,
       @Nonnull final Urn childUrn) {
@@ -782,7 +837,7 @@ public class ESGraphQueryDAO {
     return (path.size() != urnSet.size());
   }
 
-  public static boolean addEdgeToPaths(
+  static boolean addEdgeToPaths(
       @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
       @Nonnull final Urn parentUrn,
       final Urn viaUrn,
@@ -1317,6 +1372,7 @@ public class ESGraphQueryDAO {
   }
 
   public SearchResponse getSearchResponse(
+      @Nonnull final OperationContext opContext,
       @Nullable final List<String> sourceTypes,
       @Nullable final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -1329,6 +1385,8 @@ public class ESGraphQueryDAO {
 
     BoolQueryBuilder finalQuery =
         buildQuery(
+            opContext,
+            graphQueryConfiguration,
             sourceTypes,
             sourceEntityFilter,
             destinationTypes,
@@ -1336,10 +1394,11 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeScrollSearchQuery(finalQuery, sortCriteria, scrollId, count);
+    return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
+      @Nonnull final OperationContext opContext,
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
@@ -1363,12 +1422,31 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-      return client.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
+    return opContext.withSpan(
+        "esQuery",
+        () -> {
+          try {
+            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esQuery"));
+  }
+
+  private static void applyExcludeSoftDelete(
+      GraphQueryConfiguration graphQueryConfiguration, BoolQueryBuilder boolQueryBuilder) {
+    if (graphQueryConfiguration.isGraphStatusEnabled()) {
+      Arrays.stream(EdgeUrnType.values())
+          .map(
+              edgeUrnType ->
+                  QueryBuilders.termsQuery(
+                      GraphFilterUtils.getUrnStatusFieldName(edgeUrnType), "true"))
+          .filter(statusQuery -> !boolQueryBuilder.mustNot().contains(statusQuery))
+          .forEach(boolQueryBuilder::mustNot);
     }
   }
 }

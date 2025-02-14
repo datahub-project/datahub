@@ -60,7 +60,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/operations/elasticSearch")
+@RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
 @Tag(
     name = "ElasticSearchOperations",
@@ -154,7 +154,8 @@ public class OperationsController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
@@ -230,7 +231,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {
@@ -255,7 +259,7 @@ public class OperationsController {
                   }
                 });
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
       log.error("{} is not authorized to get explain queries", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
@@ -337,7 +341,10 @@ public class OperationsController {
           @Nullable
           List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
-          @RequestParam(value = "searchFlags", required = false)
+          @RequestParam(
+              value = "searchFlags",
+              required = false,
+              defaultValue = "{\"fulltext\":true}")
           @Nullable
           String searchFlags)
       throws JsonProcessingException {
@@ -363,7 +370,7 @@ public class OperationsController {
                   }
                 });
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
       log.error("{} is not authorized to get explain queries", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
@@ -449,7 +456,7 @@ public class OperationsController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
@@ -492,7 +499,7 @@ public class OperationsController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 

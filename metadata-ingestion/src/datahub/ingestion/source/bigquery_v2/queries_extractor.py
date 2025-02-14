@@ -2,7 +2,7 @@ import functools
 import logging
 import pathlib
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
@@ -13,6 +13,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -48,6 +49,7 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.progress_timer import ProgressTimer
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -114,7 +116,7 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     )
 
 
-class BigQueryQueriesExtractor:
+class BigQueryQueriesExtractor(Closeable):
     """
     Extracts query audit log and generates usage/lineage/operation workunits.
 
@@ -145,7 +147,16 @@ class BigQueryQueriesExtractor:
         self.identifiers = identifiers
         self.schema_api = schema_api
         self.report = BigQueryQueriesExtractorReport()
-        self.discovered_tables = set(discovered_tables) if discovered_tables else None
+        self.discovered_tables = (
+            set(
+                map(
+                    self.identifiers.standardize_identifier_case,
+                    discovered_tables,
+                )
+            )
+            if discovered_tables
+            else None
+        )
 
         self.structured_report = structured_report
 
@@ -172,7 +183,11 @@ class BigQueryQueriesExtractor:
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
         )
+
         self.report.sql_aggregator = self.aggregator.report
+        self.report.num_discovered_tables = (
+            len(self.discovered_tables) if self.discovered_tables else None
+        )
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -201,6 +216,8 @@ class BigQueryQueriesExtractor:
                 and self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"inferred as temp table {name}")
+                self.report.inferred_temp_tables.add(name)
                 return True
 
         except Exception:
@@ -214,6 +231,7 @@ class BigQueryQueriesExtractor:
                 self.discovered_tables
                 and str(BigQueryTableRef(table)) not in self.discovered_tables
             ):
+                logger.debug(f"not allowed table {name}")
                 return False
             return self.filters.is_allowed(table)
         except Exception:
@@ -253,27 +271,38 @@ class BigQueryQueriesExtractor:
             # Preprocessing stage that deduplicates the queries using query hash per usage bucket
             # Note: FileBackedDict is an ordered dictionary, so the order of execution of
             # queries is inherently maintained
-            queries_deduped: FileBackedDict[Dict[int, ObservedQuery]]
-            queries_deduped = self.deduplicate_queries(queries)
+            queries_deduped: FileBackedDict[Dict[int, ObservedQuery]] = (
+                self.deduplicate_queries(queries)
+            )
             self.report.num_unique_queries = len(queries_deduped)
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
-        with self.report.audit_log_load_timer:
-            i = 0
-            for _, query_instances in queries_deduped.items():
+        with self.report.audit_log_load_timer, queries_deduped:
+            log_timer = ProgressTimer(timedelta(minutes=1))
+            report_timer = ProgressTimer(timedelta(minutes=5))
+
+            for i, (_, query_instances) in enumerate(queries_deduped.items()):
                 for query in query_instances.values():
-                    if i > 0 and i % 10000 == 0:
-                        logger.info(f"Added {i} query log entries to SQL aggregator")
+                    if log_timer.should_report():
+                        logger.info(
+                            f"Added {i} deduplicated query log entries to SQL aggregator"
+                        )
+
+                    if report_timer.should_report() and self.report.sql_aggregator:
+                        logger.info(self.report.sql_aggregator.as_string())
 
                     self.aggregator.add(query)
-                    i += 1
 
         yield from auto_workunit(self.aggregator.gen_metadata())
+
+        if not use_cached_audit_log:
+            queries.close()
+            shared_connection.close()
+            audit_log_file.unlink(missing_ok=True)
 
     def deduplicate_queries(
         self, queries: FileBackedList[ObservedQuery]
     ) -> FileBackedDict[Dict[int, ObservedQuery]]:
-
         # This fingerprint based deduplication is done here to reduce performance hit due to
         # repetitive sql parsing while adding observed query to aggregator that would otherwise
         # parse same query multiple times. In future, aggregator may absorb this deduplication.
@@ -311,7 +340,6 @@ class BigQueryQueriesExtractor:
         return queries_deduped
 
     def fetch_query_log(self, project: BigqueryProject) -> Iterable[ObservedQuery]:
-
         # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
         regions = self.config.region_qualifiers
 
@@ -324,7 +352,6 @@ class BigQueryQueriesExtractor:
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
-
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
@@ -387,6 +414,9 @@ class BigQueryQueriesExtractor:
 
         return entry
 
+    def close(self) -> None:
+        self.aggregator.close()
+
 
 def _extract_query_text(row: BigQueryJob) -> str:
     # We wrap select statements in a CTE to make them parseable as DML statement.
@@ -418,7 +448,6 @@ def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
 ) -> str:
-
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 

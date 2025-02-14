@@ -1,5 +1,8 @@
+import functools
+import os
 import pathlib
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
@@ -11,8 +14,11 @@ from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
+    PreparsedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
+    TableRename,
+    TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -25,6 +31,10 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06T01:23:45Z"
+
+check_goldens_stream = functools.partial(
+    mce_helpers.check_goldens_stream, ignore_order=False
+)
 
 
 def _ts(ts: int) -> datetime:
@@ -51,7 +61,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
@@ -103,7 +113,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts.json",
@@ -162,7 +172,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_temp_table.json",
@@ -219,13 +229,12 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
     assert (
         len(
             report.queries_with_temp_upstreams[
-                "composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                "composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
             ]
         )
         == 4
     )
-
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
@@ -301,7 +310,7 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
     assert len(report.queries_with_non_authoritative_session) == 1
 
     mcps = list(aggregator.gen_metadata())
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_overlapping_inserts_from_temp_tables.json",
@@ -350,7 +359,7 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_aggregate_operations.json",
@@ -388,7 +397,7 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_view_lineage.json",
@@ -419,7 +428,7 @@ def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
@@ -457,7 +466,7 @@ def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
     # not get any credit for a and b, as they are already covered by query 2,
     # which came later and hence has higher precedence.
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
@@ -502,7 +511,7 @@ def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
@@ -518,10 +527,17 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         generate_operations=False,
     )
 
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.foo").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
     # Register that foo_staging is renamed to foo.
     aggregator.add_table_rename(
-        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
-        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        TableRename(
+            original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+            new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        )
     )
 
     # Add an unrelated query.
@@ -542,12 +558,338 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         )
     )
 
+    # Add the query that created the downstream from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_downstream as select a, b from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_rename_with_temp(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: "staging" in x.lower(),
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.foo").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
+    # Register that foo_staging is renamed to foo.
+    aggregator.add_table_rename(
+        TableRename(
+            original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+            new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+            query="alter table dev.public.foo_staging rename to dev.public.foo",
+        )
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_staging as select a, b from foo_dep",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the downstream from foo_staging table.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo_downstream as select a, b from foo_staging",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_rename_with_temp.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_swap(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dev.public.person_info").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the swap table initially.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="CREATE TABLE person_info_swap CLONE person_info;",
+            upstreams=[DatasetUrn("snowflake", "dev.public.person_info").urn()],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+        )
+    )
+
+    # Add the query that created the incremental table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="CREATE TABLE person_info_incremental AS SELECT * from person_info_dep;",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_dep").urn(),
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "dev.public.person_info_incremental"
+            ).urn(),
+        )
+    )
+
+    # Add the query that updated the swap table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO person_info_swap SELECT * from person_info_incremental;",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_incremental").urn(),
+            ],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+        )
+    )
+
+    aggregator.add_table_swap(
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.person_info").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+        )
+    )
+
+    # Add the query that is created from swap table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="create table person_info_backup as select * from person_info_swap",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            ],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_backup").urn(),
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_swap.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_swap_with_temp(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: "swap" in x.lower() or "incremental" in x.lower(),
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dev.public.person_info").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    # Add the query that created the swap table initially.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="CREATE TABLE person_info_swap CLONE person_info;",
+            upstreams=[DatasetUrn("snowflake", "dev.public.person_info").urn()],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(10),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_swap"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    # Add the query that created the incremental table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="CREATE TABLE person_info_incremental AS SELECT * from person_info_dep;",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_dep").urn(),
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "dev.public.person_info_incremental"
+            ).urn(),
+            session_id="xxx",
+            timestamp=_ts(20),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_incremental"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_dep"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    # Add the query that updated the swap table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO person_info_swap SELECT * from person_info_incremental;",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_incremental").urn(),
+            ],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(30),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_swap"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_incremental"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    aggregator.add_table_swap(
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.person_info").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            session_id="xxx",
+            timestamp=_ts(40),
+        )
+    )
+
+    # Add the query that is created from swap table.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="create table person_info_backup as select * from person_info_swap",
+            upstreams=[
+                DatasetUrn("snowflake", "dev.public.person_info_swap").urn(),
+            ],
+            downstream=DatasetUrn("snowflake", "dev.public.person_info_backup").urn(),
+            session_id="xxx",
+            timestamp=_ts(50),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "dev.public.person_info_backup"
+                        ).urn(),
+                        column="a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake", "dev.public.person_info_swap"
+                            ).urn(),
+                            column="a",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_swap_with_temp.json",
     )
 
 
@@ -571,7 +913,7 @@ def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_create_table_query_mcps.json",
@@ -606,7 +948,7 @@ def test_table_lineage_via_temp_table_disordered_add(
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR
@@ -616,7 +958,6 @@ def test_table_lineage_via_temp_table_disordered_add(
 
 @freeze_time(FROZEN_TIME)
 def test_basic_usage(pytestconfig: pytest.Config) -> None:
-
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -656,8 +997,41 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
-    mce_helpers.check_goldens_stream(
+    check_goldens_stream(
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )
+
+
+def test_table_swap_id() -> None:
+    assert (
+        TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+        ).id()
+        == TableSwap(
+            urn1=DatasetUrn("snowflake", "dev.public.foo_staging").urn(),
+            urn2=DatasetUrn("snowflake", "dev.public.foo").urn(),
+        ).id()
+    )
+
+
+def test_sql_aggreator_close_cleans_tmp(tmp_path):
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    with patch("tempfile.tempdir", str(tmp_path)):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=False,
+            generate_usage_statistics=True,
+            generate_operations=False,
+            usage_config=BaseUsageConfig(
+                start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+                end_time=frozen_timestamp,
+            ),
+            generate_queries=True,
+            generate_query_usage_statistics=True,
+        )
+        assert len(os.listdir(tmp_path)) > 0
+        aggregator.close()
+        assert len(os.listdir(tmp_path)) == 0

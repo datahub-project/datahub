@@ -4,10 +4,11 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.SystemGraphRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -15,6 +16,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,16 +42,25 @@ public class SystemOperationContextFactory {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final TraceContext traceContext) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
             .entityRegistry(entityRegistry)
             .entityService(entityService)
             .build();
+
+    EntityClientAspectRetriever entityClientAspectRetriever =
+        EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
+
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
 
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
@@ -62,11 +74,20 @@ public class SystemOperationContextFactory {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .cachingAspectRetriever(entityClientAspectRetriever)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
-                .build());
+                .build(),
+            ValidationContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                .build(),
+            traceContext,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
+    entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;
@@ -87,13 +108,18 @@ public class SystemOperationContextFactory {
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphRetriever graphRetriever,
+      @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final TraceContext traceContext) {
 
-    EntityClientAspectRetriever entityServiceAspectRetriever =
+    EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
+
+    SystemGraphRetriever systemGraphRetriever =
+        SystemGraphRetriever.builder().graphService(graphService).build();
 
     SearchServiceSearchRetriever searchServiceSearchRetriever =
         SearchServiceSearchRetriever.builder().searchService(searchService).build();
@@ -106,12 +132,19 @@ public class SystemOperationContextFactory {
             ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
             components.getIndexConvention(),
             RetrieverContext.builder()
-                .aspectRetriever(entityServiceAspectRetriever)
-                .graphRetriever(graphRetriever)
+                .cachingAspectRetriever(entityClientAspectRetriever)
+                .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
-                .build());
+                .build(),
+            ValidationContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                .build(),
+            traceContext,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
-    entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
+    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 
     return systemOperationContext;

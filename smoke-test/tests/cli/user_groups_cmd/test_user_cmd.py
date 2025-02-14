@@ -5,13 +5,14 @@ from typing import Any, Dict, Iterable, List
 
 import yaml
 from click.testing import CliRunner, Result
+
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
 
 runner = CliRunner(mix_stderr=False)
 
 
-def datahub_upsert_user(user: CorpUser) -> None:
+def datahub_upsert_user(auth_session, user: CorpUser) -> None:
     with tempfile.NamedTemporaryFile("w+t", suffix=".yaml") as user_file:
         yaml.dump(user.dict(), user_file)
         user_file.flush()
@@ -21,7 +22,14 @@ def datahub_upsert_user(user: CorpUser) -> None:
             "-f",
             user_file.name,
         ]
-        user_create_result = runner.invoke(datahub, upsert_args)
+        user_create_result = runner.invoke(
+            datahub,
+            upsert_args,
+            env={
+                "DATAHUB_GMS_URL": auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+            },
+        )
         assert user_create_result.exit_code == 0
 
 
@@ -43,9 +51,16 @@ def gen_datahub_users(num_users: int) -> Iterable[CorpUser]:
         yield user
 
 
-def datahub_get_user(user_urn: str):
+def datahub_get_user(auth_session: Any, user_urn: str):
     get_args: List[str] = ["get", "--urn", user_urn]
-    get_result: Result = runner.invoke(datahub, get_args)
+    get_result: Result = runner.invoke(
+        datahub,
+        get_args,
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
     assert get_result.exit_code == 0
     try:
         get_result_output_obj: Dict = json.loads(get_result.stdout)
@@ -55,11 +70,11 @@ def datahub_get_user(user_urn: str):
         raise e
 
 
-def test_user_upsert(wait_for_healthchecks: Any) -> None:
+def test_user_upsert(auth_session: Any) -> None:
     num_user_profiles: int = 10
     for i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
-        datahub_upsert_user(datahub_user)
-        user_dict = datahub_get_user(f"urn:li:corpuser:user_{i}")
+        datahub_upsert_user(auth_session, datahub_user)
+        user_dict = datahub_get_user(auth_session, f"urn:li:corpuser:user_{i}")
         assert user_dict == {
             "corpUserEditableInfo": {
                 "aboutMe": f"The User {i}",

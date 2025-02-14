@@ -1,17 +1,16 @@
 package com.linkedin.metadata.resources.operations;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
@@ -34,10 +33,9 @@ import com.linkedin.timeseries.TimeseriesIndexSizeResultArray;
 import com.linkedin.timeseries.TimeseriesIndicesSizesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -106,7 +104,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
       () ->  Utils.restoreIndices(systemOperationContext, getContext(),
                   aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
@@ -131,7 +129,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_NODE_ID) @Optional String nodeId,
       @ActionParam(PARAM_TASK_ID) @Optional("0") long taskId,
       @ActionParam(PARAM_TASK) @Optional String task) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
@@ -139,7 +137,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
@@ -194,7 +192,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Nonnull
   @WithSpan
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             final Authentication auth = AuthenticationContext.getAuthentication();
@@ -202,7 +200,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
-          if (!isAPIAuthorized(
+          if (!isAPIOperationsAuthorized(
                   opContext,
                   PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(
@@ -246,8 +244,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
 
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(
-        QueryUtils.newCriterion(
-            "timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
+        buildCriterion(
+            "timestampMillis", Condition.LESS_THAN_OR_EQUAL_TO, String.valueOf(endTimeMillis)));
 
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
     long numToDelete = _timeseriesAspectService.countByFilter(opContext, entityType, aspectName, filter);
@@ -289,8 +287,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         // count
         List<Criterion> reindexCriteria = new ArrayList<>();
         reindexCriteria.add(
-            QueryUtils.newCriterion(
-                "timestampMillis", String.valueOf(endTimeMillis), Condition.GREATER_THAN));
+            buildCriterion(
+                "timestampMillis", Condition.GREATER_THAN, String.valueOf(endTimeMillis)));
 
         final Filter reindexFilter = QueryUtils.getFilterFromCriteria(reindexCriteria);
         String taskId =
@@ -319,7 +317,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds,
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             executeTruncateTimeseriesAspect(
                 entityType,

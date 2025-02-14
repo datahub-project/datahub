@@ -20,7 +20,7 @@ export function getInitialValues(prompt: FormPrompt, entityData: GenericEntityPr
             (propAssignment) => propAssignment.structuredProperty.urn === structuredProperty?.urn,
         );
     }
-    return structuredPropertyAssignment?.values.map((value) => getStructuredPropertyValue(value as PropertyValue));
+    return structuredPropertyAssignment?.values?.map((value) => getStructuredPropertyValue(value as PropertyValue));
 }
 
 export function getInitialEntitiesForUrnPrompt(

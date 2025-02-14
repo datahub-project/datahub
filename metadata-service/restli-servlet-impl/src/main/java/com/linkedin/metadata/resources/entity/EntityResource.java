@@ -12,6 +12,7 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -22,6 +23,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 
 import com.linkedin.metadata.resources.restli.RestliUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -53,7 +55,6 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
@@ -83,7 +84,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -206,7 +207,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
@@ -247,7 +248,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities: " + urnStrs);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
@@ -273,7 +274,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     String actorUrnStr = authentication.getActor().toUrnStr();
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
     if (!isAPIAuthorizedEntityUrns(
@@ -281,7 +282,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             CREATE,
             List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entity " + urn);
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
     }
 
     try {
@@ -297,7 +298,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           entityService.ingestEntity(opContext, entity, auditStamp, finalSystemMetadata);
           return null;
@@ -319,7 +320,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .map(Entity::getValue)
             .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion).collect(Collectors.toList());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr,
                     getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
             authorizer, authentication, true);
 
@@ -327,7 +328,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
             CREATE, urns)) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
     }
 
     for (Entity entity : entities) {
@@ -354,7 +355,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .map(SystemMetadataUtils::generateSystemMetadataIfEmpty)
             .collect(Collectors.toList());
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           entityService.ingestEntities(opContext,
               Arrays.asList(entities), auditStamp, finalSystemMetadataList);
@@ -395,13 +396,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final SearchResult result;
           // This API is not used by the frontend for search bars so we default to structured
           result =
               entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterionList, start, count);
+                  List.of(entityName), input, validateAndConvert(filter), sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -448,7 +449,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter), sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -508,13 +509,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         input,
         scrollId);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           ScrollResult result = searchService.scrollAcrossEntities(
                   opContext,
                   entityList,
                   input,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -575,7 +576,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         direction,
         entityList,
         input);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(
                   opContext,
                   urn,
@@ -583,7 +584,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   entityList,
                   input,
                   maxHops,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   start,
                   count),
@@ -638,7 +639,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             validateLineageScrollResult(opContext,
                 lineageSearchService.scrollAcrossLineage(
@@ -648,7 +649,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     entityList,
                     input,
                     maxHops,
-                    filter,
+                    validateAndConvert(filter),
                     sortCriterionList,
                     scrollId,
                     keepAlive,
@@ -683,10 +684,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtils.toTask(
+    final Filter finalFilter = validateAndConvert(filter);
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
-            SearchResult result = entitySearchService.filter(opContext, entityName, filter, sortCriterionList, start, count);
+            SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -723,7 +725,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
           if (!isAPIAuthorizedResult(
@@ -761,7 +763,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
           if (!isAPIAuthorizedResult(
@@ -797,7 +799,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
     log.info("GET BROWSE PATHS for {}", urn);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> new StringArray(entitySearchService.getBrowsePaths(opContext, urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
@@ -837,7 +839,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     ComparableVersion finalRegistryVersion = registryVersion;
     String finalRegistryName1 = registryName;
     ComparableVersion finalRegistryVersion1 = registryVersion;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           RollbackResponse response = new RollbackResponse();
           List<AspectRowSummary> aspectRowsToDelete =
@@ -877,7 +879,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             Map<String, String> conditions = new HashMap();
             conditions.put("registryName", finalRegistryName1);
             conditions.put("registryVersion", finalRegistryVersion1.toString());
-            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false);
+            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false, false);
           }
           return response;
         },
@@ -919,7 +921,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           // Find the timeseries aspects to delete. If aspectName is null, delete all.
           List<String> timeseriesAspectNames =
@@ -927,7 +929,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext.getEntityRegistry(), urn.getEntityType());
           if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
             throw new UnsupportedOperationException(
-                String.format("Not supported for non-timeseries aspect '{}'.", aspectName));
+                String.format("Not supported for non-timeseries aspect %s.", aspectName));
           }
           List<String> timeseriesAspectsToDelete =
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
@@ -984,16 +986,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
-    criteria.add(QueryUtils.newCriterion("urn", urn.toString()));
+    criteria.add(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn.toString()));
     if (startTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(
-              ES_FIELD_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
+              CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTimeMillis.toString()));
     }
     if (endTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(
-              ES_FIELD_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
+              CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTimeMillis.toString()));
     }
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 
@@ -1039,7 +1041,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urnStr);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, dryRun),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
@@ -1058,7 +1060,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "setWriteable"), authorizer, auth, true);
 
-    if (!isAPIAuthorized(
+    if (!isAPIOperationsAuthorized(
             opContext,
             PoliciesConfig.SET_WRITEABLE_PRIVILEGE)) {
       throw new RestLiServiceException(
@@ -1135,7 +1137,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
-    return RestliUtils.toTask(() -> {
+    return RestliUtils.toTask(systemOperationContext, () -> {
       ListUrnsResult result = entityService.listUrns(opContext, entityName, start, count);
       if (!isAPIAuthorizedEntityUrns(
               opContext,
@@ -1168,7 +1170,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_APPLY_RETENTION, resourceSpec.getType()), authorizer, auth, true);
 
-    if (!isAPIAuthorized(
+    if (!isAPIOperationsAuthorized(
             opContext,
             PoliciesConfig.APPLY_RETENTION_PRIVILEGE,
             resourceSpec)) {
@@ -1176,7 +1178,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to apply retention.");
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> entityService.batchApplyRetention(opContext, start, count, attemptWithVersion, aspectName, urn),
         ACTION_APPLY_RETENTION);
   }
@@ -1206,7 +1208,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                   entityName, filter, sortCriterionList, start, count);
@@ -1243,7 +1245,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("EXISTS for {}", urnStr);
     final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> entityService.exists(opContext, urn, includeRemoved), MetricRegistry.name(this.getClass(), "exists"));
   }
 }

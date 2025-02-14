@@ -13,6 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredent
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
+    PlatformDetail,
     SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
@@ -31,6 +32,15 @@ default_connector_query_results = [
         "sync_frequency": 1440,
         "destination_id": "interval_unconstitutional",
     },
+    {
+        "connector_id": "my_confluent_cloud_connector_id",
+        "connecting_user_id": "reapply_phone",
+        "connector_type_id": "confluent_cloud",
+        "connector_name": "confluent_cloud",
+        "paused": False,
+        "sync_frequency": 1440,
+        "destination_id": "my_confluent_cloud_connector_id",
+    },
 ]
 
 
@@ -43,7 +53,9 @@ def default_query_results(
         return []
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
-    elif query == fivetran_log_query.get_table_lineage_query():
+    elif query == fivetran_log_query.get_table_lineage_query(
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+    ):
         return [
             {
                 "connector_id": "calendar_elected",
@@ -63,8 +75,19 @@ def default_query_results(
                 "destination_table_name": "company",
                 "destination_schema_name": "postgres_public",
             },
+            {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "source_table_id": "10042",
+                "source_table_name": "my-source-topic",
+                "source_schema_name": "confluent_cloud",
+                "destination_table_id": "7781",
+                "destination_table_name": "my-destination-topic",
+                "destination_schema_name": "confluent_cloud",
+            },
         ]
-    elif query == fivetran_log_query.get_column_lineage_query():
+    elif query == fivetran_log_query.get_column_lineage_query(
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+    ):
         return [
             {
                 "source_table_id": "10040",
@@ -100,65 +123,38 @@ def default_query_results(
                 "email": "abc.xyz@email.com",
             }
         ]
-    elif query == fivetran_log_query.get_sync_logs_query().format(
-        db_clause=fivetran_log_query.db_clause, syncs_interval=7
+    elif query == fivetran_log_query.get_sync_logs_query(
+        syncs_interval=7,
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
     ):
         return [
             {
                 "connector_id": "calendar_elected",
                 "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "message_event": "sync_start",
-                "message_data": None,
-                "time_stamp": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
             },
             {
                 "connector_id": "calendar_elected",
                 "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-                "message_event": "sync_start",
-                "message_data": None,
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
+                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
+                "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
+                "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
             },
             {
                 "connector_id": "calendar_elected",
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-                "message_event": "sync_start",
-                "message_data": None,
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
+                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
+                "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+                "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
             },
             {
-                "connector_id": "calendar_elected",
-                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
-                "message_event": "sync_start",
-                "message_data": None,
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 5, 403000),
-            },
-            {
-                "connector_id": "calendar_elected",
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "message_event": "sync_end",
-                "message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-                "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-            },
-            {
-                "connector_id": "calendar_elected",
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-                "message_event": "sync_end",
-                "message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
-            },
-            {
-                "connector_id": "calendar_elected",
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-                "message_event": "sync_end",
-                "message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
-            },
-            {
-                "connector_id": "calendar_elected",
-                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
-                "message_event": "sync_end",
-                "message_data": None,
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 35, 478000),
+                "connector_id": "my_confluent_cloud_connector_id",
+                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
+                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
             },
         ]
     # Unreachable code
@@ -201,21 +197,30 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                             },
                         },
                         "connector_patterns": {
-                            "allow": [
-                                "postgres",
-                            ]
+                            "allow": ["postgres", "confluent_cloud"]
                         },
                         "destination_patterns": {
                             "allow": [
                                 "interval_unconstitutional",
+                                "my_confluent_cloud_connector_id",
                             ]
-                        },
-                        "sources_to_database": {
-                            "calendar_elected": "postgres_db",
                         },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
+                                "database": "postgres_db",
                                 "env": "DEV",
+                            },
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "include_schema_in_urn": False,
+                                "database": "kafka_prod",
+                            },
+                        },
+                        "destination_to_platform_instance": {
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "include_schema_in_urn": False,
+                                "database": "kafka_prod",
                             }
                         },
                     },
@@ -265,6 +270,15 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "sync_frequency": 1440,
                 "destination_id": "interval_unconstitutional",
             },
+            {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "connecting_user_id": None,
+                "connector_type_id": "confluent_cloud",
+                "connector_name": "confluent_cloud",
+                "paused": False,
+                "sync_frequency": 1440,
+                "destination_id": "interval_unconstitutional",
+            },
         ]
 
         connection_magic_mock.execute.side_effect = partial(
@@ -292,21 +306,30 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                             },
                         },
                         "connector_patterns": {
-                            "allow": [
-                                "postgres",
-                            ]
+                            "allow": ["postgres", "confluent_cloud"]
                         },
                         "destination_patterns": {
                             "allow": [
                                 "interval_unconstitutional",
                             ]
                         },
-                        "sources_to_database": {
-                            "calendar_elected": "postgres_db",
-                        },
                         "sources_to_platform_instance": {
                             "calendar_elected": {
+                                "platform": "postgres",
                                 "env": "DEV",
+                                "database": "postgres_db",
+                            },
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "database": "kafka_prod",
+                                "include_schema_in_urn": False,
+                            },
+                        },
+                        "destination_to_platform_instance": {
+                            "my_confluent_cloud_connector_id": {
+                                "platform": "kafka",
+                                "database": "kafka_prod",
+                                "include_schema_in_urn": False,
                             }
                         },
                     },
@@ -404,3 +427,34 @@ def test_rename_destination_config():
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
         FivetranSourceConfig.parse_obj(config_dict)
+
+
+def test_compat_sources_to_database() -> None:
+    config_dict = {
+        # We just need a valid fivetran_log_config to test the compat transformation.
+        "fivetran_log_config": {
+            "destination_platform": "snowflake",
+            "snowflake_destination_config": {
+                "account_id": "testid",
+                "warehouse": "test_wh",
+                "username": "test",
+                "password": "test@123",
+                "database": "test_database",
+                "role": "testrole",
+                "log_schema": "test",
+            },
+        },
+        "sources_to_database": {"calendar_elected": "my_db", "connector_2": "my_db_2"},
+        "sources_to_platform_instance": {"calendar_elected": {"env": "DEV"}},
+    }
+
+    with pytest.warns(
+        ConfigurationWarning,
+        match=r"sources_to_database.*deprecated",
+    ):
+        config = FivetranSourceConfig.parse_obj(config_dict)
+
+    assert config.sources_to_platform_instance == {
+        "calendar_elected": PlatformDetail(env="DEV", database="my_db"),
+        "connector_2": PlatformDetail(database="my_db_2"),
+    }

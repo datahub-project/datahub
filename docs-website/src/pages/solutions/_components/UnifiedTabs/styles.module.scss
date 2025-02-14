@@ -1,0 +1,124 @@
+.tabbedComponent {
+  text-align: left;
+  padding: 20px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tabsContainer {
+  width: 100%; // Ensure full width
+  max-width: 1200px; // Limit to the same max-width as content
+  margin-bottom: 1rem; 
+  display: flex;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-between; // Space out tabs across the container
+  width: 100%; // Ensure tabs take full width
+}
+
+.tabButton {
+  flex: 1; 
+  padding: 0.8rem 1.5rem; 
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #777e99;
+  text-align: center;
+
+
+  .tabButtonText {
+    width: min-content;
+    margin: auto;
+    transition: color 0.2s, border-bottom 0.2s;
+  }
+  .tabButtonText:hover, .active {
+    color: #1890ff;
+    border-bottom: 3px solid #1890ff;
+  }
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  background: white;
+  max-width: 1200px; // Same max-width as tabs
+  width: 100%; // Full width to align with tabs
+  overflow: hidden;
+}
+
+.tabContent {
+  flex: 1;
+  padding: 2rem;
+  margin: auto;
+}
+
+.tabTitle {
+  font-size: 2.5rem;
+  font-weight: 500;
+  color: #373A47;
+  line-height: 120%;
+  margin-bottom: 1rem;
+}
+
+.tabTitle.active {
+  color: #1890ff;
+  text-decoration: underline;
+}
+
+.tabDescription {
+  font-size: 1.4rem;
+  color: #777e99;
+  line-height: 2rem;
+  font-weight: 300;
+}
+
+.imageContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0;
+  width: 30rem;
+}
+
+.tabImage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 2px 4px 0px #0000001C;
+  border-radius: 2.2rem;
+}
+
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row;
+    padding: 40px 32px;
+  }
+
+  .imageContainer {
+    margin: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    display: block;
+  }
+
+  .imageContainer {
+    margin: auto;
+    max-width: 100%;
+  }
+
+  .tabTitle {
+    font-size: 1.8rem;
+  }
+}

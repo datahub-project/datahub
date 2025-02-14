@@ -1,38 +1,42 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.SessionConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import({Neo4jDriverFactory.class, EntityRegistryFactory.class})
+@ConditionalOnProperty(name = "graphService.type", havingValue = "neo4j")
+@Import({Neo4jDriverFactory.class})
 public class Neo4jGraphServiceFactory {
   @Autowired
   @Qualifier("neo4jDriver")
   private Driver neo4jDriver;
 
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
-
   @Value("${neo4j.database}")
   private String neo4jDatabase;
 
-  @Bean(name = "neo4jGraphService")
+  @Bean(name = "graphService")
   @Nonnull
-  protected Neo4jGraphService getInstance() {
+  protected GraphService getInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      final EntityRegistry entityRegistry) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new Neo4jGraphService(
-        lineageRegistry, neo4jDriver, SessionConfig.forDatabase(neo4jDatabase));
+        systemOperationContext,
+        lineageRegistry,
+        neo4jDriver,
+        SessionConfig.forDatabase(neo4jDatabase));
   }
 }

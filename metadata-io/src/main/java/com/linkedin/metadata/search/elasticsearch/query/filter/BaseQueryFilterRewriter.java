@@ -1,14 +1,15 @@
 package com.linkedin.metadata.search.elasticsearch.query.filter;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.search.utils.QueryUtils.newCriterion;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -142,7 +143,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     if (!queryUrns.isEmpty()) {
 
       scrollGraph(
-          opContext.getRetrieverContext().get().getGraphRetriever(),
+          opContext.getRetrieverContext().getGraphRetriever(),
           queryUrns,
           relationshipTypes,
           relationshipDirection,
@@ -209,7 +210,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     graphRetriever.consumeRelatedEntities(
         consumer,
         entityTypes,
-        QueryUtils.newDisjunctiveFilter(newCriterion("urn", queryUrnStrs)),
+        QueryUtils.newDisjunctiveFilter(buildCriterion("urn", Condition.EQUAL, queryUrnStrs)),
         entityTypes,
         EMPTY_FILTER,
         relationshipTypes,

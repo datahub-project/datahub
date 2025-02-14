@@ -22,3 +22,14 @@ source:
     soft_deleted_entities_cleanup:
       # Delete soft deleted entities which were deleted 10 days ago
       retention_days: 10
+    execution_request_cleanup:
+      # Minimum number of execution requests to keep, per ingestion source
+      keep_history_min_count: 10
+      # Maximum number of execution requests to keep, per ingestion source
+      keep_history_max_count: 1000
+      # Maximum number of days to keep execution requests for, per ingestion source
+      keep_history_max_days: 30
+      # Number of records per read operation
+      batch_read_size: 100
+      # Global switch for this cleanup task 
+      enabled: true

@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
+from packaging import version
 from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.git import GitReference
@@ -41,14 +42,17 @@ logger = logging.getLogger(__name__)
 
 class DBTCoreConfig(DBTCommonConfig):
     manifest_path: str = Field(
-        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
+        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note "
+        "this can be a local file or a URI."
     )
     catalog_path: str = Field(
-        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
+        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this "
+        "can be a local file or a URI."
     )
     sources_path: Optional[str] = Field(
         default=None,
-        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
+        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not "
+        "specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
     )
     run_results_paths: List[str] = Field(
         default=[],
@@ -484,7 +488,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     ) -> Dict:
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
-        elif re.match("^s3://", uri):
+        elif is_s3_uri(uri):
             u = urlparse(uri)
             assert aws_connection
             response = aws_connection.get_s3_client().get_object(
@@ -569,16 +573,26 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         ) = self.loadManifestAndCatalog()
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
-        if (
-            catalog_version
-            and catalog_version.startswith("1.7.")
-            and catalog_version < "1.7.3"
-        ):
-            self.report.report_warning(
-                "dbt_catalog_version",
-                f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
-                "Please upgrade to dbt version 1.7.3 or later. "
-                "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+        try:
+            if (
+                catalog_version
+                and catalog_version.startswith("1.7.")
+                and version.parse(catalog_version) < version.parse("1.7.3")
+            ):
+                self.report.report_warning(
+                    title="Dbt Catalog Version",
+                    message="Due to a bug in dbt version between 1.7.0 and 1.7.2, you will have incomplete metadata "
+                    "source",
+                    context=f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on "
+                    f"sources."
+                    "Please upgrade to dbt version 1.7.3 or later. "
+                    "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+                )
+        except Exception as e:
+            self.report.info(
+                title="Dbt Catalog Version",
+                message="Failed to determine the catalog version",
+                exc=e,
             )
 
         additional_custom_props = {

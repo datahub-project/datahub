@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -14,7 +14,7 @@ from datahub.utilities.stats_collections import TopKDict
 
 @dataclass
 class RedshiftReport(
-    ProfilingSqlReport,
+    SQLSourceReport,
     IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
@@ -67,7 +68,9 @@ public class SearchLineageFixtureConfiguration {
 
   @Autowired private SearchConfiguration searchConfiguration;
 
-  @Autowired private CustomSearchConfiguration customSearchConfiguration;
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
 
   @Bean(name = "searchLineagePrefix")
   protected String indexPrefix() {
@@ -141,7 +144,7 @@ public class SearchLineageFixtureConfiguration {
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             searchConfiguration,
-            null,
+            customSearchConfiguration,
             queryFilterRewriteChain);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
@@ -159,7 +162,7 @@ public class SearchLineageFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "searchLineageESIndexBuilder")
@@ -192,7 +195,7 @@ public class SearchLineageFixtureConfiguration {
             lineageRegistry,
             bulkProcessor,
             indexConvention,
-            new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
+            new ESGraphWriteDAO(indexConvention, bulkProcessor, 1, getGraphQueryConfiguration()),
             new ESGraphQueryDAO(
                 searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
             indexBuilder,
@@ -274,6 +277,6 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 }

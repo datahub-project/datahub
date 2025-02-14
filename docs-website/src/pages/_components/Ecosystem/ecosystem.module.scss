@@ -87,7 +87,8 @@
         aspect-ratio: 1;
         height: 100%;
         flex-basis: 45%;
-        background-color: #f6f8fb;
+        background-color: #FFF;
+        border: 1px solid #DDD;
         justify-content: center;
         background-size: contain;
         background-repeat: no-repeat;
@@ -109,11 +110,15 @@
       overflow: hidden;
       white-space: normal;
       cursor: pointer;
-      transition: box-shadow 0.3s ease-in-out;
+      transition: all 0.3s ease-in-out;
       text-decoration: none;
+      background-color: #FFF;
+      border: 1px solid #DDD;
+      box-shadow: none;
 
       &:hover {
-        box-shadow: 0px 2px 12px 0px #00000040;
+        box-shadow: 0px 2px 12px 0px #0000001C;
+        border: 1px solid #333;
         .itemLinkOpenArrow {
           opacity: 1;
         }
@@ -126,34 +131,35 @@
       width: 36px;
       opacity: 0.75;
       transition: opacity 0.3s ease-in-out;
+      filter: brightness(0);
     }
 
     .item1 {
       flex-basis: 40%;
-      background-color: #77B750;
+      // background-color: #77B750;
     }
 
     .item2 {
       flex-grow: 1;
-      background-color: #FC5263;
+      // background-color: #FC5263;
     }
 
     .item3 {
       flex-grow: 1;
-      background-color: #EFB300;
+      // background-color: #EFB300;
     }
 
     .item4 {
       flex-basis: 40%;
-      background-color: #1890FF;
+      // background-color: #1890FF;
     }
 
     /* Additional: Control image size */
     .item_content img {
       width: 20px;
       height: 20px;
-      // make it all white
-      filter: brightness(0) invert(1);
+      // make it all black
+      filter: brightness(0);// invert(1);
     }
 
     /* Additional: Limit text height with ellipsis */
@@ -163,7 +169,7 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: white;
+      color: black;
       font-size: 1.15rem;
       line-height: 1.3rem;
     }

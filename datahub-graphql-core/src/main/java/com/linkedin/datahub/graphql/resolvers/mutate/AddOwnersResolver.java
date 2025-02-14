@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.AddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -35,7 +37,8 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
+          OwnerUtils.validateAuthorizedToUpdateOwners(
+              environment.getContext(), targetUrn, _entityClient);
 
           OwnerUtils.validateAddOwnerInput(
               context.getOperationContext(), owners, targetUrn, _entityService);

@@ -19,9 +19,8 @@ query getDomain($urn: String!) {
         institutionalMemory {
             elements {
                 url
-                author {
-                    urn
-                    username
+                actor {
+                    ...resolvedActorFields
                 }
                 description
                 created {
@@ -42,6 +41,7 @@ query getDomain($urn: String!) {
             ...formsFields
         }
         ...domainEntitiesFields
+        ...notes
     }
 }
 
@@ -89,4 +89,28 @@ mutation moveDomain($input: MoveDomainInput!) {
 
 mutation deleteDomain($urn: String!) {
     deleteDomain(urn: $urn)
+}
+
+# We should replace this with a cached summary object on the domain
+query getDomainEntitySummary($urn: String!) {
+    aggregateAcrossEntities(
+        input: {
+            types: []
+            query: "*"
+            facets: ["_entityType␞typeNames", "_entityType"]
+            orFilters: [
+                {
+                    and: [
+                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
+                        { field: "domains", values: [$urn], value: $urn }
+                    ]
+                }
+            ]
+            searchFlags: { skipCache: true }
+        }
+    ) {
+        facets {
+            ...facetFields
+        }
+    }
 }

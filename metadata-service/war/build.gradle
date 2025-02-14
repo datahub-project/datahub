@@ -1,8 +1,10 @@
 plugins {
-  id 'war'
+  id 'org.springframework.boot'
   id 'com.palantir.docker'
+  id 'java'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {
@@ -21,6 +23,8 @@ dependencies {
   implementation project(':metadata-service:openapi-entity-servlet')
   implementation project(':metadata-service:openapi-analytics-servlet')
   implementation project(':metadata-service:schema-registry-servlet')
+  implementation project(':metadata-service:iceberg-catalog')
+  implementation 'org.apache.iceberg:iceberg-core:1.6.1'
   runtimeOnly project(':metadata-jobs:mce-consumer')
   runtimeOnly project(':metadata-jobs:mae-consumer')
   runtimeOnly project(':metadata-jobs:pe-consumer')
@@ -30,6 +34,12 @@ dependencies {
   runtimeOnly externalDependency.mariadbConnector
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
+
+  implementation(externalDependency.springBootStarterWeb) {
+    exclude module: "spring-boot-starter-tomcat"
+  }
+  implementation externalDependency.springBootStarterJetty
+  implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.servletApi
@@ -37,40 +47,45 @@ dependencies {
   implementation spec.product.pegasus.restliDocgen
   implementation spec.product.pegasus.restliSpringBridge
 
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+  testRuntimeOnly externalDependency.logbackClassic
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"
-  
-}
-configurations {
-  jetty11
 }
 
-dependencies {
-  jetty11 "org.eclipse.jetty:jetty-runner:11.0.19"
+tasks.register('run') {
+  group = 'application'  // Add a group for better organization
+  description = 'Runs the application with Gretty'
+  dependsOn 'bootRun' // spring task
 }
 
-task run(type: JavaExec, dependsOn: build) {
-  main = "org.eclipse.jetty.runner.Runner"
-  args = ["${projectDir}/build/libs/war.war"]
-  classpath configurations.jetty11
+bootJar {
+  // backwards compatible with old war archive name
+  archiveFileName = 'war.war'
+  mainClass = 'com.linkedin.gms.GMSApplication'
 }
 
-war {
-  archiveFileName = "war.war"
+bootRun {
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
 }
 
 docker {
   name "${docker_registry}/${docker_repo}:v${version}"
   version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
-  files war.outputs.files
+  files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
@@ -102,7 +117,7 @@ docker {
     buildArgs(dockerBuildArgs)
   }
 }
-tasks.getByPath(":metadata-service:war:docker").dependsOn([build, war])
+tasks.getByPath(":metadata-service:war:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
   doLast {
@@ -110,3 +125,12 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
+
+test {
+  jacoco {
+    // This contains quickstart tested code for jetty startup
+    excludes = ["com.linkedin.gms.CommonApplicationConfig",
+                "com.linkedin.gms.ServletConfig",
+                "com.linkedin.gms.GMSApplication"]
+  }
+}

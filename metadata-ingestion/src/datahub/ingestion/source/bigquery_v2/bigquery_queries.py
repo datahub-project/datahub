@@ -88,3 +88,7 @@ class BigQueryQueriesSource(Source):
 
     def get_report(self) -> BigQueryQueriesSourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.queries_extractor.close()
+        self.connection.close()

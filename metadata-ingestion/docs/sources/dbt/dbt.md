@@ -175,7 +175,7 @@ To integrate with dbt tests, the `dbt` source needs access to the `run_results.j
 1. Run `dbt build`
 2. Copy the `target/run_results.json` file to a separate location. This is important, because otherwise subsequent `dbt` commands will overwrite the run results.
 3. Run `dbt docs generate` to generate the `manifest.json` and `catalog.json` files
-4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `test_results_path` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
+4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `run_results_paths` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
 
 The connector will produce the following things:
 
@@ -219,7 +219,8 @@ source:
   config:
     manifest_path: _path_to_manifest_json
     catalog_path: _path_to_catalog_json
-    test_results_path: _path_to_run_results_json
+    run_results_paths:
+      - _path_to_run_results_json
     target_platform: postgres
     entities_enabled:
       test_results: Only
@@ -233,7 +234,8 @@ source:
   config:
     manifest_path: _path_to_manifest_json
     catalog_path: _path_to_catalog_json
-    run_results_path: _path_to_run_results_json
+    run_results_paths:
+      - _path_to_run_results_json
     target_platform: postgres
     entities_enabled:
       test_results: No

@@ -13,6 +13,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -41,7 +43,7 @@ import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +60,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -80,7 +83,7 @@ public class SearchRequestHandler {
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
-  private final Set<String> defaultQueryFieldNames;
+  @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
   private final SearchConfiguration configs;
@@ -661,8 +664,48 @@ public class SearchRequestHandler {
                                       Collections.emptySet())))
                       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+              List<SearchableFieldSpec> objectFieldSpec =
+                  entitySpec.getSearchableFieldSpecs().stream()
+                      .filter(
+                          searchableFieldSpec ->
+                              searchableFieldSpec.getSearchableAnnotation().getFieldType()
+                                  == SearchableAnnotation.FieldType.OBJECT)
+                      .collect(Collectors.toList());
+
+              Map<String, Set<SearchableAnnotation.FieldType>> objectFieldTypes = new HashMap<>();
+
+              objectFieldSpec.forEach(
+                  fieldSpec -> {
+                    String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+                    DataSchema.Type dataType =
+                        ((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType();
+
+                    Set<SearchableAnnotation.FieldType> fieldType;
+
+                    switch (dataType) {
+                      case BOOLEAN:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.BOOLEAN);
+                        break;
+                      case INT:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.COUNT);
+                        break;
+                      case DOUBLE:
+                      case LONG:
+                      case FLOAT:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.DOUBLE);
+                        break;
+                      default:
+                        fieldType = Set.of(SearchableAnnotation.FieldType.TEXT);
+                        break;
+                    }
+                    objectFieldTypes.put(fieldName, fieldType);
+                    annotationFieldTypes.remove(fieldName);
+                  });
+
               return Stream.concat(
-                  annotationFieldTypes.entrySet().stream(),
+                  Stream.concat(
+                      objectFieldTypes.entrySet().stream(),
+                      annotationFieldTypes.entrySet().stream()),
                   Stream.concat(
                       mappingFieldTypes.entrySet().stream(), aliasFieldTypes.entrySet().stream()));
             })

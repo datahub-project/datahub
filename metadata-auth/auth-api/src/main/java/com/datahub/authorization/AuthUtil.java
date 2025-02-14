@@ -24,6 +24,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -304,6 +305,30 @@ public class AuthUtil {
     return isAPIAuthorized(session, Disjunctive.disjoint(privilege), (EntitySpec) null);
   }
 
+  /**
+   * Allow specific privilege OR MANAGE_SYSTEM_OPERATIONS_PRIVILEGE
+   *
+   * @param session authorization session
+   * @param privilege specific privilege
+   * @return authorized status
+   */
+  public static boolean isAPIOperationsAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final PoliciesConfig.Privilege privilege) {
+    return isAPIAuthorized(
+        session,
+        Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE),
+        (EntitySpec) null);
+  }
+
+  public static boolean isAPIOperationsAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final PoliciesConfig.Privilege privilege,
+      @Nullable final EntitySpec resource) {
+    return isAPIAuthorized(
+        session, Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE), resource);
+  }
+
   private static boolean isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
@@ -536,8 +561,7 @@ public class AuthUtil {
     return buildDisjunctivePrivilegeGroup(lookupAPIPrivilege(apiGroup, apiOperation, entityType));
   }
 
-  @VisibleForTesting
-  static DisjunctivePrivilegeGroup buildDisjunctivePrivilegeGroup(
+  public static DisjunctivePrivilegeGroup buildDisjunctivePrivilegeGroup(
       final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges) {
     return new DisjunctivePrivilegeGroup(
         privileges.stream()

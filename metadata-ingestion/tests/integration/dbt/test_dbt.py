@@ -11,12 +11,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-from datahub.ingestion.source.sql.sql_types import (
-    ATHENA_SQL_TYPES_MAP,
-    TRINO_SQL_TYPES_MAP,
-    resolve_athena_modified_type,
-    resolve_trino_modified_type,
-)
 from tests.test_helpers import mce_helpers, test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -339,9 +333,13 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -355,69 +353,6 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
         output_path=output_file,
         golden_path=golden_path,
         ignore_paths=[],
-    )
-
-
-@pytest.mark.parametrize(
-    "data_type, expected_data_type",
-    [
-        ("boolean", "boolean"),
-        ("tinyint", "tinyint"),
-        ("smallint", "smallint"),
-        ("int", "int"),
-        ("integer", "integer"),
-        ("bigint", "bigint"),
-        ("real", "real"),
-        ("double", "double"),
-        ("decimal(10,0)", "decimal"),
-        ("varchar(20)", "varchar"),
-        ("char", "char"),
-        ("varbinary", "varbinary"),
-        ("json", "json"),
-        ("date", "date"),
-        ("time", "time"),
-        ("time(12)", "time"),
-        ("timestamp", "timestamp"),
-        ("timestamp(3)", "timestamp"),
-        ("row(x bigint, y double)", "row"),
-        ("array(row(x bigint, y double))", "array"),
-        ("map(varchar, varchar)", "map"),
-    ],
-)
-def test_resolve_trino_modified_type(data_type, expected_data_type):
-    assert (
-        resolve_trino_modified_type(data_type)
-        == TRINO_SQL_TYPES_MAP[expected_data_type]
-    )
-
-
-@pytest.mark.parametrize(
-    "data_type, expected_data_type",
-    [
-        ("boolean", "boolean"),
-        ("tinyint", "tinyint"),
-        ("smallint", "smallint"),
-        ("int", "int"),
-        ("integer", "integer"),
-        ("bigint", "bigint"),
-        ("float", "float"),
-        ("double", "double"),
-        ("decimal(10,0)", "decimal"),
-        ("varchar(20)", "varchar"),
-        ("char", "char"),
-        ("binary", "binary"),
-        ("date", "date"),
-        ("timestamp", "timestamp"),
-        ("timestamp(3)", "timestamp"),
-        ("struct<x timestamp(3), y timestamp>", "struct"),
-        ("array<struct<x bigint, y double>>", "array"),
-        ("map<varchar, varchar>", "map"),
-    ],
-)
-def test_resolve_athena_modified_type(data_type, expected_data_type):
-    assert (
-        resolve_athena_modified_type(data_type)
-        == ATHENA_SQL_TYPES_MAP[expected_data_type]
     )
 
 
@@ -442,9 +377,13 @@ def test_dbt_tests_only_assertions(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
@@ -465,7 +404,7 @@ def test_dbt_tests_only_assertions(
         )
         > 20
     )
-    number_of_valid_assertions_in_test_results = 23
+    number_of_valid_assertions_in_test_results = 24
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
@@ -518,9 +457,13 @@ def test_dbt_only_test_definitions_and_results(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,
@@ -542,7 +485,7 @@ def test_dbt_only_test_definitions_and_results(
         )
         > 20
     )
-    number_of_assertions = 24
+    number_of_assertions = 25
     assert (
         mce_helpers.assert_entity_urn_like(
             entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file

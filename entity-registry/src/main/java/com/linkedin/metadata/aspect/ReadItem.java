@@ -36,6 +36,7 @@ public interface ReadItem {
   @Nullable
   RecordTemplate getRecordTemplate();
 
+  @Nullable
   default <T> T getAspect(Class<T> clazz) {
     return getAspect(clazz, getRecordTemplate());
   }
@@ -62,6 +63,13 @@ public interface ReadItem {
    */
   @Nullable
   SystemMetadata getSystemMetadata();
+
+  /**
+   * Set system metadata on the item
+   *
+   * @param systemMetadata
+   */
+  void setSystemMetadata(@Nonnull SystemMetadata systemMetadata);
 
   /**
    * The entity's schema

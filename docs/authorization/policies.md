@@ -191,16 +191,18 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### System Management
 
-| Platform Privileges                           | Description                                                            |
-|-----------------------------------------------|------------------------------------------------------------------------|
-| Restore Indices API[^1]                       | Allow actor to use the Restore Indices API.                            |                                                                                                                                                                                           |
-| Get Timeseries index sizes API[^1]            | Allow actor to use the get Timeseries indices size API.                |
-| Truncate timeseries aspect index size API[^1] | Allow actor to use the API to truncate a timeseries index.             |
-| Get ES task status API[^1]                    | Allow actor to use the get task status API for an ElasticSearch task.  |
-| Enable/Disable Writeability API[^1]           | Allow actor to enable or disable GMS writeability for data migrations. |
-| Apply Retention API[^1]                       | Allow actor to apply retention using the API.                          |
-| Analytics API access[^1]                      | Allow actor to use API read access to raw analytics data.              |
-| Manage System Operations                      | Allow actor to manage system operation controls.                       |
+| Platform Privileges                           | Description                                                                                              |
+|-----------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| Restore Indices API[^1]                       | Allow actor to use the Restore Indices API.                                                              |                                                                                                                                                                                           |
+| Get Timeseries index sizes API[^1]            | Allow actor to use the get Timeseries indices size API.                                                  |
+| Truncate timeseries aspect index size API[^1] | Allow actor to use the API to truncate a timeseries index.                                               |
+| Get ES task status API[^1]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
+| Enable/Disable Writeability API[^1]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
+| Apply Retention API[^1]                       | Allow actor to apply retention using the API.                                                            |
+| Analytics API access[^1]                      | Allow actor to use API read access to raw analytics data.                                                |
+| Explain ElasticSearch Query API[^1]           | Allow actor to use the Operations API explain endpoint.                                                  |
+| Produce Platform Event API[^1]                | Allow actor to produce Platform Events using the API.                                                    |
+| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: DataHub Cloud only
@@ -258,16 +260,6 @@ These privileges are to view & modify any entity within DataHub.
 | Manage Tag Proposals[^2]           | Allow actor to manage a proposal to add a tag to an asset.                                 |
 | Manage Glossary Term Proposals[^2] | Allow actor to manage a proposal to add a glossary term to an asset.                       |
 | Manage Documentation Proposals[^2] | Allow actor to manage a proposal update an asset's documentation                           |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-[^2]: DataHub Cloud only
-
-#### System Management
-
-| System Privileges                   | Description                                                                                |
-|-------------------------------------|--------------------------------------------------------------------------------------------|
-| Explain ElasticSearch Query API[^1] | Allow actor to use the Operations API explain endpoint.                                    |
-| Produce Platform Event API[^1]      | Allow actor to produce Platform Events using the API.                                      |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: DataHub Cloud only

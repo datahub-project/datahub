@@ -3,11 +3,13 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
@@ -149,6 +151,14 @@ public class ChangeItemImpl implements ChangeMCP {
   }
 
   @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    this.systemMetadata = systemMetadata;
+    if (this.metadataChangeProposal != null) {
+      this.metadataChangeProposal.setSystemMetadata(systemMetadata);
+    }
+  }
+
+  @Override
   public Map<String, String> getHeaders() {
     return Optional.ofNullable(metadataChangeProposal)
         .filter(MetadataChangeProposal::hasHeaders)
@@ -181,6 +191,10 @@ public class ChangeItemImpl implements ChangeMCP {
         this.headers = Map.of();
       }
 
+      if (this.urn == null && this.metadataChangeProposal != null) {
+        this.urn = this.metadataChangeProposal.getEntityUrn();
+      }
+
       ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
@@ -208,7 +222,7 @@ public class ChangeItemImpl implements ChangeMCP {
           this.headers);
     }
 
-    public static ChangeItemImpl build(
+    public ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
 
       log.debug("entity type = {}", mcp.getEntityType());
@@ -270,6 +284,11 @@ public class ChangeItemImpl implements ChangeMCP {
   }
 
   @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -280,13 +299,15 @@ public class ChangeItemImpl implements ChangeMCP {
     ChangeItemImpl that = (ChangeItemImpl) o;
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
+        && changeType.equals(that.changeType)
         && Objects.equals(systemMetadata, that.systemMetadata)
-        && recordTemplate.equals(that.recordTemplate);
+        && Objects.equals(auditStamp, that.auditStamp)
+        && DataTemplateUtil.areEqual(recordTemplate, that.recordTemplate);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, recordTemplate);
+    return Objects.hash(urn, aspectName, changeType, systemMetadata, auditStamp, recordTemplate);
   }
 
   @Override
@@ -294,15 +315,17 @@ public class ChangeItemImpl implements ChangeMCP {
     return "ChangeItemImpl{"
         + "changeType="
         + changeType
-        + ", urn="
-        + urn
+        + ", auditStamp="
+        + auditStamp
+        + ", systemMetadata="
+        + systemMetadata
+        + ", recordTemplate="
+        + recordTemplate
         + ", aspectName='"
         + aspectName
         + '\''
-        + ", recordTemplate="
-        + recordTemplate
-        + ", systemMetadata="
-        + systemMetadata
+        + ", urn="
+        + urn
         + '}';
   }
 }

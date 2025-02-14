@@ -2,7 +2,6 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -13,6 +12,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -213,21 +213,19 @@ public class SearchService {
    * @return some entities to search
    */
   public List<String> getEntitiesToSearch(
-      @Nonnull OperationContext opContext, @Nonnull List<String> inputEntities, int size) {
-    List<String> nonEmptyEntities;
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> inputEntities, int size) {
     List<String> lowercaseEntities =
         inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
 
     if (lowercaseEntities.isEmpty()) {
-      try (Timer.Context ignored =
-          MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities(opContext);
-      }
-    } else {
-      nonEmptyEntities = lowercaseEntities;
+      return opContext.withSpan(
+          "getNonEmptyEntities",
+          () -> _entityDocCountCache.getNonEmptyEntities(opContext),
+          MetricUtils.DROPWIZARD_NAME,
+          MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
 
-    return nonEmptyEntities;
+    return lowercaseEntities;
   }
 
   /**
@@ -247,7 +245,7 @@ public class SearchService {
   @Nonnull
   public ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
+      @Nonnull Collection<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,

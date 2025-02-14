@@ -25,7 +25,7 @@ source:
           client_email: "client_email"
           client_id: "client_id"
           private_key: "private_key"
-        dataset: "fivetran_log_dataset"	
+        dataset: "fivetran_log_dataset"
 
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:
@@ -35,7 +35,7 @@ source:
     # Optional -- A mapping of the connector's all sources to its database.
     # sources_to_database:
     #   connector_id: source_db
-    
+
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
     # sources_to_platform_instance:

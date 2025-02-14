@@ -17,6 +17,7 @@ import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.TimeStamp;
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -48,6 +49,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
@@ -166,14 +168,15 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (dataset, dataMap) ->
             dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
     mappingHelper.mapToResult(
-        ACCESS_DATASET_ASPECT_NAME,
+        ACCESS_ASPECT_NAME,
         ((dataset, dataMap) ->
             dataset.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((dataset, dataMap) ->
@@ -182,6 +185,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         SUB_TYPES_ASPECT_NAME,
         (dashboard, dataMap) ->
             dashboard.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
+    mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

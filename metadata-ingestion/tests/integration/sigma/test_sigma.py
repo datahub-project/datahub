@@ -381,25 +381,29 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "https://aws-api.sigmacomputing.com/v2/members": {
             "method": "GET",
             "status_code": 200,
-            "json": [
-                {
-                    "organizationId": "b94da709-176c-4242-bea6-6760f34c9228",
-                    "memberId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                    "memberType": "admin",
-                    "firstName": "Shubham",
-                    "lastName": "Jagtap",
-                    "email": "john.doe@example.com",
-                    "profileImgUrl": None,
-                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                    "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                    "createdAt": "2023-11-28T10:59:20.957Z",
-                    "updatedAt": "2024-03-12T21:21:17.996Z",
-                    "homeFolderId": "9bb94df1-e8af-49eb-9c37-2bd40b0efb2e",
-                    "userKind": "internal",
-                    "isArchived": False,
-                    "isInactive": False,
-                },
-            ],
+            "json": {
+                "entries": [
+                    {
+                        "organizationId": "b94da709-176c-4242-bea6-6760f34c9228",
+                        "memberId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "memberType": "admin",
+                        "firstName": "Shubham",
+                        "lastName": "Jagtap",
+                        "email": "john.doe@example.com",
+                        "profileImgUrl": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2023-11-28T10:59:20.957Z",
+                        "updatedAt": "2024-03-12T21:21:17.996Z",
+                        "homeFolderId": "9bb94df1-e8af-49eb-9c37-2bd40b0efb2e",
+                        "userKind": "internal",
+                        "isArchived": False,
+                        "isInactive": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
         },
     }
 
@@ -416,7 +420,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 
 @pytest.mark.integration
 def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     register_mock_api(request_mock=requests_mock)
@@ -460,7 +463,6 @@ def test_sigma_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     register_mock_api(request_mock=requests_mock)
@@ -506,7 +508,6 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     override_data = {

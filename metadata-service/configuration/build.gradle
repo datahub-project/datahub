@@ -1,6 +1,8 @@
 plugins {
     id 'java-library'
 }
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {

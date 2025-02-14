@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.recommendation;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -28,7 +27,7 @@ import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -179,7 +178,7 @@ public class ListRecommendationsResolver
                     criterion ->
                         FacetFilter.builder()
                             .setField(criterion.getField())
-                            .setValues(ImmutableList.of(criterion.getValue()))
+                            .setValues(criterion.getValues())
                             .build())
                 .collect(Collectors.toList()));
       }

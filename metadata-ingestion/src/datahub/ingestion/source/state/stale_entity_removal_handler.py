@@ -11,7 +11,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import (
+    STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
+    GenericCheckpointState,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -26,10 +29,6 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
-    "dataProcessInstance",
-}
 
 
 class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
@@ -75,7 +74,10 @@ def auto_stale_entity_removal(
 
         if wu.is_primary_source:
             entity_type = guess_entity_type(urn)
-            if entity_type is not None:
+            if (
+                entity_type is not None
+                and entity_type not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+            ):
                 stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
         else:
             stale_entity_removal_handler.add_urn_to_skip(urn)
@@ -109,9 +111,9 @@ class StaleEntityRemovalHandler(
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.stateful_ingestion_config: Optional[
-            StatefulStaleMetadataRemovalConfig
-        ] = config.stateful_ingestion
+        self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
+            config.stateful_ingestion
+        )
         self.checkpointing_enabled: bool = (
             True
             if (

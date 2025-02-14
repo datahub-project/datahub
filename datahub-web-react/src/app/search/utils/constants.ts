@@ -25,6 +25,19 @@ export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
+export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
+export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
+export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
+export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
+export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
+export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
+export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const OUTPUT_PORTS_FIELD = 'isOutputPort';
+export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
+export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
+export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
+export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
+export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -66,6 +79,8 @@ export const ORDERED_FIELDS = [
     TYPE_NAMES_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     DEGREE_FILTER_NAME,
+    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+    HAS_FAILING_ASSERTIONS_FILTER_NAME,
 ];
 
 export const FIELD_TO_LABEL = {
@@ -88,6 +103,8 @@ export const FIELD_TO_LABEL = {
     origin: 'Environment',
     degree: 'Degree',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
+    hasActiveIncidents: 'Incidents',
+    hasFailingAssertions: 'Assertions',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [

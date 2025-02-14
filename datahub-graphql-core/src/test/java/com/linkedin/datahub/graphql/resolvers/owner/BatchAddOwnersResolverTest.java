@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -39,6 +40,7 @@ public class BatchAddOwnersResolverTest {
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -77,7 +79,7 @@ public class BatchAddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -127,6 +129,7 @@ public class BatchAddOwnersResolverTest {
                             .setOwner(Urn.createFromString(TEST_OWNER_URN_1))
                             .setType(OwnershipType.TECHNICAL_OWNER))));
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -176,7 +179,7 @@ public class BatchAddOwnersResolverTest {
                 eq(true)))
         .thenReturn(true);
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -218,6 +221,7 @@ public class BatchAddOwnersResolverTest {
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -232,7 +236,7 @@ public class BatchAddOwnersResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
         .thenReturn(false);
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -268,6 +272,7 @@ public class BatchAddOwnersResolverTest {
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
             mockService.getAspect(
@@ -291,7 +296,7 @@ public class BatchAddOwnersResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
         .thenReturn(true);
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -327,8 +332,9 @@ public class BatchAddOwnersResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -364,12 +370,13 @@ public class BatchAddOwnersResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
-    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
+    BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

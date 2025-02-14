@@ -89,6 +89,9 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
           item.getAspect(StructuredPropertyDefinition.class);
 
       versionFormatCheck(item, newDefinition.getVersion()).ifPresent(exceptions::addException);
+      urnIdCheck(item).ifPresent(exceptions::addException);
+      qualifiedNameCheck(item, newDefinition.getQualifiedName())
+          .ifPresent(exceptions::addException);
 
       if (item.getPreviousSystemAspect() != null) {
 
@@ -189,6 +192,22 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
           AspectValidationException.forItem(
               item,
               String.format("Invalid version specified. Must match %s", VERSION_REGEX.toString())));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<AspectValidationException> urnIdCheck(MCPItem item) {
+    if (item.getUrn().getId().contains(" ")) {
+      return Optional.of(AspectValidationException.forItem(item, "Urn ID cannot have spaces"));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<AspectValidationException> qualifiedNameCheck(
+      MCPItem item, @Nonnull String qualifiedName) {
+    if (qualifiedName.contains(" ")) {
+      return Optional.of(
+          AspectValidationException.forItem(item, "Qualified names cannot have spaces"));
     }
     return Optional.empty();
   }

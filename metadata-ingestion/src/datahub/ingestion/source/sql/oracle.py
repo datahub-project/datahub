@@ -1,11 +1,14 @@
+import datetime
 import logging
 import re
+
+# This import verifies that the dependencies are available.
+import sys
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
 from unittest.mock import patch
 
-# This import verifies that the dependencies are available.
-import cx_Oracle
+import oracledb
 import pydantic
 import sqlalchemy.engine
 from pydantic.fields import Field
@@ -31,6 +34,9 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 logger = logging.getLogger(__name__)
 
+oracledb.version = "8.3.0"
+sys.modules["cx_Oracle"] = oracledb
+
 extra_oracle_types = {
     make_sqlalchemy_type("SDO_GEOMETRY"),
     make_sqlalchemy_type("SDO_POINT_TYPE"),
@@ -47,10 +53,10 @@ def _raise_err(exc: Exception) -> NoReturn:
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
     """Add CLOB and BLOB support to Oracle connection."""
 
-    if defaultType == cx_Oracle.CLOB:
-        return cursor.var(cx_Oracle.LONG_STRING, arraysize=cursor.arraysize)
-    elif defaultType == cx_Oracle.BLOB:
-        return cursor.var(cx_Oracle.LONG_BINARY, arraysize=cursor.arraysize)
+    if defaultType == oracledb.CLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+    elif defaultType == oracledb.BLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
 
 
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
@@ -58,9 +64,9 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 
 class OracleConfig(BasicSQLAlchemyConfig):
-    # defaults
+    # TODO: Change scheme to oracle+oracledb when sqlalchemy>=2 is supported
     scheme: str = Field(
-        default="oracle+cx_oracle",
+        default="oracle",
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
@@ -173,7 +179,6 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_view_names(self, schema: Optional[str] = None) -> List[str]:
-
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -195,7 +200,6 @@ class OracleInspectorObjectWrapper:
     def get_columns(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List[dict]:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -230,9 +234,7 @@ class OracleInspectorObjectWrapper:
                     WHERE col.table_name = id.table_name
                     AND col.column_name = id.column_name
                     AND col.owner = id.owner
-                ) AS identity_options""".format(
-                dblink=dblink
-            )
+                ) AS identity_options""".format(dblink=dblink)
         else:
             identity_cols = "NULL as default_on_null, NULL as identity_options"
 
@@ -339,7 +341,6 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(self, table_name: str, schema: Optional[str] = None) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -411,7 +412,6 @@ class OracleInspectorObjectWrapper:
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -453,7 +453,6 @@ class OracleInspectorObjectWrapper:
     def get_foreign_keys(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -535,7 +534,6 @@ class OracleInspectorObjectWrapper:
     def get_view_definition(
         self, view_name: str, schema: Optional[str] = None
     ) -> Union[str, None]:
-
         denormalized_view_name = self._inspector_instance.dialect.denormalize_name(
             view_name
         )
@@ -632,3 +630,52 @@ class OracleSource(SQLAlchemySource):
             clear=False,
         ):
             return super().get_workunits()
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        tables_table_name = (
+            "ALL_TABLES" if self.config.data_dictionary_mode == "ALL" else "DBA_TABLES"
+        )
+
+        # If stats are available , they are used even if they are stale.
+        # Assuming that the table would typically grow over time, this will ensure to filter
+        # large tables known at stats collection time from profiling candidates.
+        # If stats are not available (NULL), such tables are not filtered and are considered
+        # as profiling candidates.
+        cursor = inspector.bind.execute(
+            sql.text(
+                f"""SELECT
+                            t.OWNER,
+                            t.TABLE_NAME,
+                            t.NUM_ROWS,
+                            t.LAST_ANALYZED,
+                            COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) AS SIZE_GB
+                        FROM {tables_table_name} t
+                        WHERE t.OWNER = :owner
+                        AND (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
+                        AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
+                """
+            ),
+            dict(
+                owner=inspector.dialect.denormalize_name(schema),
+                table_row_limit=self.config.profiling.profile_table_row_limit,
+                table_size_limit=self.config.profiling.profile_table_size_limit,
+            ),
+        )
+
+        TABLE_NAME_COL_LOC = 1
+        return [
+            self.get_identifier(
+                schema=schema,
+                entity=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
+                or _raise_err(
+                    ValueError(f"Invalid table name: {row[TABLE_NAME_COL_LOC]}")
+                ),
+                inspector=inspector,
+            )
+            for row in cursor
+        ]

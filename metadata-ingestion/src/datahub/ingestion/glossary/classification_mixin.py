@@ -1,5 +1,6 @@
 import concurrent.futures
 import logging
+import multiprocessing
 from dataclasses import dataclass, field
 from functools import partial
 from math import ceil
@@ -33,7 +34,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class ClassificationReportMixin:
-
     num_tables_fetch_sample_values_failed: int = 0
 
     num_tables_classification_attempted: int = 0
@@ -112,7 +112,6 @@ class ClassificationHandler:
         schema_metadata: SchemaMetadata,
         sample_data: Union[Dict[str, list], Callable[[], Dict[str, list]]],
     ) -> None:
-
         if not isinstance(sample_data, Dict):
             try:
                 # TODO: In future, sample_data fetcher can be lazily called if classification
@@ -184,6 +183,11 @@ class ClassificationHandler:
 
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=self.config.classification.max_workers,
+            # The fork start method, which is the default on Linux for Python < 3.14, is not
+            # safe when the main process uses threads. The default start method on windows/macOS is
+            # already spawn, and will be changed to spawn for Linux in Python 3.14.
+            # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+            mp_context=multiprocessing.get_context("spawn"),
         ) as executor:
             column_info_proposal_futures = [
                 executor.submit(

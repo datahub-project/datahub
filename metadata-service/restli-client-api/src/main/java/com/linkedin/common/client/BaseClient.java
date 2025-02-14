@@ -2,8 +2,8 @@ package com.linkedin.common.client;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.callback.FutureCallback;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
@@ -19,17 +19,15 @@ import org.apache.http.HttpHeaders;
 @Slf4j
 public abstract class BaseClient implements AutoCloseable {
 
-  protected final Client _client;
-  protected final BackoffPolicy _backoffPolicy;
-  protected final int _retryCount;
+  protected final Client client;
+  protected final EntityClientConfig entityClientConfig;
 
   protected static final Set<String> NON_RETRYABLE =
       Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
 
-  protected BaseClient(@Nonnull Client restliClient, BackoffPolicy backoffPolicy, int retryCount) {
-    _client = Objects.requireNonNull(restliClient);
-    _backoffPolicy = backoffPolicy;
-    _retryCount = retryCount;
+  protected BaseClient(@Nonnull Client restliClient, EntityClientConfig entityClientConfig) {
+    client = Objects.requireNonNull(restliClient);
+    this.entityClientConfig = entityClientConfig;
   }
 
   protected <T> Response<T> sendClientRequest(
@@ -52,9 +50,9 @@ public abstract class BaseClient implements AutoCloseable {
 
     int attemptCount = 0;
 
-    while (attemptCount < _retryCount + 1) {
+    while (attemptCount < entityClientConfig.getRetryCount() + 1) {
       try {
-        return _client.sendRequest(requestBuilder.build()).getResponse();
+        return client.sendRequest(requestBuilder.build()).getResponse();
       } catch (Throwable ex) {
         MetricUtils.counter(
                 BaseClient.class,
@@ -66,12 +64,13 @@ public abstract class BaseClient implements AutoCloseable {
                 || (ex.getCause() != null
                     && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()));
 
-        if (attemptCount == _retryCount || skipRetry) {
+        if (attemptCount == entityClientConfig.getRetryCount() || skipRetry) {
           throw ex;
         } else {
           attemptCount = attemptCount + 1;
           try {
-            Thread.sleep(_backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
+            Thread.sleep(
+                entityClientConfig.getBackoffPolicy().nextBackoff(attemptCount, ex) * 1000);
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
@@ -84,6 +83,6 @@ public abstract class BaseClient implements AutoCloseable {
 
   @Override
   public void close() {
-    _client.shutdown(new FutureCallback<>());
+    client.shutdown(new FutureCallback<>());
   }
 }

@@ -20,17 +20,21 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.IngestAspectsResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -65,6 +69,7 @@ public class AspectResourceTest {
     aspectResource.setEntityService(entityService);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     aspectResource.setSystemOperationContext(opContext);
+    aspectResource.setEntitySearchService(mock(EntitySearchService.class));
     entityRegistry = opContext.getEntityRegistry();
   }
 
@@ -85,7 +90,8 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn),
+            argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
 
@@ -97,43 +103,71 @@ public class AspectResourceTest {
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(opContext.getAspectRetrieverOpt().get());
-    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
-        .thenReturn(
-            List.of(List.of(
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name1"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name2"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name3"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name4"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build(),
-                UpdateAspectResult.builder()
-                    .urn(urn)
-                    .newValue(new DatasetProperties().setName("name5"))
-                    .auditStamp(new AuditStamp())
-                    .request(req)
-                    .build())));
+            .build(opContext.getAspectRetriever());
+    IngestAspectsResult txResult = IngestAspectsResult.builder()
+            .updateAspectResults(List.of(
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name1"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name2"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name3"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name4"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build(),
+                    UpdateAspectResult.builder()
+                            .urn(urn)
+                            .newValue(new DatasetProperties().setName("name5"))
+                            .auditStamp(new AuditStamp())
+                            .request(req)
+                            .build()))
+            .build();
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(Optional.of(txResult));
     aspectResource.ingestProposal(mcp, "false");
     verify(producer, times(5))
-        .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
+        .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  @Test
+  public void testNoValidateAsync() throws URISyntaxException {
+    OperationContext noValidateOpContext = TestOperationContexts.systemContextNoValidate();
+    aspectResource.setSystemOperationContext(noValidateOpContext);
+    reset(producer, aspectDao);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    mcp.setEntityUrn(urn);
+    GenericAspect properties = GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setAspectName("notAnAspect");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+    aspectResource.ingestProposal(mcp, "true");
+    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn), argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
+    verifyNoMoreInteractions(producer);
+    verifyNoMoreInteractions(aspectDao);
+    reset(producer, aspectDao);
+    aspectResource.setSystemOperationContext(opContext);
   }
 }

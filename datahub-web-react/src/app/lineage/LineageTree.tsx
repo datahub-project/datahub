@@ -25,7 +25,7 @@ type LineageTreeProps = {
     setIsDraggingNode: (isDraggingNode: boolean) => void;
     draggedNodes: Record<string, { x: number; y: number }>;
     setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 

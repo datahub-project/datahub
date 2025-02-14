@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.policyfields;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
@@ -17,7 +18,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -246,9 +246,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
 
   @NotNull
   private static ConjunctiveCriterion getCriterionForMissingField(String field) {
-    final Criterion missingPrivilegesField = new Criterion();
-    missingPrivilegesField.setCondition(Condition.IS_NULL);
-    missingPrivilegesField.setField(field);
+    final Criterion missingPrivilegesField = buildIsNullCriterion(field);
 
     final CriterionArray criterionArray = new CriterionArray();
     criterionArray.add(missingPrivilegesField);

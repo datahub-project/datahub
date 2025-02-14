@@ -4,11 +4,9 @@ from enum import Enum
 import pytest
 import sqlglot
 
+from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import (
-    _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
-    get_query_type_of_sql,
-)
+from datahub.sql_parsing.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 from datahub.sql_parsing.sqlglot_utils import (
     generalize_query,
     generalize_query_fast,
@@ -75,6 +73,12 @@ class QueryGeneralizationTestMode(Enum):
             "SELECT * FROM foo",
             QueryGeneralizationTestMode.BOTH,
         ),
+        (
+            "SELECT a\n -- comment--\n,b --another comment\n FROM books",
+            "redshift",
+            "SELECT a, b FROM books",
+            QueryGeneralizationTestMode.BOTH,
+        ),
         # Parameter normalization.
         (
             "UPDATE  \"books\" SET page_count = page_count + 1, author_count = author_count + 1 WHERE book_title = 'My New Book'",
@@ -105,6 +109,21 @@ class QueryGeneralizationTestMode(Enum):
             ),
             "mssql",
             "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            # Uneven spacing within the IN clause.
+            "SELECT * FROM books WHERE zip_code IN (123,345, 423 )",
+            "redshift",
+            "SELECT * FROM books WHERE zip_code IN (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        # Uneven spacing in the column list.
+        # This isn't perfect e.g. we still have issues with function calls inside selects.
+        (
+            "SELECT a\n  ,b FROM books",
+            "redshift",
+            "SELECT a, b FROM books",
             QueryGeneralizationTestMode.BOTH,
         ),
         (
@@ -167,3 +186,15 @@ def test_query_fingerprint():
     assert get_query_fingerprint(
         "select 1 + 1", platform="postgres"
     ) != get_query_fingerprint("select 2", platform="postgres")
+
+
+def test_redshift_query_fingerprint():
+    query1 = "insert into insert_into_table (select * from base_table);"
+    query2 = "INSERT INTO insert_into_table (SELECT * FROM base_table)"
+
+    assert get_query_fingerprint(query1, "redshift") == get_query_fingerprint(
+        query2, "redshift"
+    )
+    assert get_query_fingerprint(query1, "redshift", True) != get_query_fingerprint(
+        query2, "redshift", True
+    )

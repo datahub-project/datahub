@@ -15,15 +15,18 @@ record DocumentationAssociation {
   @Searchable = {
     "/time": {
         "fieldName": "documentationAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
       },
     "/actor": {
         "fieldName": "documentationAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
     "/source": {
         "fieldName": "documentationAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false,
       },
   }
   attribution: optional MetadataAttribution

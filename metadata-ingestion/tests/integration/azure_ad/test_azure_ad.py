@@ -68,7 +68,6 @@ def run_ingest(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(
@@ -99,7 +98,9 @@ def load_test_resources(test_resources_dir):
     with azure_ad_nested_group_json_file.open() as azure_ad_nested_group_json:
         reference_nested_group = json.loads(azure_ad_nested_group_json.read())
 
-    with azure_ad_nested_groups_members_json_file.open() as azure_ad_nested_groups_users_json:
+    with (
+        azure_ad_nested_groups_members_json_file.open()
+    ) as azure_ad_nested_groups_users_json:
         reference_nested_groups_users = json.loads(
             azure_ad_nested_groups_users_json.read()
         )

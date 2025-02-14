@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -33,17 +33,11 @@ logger = logging.getLogger(__name__)
 
 NAME: str = "name"
 
-_BASE_PROJECT_NAME = "__BASE"
+BASE_PROJECT_NAME = "__BASE"
 
-_EXPLORE_FILE_EXTENSION = ".explore.lkml"
-
-_VIEW_FILE_EXTENSION = ".view.lkml"
-
-_MODEL_FILE_EXTENSION = ".model.lkml"
-
-VIEW_LANGUAGE_LOOKML: str = "lookml"
-
-VIEW_LANGUAGE_SQL: str = "sql"
+EXPLORE_FILE_EXTENSION = ".explore.lkml"
+VIEW_FILE_EXTENSION = ".view.lkml"
+MODEL_FILE_EXTENSION = ".model.lkml"
 
 DERIVED_VIEW_SUFFIX = r".sql_table_name"
 
@@ -54,13 +48,17 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
-    models_dropped: List[str] = dataclass_field(default_factory=LossyList)
+    models_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
-    views_dropped: List[str] = dataclass_field(default_factory=LossyList)
-    views_dropped_unreachable: List[str] = dataclass_field(default_factory=LossyList)
+    views_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
+    views_dropped_unreachable: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
     query_parse_attempts: int = 0
     query_parse_failures: int = 0
-    query_parse_failure_views: List[str] = dataclass_field(default_factory=LossyList)
+    query_parse_failure_views: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
     _looker_api: Optional[LookerAPI] = None
 
     def report_models_scanned(self) -> None:
@@ -124,9 +122,6 @@ class LookMLSourceConfig(
         description="List of regex patterns for LookML views to include in the extraction.",
     )
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
-    sql_parser: str = Field(
-        "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
-    )
     api: Optional[LookerAPIConfig]
     project_name: Optional[str] = Field(
         None,
@@ -148,7 +143,10 @@ class LookMLSourceConfig(
     )
     emit_reachable_views_only: bool = Field(
         True,
-        description="When enabled, only views that are reachable from explores defined in the model files are emitted",
+        description=(
+            "When enabled, only views that are reachable from explores defined in the model files are emitted. "
+            "If set to False, all views imported in model files are emitted. Views that are unreachable i.e. not explicitly defined in the model files are currently not emitted however reported as warning for debugging purposes."
+        ),
     )
     populate_sql_logic_for_missing_descriptions: bool = Field(
         False,
@@ -167,11 +165,25 @@ class LookMLSourceConfig(
         description="When enabled, looker refinement will be processed to adapt an existing view.",
     )
 
-    liquid_variable: Dict[Any, Any] = Field(
+    liquid_variables: Dict[Any, Any] = Field(
         {},
-        description="A dictionary containing Liquid variables and their corresponding values, utilized in SQL-defined "
+        description="A dictionary containing Liquid variables with their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
+    )
+
+    _liquid_variable_deprecated = pydantic_renamed_field(
+        old_name="liquid_variable", new_name="liquid_variables", print_warning=True
+    )
+
+    lookml_constants: Dict[str, str] = Field(
+        {},
+        description=(
+            "A dictionary containing LookML constants (`@{constant_name}`) and their values. "
+            "If a constant is defined in the `manifest.lkml` file, its value will be used. "
+            "If not found in the manifest, the value from this config will be used instead. "
+            "Defaults to an empty dictionary."
+        ),
     )
 
     looker_environment: Literal["prod", "dev"] = Field(

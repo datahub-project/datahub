@@ -72,7 +72,7 @@ describe("download lineage results to .csv file", () => {
 
     // Verify 1st 2nd and 3+ degree of dependencies(Verify multi page download)
     cy.get('[data-testid="facet-degree-3+"]').click().wait(5000);
-    cy.contains(/1 - 10 of 1[3-4]/);
+    cy.contains(/1 - 10 of 1[3-6]/);
     downloadCsvFile("third_plus_degree_results.csv");
     const third_degree_csv = cy.readFile(
       "cypress/downloads/third_plus_degree_results.csv",

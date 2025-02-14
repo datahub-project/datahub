@@ -1,7 +1,7 @@
 version: "3"
 services:
   testsqlserver:
-    image: "mcr.microsoft.com/mssql/server:latest"
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
     platform: linux/amd64
     container_name: "testsqlserver"
     environment:

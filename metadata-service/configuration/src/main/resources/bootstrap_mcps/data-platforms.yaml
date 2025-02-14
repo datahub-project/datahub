@@ -1,0 +1,750 @@
+# Instructions to add additional entry
+# 1. Add new entry to this list
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityUrn: urn:li:dataPlatform:adlsGen1
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: adlsGen1
+    displayName: Azure Data Lake (Gen 1)
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:adlsGen2
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: adlsGen2
+    displayName: Azure Data Lake (Gen 2)
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:airflow
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: airflow
+    displayName: Airflow
+    type: OTHERS
+    logoUrl: "/assets/platforms/airflowlogo.png"
+- entityUrn: urn:li:dataPlatform:ambry
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: ambry
+    displayName: Ambry
+    type: OBJECT_STORE
+- entityUrn: urn:li:dataPlatform:clickhouse
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: clickhouse
+    displayName: ClickHouse
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/clickhouselogo.png"
+- entityUrn: urn:li:dataPlatform:cockroachdb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cockroachdb
+    displayName: CockroachDb
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/cockroachdblogo.png"
+- entityUrn: urn:li:dataPlatform:couchbase
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: couchbase
+    displayName: Couchbase
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/couchbaselogo.png"
+- entityUrn: urn:li:dataPlatform:dagster
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: dagster
+    displayName: Dagster
+    type: OTHERS
+    logoUrl: "/assets/platforms/dagsterlogo.svg"
+- entityUrn: urn:li:dataPlatform:external
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: external
+    displayName: External Source
+    type: OTHERS
+- entityUrn: urn:li:dataPlatform:hdfs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: hdfs
+    displayName: HDFS
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hadooplogo.png"
+- entityUrn: urn:li:dataPlatform:hana
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hana
+    displayName: SAP HANA
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/hanalogo.png"
+- entityUrn: urn:li:dataPlatform:hive
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hive
+    displayName: Hive
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hivelogo.png"
+- entityUrn: urn:li:dataPlatform:hudi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hudi
+    displayName: Hudi
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hudilogo.png"
+- entityUrn: urn:li:dataPlatform:iceberg
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: iceberg
+    displayName: Iceberg
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/iceberglogo.png"
+- entityUrn: urn:li:dataPlatform:s3
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: s3
+    displayName: AWS S3
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/s3.png"
+- entityUrn: urn:li:dataPlatform:kafka
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kafka
+    displayName: Kafka
+    type: MESSAGE_BROKER
+    logoUrl: "/assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kafka-connect
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kafka-connect
+    displayName: Kafka Connect
+    type: OTHERS
+    logoUrl: "/assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kusto
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kusto
+    displayName: Kusto
+    type: OLAP_DATASTORE
+    logoUrl: "/assets/platforms/kustologo.png"
+- entityUrn: urn:li:dataPlatform:mode
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mode
+    displayName: Mode
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/modelogo.png"
+- entityUrn: urn:li:dataPlatform:mongodb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mongodb
+    displayName: MongoDB
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/mongodblogo.png"
+- entityUrn: urn:li:dataPlatform:mysql
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mysql
+    displayName: MySQL
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/mysqllogo.png"
+- entityUrn: urn:li:dataPlatform:db2
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: db2
+    displayName: DB2
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/db2logo.png"
+- entityUrn: urn:li:dataPlatform:mariadb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mariadb
+    displayName: MariaDB
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/mariadblogo.png"
+- entityUrn: urn:li:dataPlatform:OpenApi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: openapi
+    displayName: OpenAPI
+    type: OTHERS
+    logoUrl: "/assets/platforms/openapilogo.png"
+- entityUrn: urn:li:dataPlatform:oracle
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: oracle
+    displayName: Oracle
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/oraclelogo.png"
+- entityUrn: urn:li:dataPlatform:pinot
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: pinot
+    displayName: Pinot
+    type: OLAP_DATASTORE
+    logoUrl: "/assets/platforms/pinotlogo.png"
+- entityUrn: urn:li:dataPlatform:postgres
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: postgres
+    displayName: PostgreSQL
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/postgreslogo.png"
+- entityUrn: urn:li:dataPlatform:prefect
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: prefect
+    displayName: Prefect
+    type: OTHERS
+    logoUrl: "/assets/platforms/prefectlogo.png"
+- entityUrn: urn:li:dataPlatform:presto
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: prefect
+    displayName: Prefect
+    type: OTHERS
+    logoUrl: "/assets/platforms/prefectlogo.png"
+- entityUrn: urn:li:dataPlatform:presto
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: presto
+    displayName: Presto
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/prestologo.png"
+- entityUrn: urn:li:dataPlatform:tableau
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: tableau
+    displayName: Tableau
+    type: OTHERS
+    logoUrl: "/assets/platforms/tableaulogo.svg"
+- entityUrn: urn:li:dataPlatform:teradata
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: teradata
+    displayName: Teradata
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/teradatalogo.png"
+- entityUrn: urn:li:dataPlatform:voldemort
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: voldemort
+    displayName: Voldemort
+    type: KEY_VALUE_STORE
+- entityUrn: urn:li:dataPlatform:snowflake
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snowflake
+    displayName: Snowflake
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/snowflakelogo.png"
+- entityUrn: urn:li:dataPlatform:redshift
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: redshift
+    displayName: Redshift
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/redshiftlogo.png"
+- entityUrn: urn:li:dataPlatform:mssql
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mssql
+    displayName: SQL Server
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/mssqllogo.png"
+- entityUrn: urn:li:dataPlatform:bigquery
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigquery
+    displayName: BigQuery
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/bigquerylogo.png"
+- entityUrn: urn:li:dataPlatform:druid
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: druid
+    displayName: Druid
+    type: OLAP_DATASTORE
+    logoUrl: "/assets/platforms/druidlogo.png"
+- entityUrn: urn:li:dataPlatform:looker
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: looker
+    displayName: Looker
+    type: OTHERS
+    logoUrl: "/assets/platforms/lookerlogo.svg"
+- entityUrn: urn:li:dataPlatform:feast
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: feast
+    displayName: Feast
+    type: OTHERS
+    logoUrl: "/assets/platforms/feastlogo.png"
+- entityUrn: urn:li:dataPlatform:sagemaker
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sagemaker
+    displayName: SageMaker
+    type: OTHERS
+    logoUrl: "/assets/platforms/sagemakerlogo.png"
+- entityUrn: urn:li:dataPlatform:mlflow
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: mlflow
+    displayName: MLflow
+    type: OTHERS
+    logoUrl: "/assets/platforms/mlflowlogo2.png"
+- entityUrn: urn:li:dataPlatform:glue
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: glue
+    displayName: Glue
+    type: OTHERS
+    logoUrl: "/assets/platforms/gluelogo.png"
+- entityUrn: urn:li:dataPlatform:redash
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: redash
+    displayName: Redash
+    type: OTHERS
+    logoUrl: "/assets/platforms/redashlogo.png"
+- entityUrn: urn:li:dataPlatform:athena
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: athena
+    displayName: AWS Athena
+    type: RELATIONAL_DB
+    logoUrl: "/assets/platforms/awsathenalogo.png"
+- entityUrn: urn:li:dataPlatform:spark
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: spark
+    displayName: Spark
+    type: OTHERS
+    logoUrl: "/assets/platforms/sparklogo.png"
+- entityUrn: urn:li:dataPlatform:dbt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dbt
+    displayName: dbt
+    type: OTHERS
+    logoUrl: "/assets/platforms/dbtlogo.png"
+- entityUrn: urn:li:dataPlatform:elasticsearch
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: elasticsearch
+    displayName: Elasticsearch
+    type: OTHERS
+    logoUrl: "/assets/platforms/elasticsearchlogo.png"
+- entityUrn: urn:li:dataPlatform:great-expectations
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    name: Great Expectations
+    displayName: Great Expectations
+    type: OTHERS
+    logoUrl: "/assets/platforms/greatexpectationslogo.png"
+    datasetNameDelimiter: "."
+- entityUrn: urn:li:dataPlatform:powerbi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: powerbi
+    displayName: Power BI
+    type: OTHERS
+    logoUrl: "/assets/platforms/powerbilogo.png"
+- entityUrn: urn:li:dataPlatform:presto-on-hive
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: presto-on-hive
+    displayName: Presto on Hive
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/prestoonhivelogo.png"
+- entityUrn: urn:li:dataPlatform:metabase
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: metabase
+    displayName: Metabase
+    type: OTHERS
+    logoUrl: "/assets/platforms/metabaselogo.svg"
+- entityUrn: urn:li:dataPlatform:nifi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: nifi
+    displayName: NiFi
+    type: OTHERS
+    logoUrl: "/assets/platforms/nifilogo.svg"
+- entityUrn: urn:li:dataPlatform:superset
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: superset
+    displayName: Superset
+    type: OTHERS
+    logoUrl: "/assets/platforms/supersetlogo.png"
+- entityUrn: urn:li:dataPlatform:trino
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: trino
+    displayName: Trino
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/trinologo.png"
+- entityUrn: urn:li:dataPlatform:pulsar
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: pulsar
+    displayName: Pulsar
+    type: MESSAGE_BROKER
+    logoUrl: "/assets/platforms/pulsarlogo.png"
+- entityUrn: urn:li:dataPlatform:salesforce
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: salesforce
+    displayName: Salesforce
+    type: OTHERS
+    logoUrl: "/assets/platforms/logo-salesforce.svg"
+- entityUrn: urn:li:dataPlatform:unknown
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: Unknown Platform
+    displayName: N/A
+    type: OTHERS
+- entityUrn: urn:li:dataPlatform:delta-lake
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: delta-lake
+    displayName: Delta Lake
+    type: OTHERS
+    logoUrl: "/assets/platforms/deltalakelogo.png"
+- entityUrn: urn:li:dataPlatform:databricks
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: databricks
+    displayName: Databricks
+    type: OTHERS
+    logoUrl: "/assets/platforms/databrickslogo.png"
+- entityUrn: urn:li:dataPlatform:vertica
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: vertica
+    displayName: Vertica
+    type: OLAP_DATASTORE
+    logoUrl: "/assets/platforms/verticalogo.png"
+- entityUrn: urn:li:dataPlatform:gcs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: gcs
+    displayName: Google Cloud Storage
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/gcslogo.svg"
+- entityUrn: urn:li:dataPlatform:slack
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: Slack
+    displayName: Slack
+    type: OTHERS
+    logoUrl: "/assets/platforms/slacklogo.png"
+- entityUrn: urn:li:dataPlatform:microsoft-teams
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: Microsoft Teams
+    displayName: Microsoft Teams
+    type: OTHERS
+    logoUrl: "/assets/platforms/teamslogo.png"
+- entityUrn: urn:li:dataPlatform:dynamodb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dynamodb
+    displayName: DynamoDB
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:fivetran
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fivetran
+    displayName: Fivetran
+    type: OTHERS
+    logoUrl: "/assets/platforms/fivetranlogo.png"
+- entityUrn: urn:li:dataPlatform:csv
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: csv
+    displayName: CSV
+    type: OTHERS
+    logoUrl: "/assets/platforms/csv-logo.png"
+- entityUrn: urn:li:dataPlatform:qlik-sense
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: qlik-sense
+    displayName: Qlik Sense
+    type: OTHERS
+    logoUrl: "/assets/platforms/qliklogo.png"
+- entityUrn: urn:li:dataPlatform:file
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: file
+    displayName: File
+    type: OTHERS
+    logoUrl: "/assets/platforms/file-logo.svg"
+- entityUrn: urn:li:dataPlatform:excel
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    name: excel
+    displayName: Excel
+    type: OTHERS
+    datasetNameDelimiter: "/"
+    logoUrl: "/assets/platforms/excel-logo.svg"
+- entityUrn: urn:li:dataPlatform:sigma
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sigma
+    displayName: Sigma
+    type: OTHERS
+    logoUrl: "/assets/platforms/sigmalogo.png"
+- entityUrn: urn:li:dataPlatform:sac
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sac
+    displayName: SAP Analytics Cloud
+    type: OTHERS
+    logoUrl: "/assets/platforms/saclogo.svg"
+- entityUrn: urn:li:dataPlatform:dremio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dremio
+    displayName: Dremio
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/dremiologo.png"
+- entityUrn: urn:li:dataPlatform:cassandra
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cassandra
+    displayName: Cassandra
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/cassandralogo.png"
+- entityUrn: urn:li:dataPlatform:neo4j
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: neo4j
+    displayName: Neo4j
+    type: OTHERS
+    logoUrl: "/assets/platforms/neo4j.png"
+

@@ -6,9 +6,8 @@ from cached_property import cached_property
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
-    ConfigModel,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )

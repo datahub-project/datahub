@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -109,7 +108,7 @@ class DataJob:
         self, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
-        if self.flow_urn.cluster.upper() in ALL_ENV_TYPES:
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
             env = self.flow_urn.cluster.upper()
         else:
             logger.debug(

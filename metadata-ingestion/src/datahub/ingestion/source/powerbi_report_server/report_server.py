@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.lossy_collections import LossyList
 
 LOGGER = logging.getLogger(__name__)
 
@@ -126,7 +127,6 @@ def log_http_error(e: BaseException, message: str) -> Any:
 
 
 def get_response_dict(response: requests.Response, error_message: str) -> dict:
-
     result_dict: dict = {}
     try:
         response.raise_for_status()
@@ -477,7 +477,7 @@ class Mapper:
 @dataclass
 class PowerBiReportServerDashboardSourceReport(SourceReport):
     scanned_report: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_scanned(self, count: int = 1) -> None:
         self.scanned_report += count
@@ -486,7 +486,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")

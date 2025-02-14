@@ -2,6 +2,8 @@ plugins {
   id 'base'
 }
 
+apply from: "../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -9,10 +11,6 @@ ext {
 
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
-}
-
-def get_coverage_arg(test_name) {
-  return "--cov-report xml:coverage_${test_name}.xml "
 }
 
 task checkPythonVersion(type: Exec) {
@@ -25,20 +23,14 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${python_executable} -m venv ${venv_name} && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_name}; fi && " +
+    "set -x && " +
+    // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
+    "if [ ! -f ${venv_name}/bin/uv ]; then ${venv_name}/bin/python -m pip install --upgrade uv; else ${venv_name}/bin/python -m uv pip install --upgrade uv; fi && " +
     "touch ${sentinel_file}"
 }
 
-task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
-  def sentinel_file = ".preflight_sentinel"
-  outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
-    "scripts/datahub_preflight.sh && " +
-    "touch ${sentinel_file}"
-}
-
-task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
+task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
@@ -116,36 +108,32 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
-    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ examples/ && " +
-    "isort --check --diff src/ tests/ examples/ && " +
-    "flake8 --count --statistics src/ tests/ examples/ && " +
+    "ruff check src/ tests/ examples/ && " +
+    "ruff format --check src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
+
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black src/ tests/ examples/ && " +
-    "isort src/ tests/ examples/ && " +
-    "flake8 src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "ruff check --fix src/ tests/ examples/ && " +
+    "ruff format src/ tests/ examples/ "
 }
+
+def pytest_default_env = "PYTHONDEVMODE=1"
+def pytest_default_args = "--durations=30 -vv --continue-on-collection-errors"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
-  def cvg_arg = get_coverage_arg("quick")
+  def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest ${cvg_arg} tests/unit --random-order --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
@@ -165,7 +153,7 @@ task testSingle(dependsOn: [installDevTest]) {
   if (testFile != 'unknown')  {
     exec {
       commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && pytest ${testFile}"
+        "source ${venv_name}/bin/activate && ${pytest_default_env} pytest ${testFile} ${pytest_default_args}"
     }
   } else {
    throw new GradleException("No file provided. Use -PtestFile=<test_file>")
@@ -174,28 +162,28 @@ task testSingle(dependsOn: [installDevTest]) {
 }
 
 task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch0")
+  def cvg_arg = get_coverage_args("intBatch0")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
+    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_0' --junit-xml=junit.integrationbatch0.xml"
 }
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch1")
+  def cvg_arg = get_coverage_args("intBatch1")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
+    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_1' --junit-xml=junit.integrationbatch1.xml"
 }
 task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch2")
+  def cvg_arg = get_coverage_args("intBatch2")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
+    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_2' --junit-xml=junit.integrationbatch2.xml"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "${pytest_default_env} pytest ${pytest_default_args} --junit-xml=junit.full.xml"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
@@ -228,6 +216,7 @@ clean {
   delete 'src/datahub/metadata'
   delete '../docs/generated'
   delete 'generated'
+  delete '.ruff_cache'
   delete '.mypy_cache'
   delete '.pytest_cache'
   delete '.preflight_sentinel'

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.analytics.resolver;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -84,6 +84,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateTime end,
       final String title,
       final DateInterval interval) {
+
     final DateRange dateRange =
         new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
 
@@ -96,6 +97,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             ImmutableMap.of(),
             Collections.emptyMap(),
             Optional.of("browserId"));
+
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)
@@ -111,7 +113,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateRange trailingMonthDateRange = dateUtil.getTrailingMonthDateRange();
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
 
-      final String topUsersTitle = "Top Users";
+      final String topUsersTitle = "Top Users (Last 30 Days)";
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
               _analyticsService.getUsageIndexName(),
@@ -153,12 +155,11 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
                             .setAnd(
                                 new CriterionArray(
                                     ImmutableList.of(
-                                        new Criterion()
-                                            .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
-                                            .setCondition(Condition.GREATER_THAN)
-                                            .setValue(
-                                                String.valueOf(
-                                                    trailingMonthDateRange.getStart())))))))),
+                                        buildCriterion(
+                                            CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME,
+                                            Condition.GREATER_THAN,
+                                            String.valueOf(
+                                                trailingMonthDateRange.getStart())))))))),
         Collections.singletonList(
             new SortCriterion()
                 .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
@@ -185,7 +186,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   private AnalyticsChart getNewUsersChart(OperationContext opContext) {
     try {
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
-      final String newUsersTitle = "New Users";
+      final String newUsersTitle = "Active Users (Last 30 Days)";
       final SearchResult result = searchForNewUsers(opContext);
       final List<Row> newUserRows = new ArrayList<>();
       for (SearchEntity entity : result.getEntities()) {

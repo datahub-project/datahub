@@ -26,7 +26,6 @@ import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -34,7 +33,7 @@ import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -173,13 +172,7 @@ public class LineageSearchService {
     if (cachedLineageResult == null
         || finalOpContext.getSearchContext().getSearchFlags().isSkipCache()) {
       lineageResult =
-          _graphService.getLineage(
-              sourceUrn,
-              direction,
-              0,
-              MAX_RELATIONSHIPS,
-              maxHops,
-              opContext.getSearchContext().getLineageFlags());
+          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
         try {
           cache.put(
@@ -210,12 +203,7 @@ public class LineageSearchService {
                 // we have to refetch
                 EntityLineageResult result =
                     _graphService.getLineage(
-                        sourceUrn,
-                        direction,
-                        0,
-                        MAX_RELATIONSHIPS,
-                        finalMaxHops,
-                        opContext.getSearchContext().getLineageFlags());
+                        opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, finalMaxHops);
                 cache.put(cacheKey, result);
                 log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
               } else {
@@ -369,14 +357,14 @@ public class LineageSearchService {
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "platform".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
         originCriteriaValues =
             inputFilters.getOr().stream()
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "origin".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
       }
       boolean isNotFiltered =
@@ -770,13 +758,7 @@ public class LineageSearchService {
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult =
-          _graphService.getLineage(
-              sourceUrn,
-              direction,
-              0,
-              MAX_RELATIONSHIPS,
-              maxHops,
-              opContext.getSearchContext().getLineageFlags());
+          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
         cache.put(
             cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));

@@ -4,18 +4,17 @@ import tempfile
 import time
 from random import randint
 
-import datahub.metadata.schema_classes as models
 import pytest
+
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-
 from tests.utils import (
     delete_urns_from_file,
-    get_gms_url,
     get_sleep_info,
     ingest_file_via_rest,
     wait_for_writes_to_sync,
@@ -101,25 +100,21 @@ def create_test_data(filename: str, chart_urn: str, upstream_schema_field_urn: s
 sleep_sec, sleep_times = get_sleep_info()
 
 
-@pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(request, chart_urn, upstream_schema_field_urn):
+@pytest.fixture(scope="module")
+def ingest_cleanup_data(
+    auth_session, graph_client, request, chart_urn, upstream_schema_field_urn
+):
     new_file, filename = tempfile.mkstemp(suffix=".json")
     try:
         create_test_data(filename, chart_urn, upstream_schema_field_urn)
         print("ingesting schema fields test data")
-        ingest_file_via_rest(filename)
+        ingest_file_via_rest(auth_session, filename)
         yield
         print("removing schema fields test data")
-        delete_urns_from_file(filename)
+        delete_urns_from_file(graph_client, filename)
         wait_for_writes_to_sync()
     finally:
         os.remove(filename)
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 def get_gql_query(filename: str) -> str:
@@ -165,10 +160,9 @@ def validate_schema_field_urn_for_chart(
 # @tenacity.retry(
 #     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 # )
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_schema_field_gql_mapper_for_charts(
-    ingest_cleanup_data, chart_urn, upstream_schema_field_urn
+    graph_client, ingest_cleanup_data, chart_urn, upstream_schema_field_urn
 ):
-    graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
-
-    validate_schema_field_urn_for_chart(graph, chart_urn, upstream_schema_field_urn)
+    validate_schema_field_urn_for_chart(
+        graph_client, chart_urn, upstream_schema_field_urn
+    )

@@ -11,7 +11,7 @@ class CSVEnricherConfig(ConfigModel):
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",
-        description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
+        description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE". NOTE: this will apply to all metadata for the entity, not just a single aspect.',
     )
     delimiter: str = pydantic.Field(
         default=",", description="Delimiter to use when parsing CSV"

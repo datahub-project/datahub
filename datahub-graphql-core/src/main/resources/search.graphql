@@ -167,6 +167,16 @@ input  SearchFlags {
   fields to include for custom Highlighting
   """
   customHighlightingFields: [String!]
+
+  """
+  Whether or not to fetch and request for structured property facets when doing a search
+  """
+  includeStructuredPropertyFacets: Boolean
+
+  """
+  Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
+  """
+  filterNonLatestVersions: Boolean
 }
 
 """
@@ -522,6 +532,11 @@ enum FilterOperator {
   EQUAL
 
   """
+  Represent the relation: field = value (case-insensitive), e.g. platform = HDFS
+  """
+  IEQUAL
+
+  """
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
@@ -575,6 +590,7 @@ enum FilterOperator {
   Represent the relation: URN field matches any nested child or parent in addition to the given URN
   """
   RELATED_INCL
+
 }
 
 """
@@ -813,7 +829,7 @@ type EntityPath {
     """
     Path of entities between source and destination nodes
     """
-    path: [Entity]
+    path: [Entity]!
 }
 
 
@@ -867,6 +883,11 @@ type FacetMetadata {
   displayName: String
 
   """
+  Entity corresponding to the facet
+  """
+  entity: Entity
+
+  """
   Aggregated search result counts by value of the field
   """
   aggregations: [AggregationMetadata!]!
@@ -890,6 +911,11 @@ type AggregationMetadata {
   Entity corresponding to the facet field
   """
   entity: Entity
+
+  """
+  Optional display name to show in the UI for this filter value
+  """
+  displayName: String
 }
 
 """

@@ -1,0 +1,342 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 80vw;
+  min-width: 900px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.testimonials {
+  background: #f1f1f1;
+
+  :global {
+    .testimonials__content {
+      width: 80vw;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 0;
+
+      .testimonials__card {
+        margin: 2rem 4rem;
+        display: flex;
+
+        .testimonials__meta {
+          display: flex;
+        }
+
+        .testimonials__logo {
+          max-width: 120px;
+          margin: auto 1rem;
+        }
+        .testimonials__company {
+          width: 300px;
+          margin: auto 2rem;
+
+          .testimonials__company_title {
+            color: var(--primitives-text-text-heading, #373A47);
+            font-family: Manrope;
+            font-size: 36px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: normal;
+            letter-spacing: -1.92px;
+            margin-bottom: 8px;
+
+          }
+         
+          .testimonials__author_title {
+            color: var(--primitives-text-text-heading, #373A47);
+            font-family: Manrope;
+            font-size: 20px;
+            font-style: normal;
+            font-weight: 300;
+            line-height: normal;
+            letter-spacing: -1.28px;
+          }
+        }
+
+        .testimonials__text {
+          width: 100%;
+          color: var(--primitives-text-text-heading, #373A47);
+          font-family: Manrope;
+          font-size: 20px;
+          font-style: normal;
+          font-weight: 400;
+          line-height: 140%;
+          margin: auto 2rem;
+        }
+      }
+    }
+
+    @media only screen and (max-width: 800px) {
+      .testimonials__content {
+        width: 100vw;
+        padding: 20px 0;
+
+        .testimonials__card {
+          flex-direction: column;
+          margin: 2rem 3rem;
+
+          .testimonials__meta {
+            display: flex;
+          }
+
+          .testimonials__logo {
+            max-width: 40px;
+            margin: auto 1rem;
+          }
+
+          .testimonials__company {
+            display: flex;
+            margin: auto 1rem;
+            flex-direction: column;
+
+            .testimonials__company_title {
+              font-size: 1.5rem;
+              margin-bottom: 0;
+            }
+            .testimonials__author_title {
+              padding-left: 0;
+            }
+          }
+
+          .testimonials__text {
+            width: 100%;
+            max-width: 100%;
+            margin: 2rem auto;
+          }
+        }
+      }
+      
+    }
+  }
+}
+
+
+// Responsiveness
+@media (max-width: 800px) {
+
+  .container {
+    flex-direction: column;
+    width: 90vw;
+    min-width: 0;
+    margin: 4rem auto;
+  }
+}
+
+
+.resource_container {
+  display: flex;
+  flex-direction: column;
+  background: #F4F4F5;
+  font-family: "Manrope";
+}
+.resource {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  margin: 5rem 0;
+
+  .resource_heading {
+    line-height: 4rem;
+    font-family: Manrope;
+    font-family: Manrope;
+    font-size: 3.25rem;
+    font-style: normal;
+    font-weight: 500;
+    padding-left: 5rem;
+    line-height: normal;
+    mix-blend-mode: luminosity;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .card_row::-webkit-scrollbar {
+    display: none;
+  }
+  .card_row {
+    margin-top: 8px;
+    overflow-x: scroll;
+    padding-right: 5rem;
+    padding-left: 5rem;
+    scrollbar-width: none;
+
+    .card_row_wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      flex: 1;
+    }
+    .cardLink {
+      color: #000;
+      cursor: pointer;
+      display: block;
+      height: 100%;
+      
+      &:hover {
+        text-decoration: none;
+      }
+    }
+    
+    .card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-direction: column;
+      position: relative;
+      width: 300px;
+      height: 400px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      background: white;
+      margin-right: 20px;
+      transition: box-shadow 0.2s ease-in-out;
+      box-shadow: 0px 2px 16px 0px rgba(55, 61, 68, 0.08);
+      overflow-y: visible;
+    
+    
+      .read_time {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        color: white;
+        font-size: 1rem;
+        z-index: 10;
+        text-shadow: 0px 1px 4px black;
+      }
+
+      .card_image {
+        position: relative;
+        height: 200px;
+        background-size: cover;
+        background-position: center;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    
+        img {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: cover;
+        }
+      }
+    
+      .card_content {
+        padding: 16px;
+    
+        .card_heading {
+          font-size: 1.4rem;
+          line-height: 1.75rem;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+
+        .read_more {
+          color: #1890ff;
+          font-weight: bold;
+          text-decoration: none;
+          font-size: 1rem;
+          position: absolute; 
+          bottom: 8px;
+          left: 8px;
+          width: 100%;
+          transition: all .2s;
+    
+          &:hover {
+            text-decoration: none;
+            opacity: .9;
+          }
+        }
+      }
+    
+      .card_tag {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background-color: #F9F9F9;
+        color: black;
+        padding: 4px 24px;
+        border-radius: 20px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        z-index: 10;
+      }
+    }
+    
+  }
+
+  .bottom_line {
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #12b0fb;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-top: 50px;
+    margin-bottom: 10px;
+
+    span {
+      line-height: 10px;
+      font-size: 1.5rem;
+      margin-left: 10px;
+    }
+  }
+}
+
+@media (max-width: 800px) {
+  .resource {
+    .resource_heading {
+      padding-left: 2rem;
+      font-size: 2rem;
+    }
+
+    .card_row {
+      padding-left: 0;
+
+      .card_row_wrapper {
+        padding: 0 2rem;
+      }
+    }
+  }
+  .case_study {
+    .case_study_heading {
+      text-align: center;
+      font-family: "Manrope";
+
+      div {
+        width: 80%;
+        margin: auto;
+        font-size: 2rem;
+        line-height: normal;
+        font-weight: 400;
+      }
+      p {
+        width: 80%;
+        margin: auto;
+        font-size: 1.1rem;
+        line-height: 1.5rem;
+        margin-top: 12px;
+      }
+    }
+
+    .bottom_line {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #12b0fb;
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-top: 50px;
+      margin-bottom: 10px;
+
+      span {
+        font-size: 1.5rem;
+      }
+    }
+  }
+}

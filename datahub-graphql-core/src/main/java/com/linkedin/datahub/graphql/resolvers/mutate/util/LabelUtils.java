@@ -264,11 +264,7 @@ public class LabelUtils {
                     ImmutableList.of(PoliciesConfig.ASSOCIATE_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToUpdateTerms(

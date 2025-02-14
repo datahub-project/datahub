@@ -1,0 +1,42 @@
+name: PR Comment
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  post-pr-opened-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get and Format Username (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          formatted_username="$(echo "${{ github.event.pull_request.user.login }}" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')"
+          echo "FORMATTED_USERNAME=${formatted_username}" >> "$GITHUB_ENV"
+
+      - name: Create Comment (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.payload.pull_request) {
+              const prUser = process.env.FORMATTED_USERNAME;
+              const url = `https://contributors.datahubproject.io/${prUser}`;
+              const body = `Hello @${prUser} :smile: \n\n Thank you so much for opening a pull request!\n\n![Image](https://contributors.datahubproject.io/api/og?userId=${{ github.event.pull_request.user.login }})\nYou can check out your contributor card and see all your past stats [here](${url})!`;
+                         
+              // Create a comment on the PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body
+              });
+            } else {
+              console.log('Not a pull request event.');
+            }

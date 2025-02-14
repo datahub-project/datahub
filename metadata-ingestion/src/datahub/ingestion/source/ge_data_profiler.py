@@ -7,6 +7,7 @@ import dataclasses
 import functools
 import json
 import logging
+import re
 import threading
 import traceback
 import unittest.mock
@@ -55,8 +56,12 @@ from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.metadata.com.linkedin.pegasus2avro.schema import EditableSchemaMetadata
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    EditableSchemaMetadata,
+    NumberType,
+)
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -123,6 +128,8 @@ ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 _datasource_connection_injection_lock = threading.Lock()
 
+NORMALIZE_TYPE_PATTERN = re.compile(r"^(.*?)(?:[\[<(].*)?$")
+
 
 @contextlib.contextmanager
 def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
@@ -165,11 +172,9 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == BIGQUERY:
         element_values = self.engine.execute(
-            sa.select(
-                [
-                    sa.func.coalesce(sa.text(f"APPROX_COUNT_DISTINCT(`{column}`)")),
-                ]
-            ).select_from(self._table)
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == SNOWFLAKE:
@@ -262,7 +267,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_stdev",
         "get_column_nonnull_count",
         "get_column_unique_count",
     }
@@ -323,7 +327,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None],
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
@@ -360,6 +364,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     platform: str
     env: str
 
+    column_types: Dict[str, str] = dataclasses.field(default_factory=dict)
+
     def _get_columns_to_profile(self) -> List[str]:
         if not self.config.any_field_level_metrics_enabled():
             return []
@@ -373,10 +379,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         for col_dict in self.dataset.columns:
             col = col_dict["name"]
+            self.column_types[col] = str(col_dict["type"])
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
+                ignored_columns_by_pattern.append(col)
+            # We try to ignore nested columns as well
+            elif not self.config.profile_nested_fields and "." in col:
                 ignored_columns_by_pattern.append(col)
             elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
@@ -407,15 +417,39 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         return columns_to_profile
 
     def _should_ignore_column(self, sqlalchemy_type: sa.types.TypeEngine) -> bool:
-        return str(sqlalchemy_type) in _get_column_types_to_ignore(
-            self.dataset.engine.dialect.name
-        )
+        # We don't profiles columns with None types
+        if str(sqlalchemy_type) == "NULL":
+            return True
+
+        sql_type = str(sqlalchemy_type)
+
+        match = re.match(NORMALIZE_TYPE_PATTERN, sql_type)
+
+        if match:
+            sql_type = match.group(1)
+
+        return sql_type in _get_column_types_to_ignore(self.dataset.engine.dialect.name)
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
         column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
             self.dataset, column
         )
+
+        if column_spec.type_ == ProfilerDataType.UNKNOWN:
+            try:
+                datahub_field_type = resolve_sql_type(
+                    self.column_types[column], self.dataset.engine.dialect.name.lower()
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Error resolving sql type {self.column_types[column]}: {e}"
+                )
+                datahub_field_type = None
+            if datahub_field_type is None:
+                return
+            if isinstance(datahub_field_type, NumberType):
+                column_spec.type_ = ProfilerDataType.NUMERIC
 
     @_run_with_query_combiner
     def _get_column_cardinality(
@@ -1397,6 +1431,8 @@ class DatahubGEProfiler:
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
     if dialect_name.lower() == POSTGRESQL:
         return ["JSON"]
+    elif dialect_name.lower() == BIGQUERY:
+        return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON"]
 
     return []
 
@@ -1501,9 +1537,7 @@ def create_bigquery_temp_table(
         query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
             # In google-cloud-bigquery 3.15.0, the _query_job attribute was
             # made public and renamed to query_job.
-            cursor.query_job
-            if hasattr(cursor, "query_job")
-            else cursor._query_job  # type: ignore[attr-defined]
+            cursor.query_job if hasattr(cursor, "query_job") else cursor._query_job  # type: ignore[attr-defined]
         )
         assert query_job
         temp_destination_table = query_job.destination

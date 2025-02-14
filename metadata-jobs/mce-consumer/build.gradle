@@ -3,6 +3,7 @@ plugins {
     id 'pegasus'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 configurations {
     avro
@@ -29,6 +30,7 @@ dependencies {
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
+    implementation externalDependency.opentelemetrySdkTrace
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

@@ -14,7 +14,7 @@ import {
 import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 import adjustVXTreeLayout from '../utils/adjustVXTreeLayout';
-import { NodeData, Direction, FetchedEntities, EntityAndType } from '../types';
+import { NodeData, Direction, EntityAndType } from '../types';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
 import { Dataset, Entity, EntityType } from '../../../types.generated';
 
@@ -37,7 +37,7 @@ describe('adjustVXTreeLayout', () => {
                     { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const downstreamData = hierarchy(
@@ -88,7 +88,7 @@ describe('adjustVXTreeLayout', () => {
                     { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const upstreamData = hierarchy(
@@ -144,7 +144,7 @@ describe('adjustVXTreeLayout', () => {
                     { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const upstreamData = hierarchy(
@@ -189,7 +189,7 @@ describe('adjustVXTreeLayout', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const upstreamData = hierarchy(
@@ -234,7 +234,7 @@ describe('adjustVXTreeLayout', () => {
                     { entity: entry.entity as Dataset, type: EntityType.Dataset },
                     entry.fullyFetched,
                 ),
-            {} as FetchedEntities,
+            new Map(),
         );
 
         const upstreamData = hierarchy(

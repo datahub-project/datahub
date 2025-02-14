@@ -11,16 +11,29 @@ configurations {
   play
 }
 
+ext {
+  nimbusJoseJwtVersion = "9.41.2"
+  oauth2OidcSdkVersion = "11.20.1"
+}
+
 dependencies {
   implementation project(':datahub-web-react')
 
   constraints {
+    play(externalDependency.pac4j)
+    play(externalDependency.playPac4j)
+    play("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
+    play("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
+    implementation(externalDependency.pac4j)
+    implementation(externalDependency.playPac4j)
+    implementation("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
+    testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
+
     play(externalDependency.jacksonDataBind)
-    play('com.nimbusds:oauth2-oidc-sdk:8.36.2')
-    play('com.nimbusds:nimbus-jose-jwt:8.18')
-    play('com.typesafe.akka:akka-actor_2.12:2.6.20')
+    play("com.typesafe.akka:akka-actor_$playScalaVersion:2.6.20")
     play(externalDependency.jsonSmart)
-    play('io.netty:netty-all:4.1.86.Final')
+    play('io.netty:netty-all:4.1.114.Final')
+
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
     }
@@ -37,23 +50,27 @@ dependencies {
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
   implementation externalDependency.springBootAutoconfigure
-  implementation externalDependency.jettyJaas
+  implementation externalDependency.jettySecurity
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.akkaHttp
+  implementation externalDependency.akkaActor
+  implementation externalDependency.akkaStream
+  implementation externalDependency.akkaActorTyped
+  implementation externalDependency.akkaSlf4j
+  implementation externalDependency.akkaJackson
+  implementation externalDependency.akkaParsing
+  implementation externalDependency.akkaProtobuf
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
 
-  implementation(externalDependency.pac4j) {
-    exclude group: "net.minidev", module: "json-smart"
-    exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
-  }
-
-  implementation 'com.nimbusds:nimbus-jose-jwt:8.18'
-  implementation externalDependency.jsonSmart
+  implementation externalDependency.pac4j
   implementation externalDependency.playPac4j
+  implementation "com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion"
+  implementation externalDependency.jsonSmart
+  
   implementation externalDependency.shiroCore
 
   implementation externalDependency.playCache
@@ -69,7 +86,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
   testImplementation 'org.awaitility:awaitility:4.2.0'
-  testImplementation 'no.nav.security:mock-oauth2-server:0.3.1'
+  testImplementation 'no.nav.security:mock-oauth2-server:2.1.9'
   testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
   testImplementation externalDependency.junitJupiterApi
   testRuntimeOnly externalDependency.junitJupiterEngine
@@ -78,7 +95,7 @@ dependencies {
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
   runtimeOnly (externalDependency.playDocs) {
-    exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
+    exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
   }
   runtimeOnly externalDependency.playGuice
   implementation externalDependency.log4j2Api
@@ -90,9 +107,9 @@ dependencies {
 
 play {
   platform {
-    playVersion = '2.8.21'
-    scalaVersion = '2.12'
-    javaVersion = JavaVersion.VERSION_11
+    playVersion = "2.8.22" // see also top level build.gradle
+    scalaVersion = "2.13"
+    javaVersion = JavaVersion.VERSION_17
   }
 
   injectedRoutesGenerator = true

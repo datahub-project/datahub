@@ -2,17 +2,13 @@ import time
 from typing import Any
 
 import pytest
+
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import (
-    DatahubClientConfig,
-    DataHubGraph,
-    DataHubGraphConfig,
-)
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StatusClass
-
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urn, get_gms_url, wait_for_healthcheck_util
+from tests.utils import delete_urn
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -21,29 +17,21 @@ restli_default_headers = {
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo_custom")
 
 
-@pytest.fixture(scope="module", autouse=False)
-def graph() -> DataHubGraph:
-    graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
-    return graph
-
-
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
+@pytest.fixture(scope="module")
+def test_data(graph_client):
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=TEST_DATASET_URN, aspect=StatusClass(removed=False)
     )
-    with DataHubGraph(DataHubGraphConfig()) as graph:
-        graph.emit(mcpw)
+    graph_client.emit(mcpw)
     yield
-    delete_urn(TEST_DATASET_URN)
+    delete_urn(graph_client, TEST_DATASET_URN)
 
 
 def test_create_update_delete_dataset_custom_assertion(
-    wait_for_healthchecks: Any, graph: DataHubGraph
+    test_data: Any, graph_client: DataHubGraph
 ) -> None:
     # Create custom assertion
-    resp = graph.upsert_custom_assertion(
+    resp = graph_client.upsert_custom_assertion(
         urn=None,
         entity_urn=TEST_DATASET_URN,
         type="My custom category",
@@ -55,7 +43,7 @@ def test_create_update_delete_dataset_custom_assertion(
     assertion_urn = resp["urn"]
 
     # Update custom assertion
-    resp = graph.upsert_custom_assertion(
+    resp = graph_client.upsert_custom_assertion(
         urn=assertion_urn,
         entity_urn=TEST_DATASET_URN,
         type="My custom category",
@@ -67,7 +55,7 @@ def test_create_update_delete_dataset_custom_assertion(
     wait_for_writes_to_sync()
 
     # Report custom assertion result for success
-    result_reported = graph.report_assertion_result(
+    result_reported = graph_client.report_assertion_result(
         urn=assertion_urn,
         timestamp_millis=0,
         type="SUCCESS",
@@ -76,7 +64,7 @@ def test_create_update_delete_dataset_custom_assertion(
     assert result_reported
 
     # Report custom assertion result for error
-    result_reported = graph.report_assertion_result(
+    result_reported = graph_client.report_assertion_result(
         urn=assertion_urn,
         timestamp_millis=round(time.time() * 1000),
         type="ERROR",
@@ -87,7 +75,7 @@ def test_create_update_delete_dataset_custom_assertion(
     assert result_reported
 
     # Report custom assertion result for failure
-    result_reported = graph.report_assertion_result(
+    result_reported = graph_client.report_assertion_result(
         urn=assertion_urn,
         timestamp_millis=round(time.time() * 1000),
         type="FAILURE",
@@ -154,7 +142,7 @@ def test_create_update_delete_dataset_custom_assertion(
         }
     """
 
-    dataset_assertions = graph.execute_graphql(
+    dataset_assertions = graph_client.execute_graphql(
         query=graphql_query_retrive_assertion,
         variables={"datasetUrn": TEST_DATASET_URN},
     )
@@ -178,9 +166,9 @@ def test_create_update_delete_dataset_custom_assertion(
     assert assertions[0]["runEvents"]["failed"] == 1
     assert assertions[0]["runEvents"]["runEvents"][0]["result"]["externalUrl"]
 
-    graph.delete_entity(assertion_urn, True)
+    graph_client.delete_entity(assertion_urn, True)
 
-    dataset_assertions = graph.execute_graphql(
+    dataset_assertions = graph_client.execute_graphql(
         query=graphql_query_retrive_assertion,
         variables={"datasetUrn": TEST_DATASET_URN},
     )

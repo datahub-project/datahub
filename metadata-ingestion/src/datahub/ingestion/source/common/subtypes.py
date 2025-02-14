@@ -14,13 +14,17 @@ class DatasetSubTypes(StrEnum):
     ELASTIC_DATASTREAM = "Datastream"
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
-    POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
+    SHARDED_TABLE = "Sharded Table"
+    EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
+    NEO4J_NODE = "Neo4j Node"
+    NEO4J_RELATIONSHIP = "Neo4j Relationship"
+    SNOWFLAKE_STREAM = "Snowflake Stream"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -39,6 +43,7 @@ class DatasetContainerSubTypes(StrEnum):
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
+    KEYSPACE = "Keyspace"  # Cassandra
 
 
 class BIContainerSubTypes(StrEnum):
@@ -46,8 +51,8 @@ class BIContainerSubTypes(StrEnum):
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
     TABLEAU_WORKBOOK = "Workbook"
-    POWERBI_WORKSPACE = "Workspace"
-    POWERBI_DATASET = "PowerBI Dataset"
+    POWERBI_DATASET = "Semantic Model"
+    POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
@@ -69,6 +74,7 @@ class BIAssetSubTypes(StrEnum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+    POWERBI_APP = "App"
 
     # Mode
     MODE_REPORT = "Report"

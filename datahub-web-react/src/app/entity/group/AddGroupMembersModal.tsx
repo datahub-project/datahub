@@ -17,7 +17,7 @@ type Props = {
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
-        height: 36px;
+        height: 'auto';
     }
 `;
 
@@ -36,7 +36,7 @@ export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Prop
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const searchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData } = useGetRecommendations([EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {

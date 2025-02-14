@@ -1,6 +1,7 @@
 plugins {
   id 'java-library'
 }
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api project(':metadata-io')
@@ -48,7 +49,12 @@ dependencies {
   implementation spec.product.pegasus.restliSpringBridge
   implementation spec.product.pegasus.restliDocgen
   implementation externalDependency.jline
-  implementation externalDependency.common
+  implementation externalDependency.commonsIo
+
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdk
+  implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetryAutoConfig
 
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito

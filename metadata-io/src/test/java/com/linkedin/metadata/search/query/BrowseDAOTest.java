@@ -27,6 +27,7 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
@@ -39,7 +40,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   private OperationContext opContext;
 
   @Autowired private SearchConfiguration searchConfiguration;
-  @Autowired private CustomSearchConfiguration customSearchConfiguration;
+
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
 
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
@@ -98,5 +102,14 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
+
+    // Test the case of null browsePaths field
+    sourceMap.put("browsePaths", Collections.singletonList(null));
+    when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
+    assertEquals(nullBrowsePaths.size(), 0);
   }
 }

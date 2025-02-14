@@ -5,14 +5,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 import sqlalchemy.dialects.mssql
-
-# This import verifies that the dependencies are available.
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
+import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -24,6 +23,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
@@ -36,6 +37,9 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureParameter,
     StoredProcedure,
 )
+from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+    generate_procedure_lineage,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -45,20 +49,16 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    UnionTypeClass,
-)
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.utilities.file_backed_collections import FileBackedList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
-register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, models.NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, models.UnionTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTypeClass)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -71,6 +71,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     include_stored_procedures_code: bool = Field(
         default=True, description="Include information about object code."
+    )
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion."
+        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     include_jobs: bool = Field(
         default=True,
@@ -98,6 +103,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    include_lineage: bool = Field(
+        default=True,
+        description="Enable lineage extraction for stored procedures",
+    )
+    include_containers_for_pipelines: bool = Field(
+        default=False,
+        description="Enable the container aspects ingestion for both pipelines and tasks. Note that this feature requires the corresponding model support in the backend, which was introduced in version 0.15.0.1.",
     )
 
     @pydantic.validator("uri_args")
@@ -154,6 +167,8 @@ class SQLServerSource(SQLAlchemySource):
     If you do use pyodbc, make sure to change the source type from `mssql` to `mssql-odbc` so that we pull in the right set of dependencies. This will be needed in most cases where encryption is required, such as managed SQL Server services in Azure.
     """
 
+    report: SQLSourceReport
+
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "mssql")
         # Cache the table and column descriptions
@@ -161,6 +176,7 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
+        self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -374,7 +390,7 @@ class SQLServerSource(SQLAlchemySource):
     def loop_job_steps(
         self, job: MSSQLJob, job_steps: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        for step_id, step_data in job_steps.items():
+        for _step_id, step_data in job_steps.items():
             step = JobStep(
                 job_name=job.formatted_name,
                 step_name=step_data["step_name"],
@@ -405,44 +421,57 @@ class SQLServerSource(SQLAlchemySource):
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:
             procedures_data_list = self._get_stored_procedures(conn, db_name, schema)
-            procedures = [
-                StoredProcedure(flow=mssql_default_job, **procedure_data)
-                for procedure_data in procedures_data_list
-            ]
+            procedures: List[StoredProcedure] = []
+            for procedure_data in procedures_data_list:
+                procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
+                if not self.config.procedure_pattern.allowed(procedure_full_name):
+                    self.report.report_dropped(procedure_full_name)
+                    continue
+                procedures.append(
+                    StoredProcedure(flow=mssql_default_job, **procedure_data)
+                )
+
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:
-                upstream = self._get_procedure_upstream(conn, procedure)
-                downstream = self._get_procedure_downstream(conn, procedure)
-                data_job = MSSQLDataJob(
-                    entity=procedure,
-                )
-                # TODO: because of this upstream and downstream are more dependencies,
-                #  can't be used as DataJobInputOutput.
-                #  Should be reorganized into lineage.
-                data_job.add_property("procedure_depends_on", str(upstream.as_property))
-                data_job.add_property(
-                    "depending_on_procedure", str(downstream.as_property)
-                )
-                procedure_definition, procedure_code = self._get_procedure_code(
-                    conn, procedure
-                )
-                if procedure_definition:
-                    data_job.add_property("definition", procedure_definition)
-                if sql_config.include_stored_procedures_code and procedure_code:
-                    data_job.add_property("code", procedure_code)
-                procedure_inputs = self._get_procedure_inputs(conn, procedure)
-                properties = self._get_procedure_properties(conn, procedure)
-                data_job.add_property(
-                    "input parameters", str([param.name for param in procedure_inputs])
-                )
-                for param in procedure_inputs:
-                    data_job.add_property(
-                        f"parameter {param.name}", str(param.properties)
-                    )
-                for property_name, property_value in properties.items():
-                    data_job.add_property(property_name, str(property_value))
-                yield from self.construct_job_workunits(data_job)
+                yield from self._process_stored_procedure(conn, procedure)
+
+    def _process_stored_procedure(
+        self, conn: Connection, procedure: StoredProcedure
+    ) -> Iterable[MetadataWorkUnit]:
+        upstream = self._get_procedure_upstream(conn, procedure)
+        downstream = self._get_procedure_downstream(conn, procedure)
+        data_job = MSSQLDataJob(
+            entity=procedure,
+        )
+        # TODO: because of this upstream and downstream are more dependencies,
+        #  can't be used as DataJobInputOutput.
+        #  Should be reorganized into lineage.
+        data_job.add_property("procedure_depends_on", str(upstream.as_property))
+        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+        procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
+        procedure.code = procedure_code
+        if procedure_definition:
+            data_job.add_property("definition", procedure_definition)
+        if procedure_code and self.config.include_stored_procedures_code:
+            data_job.add_property("code", procedure_code)
+        procedure_inputs = self._get_procedure_inputs(conn, procedure)
+        properties = self._get_procedure_properties(conn, procedure)
+        data_job.add_property(
+            "input parameters", str([param.name for param in procedure_inputs])
+        )
+        for param in procedure_inputs:
+            data_job.add_property(f"parameter {param.name}", str(param.properties))
+        for property_name, property_value in properties.items():
+            data_job.add_property(property_name, str(property_value))
+        if self.config.include_lineage:
+            # These will be used to construct lineage
+            self.stored_procedures.append(procedure)
+        yield from self.construct_job_workunits(
+            data_job,
+            # For stored procedure lineage is ingested later
+            include_lineage=False,
+        )
 
     @staticmethod
     def _get_procedure_downstream(
@@ -546,8 +575,8 @@ class SQLServerSource(SQLAlchemySource):
                 code_list.append(row["Text"])
                 if code_slice_text in re.sub(" +", " ", row["Text"].lower()).strip():
                     code_slice_index = index
-            definition = "\n".join(code_list[:code_slice_index])
-            code = "\n".join(code_list[code_slice_index:])
+            definition = "".join(code_list[:code_slice_index])
+            code = "".join(code_list[code_slice_index:])
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
@@ -602,16 +631,51 @@ class SQLServerSource(SQLAlchemySource):
     def construct_job_workunits(
         self,
         data_job: MSSQLDataJob,
+        include_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_input_output_aspect,
-        ).as_workunit()
+        data_platform_instance_aspect = data_job.as_maybe_platform_instance_aspect
+        if data_platform_instance_aspect:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_platform_instance_aspect,
+            ).as_workunit()
+
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_job.as_container_aspect,
+            ).as_workunit()
+
+        if include_lineage:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_job.as_datajob_input_output_aspect,
+            ).as_workunit()
+
+        if (
+            self.config.include_stored_procedures_code
+            and isinstance(data_job.entity, StoredProcedure)
+            and data_job.entity.code is not None
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=models.DataTransformLogicClass(
+                    transforms=[
+                        models.DataTransformClass(
+                            queryStatement=models.QueryStatementClass(
+                                value=data_job.entity.code,
+                                language=models.QueryLanguageClass.SQL,
+                            ),
+                        )
+                    ]
+                ),
+            ).as_workunit()
+
         # TODO: Add SubType when it appear
 
     def construct_flow_workunits(
@@ -622,6 +686,20 @@ class SQLServerSource(SQLAlchemySource):
             entityUrn=data_flow.urn,
             aspect=data_flow.as_dataflow_info_aspect,
         ).as_workunit()
+
+        data_platform_instance_aspect = data_flow.as_maybe_platform_instance_aspect
+        if data_platform_instance_aspect:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_flow.urn,
+                aspect=data_platform_instance_aspect,
+            ).as_workunit()
+
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_flow.urn,
+                aspect=data_flow.as_container_aspect,
+            ).as_workunit()
+
         # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:
@@ -663,4 +741,59 @@ class SQLServerSource(SQLAlchemySource):
             qualified_table_name.lower()
             if self.config.convert_urns_to_lowercase
             else qualified_table_name
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield from super().get_workunits_internal()
+
+        # This is done at the end so that we will have access to tables
+        # from all databases in schema_resolver and discovered_tables
+        for procedure in self.stored_procedures:
+            with self.report.report_exc(
+                message="Failed to parse stored procedure lineage",
+                context=procedure.full_name,
+                level=StructuredLogLevel.WARN,
+            ):
+                yield from auto_workunit(
+                    generate_procedure_lineage(
+                        schema_resolver=self.get_schema_resolver(),
+                        procedure=procedure,
+                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                        is_temp_table=self.is_temp_table,
+                    )
+                )
+
+    def is_temp_table(self, name: str) -> bool:
+        try:
+            parts = name.split(".")
+            table_name = parts[-1]
+            schema_name = parts[-2]
+            db_name = parts[-3]
+
+            if table_name.startswith("#"):
+                return True
+
+            # This is also a temp table if
+            #   1. this name would be allowed by the dataset patterns, and
+            #   2. we have a list of discovered tables, and
+            #   3. it's not in the discovered tables list
+            if (
+                self.config.database_pattern.allowed(db_name)
+                and self.config.schema_pattern.allowed(schema_name)
+                and self.config.table_pattern.allowed(name)
+                and self.standardize_identifier_case(name)
+                not in self.discovered_datasets
+            ):
+                logger.debug(f"inferred as temp table {name}")
+                return True
+
+        except Exception:
+            logger.warning(f"Error parsing table name {name} ")
+        return False
+
+    def standardize_identifier_case(self, table_ref_str: str) -> str:
+        return (
+            table_ref_str.lower()
+            if self.config.convert_urns_to_lowercase
+            else table_ref_str
         )

@@ -1,15 +1,15 @@
 import time
 from enum import Enum
 
-import datahub.metadata.schema_classes as models
 import pytest
+from tenacity import retry, stop_after_delay, wait_fixed
+
+import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-from tenacity import retry, stop_after_delay, wait_fixed
-
-from tests.utils import get_datahub_graph, ingest_file_via_rest, wait_for_writes_to_sync
+from datahub.ingestion.graph.client import DataHubGraph
+from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 _MAX_DELAY_UNTIL_WRITES_VISIBLE_SECS = 30
 _ATTEMPT_RETRY_INTERVAL_SECS = 1
@@ -62,16 +62,15 @@ def _create_schema_with_fields(
     return schema
 
 
-@pytest.fixture(autouse=False)
-def test_setup():
+@pytest.fixture()
+def test_setup(auth_session, graph_client):
     """Fixture data"""
-    client = get_datahub_graph()
-    session = client._session
-    gms_host = client.config.server
+    session = graph_client._session
+    gms_host = graph_client.config.server
 
     ingest_file_via_rest(
-        "tests/schema_fields/schema_field_side_effect_data.json"
-    ).config.run_id
+        auth_session, "tests/schema_fields/schema_field_side_effect_data.json"
+    )
 
     assert "schemaMetadata" in get_aspects_for_entity(
         session,
@@ -129,7 +128,9 @@ def assert_schema_field_soft_deleted(graph: DataHubGraph, urn: str, field_path: 
         FieldPathStyle.FLAT,
     ],
 )
-def test_schema_evolution_field_dropped(field_path_style: FieldPathStyle):
+def test_schema_evolution_field_dropped(
+    graph_client: DataHubGraph, field_path_style: FieldPathStyle
+):
     """
     Test that schema evolution works as expected
     1. Create a schema with 2 fields
@@ -143,43 +144,43 @@ def test_schema_evolution_field_dropped(field_path_style: FieldPathStyle):
 
     urn = make_dataset_urn("bigquery", f"my_dataset.my_table.{now}")
     print(urn)
-    with get_default_graph() as graph:
-        schema_with_2_fields = _create_schema_with_fields(
-            urn, 2, field_path_style=field_path_style
+
+    schema_with_2_fields = _create_schema_with_fields(
+        urn, 2, field_path_style=field_path_style
+    )
+    field_names = [field.fieldPath for field in schema_with_2_fields.fields]
+    graph_client.emit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=schema_with_2_fields,
         )
-        field_names = [field.fieldPath for field in schema_with_2_fields.fields]
-        graph.emit(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=schema_with_2_fields,
-            )
+    )
+
+    for field_name in field_names:
+        print("Checking field: ", field_name)
+        assert_schema_field_exists(graph_client, urn, field_name)
+
+    # Evolve the schema
+    schema_with_1_field = _create_schema_with_fields(
+        urn, 1, field_path_style=field_path_style
+    )
+    new_field_name = schema_with_1_field.fields[0].fieldPath
+
+    field_names.remove(new_field_name)
+    removed_field_name = field_names[0]
+
+    graph_client.emit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=schema_with_1_field,
         )
+    )
 
-        for field_name in field_names:
-            print("Checking field: ", field_name)
-            assert_schema_field_exists(graph, urn, field_name)
-
-        # Evolve the schema
-        schema_with_1_field = _create_schema_with_fields(
-            urn, 1, field_path_style=field_path_style
-        )
-        new_field_name = schema_with_1_field.fields[0].fieldPath
-
-        field_names.remove(new_field_name)
-        removed_field_name = field_names[0]
-
-        graph.emit(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=schema_with_1_field,
-            )
-        )
-
-        assert_schema_field_exists(graph, urn, new_field_name)
-        assert_schema_field_soft_deleted(graph, urn, removed_field_name)
+    assert_schema_field_exists(graph_client, urn, new_field_name)
+    assert_schema_field_soft_deleted(graph_client, urn, removed_field_name)
 
 
-def test_soft_deleted_entity():
+def test_soft_deleted_entity(graph_client: DataHubGraph):
     """
     Test that we if there is a soft deleted dataset, its schema fields are
     initialized with soft deleted status
@@ -190,41 +191,35 @@ def test_soft_deleted_entity():
 
     urn = make_dataset_urn("bigquery", f"my_dataset.my_table.{now}")
     print(urn)
-    with get_default_graph() as graph:
-        schema_with_2_fields = _create_schema_with_fields(urn, 2)
-        field_names = [field.fieldPath for field in schema_with_2_fields.fields]
-        graph.emit(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=schema_with_2_fields,
-            )
+
+    schema_with_2_fields = _create_schema_with_fields(urn, 2)
+    field_names = [field.fieldPath for field in schema_with_2_fields.fields]
+    graph_client.emit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=schema_with_2_fields,
         )
+    )
 
-        for field_name in field_names:
-            print("Checking field: ", field_name)
-            assert_schema_field_exists(graph, urn, field_name)
+    for field_name in field_names:
+        print("Checking field: ", field_name)
+        assert_schema_field_exists(graph_client, urn, field_name)
 
-        # Soft delete the dataset
-        graph.emit(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=models.StatusClass(removed=True),
-            )
+    # Soft delete the dataset
+    graph_client.emit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=models.StatusClass(removed=True),
         )
+    )
 
-        # Check that the fields are soft deleted
-        for field_name in field_names:
-            assert_schema_field_soft_deleted(graph, urn, field_name)
+    # Check that the fields are soft deleted
+    for field_name in field_names:
+        assert_schema_field_soft_deleted(graph_client, urn, field_name)
 
 
 # Note: Does not execute deletes, too slow for CI
 @pytest.mark.dependency()
-def test_large_schema(test_setup):
+def test_large_schema(graph_client: DataHubGraph, test_setup):
     wait_for_writes_to_sync()
-    with get_default_graph() as graph:
-        assert_schema_field_exists(graph, large_dataset_urn, "last_of.6800_cols")
-
-
-if __name__ == "__main__":
-    test_schema_evolution_field_dropped()
-    test_soft_deleted_entity()
+    assert_schema_field_exists(graph_client, large_dataset_urn, "last_of.6800_cols")

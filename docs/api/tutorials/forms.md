@@ -1,13 +1,15 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Documentation Forms
+# Compliance Forms
 
-## Why Would You Use Documentation Forms?
+## Why Would You Use Compliance Forms?
 
-Documentation Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
+**DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
 
-Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
+With Compliance Forms, you can execute large-scale compliance initiatives by assigning tasks (e.g., documentation, tagging, or classification requirements) to the appropriate stakeholders — data owners, stewards, and subject matter experts.
+
+Learn more about forms in the [Compliance Forms Feature Guide](../../../docs/features/feature-guides/compliance-forms/overview.md).
 
 ### Goal Of This Guide
 This guide will show you how to 
@@ -77,7 +79,7 @@ For example, below file represents a form `123456` You can see the full example 
 ```yaml
 - id: 123456
   # urn: "urn:li:form:123456"  # optional if id is provided
-  type: VERIFICATION # Supported Types: DOCUMENTATION, VERIFICATION
+  type: VERIFICATION # Supported Types: COMPLETION(DOCUMENTATION), VERIFICATION
   name: "Metadata Initiative 2023"
   description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out"
   prompts:

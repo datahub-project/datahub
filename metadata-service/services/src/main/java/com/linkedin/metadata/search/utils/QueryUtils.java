@@ -1,12 +1,12 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
 import org.apache.commons.collections.CollectionUtils;
 
 public class QueryUtils {
@@ -40,43 +39,6 @@ public class QueryUtils {
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
 
   private QueryUtils() {}
-
-  // Creates new Criterion with field and value, using EQUAL condition.
-  @Nonnull
-  public static Criterion newCriterion(@Nonnull String field, @Nonnull String value) {
-    return newCriterion(field, value, Condition.EQUAL);
-  }
-
-  // Creates new Criterion with field, value and condition.
-  @Nonnull
-  public static Criterion newCriterion(
-      @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion()
-        .setField(field)
-        .setValue(value)
-        .setValues(new StringArray(ImmutableList.of(value)))
-        .setCondition(condition);
-  }
-
-  // Creates new Criterion with field and value, using EQUAL condition.
-  @Nullable
-  public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
-    return newCriterion(field, values, Condition.EQUAL);
-  }
-
-  // Creates new Criterion with field, value and condition.
-  @Null
-  public static Criterion newCriterion(
-      @Nonnull String field, @Nonnull List<String> values, @Nonnull Condition condition) {
-    if (values.isEmpty()) {
-      return null;
-    }
-    return new Criterion()
-        .setField(field)
-        .setValue(values.get(0)) // Hack! This is due to bad modeling.
-        .setValues(new StringArray(values))
-        .setCondition(condition);
-  }
 
   // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
   // condition (default).
@@ -88,7 +50,7 @@ public class QueryUtils {
     CriterionArray criteria =
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> newCriterion(e.getKey(), e.getValue()))
+            .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
@@ -123,6 +85,22 @@ public class QueryUtils {
                         new ConjunctiveCriterion()
                             .setAnd(new CriterionArray(ImmutableList.of(criterion))))
                 .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+  }
+
+  @Nonnull
+  public static Filter newDisjunctiveFilter(@Nonnull ConjunctiveCriterion... orCriterion) {
+    return new Filter()
+        .setOr(
+            Arrays.stream(orCriterion)
+                .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+  }
+
+  @Nonnull
+  public static Filter newConjunctiveFilter(@Nonnull Criterion... andCriterion) {
+    ConjunctiveCriterionArray orCriteria = new ConjunctiveCriterionArray();
+    orCriteria.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(Arrays.asList(andCriterion))));
+    return new Filter().setOr(orCriteria);
   }
 
   @Nonnull
@@ -259,32 +237,27 @@ public class QueryUtils {
     // Prevent increasing the query size by avoiding querying multiple fields with the
     // same URNs
     Criterion urnMatchCriterion =
-        new Criterion()
-            .setField("urn")
-            .setValue("")
-            .setValues(
-                new StringArray(
-                    urns.stream()
-                        .filter(
-                            urn ->
-                                !schemaFieldEnabled
-                                    || !urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
-                        .map(Object::toString)
-                        .collect(Collectors.toList())));
+        buildCriterion(
+            "urn",
+            Condition.EQUAL,
+            urns.stream()
+                .filter(
+                    urn ->
+                        !schemaFieldEnabled
+                            || !urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
+                .map(Object::toString)
+                .collect(Collectors.toList()));
 
     Criterion schemaUrnAliasCriterion =
-        new Criterion()
-            .setField(String.format("%s.keyword", SCHEMA_FIELD_ALIASES_ASPECT))
-            .setValue("")
-            .setValues(
-                new StringArray(
-                    urns.stream()
-                        .filter(
-                            urn ->
-                                schemaFieldEnabled
-                                    && urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
-                        .map(Object::toString)
-                        .collect(Collectors.toList())));
+        buildCriterion(
+            String.format("%s.keyword", SCHEMA_FIELD_ALIASES_ASPECT),
+            Condition.EQUAL,
+            urns.stream()
+                .filter(
+                    urn ->
+                        schemaFieldEnabled && urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
+                .map(Object::toString)
+                .collect(Collectors.toList()));
 
     if (inputFilters == null || CollectionUtils.isEmpty(inputFilters.getOr())) {
       return QueryUtils.newDisjunctiveFilter(urnMatchCriterion, schemaUrnAliasCriterion);

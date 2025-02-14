@@ -84,7 +84,7 @@ const Ecosystem = () => {
                 </Link>
               </div>
             </div>
-            <div className={styles.diagramItem} style={{ backgroundImage: `url(${useBaseUrl("/img/datahub-architechture-diagram.svg")})` }} />
+            <div className={styles.diagramItem} style={{ backgroundImage: `url(${useBaseUrl("/img/datahub-architechture-diagram.png")})` }} />
           </div>
         </div>
       </div>

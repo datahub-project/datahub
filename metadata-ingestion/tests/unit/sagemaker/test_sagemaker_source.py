@@ -3,6 +3,7 @@ from unittest.mock import patch
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
+import datahub.ingestion.source.aws.sagemaker_processors.models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.sagemaker import (
@@ -13,8 +14,9 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     job_type_to_info,
     job_types,
 )
+from datahub.testing.doctest import assert_doctest
 from tests.test_helpers import mce_helpers
-from tests.unit.test_sagemaker_source_stubs import (
+from tests.unit.sagemaker.test_sagemaker_source_stubs import (
     describe_endpoint_response_1,
     describe_endpoint_response_2,
     describe_feature_group_response_1,
@@ -241,3 +243,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         output_path=tmp_path / "sagemaker_mces.json",
         golden_path=test_resources_dir / "sagemaker_mces_golden.json",
     )
+
+
+def test_doc_test_run() -> None:
+    assert_doctest(datahub.ingestion.source.aws.sagemaker_processors.models)

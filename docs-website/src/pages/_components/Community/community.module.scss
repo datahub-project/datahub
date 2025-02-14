@@ -14,7 +14,7 @@
     padding: 60px 0;
     width: 60%;
     height: 100%;
-    background: #3e2644;
+    background: #222;//#3e2644;
     color: white;
     display: flex;
     align-items: center;
@@ -221,14 +221,14 @@
 
 .numberContainer {
   display: inline-block;
-  width: 11rem;
+  width: 12rem;
   text-align: right;
 }
 
 .numberChange {
   display: inline-block;
   animation: slideIn 0.5s ease-in-out;
-  width: 11rem;
+  width: 12rem;
 }
 
 

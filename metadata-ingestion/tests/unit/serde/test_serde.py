@@ -19,7 +19,6 @@ from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
 
@@ -41,7 +40,7 @@ FROZEN_TIME = "2021-07-22 18:54:06"
     ],
 )
 def test_serde_to_json(
-    pytestconfig: PytestConfig, tmp_path: pathlib.Path, json_filename: str
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path, json_filename: str
 ) -> None:
     golden_file = pytestconfig.rootpath / json_filename
     output_file = tmp_path / "output.json"
@@ -73,15 +72,13 @@ def test_serde_to_json(
 )
 @freeze_time(FROZEN_TIME)
 def test_serde_to_avro(
-    pytestconfig: PytestConfig,
+    pytestconfig: pytest.Config,
     json_filename: str,
 ) -> None:
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
     # Finally, we want to compare the two MCE objects.
-    with patch(
-        "datahub.ingestion.api.common.PipelineContext", autospec=True
-    ) as mock_pipeline_context:
+    with patch("datahub.ingestion.api.common.PipelineContext") as mock_pipeline_context:
         json_path = pytestconfig.rootpath / json_filename
         source = GenericFileSource(
             ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))
@@ -128,14 +125,14 @@ def test_serde_to_avro(
     ],
 )
 @freeze_time(FROZEN_TIME)
-def test_check_metadata_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
+def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
     run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
 
 
 def test_check_metadata_rewrite(
-    pytestconfig: PytestConfig, tmp_path: pathlib.Path
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
     json_input = (
         pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_input.json"
@@ -163,7 +160,7 @@ def test_check_metadata_rewrite(
     ],
 )
 def test_check_mce_schema_failure(
-    pytestconfig: PytestConfig, json_filename: str
+    pytestconfig: pytest.Config, json_filename: str
 ) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 

@@ -564,7 +564,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1663355198240,
+                "time": 1663355198239,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -636,10 +636,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198240,
+            "timestampMillis": 1663355198239,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED"
         }
@@ -657,10 +657,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198242,
+            "timestampMillis": 1663355198241,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1019,7 +1019,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1663355198240,
+                "time": 1663355198239,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1095,10 +1095,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198240,
+            "timestampMillis": 1663355198239,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED"
         }
@@ -1116,10 +1116,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198242,
+            "timestampMillis": 1663355198241,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1347,7 +1347,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1663355198240,
+                "time": 1663355198239,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1418,10 +1418,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198240,
+            "timestampMillis": 1663355198239,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED"
         }
@@ -1439,10 +1439,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198242,
+            "timestampMillis": 1663355198241,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1871,7 +1871,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1663355198240,
+                "time": 1663355198239,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1942,10 +1942,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198240,
+            "timestampMillis": 1663355198239,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED"
         }
@@ -1963,10 +1963,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1663355198242,
+            "timestampMillis": 1663355198241,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -3504,7 +3504,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1580505371997,
+                            "time": 1580505371996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -3773,7 +3773,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1582319845997,
+                            "time": 1582319845996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -4023,7 +4023,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1584998318997,
+                            "time": 1584998318996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -4273,7 +4273,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1588287228997,
+                            "time": 1588287228996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -4523,7 +4523,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1589460269997,
+                            "time": 1589460269996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -5270,6 +5270,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.assert_source_actor_last_update_is_recent",
+                "dbt_test_upstream_unique_id": "source.sample_dbt.pagila.actor",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5311,8 +5313,8 @@
             },
             "assertionUrn": "urn:li:assertion:ba2c6ba830d407d539452f4cf46c92a6",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5346,6 +5348,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.is_email_monthly_billing_with_cust_email.57a935ce99",
+                "dbt_test_upstream_unique_id": "model.sample_dbt.monthly_billing_with_cust",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5393,8 +5397,8 @@
             },
             "assertionUrn": "urn:li:assertion:10f2a119dedcaab43afc47ff13d9cb5b",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5428,6 +5432,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_billing_month.19ce54289b",
+                "dbt_test_upstream_unique_id": "model.sample_dbt.monthly_billing_with_cust",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5474,8 +5480,8 @@
             },
             "assertionUrn": "urn:li:assertion:c456eccf6440c6e3388c584689a74d91",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5509,6 +5515,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.not_null_monthly_billing_with_cust_email.d405c2cc13",
+                "dbt_test_upstream_unique_id": "model.sample_dbt.monthly_billing_with_cust",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5555,8 +5563,8 @@
             },
             "assertionUrn": "urn:li:assertion:f812b73477d81e6af283d918cb59e7bf",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5568,7 +5576,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
+    "entityUrn": "urn:li:assertion:1f37cbfd95ea2a1d46b8e94828805eb1",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5584,86 +5592,14 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
+    "entityUrn": "urn:li:assertion:1f37cbfd95ea2a1d46b8e94828805eb1",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
-                "manifest_version": "1.7.3",
-                "manifest_adapter": "postgres",
-                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "1.7.3"
-            },
-            "type": "DATASET",
-            "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-                "scope": "DATASET_COLUMN",
-                "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),customer_id)"
-                ],
-                "aggregation": "IDENTITY",
-                "operator": "_NATIVE_",
-                "parameters": {
-                    "value": {
-                        "value": "null",
-                        "type": "SET"
-                    }
-                },
-                "nativeType": "relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_",
-                "nativeParameters": {
-                    "column_name": "customer_id",
-                    "field": "customer_id",
-                    "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}",
-                    "to": "ref('customer_details')"
-                },
-                "logic": "monthly_billing_with_cust.customer_id referential integrity to customer_details.customer_id"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-model-performance",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
-    "changeType": "UPSERT",
-    "aspectName": "assertionRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1663355198239,
-            "runId": "just-some-random-id",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-            "status": "COMPLETE",
-            "result": {
-                "type": "SUCCESS",
-                "nativeResults": {}
-            },
-            "assertionUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-model-performance",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b",
+                "dbt_test_upstream_unique_id": "model.sample_dbt.customer_details",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5704,7 +5640,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
+    "entityUrn": "urn:li:assertion:1f37cbfd95ea2a1d46b8e94828805eb1",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -5717,10 +5653,102 @@
                 "type": "SUCCESS",
                 "nativeResults": {}
             },
-            "assertionUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
+            "assertionUrn": "urn:li:assertion:1f37cbfd95ea2a1d46b8e94828805eb1",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f3a0dbf71b6cbf7112ff44925f475ff5",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f3a0dbf71b6cbf7112ff44925f475ff5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_.653e08a90b",
+                "dbt_test_upstream_unique_id": "model.sample_dbt.monthly_billing_with_cust",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                "manifest_version": "1.7.3",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.7.3"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),customer_id)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "_NATIVE_",
+                "parameters": {
+                    "value": {
+                        "value": "null",
+                        "type": "SET"
+                    }
+                },
+                "nativeType": "relationships_monthly_billing_with_cust_customer_id__customer_id__ref_customer_details_",
+                "nativeParameters": {
+                    "column_name": "customer_id",
+                    "field": "customer_id",
+                    "model": "{{ get_where_subquery(ref('monthly_billing_with_cust')) }}",
+                    "to": "ref('customer_details')"
+                },
+                "logic": "monthly_billing_with_cust.customer_id referential integrity to customer_details.customer_id"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f3a0dbf71b6cbf7112ff44925f475ff5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1663355198239,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:f3a0dbf71b6cbf7112ff44925f475ff5",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5754,6 +5782,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e",
+                "dbt_test_upstream_unique_id": "source.sample_dbt.pagila.actor",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5800,8 +5830,8 @@
             },
             "assertionUrn": "urn:li:assertion:f6a1fde3ab4919abcc04bdee93144958",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5835,6 +5865,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "dbt_unique_id": "test.sample_dbt.source_unique_pagila_actor_actor_id.76aff1935a",
+                "dbt_test_upstream_unique_id": "source.sample_dbt.pagila.actor",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                 "manifest_version": "1.7.3",
                 "manifest_adapter": "postgres",
@@ -5887,8 +5919,8 @@
             },
             "assertionUrn": "urn:li:assertion:60ce4aad7ff6dbff7004da0f2258c9df",
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             }
         }
     },
@@ -5900,7 +5932,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:08c35a6481d3c37c93eaf9e424faa6d5",
+    "entityUrn": "urn:li:assertion:10f2a119dedcaab43afc47ff13d9cb5b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5916,7 +5948,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:10f2a119dedcaab43afc47ff13d9cb5b",
+    "entityUrn": "urn:li:assertion:1f37cbfd95ea2a1d46b8e94828805eb1",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5965,6 +5997,22 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c456eccf6440c6e3388c584689a74d91",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f3a0dbf71b6cbf7112ff44925f475ff5",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

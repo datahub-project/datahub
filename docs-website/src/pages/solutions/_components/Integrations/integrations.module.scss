@@ -1,0 +1,134 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  >a {
+    text-decoration: none;
+    text-align: center;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+
+  .section_header {
+    color: var(--primitives-text-tex-subtext, #777E99);
+    text-align: center;
+    font-family: "Helvetica Neue";
+    font-size: 1.5rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: 0.5px;
+
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 0 2rem;
+    display: block;
+    width: 100%;
+
+    &:before, &:after {
+      content: " ";
+      height: 1px;
+      width: calc((100vw - 48rem)/2);
+      background: #D9DBE4;
+      display: block;
+      position: absolute;
+      top: 50%;
+    }
+  
+    &:before {
+      left: 8rem;
+    }
+  
+    &:after {
+      right: 8rem;
+    }
+  }
+}
+
+
+.carouselContainer {
+  width: 100%;
+  min-height: 100px;
+  min-width: 400px;
+  overflow: hidden;
+}
+@media screen and (max-width: 800px) {
+  .carouselContainer {
+    min-width: auto;
+  }
+}
+
+.slider {
+  height: 100px;
+  margin: 1rem auto;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  &::before,
+  &::after {
+    position: absolute;
+    content: '';
+    width: 90%;
+    height: 100%;
+    z-index: 9;
+  }
+
+}
+
+.slider {
+  position: relative;
+}
+
+.slide_track {
+  display: flex;
+  width: max-content;
+  animation: scroll 30s linear infinite;
+}
+
+.slide {
+  width: 100px;
+  height: 100px;
+  margin-left: 52px;
+  display: flex;
+  justify-content: space-between;
+  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media only screen and (max-width: 800px) {
+  .slide {
+    width: 80px;
+    height: 80px;
+    margin: auto 1rem;
+  }
+}

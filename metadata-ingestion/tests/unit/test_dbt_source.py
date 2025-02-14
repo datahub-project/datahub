@@ -7,9 +7,13 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_cloud import (
-    DBTCloudConfig,
-    infer_metadata_endpoint,
+from datahub.ingestion.source.dbt import dbt_cloud
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_common import (
+    DBTNode,
+    DBTSourceReport,
+    NullTypeClass,
+    get_column_type,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
@@ -22,6 +26,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
@@ -254,6 +259,47 @@ def test_dbt_config_prefer_sql_parser_lineage():
     assert config.prefer_sql_parser_lineage is True
 
 
+def test_dbt_prefer_sql_parser_lineage_no_self_reference():
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "skip_sources_in_lineage": True,
+            "prefer_sql_parser_lineage": True,
+        }
+    )
+    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    all_nodes_map = {
+        "model1": DBTNode(
+            name="model1",
+            database=None,
+            schema=None,
+            alias=None,
+            comment="",
+            description="",
+            language=None,
+            raw_code=None,
+            dbt_adapter="postgres",
+            dbt_name="model1",
+            dbt_file_path=None,
+            dbt_package_name=None,
+            node_type="model",
+            materialization="table",
+            max_loaded_at=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=None,
+            compiled_code="SELECT d FROM results WHERE d > (SELECT MAX(d) FROM model1)",
+        ),
+    }
+    source._infer_schemas_and_update_cll(all_nodes_map)
+    upstream_lineage = source._create_lineage_aspect_for_dbt_node(
+        all_nodes_map["model1"], all_nodes_map
+    )
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
+
+
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {
@@ -401,17 +447,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
 
 
 def test_infer_metadata_endpoint() -> None:
-    assert (
-        infer_metadata_endpoint("https://cloud.getdbt.com")
-        == "https://metadata.cloud.getdbt.com/graphql"
-    )
-    assert (
-        infer_metadata_endpoint("https://prefix.us1.dbt.com")
-        == "https://prefix.metadata.us1.dbt.com/graphql"
-    )
-    assert (
-        infer_metadata_endpoint("http://dbt.corp.internal")
-    ) == "http://metadata.dbt.corp.internal/graphql"
+    assert_doctest(dbt_cloud)
 
 
 def test_dbt_time_parsing() -> None:
@@ -430,3 +466,30 @@ def test_dbt_time_parsing() -> None:
         assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(
             timestamp
         ) == timedelta(0)
+
+
+def test_get_column_type_redshift():
+    report = DBTSourceReport()
+    dataset_name = "test_dataset"
+
+    # Test 'super' type which should not show any warnings/errors
+    result_super = get_column_type(report, dataset_name, "super", "redshift")
+    assert isinstance(result_super.type, NullTypeClass)
+    assert len(report.infos) == 0, (
+        "No warnings should be generated for known SUPER type"
+    )
+
+    # Test unknown type, which generates a warning but resolves to NullTypeClass
+    unknown_type = "unknown_type"
+    result_unknown = get_column_type(report, dataset_name, unknown_type, "redshift")
+    assert isinstance(result_unknown.type, NullTypeClass)
+
+    # exact warning message for an unknown type
+    expected_context = f"{dataset_name} - {unknown_type}"
+    messages = [info for info in report.infos if expected_context in str(info.context)]
+    assert len(messages) == 1
+    assert messages[0].title == "Unable to map column types to DataHub types"
+    assert (
+        messages[0].message
+        == "Got an unexpected column type. The column's parsed field type will not be populated."
+    )

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -15,7 +16,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -41,6 +42,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -54,7 +56,7 @@ import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
   private EntityRegistry testRegistry;
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeTest
@@ -73,12 +75,12 @@ public class AspectsBatchImplTest {
 
   @BeforeMethod
   public void setup() {
-    this.mockAspectRetriever = mock(AspectRetriever.class);
+    this.mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(this.mockAspectRetriever.getEntityRegistry()).thenReturn(testRegistry);
     this.retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
   }
@@ -120,7 +122,7 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(Map.of()),
+        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -176,7 +178,7 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(Map.of()),
+        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
         Pair.of(
             Map.of(),
             List.of(
@@ -195,7 +197,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(0).getSystemMetadata())
+                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
                     .urn(
@@ -212,13 +214,14 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(1).getSystemMetadata())
+                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
                     .build(mockAspectRetriever))),
         "Expected patch items converted to upsert change items");
   }
 
   @Test
   public void toUpsertBatchItemsProposedItemTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
     List<ProposedItem> testItems =
         List.of(
             ProposedItem.builder()
@@ -238,7 +241,7 @@ public class AspectsBatchImplTest {
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
                         .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .auditStamp(auditStamp)
                 .build(),
             ProposedItem.builder()
                 .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
@@ -257,14 +260,14 @@ public class AspectsBatchImplTest {
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
                         .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .auditStamp(auditStamp)
                 .build());
 
     AspectsBatchImpl testBatch =
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(Map.of()),
+        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
         Pair.of(
             Map.of(),
             List.of(
@@ -279,8 +282,8 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                    .systemMetadata(testItems.get(0).getSystemMetadata())
+                    .auditStamp(auditStamp)
+                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
@@ -294,8 +297,8 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                    .systemMetadata(testItems.get(1).getSystemMetadata())
+                    .auditStamp(auditStamp)
+                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");
@@ -328,7 +331,7 @@ public class AspectsBatchImplTest {
             .build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(Map.of()).getSecond().size(),
+        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()).getSecond().size(),
         1,
         "Expected 1 valid mcp to be passed through.");
   }

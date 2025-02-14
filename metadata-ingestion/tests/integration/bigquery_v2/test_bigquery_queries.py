@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -6,7 +7,9 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
+    BigQueryQueriesSource,
     BigQueryQueriesSourceReport,
 )
 from datahub.metadata.urns import CorpUserUrn
@@ -44,7 +47,6 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tmp_path):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = f"{test_resources_dir}/bigquery_queries_mcps_golden.json"
     mcp_output_path = tmp_path / "bigquery_queries_mcps.json"
@@ -93,3 +95,16 @@ def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tm
         output_path=mcp_output_path,
         golden_path=mcp_golden_path,
     )
+
+
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_source_close_cleans_tmp(projects_client, client, tmp_path):
+    with patch("tempfile.tempdir", str(tmp_path)):
+        source = BigQueryQueriesSource.create(
+            {"project_ids": ["project1"]}, PipelineContext("run-id")
+        )
+        assert len(os.listdir(tmp_path)) > 0
+        # This closes QueriesExtractor which in turn closes SqlParsingAggregator
+        source.close()
+        assert len(os.listdir(tmp_path)) == 0

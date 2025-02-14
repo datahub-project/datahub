@@ -18,10 +18,17 @@ query getMe {
                 pictureLink
                 teams
                 skills
+                persona {
+                    urn
+                }
+                platforms {
+                    urn
+                }
             }
             settings {
                 appearance {
                     showSimplifiedHomepage
+                    showThemeV2
                 }
                 views {
                     defaultView {
@@ -51,6 +58,8 @@ query getMe {
             manageGlobalAnnouncements
             createBusinessAttributes
             manageBusinessAttributes
+            manageStructuredProperties
+            viewStructuredPropertiesPage
         }
     }
 }

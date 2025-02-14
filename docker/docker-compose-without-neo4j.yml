@@ -4,7 +4,6 @@
 
 # NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
@@ -42,6 +41,7 @@ services:
     env_file: datahub-gms/env/docker-without-neo4j.env
     environment:
       - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     healthcheck:
       test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
       start_period: 90s

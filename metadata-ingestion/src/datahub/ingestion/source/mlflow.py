@@ -38,15 +38,29 @@ T = TypeVar("T")
 class MLflowConfig(EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
-        description="Tracking server URI. If not set, an MLflow default tracking_uri is used (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)",
+        description=(
+            "Tracking server URI. If not set, an MLflow default tracking_uri is used"
+            " (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)"
+        ),
     )
     registry_uri: Optional[str] = Field(
         default=None,
-        description="Registry server URI. If not set, an MLflow default registry_uri is used (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)",
+        description=(
+            "Registry server URI. If not set, an MLflow default registry_uri is used"
+            " (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)"
+        ),
     )
     model_name_separator: str = Field(
         default="_",
         description="A string which separates model name from its version (e.g. model_1 or model-1)",
+    )
+    base_external_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base URL to use when constructing external URLs to MLflow."
+            " If not set, tracking_uri is used if it's an HTTP URL."
+            " If neither is set, external URLs are not generated."
+        ),
     )
 
 
@@ -158,10 +172,10 @@ class MLflowSource(Source):
         """
         Get all Registered Models in MLflow Model Registry.
         """
-        registered_models: Iterable[
-            RegisteredModel
-        ] = self._traverse_mlflow_search_func(
-            search_func=self.client.search_registered_models,
+        registered_models: Iterable[RegisteredModel] = (
+            self._traverse_mlflow_search_func(
+                search_func=self.client.search_registered_models,
+            )
         )
         return registered_models
 
@@ -279,12 +293,23 @@ class MLflowSource(Source):
         )
         return urn
 
-    def _make_external_url(self, model_version: ModelVersion) -> Union[None, str]:
+    def _get_base_external_url_from_tracking_uri(self) -> Optional[str]:
+        if isinstance(
+            self.client.tracking_uri, str
+        ) and self.client.tracking_uri.startswith("http"):
+            return self.client.tracking_uri
+        else:
+            return None
+
+    def _make_external_url(self, model_version: ModelVersion) -> Optional[str]:
         """
         Generate URL for a Model Version to MLflow UI.
         """
-        base_uri = self.client.tracking_uri
-        if base_uri.startswith("http"):
+        base_uri = (
+            self.config.base_external_url
+            or self._get_base_external_url_from_tracking_uri()
+        )
+        if base_uri:
             return f"{base_uri.rstrip('/')}/#/models/{model_version.name}/versions/{model_version.version}"
         else:
             return None
@@ -308,8 +333,3 @@ class MLflowSource(Source):
             aspect=global_tags,
         )
         return wu
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = MLflowConfig.parse_obj(config_dict)
-        return cls(ctx, config)

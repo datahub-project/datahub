@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import click
 
-from datahub import __package_name__
+from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
 from datahub.configuration import config_loader
 from datahub.configuration.common import AllowDenyPattern
@@ -188,8 +188,12 @@ def sql_format(sql: str, platform: str) -> None:
 @click.option(
     "--sql",
     type=str,
-    required=True,
     help="The SQL query to parse",
+)
+@click.option(
+    "--sql-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="The SQL file to parse",
 )
 @click.option(
     "--platform",
@@ -218,25 +222,44 @@ def sql_format(sql: str, platform: str) -> None:
     type=str,
     help="The default schema to use for unqualified table names",
 )
+@click.option(
+    "--online/--offline",
+    type=bool,
+    is_flag=True,
+    default=True,
+    help="Run in offline mode and disable schema-aware parsing.",
+)
 @telemetry.with_telemetry()
 def sql_lineage(
-    sql: str,
+    sql: Optional[str],
+    sql_file: Optional[str],
     platform: str,
     default_db: Optional[str],
     default_schema: Optional[str],
     platform_instance: Optional[str],
     env: str,
+    online: bool,
 ) -> None:
     """Parse the lineage of a SQL query.
 
-    This performs schema-aware parsing in order to generate column-level lineage.
-    If the relevant tables are not in DataHub, this will be less accurate.
+    In online mode (the default), we perform schema-aware parsing in order to generate column-level lineage.
+    If offline mode is enabled or if the relevant tables are not in DataHub, this will be less accurate.
     """
 
-    graph = get_default_graph()
+    from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
-    lineage = graph.parse_sql_lineage(
+    if sql is None:
+        if sql_file is None:
+            raise click.UsageError("Either --sql or --sql-file must be provided")
+        sql = pathlib.Path(sql_file).read_text()
+
+    graph = None
+    if online:
+        graph = get_default_graph()
+
+    lineage = create_lineage_sql_parsed_result(
         sql,
+        graph=graph,
         platform=platform,
         platform_instance=platform_instance,
         env=env,
@@ -245,7 +268,9 @@ def sql_lineage(
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
-    if lineage.debug_info.error:
+    if lineage.debug_info.table_error:
+        raise lineage.debug_info.table_error
+    elif lineage.debug_info.error:
         logger.debug("Sql parsing error details", exc_info=lineage.debug_info.error)
 
     click.echo(lineage.json(indent=4))

@@ -12,7 +12,26 @@ function matchesTagsOrTermsOrDescription(field: SchemaField, filterText: string,
                 .toLocaleLowerCase()
                 .includes(filterText),
         ) ||
-        field.description?.toLocaleLowerCase().includes(filterText)
+        field.description?.toLocaleLowerCase()?.includes(filterText)
+    );
+}
+
+function matchesBusinessAttributesProperties(field: SchemaField, filterText: string, entityRegistry: EntityRegistry) {
+    if (!field.schemaFieldEntity?.businessAttributes) return false;
+    const businessAttributeProperties =
+        field.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties;
+    return (
+        businessAttributeProperties?.description?.toLocaleLowerCase().includes(filterText) ||
+        businessAttributeProperties?.name?.toLocaleLowerCase().includes(filterText) ||
+        businessAttributeProperties?.glossaryTerms?.terms?.find((termAssociation) =>
+            entityRegistry
+                .getDisplayName(EntityType.GlossaryTerm, termAssociation.term)
+                .toLocaleLowerCase()
+                .includes(filterText),
+        ) ||
+        businessAttributeProperties?.tags?.tags?.find((tagAssociation) =>
+            entityRegistry.getDisplayName(EntityType.Tag, tagAssociation.tag).toLocaleLowerCase().includes(filterText),
+        )
     );
 }
 
@@ -56,7 +75,8 @@ export function filterSchemaRows(
         if (
             matchesFieldName(row.fieldPath, formattedFilterText) ||
             matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) // non-editable tags, terms and description
+            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags, terms and description
+            matchesBusinessAttributesProperties(row, formattedFilterText, entityRegistry)
         ) {
             finalFieldPaths.add(row.fieldPath);
         }
@@ -65,7 +85,8 @@ export function filterSchemaRows(
         if (
             matchesFieldName(fieldName, formattedFilterText) ||
             matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) // non-editable tags, terms and description
+            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags, terms and description
+            matchesBusinessAttributesProperties(row, formattedFilterText, entityRegistry)
         ) {
             // if we match specifically on this field (not just its parent), add and expand all parents
             splitFieldPath.reduce((previous, current) => {

@@ -12,7 +12,7 @@ your custom Data Platform will persist even between full cleans (nukes) of DataH
 
 ## Changing Default Data Platforms
 
-Simply make a change to the [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json) 
+Simply make a change to the [data_platforms.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml) 
 file to add a custom Data Platform:
 
 ```

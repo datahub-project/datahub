@@ -6,7 +6,7 @@ from gql import Client
 from gql.transport.requests import RequestsHTTPTransport
 from pydantic import Field
 
-from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigModel
 
 logger = logging.getLogger(__name__)
 

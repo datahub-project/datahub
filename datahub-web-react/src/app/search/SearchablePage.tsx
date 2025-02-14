@@ -78,7 +78,11 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
             const formattedPath = location.pathname
                 .split('/')
                 .filter((word) => word !== '')
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .map((rawWord) => {
+                    // ie. personal-notifications -> Personal Notifications
+                    const words = rawWord.split('-');
+                    return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                })
                 .join(' | ');
 
             if (formattedPath) {

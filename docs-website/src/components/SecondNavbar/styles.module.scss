@@ -1,0 +1,64 @@
+.secondNavbar {
+  background-color: #fff;
+  border-bottom: 1px solid #eaeaea;
+  z-index: 10;
+  color: black;
+
+  &.darkMode {
+    background-color: #000;
+    color: #fff;
+  }
+}
+
+.container,
+.coreCloudSwitch,
+.docsSwitchButton {
+  display: flex;
+  align-items: center;
+  height: 50px;
+}
+
+.container {
+  padding: 0rem 1rem;
+}
+
+.coreCloudSwitch {
+  width: var(--doc-sidebar-width);
+}
+
+.docsSwitchButton {
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 1.1rem;
+  color: black;
+  text-decoration: none;
+
+  &:hover {
+    cursor: pointer;
+    text-decoration: none;
+    color: #007bff;
+  }
+}
+
+.activeButton {
+  border-bottom: 2px solid #007bff;
+}
+
+.darkMode .docsSwitchButton {
+  color: white;
+
+  &:hover {
+    color: #4db5ff;
+  }
+}
+
+.searchBox,
+.colorModeToggle {
+  padding: 0.5rem 1rem;
+}
+
+.navbarItemsRight {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+}

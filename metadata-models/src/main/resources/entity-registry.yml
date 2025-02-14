@@ -46,6 +46,8 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - versionProperties
+      - icebergCatalogInfo
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -70,12 +72,14 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - forms
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -92,6 +96,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
@@ -116,6 +121,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -237,6 +246,7 @@ entities:
       - dataPlatformInstance
       - subTypes
       - ownership
+      - deprecation
       - container
       - globalTags
       - glossaryTerms
@@ -248,6 +258,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - access
   - name: tag
     category: core
     keyAspect: tagKey
@@ -327,6 +338,7 @@ entities:
       - institutionalMemory
       - deprecation
       - status
+      - icebergWarehouseInfo
   - name: mlModel
     category: core
     keyAspect: mlModelKey
@@ -356,6 +368,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - versionProperties
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -479,12 +492,18 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - deprecation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
   - name: incident
     doc: An incident for an asset.
     category: core
@@ -600,6 +619,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
   - name: form
@@ -615,6 +635,17 @@ entities:
     aspects:
       - dataHubConnectionDetails
       - dataPlatformInstance
+  - name: platformResource
+    doc: >-
+      Platform Resources are assets that are unmodeled and stored outside of
+      the core data model. They are stored in DataHub primarily to help with
+      application-specific use-cases that are not sufficiently generalized to move into the core data model.
+    category: core
+    keyAspect: platformResourceKey
+    aspects:
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
 events:
 plugins:
   aspectPayloadValidators:
@@ -662,6 +693,12 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:

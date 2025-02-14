@@ -23,7 +23,7 @@ import { ANTD_GRAY } from '../../constants';
 import { EntityHeader } from './header/EntityHeader';
 import { EntityTabs } from './header/EntityTabs';
 import { EntitySidebar } from './sidebar/EntitySidebar';
-import EntityContext from '../../EntityContext';
+import { EntityContext } from '../../EntityContext';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
@@ -323,7 +323,13 @@ export const EntityProfile = <T, U>({
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
-                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                        message={
+                            <>
+                                This entity is marked as soft-deleted, likely due to stateful ingestion or a manual
+                                deletion command, and will not appear in search or lineage graphs. Contact your DataHub
+                                admin for more information.
+                            </>
+                        }
                         banner
                     />
                 )}

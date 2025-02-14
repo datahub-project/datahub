@@ -55,4 +55,3 @@ services:
     image: ${DATAHUB_MCE_CONSUMER_IMAGE:-acryldata/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
-version: '3.9'

@@ -1,30 +1,29 @@
-import time
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     AccessLevelClass,
-    AuditStampClass,
     ChangeAuditStampsClass,
     ChartInfoClass as ChartInfo,
     ChartTypeClass,
     EdgeClass as Edge,
-    GlobalTagsClass as GlobalTags,
-    GlossaryTermAssociationClass as Term,
-    GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
-    TagAssociationClass as Tag,
 )
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import OwnershipPatchHelper
-from datahub.utilities.urns.tag_urn import TagUrn
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
+from datahub.specific.aspect_helpers.terms import HasTermsPatch
 from datahub.utilities.urns.urn import Urn
 
 
-class ChartPatchBuilder(MetadataPatchProposal):
+class ChartPatchBuilder(
+    HasOwnershipPatch,
+    HasCustomPropertiesPatch,
+    HasTagsPatch,
+    HasTermsPatch,
+    MetadataPatchProposal,
+):
     def __init__(
         self,
         urn: str,
@@ -42,92 +41,10 @@ class ChartPatchBuilder(MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, ChartInfo.ASPECT_NAME
-        )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
 
-    def _mint_auditstamp(self, message: Optional[str] = None) -> AuditStampClass:
-        """
-        Creates an AuditStampClass instance with the current timestamp and other default values.
-
-        Args:
-            message: The message associated with the audit stamp (optional).
-
-        Returns:
-            An instance of AuditStampClass.
-        """
-        return AuditStampClass(
-            time=int(time.time() * 1000.0),
-            actor="urn:li:corpuser:datahub",
-            message=message,
-        )
-
-    def _ensure_urn_type(
-        self, entity_type: str, edges: List[Edge], context: str
-    ) -> None:
-        """
-        Ensures that the destination URNs in the given edges have the specified entity type.
-
-        Args:
-            entity_type: The entity type to check against.
-            edges: A list of Edge objects.
-            context: The context or description of the operation.
-
-        Raises:
-            ValueError: If any of the destination URNs is not of the specified entity type.
-        """
-        for e in edges:
-            urn = Urn.create_from_string(e.destinationUrn)
-            if not urn.get_type() == entity_type:
-                raise ValueError(
-                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
-                )
-
-    def add_owner(self, owner: Owner) -> "ChartPatchBuilder":
-        """
-        Adds an owner to the ChartPatchBuilder.
-
-        Args:
-            owner: The Owner object to add.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "ChartPatchBuilder":
-        """
-        Removes an owner from the ChartPatchBuilder.
-
-        Args:
-            owner: The owner to remove.
-            owner_type: The ownership type of the owner (optional).
-
-        Returns:
-            The ChartPatchBuilder instance.
-
-        Notes:
-            `owner_type` is optional.
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "ChartPatchBuilder":
-        """
-        Sets the owners of the ChartPatchBuilder.
-
-        Args:
-            owners: A list of Owner objects.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.ownership_patch_helper.set_owners(owners)
-        return self
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return ChartInfo.ASPECT_NAME, ("customProperties",)
 
     def add_input_edge(self, input: Union[Edge, Urn, str]) -> "ChartPatchBuilder":
         """
@@ -159,7 +76,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path=f"/inputEdges/{self.quote(input_urn)}",
+            path=("inputEdges", input_urn),
             value=input_urn,
         )
         return self
@@ -177,7 +94,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "remove",
-            path=f"/inputEdges/{self.quote(str(input))}",
+            path=("inputEdges", str(input)),
             value={},
         )
         return self
@@ -198,121 +115,9 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/inputEdges",
+            path=("inputEdges",),
             value=inputs,
         )
-        return self
-
-    def add_tag(self, tag: Tag) -> "ChartPatchBuilder":
-        """
-        Adds a tag to the ChartPatchBuilder.
-
-        Args:
-            tag: The Tag object representing the tag to be added.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "ChartPatchBuilder":
-        """
-        Removes a tag from the ChartPatchBuilder.
-
-        Args:
-            tag: The tag to remove, specified as a string or Urn object.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
-        return self
-
-    def add_term(self, term: Term) -> "ChartPatchBuilder":
-        """
-        Adds a glossary term to the ChartPatchBuilder.
-
-        Args:
-            term: The Term object representing the glossary term to be added.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
-        )
-        return self
-
-    def remove_term(self, term: Union[str, Urn]) -> "ChartPatchBuilder":
-        """
-        Removes a glossary term from the ChartPatchBuilder.
-
-        Args:
-            term: The term to remove, specified as a string or Urn object.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
-            term = "urn:li:glossaryTerm:" + term
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
-        )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "ChartPatchBuilder":
-        """
-        Sets the custom properties for the ChartPatchBuilder.
-
-        Args:
-            custom_properties: A dictionary containing the custom properties to be set.
-
-        Returns:
-            The ChartPatchBuilder instance.
-
-        Notes:
-            This method replaces all existing custom properties with the given dictionary.
-        """
-        self._add_patch(
-            ChartInfo.ASPECT_NAME,
-            "add",
-            path="/customProperties",
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "ChartPatchBuilder":
-        """
-        Adds a custom property to the ChartPatchBuilder.
-
-        Args:
-            key: The key of the custom property.
-            value: The value of the custom property.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "ChartPatchBuilder":
-        """
-        Removes a custom property from the ChartPatchBuilder.
-
-        Args:
-            key: The key of the custom property to remove.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.remove_property(key)
         return self
 
     def set_title(self, title: str) -> "ChartPatchBuilder":
@@ -320,7 +125,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/title",
+            path=("title",),
             value=title,
         )
 
@@ -331,7 +136,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/description",
+            path=("description",),
             value=description,
         )
 
@@ -342,7 +147,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/lastRefreshed",
+                path=("lastRefreshed",),
                 value=last_refreshed,
             )
 
@@ -355,7 +160,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/lastModified",
+                path=("lastModified",),
                 value=last_modified,
             )
 
@@ -366,7 +171,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/externalUrl",
+                path=("externalUrl",),
                 value=external_url,
             )
         return self
@@ -376,7 +181,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/chartUrl",
+                path=("chartUrl",),
                 value=dashboard_url,
             )
 
@@ -389,7 +194,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/type",
+                path=("type",),
                 value=type,
             )
 
@@ -402,7 +207,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/access",
+                path=("access",),
                 value=access,
             )
 
@@ -414,7 +219,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
                 self._add_patch(
                     aspect_name=ChartInfo.ASPECT_NAME,
                     op="add",
-                    path=f"/inputs/{urn}",
+                    path=("inputs", urn),
                     value=urn,
                 )
 

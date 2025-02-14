@@ -3,11 +3,13 @@ import time
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import datahub.emitter.mce_builder as builder
 import networkx as nx
 import pytest
+from pydantic import BaseModel, validator
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
@@ -18,17 +20,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     EdgeClass,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageClass as FineGrainedLineage,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
-)
-from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     QueryLanguageClass,
     QueryPropertiesClass,
@@ -43,8 +37,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-from pydantic import BaseModel, validator
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
@@ -76,9 +68,9 @@ class DataHubConsoleEmitter:
 INFINITE_HOPS: int = -1
 
 
-@pytest.mark.dependency(depends="wait_for_healthchecks")
-def ingest_tableau_cll_via_rest(wait_for_healthchecks) -> None:
+def ingest_tableau_cll_via_rest(auth_session) -> None:
     ingest_file_via_rest(
+        auth_session,
         "tests/lineage/tableau_cll_mcps.json",
     )
 
@@ -100,7 +92,7 @@ def search_across_lineage(
         explain += "Entities: "
         try:
             for e in entities:
-                explain += f"\t{e.replace('urn:li:','')}\n"
+                explain += f"\t{e.replace('urn:li:', '')}\n"
             for entity in entities:
                 paths = [
                     x["paths"][0]["path"]
@@ -357,9 +349,9 @@ class ScenarioExpectation:
                             lineage_expectation.impacted_entities[impacted_entity]
                         )
                     else:
-                        entries_to_add[
-                            impacted_dataset_entity
-                        ] = lineage_expectation.impacted_entities[impacted_entity]
+                        entries_to_add[impacted_dataset_entity] = (
+                            lineage_expectation.impacted_entities[impacted_entity]
+                        )
                     entries_to_remove.append(impacted_entity)
             for impacted_entity in entries_to_remove:
                 del lineage_expectation.impacted_entities[impacted_entity]
@@ -764,9 +756,9 @@ class Scenario(BaseModel):
                     ]
                 )
                 try:
-                    assert (
-                        impacted_entities == impacted_entities_expectation
-                    ), f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    assert impacted_entities == impacted_entities_expectation, (
+                        f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    )
                 except Exception:
                     # breakpoint()
                     raise
@@ -791,12 +783,16 @@ class Scenario(BaseModel):
                     try:
                         assert len(impacted_entity_paths) == len(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        ), (
+                            f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        )
                         assert set(impacted_entity_paths) == set(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        ), (
+                            f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        )
                     except Exception:
-                        breakpoint()
+                        # breakpoint()
                         raise
                     # for i in range(len(impacted_entity_paths)):
                     #     assert impacted_entity_paths[i].path == expectation.impacted_entities[impacted_entity][i].path, f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity][i].path}, found {impacted_entity_paths[i].path}"
@@ -806,12 +802,6 @@ class Scenario(BaseModel):
             print("Test failed!")
             raise e
             return False
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
 
 
 # @tenacity.retry(
@@ -833,9 +823,8 @@ def test_healthchecks(wait_for_healthchecks):
         # TODO - convert this to range of 1 to 10 to make sure we can handle large graphs
     ],
 )
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_lineage_via_node(
-    lineage_style: Scenario.LineageStyle, graph_level: int
+    graph_client: DataHubGraph, lineage_style: Scenario.LineageStyle, graph_level: int
 ) -> None:
     scenario: Scenario = Scenario(
         hop_platform_map={0: "mysql", 1: "snowflake"},
@@ -845,22 +834,21 @@ def test_lineage_via_node(
     )
 
     # Create an emitter to the GMS REST API.
-    with get_default_graph() as graph:
-        emitter = graph
-        # emitter = DataHubConsoleEmitter()
+    emitter = graph_client
+    # emitter = DataHubConsoleEmitter()
 
-        # Emit metadata!
-        for mcp in scenario.get_entity_mcps():
-            emitter.emit_mcp(mcp)
+    # Emit metadata!
+    for mcp in scenario.get_entity_mcps():
+        emitter.emit_mcp(mcp)
 
-        for mcps in scenario.get_lineage_mcps():
-            emitter.emit_mcp(mcps)
+    for mcps in scenario.get_lineage_mcps():
+        emitter.emit_mcp(mcps)
 
-        wait_for_writes_to_sync()
-        try:
-            scenario.test_expectation(graph)
-        finally:
-            scenario.cleanup(DataHubGraphDeleteAgent(graph))
+    wait_for_writes_to_sync()
+    try:
+        scenario.test_expectation(graph_client)
+    finally:
+        scenario.cleanup(DataHubGraphDeleteAgent(graph_client))
 
 
 @pytest.fixture(scope="module")
@@ -881,76 +869,78 @@ def destination_urn_fixture():
     return "urn:li:dataset:(urn:li:dataPlatform:external,sales target %28us%29.xlsx.sheet1,PROD)"
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope="module", autouse=False)
 def ingest_multipath_metadata(
-    chart_urn_fixture, intermediates_fixture, destination_urn_fixture
+    graph_client: DataHubGraph,
+    chart_urn_fixture,
+    intermediates_fixture,
+    destination_urn_fixture,
 ):
     fake_auditstamp = AuditStampClass(
         time=int(time.time() * 1000),
         actor="urn:li:corpuser:datahub",
     )
-    with get_default_graph() as graph:
-        chart_urn = chart_urn_fixture
-        intermediates = intermediates_fixture
-        destination_urn = destination_urn_fixture
+
+    chart_urn = chart_urn_fixture
+    intermediates = intermediates_fixture
+    destination_urn = destination_urn_fixture
+    for mcp in MetadataChangeProposalWrapper.construct_many(
+        entityUrn=destination_urn,
+        aspects=[
+            DatasetPropertiesClass(
+                name="sales target (us).xlsx.sheet1",
+            ),
+        ],
+    ):
+        graph_client.emit_mcp(mcp)
+
+    for intermediate in intermediates:
         for mcp in MetadataChangeProposalWrapper.construct_many(
-            entityUrn=destination_urn,
+            entityUrn=intermediate,
             aspects=[
                 DatasetPropertiesClass(
-                    name="sales target (us).xlsx.sheet1",
+                    name="intermediate",
+                ),
+                UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=destination_urn,
+                            type="TRANSFORMED",
+                        )
+                    ]
                 ),
             ],
         ):
-            graph.emit_mcp(mcp)
+            graph_client.emit_mcp(mcp)
 
-        for intermediate in intermediates:
-            for mcp in MetadataChangeProposalWrapper.construct_many(
-                entityUrn=intermediate,
-                aspects=[
-                    DatasetPropertiesClass(
-                        name="intermediate",
-                    ),
-                    UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=destination_urn,
-                                type="TRANSFORMED",
-                            )
-                        ]
-                    ),
+    for mcp in MetadataChangeProposalWrapper.construct_many(
+        entityUrn=chart_urn,
+        aspects=[
+            ChartInfoClass(
+                title="chart",
+                description="chart",
+                lastModified=ChangeAuditStampsClass(created=fake_auditstamp),
+                inputEdges=[
+                    EdgeClass(
+                        destinationUrn=intermediate_entity,
+                        sourceUrn=chart_urn,
+                    )
+                    for intermediate_entity in intermediates
                 ],
-            ):
-                graph.emit_mcp(mcp)
-
-        for mcp in MetadataChangeProposalWrapper.construct_many(
-            entityUrn=chart_urn,
-            aspects=[
-                ChartInfoClass(
-                    title="chart",
-                    description="chart",
-                    lastModified=ChangeAuditStampsClass(created=fake_auditstamp),
-                    inputEdges=[
-                        EdgeClass(
-                            destinationUrn=intermediate_entity,
-                            sourceUrn=chart_urn,
-                        )
-                        for intermediate_entity in intermediates
-                    ],
-                )
-            ],
-        ):
-            graph.emit_mcp(mcp)
-        wait_for_writes_to_sync()
-        yield
-        for urn in [chart_urn] + intermediates + [destination_urn]:
-            graph.delete_entity(urn, hard=True)
-        wait_for_writes_to_sync()
+            )
+        ],
+    ):
+        graph_client.emit_mcp(mcp)
+    wait_for_writes_to_sync()
+    yield
+    for urn in [chart_urn] + intermediates + [destination_urn]:
+        graph_client.delete_entity(urn, hard=True)
+    wait_for_writes_to_sync()
 
 
 # TODO: Reenable once fixed
-# @pytest.mark.dependency(depends=["test_healthchecks"])
 # def test_simple_lineage_multiple_paths(
+#     graph_client: DataHubGraph,
 #     ingest_multipath_metadata,
 #     chart_urn_fixture,
 #     intermediates_fixture,
@@ -960,7 +950,7 @@ def ingest_multipath_metadata(
 #     intermediates = intermediates_fixture
 #     destination_urn = destination_urn_fixture
 #     results = search_across_lineage(
-#         get_default_graph(),
+#         graph_client,
 #         chart_urn,
 #         direction="UPSTREAM",
 #         convert_schema_fields_to_datasets=True,

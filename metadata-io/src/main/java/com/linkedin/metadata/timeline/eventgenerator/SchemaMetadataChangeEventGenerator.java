@@ -4,6 +4,7 @@ import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGenerator
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -173,7 +174,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       SchemaField baseField,
       SchemaField targetField,
       Urn datasetUrn,
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       AuditStamp auditStamp) {
     List<ChangeEvent> propChangeEvents = new ArrayList<>();
     String datasetFieldUrn;
@@ -184,7 +185,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     }
 
     // Description Change.
-    if (ChangeCategory.DOCUMENTATION.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.DOCUMENTATION)) {
       ChangeEvent descriptionChangeEvent =
           getDescriptionChange(baseField, targetField, datasetFieldUrn, auditStamp);
       if (descriptionChangeEvent != null) {
@@ -193,14 +194,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     }
 
     // Global Tags
-    if (ChangeCategory.TAG.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.TAG)) {
       propChangeEvents.addAll(
           getGlobalTagChangeEvents(
               baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
     }
 
     // Glossary terms.
-    if (ChangeCategory.GLOSSARY_TERM.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.GLOSSARY_TERM)) {
       propChangeEvents.addAll(
           getGlossaryTermsChangeEvents(
               baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
@@ -213,7 +214,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       SchemaMetadata baseSchema,
       SchemaMetadata targetSchema,
       Urn datasetUrn,
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       AuditStamp auditStamp) {
     // Sort the fields by their field path. This aligns both sets of fields based on field paths for
     // comparisons.
@@ -247,11 +248,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         // This is the same field. Check for change events from property changes.
         if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
           processNativeTypeChange(
-              changeCategory, changeEvents, datasetUrn, curBaseField, curTargetField, auditStamp);
+              changeCategories, changeEvents, datasetUrn, curBaseField, curTargetField, auditStamp);
         }
         List<ChangeEvent> propChangeEvents =
             getFieldPropertyChangeEvents(
-                curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
+                curBaseField, curTargetField, datasetUrn, changeCategories, auditStamp);
         changeEvents.addAll(propChangeEvents);
         ++baseFieldIdx;
         ++targetFieldIdx;
@@ -265,19 +266,21 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         SchemaField renamedField =
             findRenamedField(
                 curBaseField,
+                new HashSet<>(baseFields.subList(baseFieldIdx, baseFields.size())),
                 targetFields.subList(targetFieldIdx, targetFields.size()),
                 renamedFields);
         if (renamedField == null) {
-          processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
+          processRemoval(changeCategories, changeEvents, datasetUrn, curBaseField, auditStamp);
           ++baseFieldIdx;
         } else {
-          if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+          if (changeCategories != null
+              && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
             changeEvents.add(
                 generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
           }
           List<ChangeEvent> propChangeEvents =
               getFieldPropertyChangeEvents(
-                  curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
+                  curBaseField, renamedField, datasetUrn, changeCategories, auditStamp);
           changeEvents.addAll(propChangeEvents);
           ++baseFieldIdx;
           renamedFields.add(renamedField);
@@ -287,18 +290,22 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         // minor version bump for both.
         SchemaField renamedField =
             findRenamedField(
-                curTargetField, baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
+                curTargetField,
+                new HashSet<>(targetFields.subList(targetFieldIdx, targetFields.size())),
+                baseFields.subList(baseFieldIdx, baseFields.size()),
+                renamedFields);
         if (renamedField == null) {
-          processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
+          processAdd(changeCategories, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
         } else {
-          if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+          if (changeCategories != null
+              && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
             changeEvents.add(
                 generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
           }
           List<ChangeEvent> propChangeEvents =
               getFieldPropertyChangeEvents(
-                  curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
+                  renamedField, curTargetField, datasetUrn, changeCategories, auditStamp);
           changeEvents.addAll(propChangeEvents);
           ++targetFieldIdx;
           renamedFields.add(renamedField);
@@ -309,7 +316,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       // Handle removed fields. Non-backward compatible change + major version bump
       SchemaField baseField = baseFields.get(baseFieldIdx);
       if (!renamedFields.contains(baseField)) {
-        processRemoval(changeCategory, changeEvents, datasetUrn, baseField, auditStamp);
+        processRemoval(changeCategories, changeEvents, datasetUrn, baseField, auditStamp);
       }
       ++baseFieldIdx;
     }
@@ -317,14 +324,15 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       // Newly added fields. Forwards & backwards compatible change + minor version bump.
       SchemaField targetField = targetFields.get(targetFieldIdx);
       if (!renamedFields.contains(targetField)) {
-        processAdd(changeCategory, changeEvents, datasetUrn, targetField, auditStamp);
+        processAdd(changeCategories, changeEvents, datasetUrn, targetField, auditStamp);
       }
       ++targetFieldIdx;
     }
 
     // Handle primary key constraint change events.
     List<ChangeEvent> primaryKeyChangeEvents =
-        getPrimaryKeyChangeEvents(changeCategory, baseSchema, targetSchema, datasetUrn, auditStamp);
+        getPrimaryKeyChangeEvents(
+            changeCategories, baseSchema, targetSchema, datasetUrn, auditStamp);
     changeEvents.addAll(primaryKeyChangeEvents);
 
     // Handle foreign key constraint change events, currently no-op due to field not being utilized.
@@ -344,10 +352,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static SchemaField findRenamedField(
-      SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
+      SchemaField curField,
+      Set<SchemaField> baseFields,
+      List<SchemaField> targetFields,
+      Set<SchemaField> renamedFields) {
     return targetFields.stream()
         .filter(schemaField -> isRenamed(curField, schemaField))
         .filter(field -> !renamedFields.contains(field))
+        .filter(field -> !baseFields.contains(field)) // Filter out fields that will match later
         .findFirst()
         .orElse(null);
   }
@@ -375,12 +387,12 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static void processRemoval(
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       List<ChangeEvent> changeEvents,
       Urn datasetUrn,
       SchemaField baseField,
       AuditStamp auditStamp) {
-    if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
               .modifier(getSchemaFieldUrn(datasetUrn, baseField).toString())
@@ -401,17 +413,17 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .build());
     }
     List<ChangeEvent> propChangeEvents =
-        getFieldPropertyChangeEvents(baseField, null, datasetUrn, changeCategory, auditStamp);
+        getFieldPropertyChangeEvents(baseField, null, datasetUrn, changeCategories, auditStamp);
     changeEvents.addAll(propChangeEvents);
   }
 
   private static void processAdd(
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       List<ChangeEvent> changeEvents,
       Urn datasetUrn,
       SchemaField targetField,
       AuditStamp auditStamp) {
-    if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
               .modifier(getSchemaFieldUrn(datasetUrn, targetField).toString())
@@ -428,22 +440,23 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .fieldUrn(getSchemaFieldUrn(datasetUrn, targetField))
               .nullable(targetField.isNullable())
               .auditStamp(auditStamp)
+              .modificationCategory(SchemaFieldModificationCategory.OTHER)
               .build());
     }
     List<ChangeEvent> propChangeEvents =
-        getFieldPropertyChangeEvents(null, targetField, datasetUrn, changeCategory, auditStamp);
+        getFieldPropertyChangeEvents(null, targetField, datasetUrn, changeCategories, auditStamp);
     changeEvents.addAll(propChangeEvents);
   }
 
   private static void processNativeTypeChange(
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       List<ChangeEvent> changeEvents,
       Urn datasetUrn,
       SchemaField curBaseField,
       SchemaField curTargetField,
       AuditStamp auditStamp) {
     // Non-backward compatible change + Major version bump
-    if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
               .category(ChangeCategory.TECHNICAL_SCHEMA)
@@ -505,13 +518,13 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static List<ChangeEvent> getPrimaryKeyChangeEvents(
-      ChangeCategory changeCategory,
+      Set<ChangeCategory> changeCategories,
       SchemaMetadata baseSchema,
       SchemaMetadata targetSchema,
       Urn datasetUrn,
       AuditStamp auditStamp) {
-    if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-      List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
+    List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
+    if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       Set<String> basePrimaryKeys =
           (baseSchema != null && baseSchema.getPrimaryKeys() != null)
               ? new HashSet<>(baseSchema.getPrimaryKeys())
@@ -524,51 +537,53 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           basePrimaryKeys.stream()
               .filter(key -> !targetPrimaryKeys.contains(key))
               .collect(Collectors.toSet());
+      for (String removedBaseKeyField : removedBaseKeys) {
+        Urn schemaFieldUrn = getSchemaFieldUrn(datasetUrn.toString(), removedBaseKeyField);
+        primaryKeyChangeEvents.add(
+            DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+                .category(ChangeCategory.TECHNICAL_SCHEMA)
+                .modifier(schemaFieldUrn.toString())
+                .fieldUrn(schemaFieldUrn)
+                .fieldPath(removedBaseKeyField)
+                .entityUrn(datasetUrn.toString())
+                .operation(ChangeOperation.MODIFY)
+                .semVerChange(SemanticChangeType.MAJOR)
+                .description(
+                    BACKWARDS_INCOMPATIBLE_DESC
+                        + " removal of the primary key field '"
+                        + removedBaseKeyField
+                        + "'")
+                .auditStamp(auditStamp)
+                .modificationCategory(SchemaFieldModificationCategory.OTHER)
+                .build());
+      }
 
       Set<String> addedTargetKeys =
           targetPrimaryKeys.stream()
               .filter(key -> !basePrimaryKeys.contains(key))
               .collect(Collectors.toSet());
-      if (!removedBaseKeys.isEmpty() || !addedTargetKeys.isEmpty()) {
-        String keyChangeTarget;
-        // Just pick the first schema field we can find for the change event
-        if (!removedBaseKeys.isEmpty()) {
-          keyChangeTarget = removedBaseKeys.stream().findFirst().get();
-        } else {
-          keyChangeTarget = addedTargetKeys.stream().findFirst().get();
-        }
-
-        StringBuilder description =
-            new StringBuilder(BACKWARDS_INCOMPATIBLE_DESC + " a primary key constraint change.");
-        if (!removedBaseKeys.isEmpty()) {
-          description.append(" The following fields were removed:");
-          removedBaseKeys.forEach(
-              removedBaseKey -> description.append(" '").append(removedBaseKey).append("'"));
-          description.append(".");
-        }
-        if (!addedTargetKeys.isEmpty()) {
-          description.append(" The following fields were added:");
-          addedTargetKeys.forEach(
-              addedTargetKey -> description.append(" '").append(addedTargetKey).append("'"));
-          description.append(".");
-        }
+      for (String addedTargetKeyField : addedTargetKeys) {
+        Urn schemaFieldUrn = getSchemaFieldUrn(datasetUrn.toString(), addedTargetKeyField);
         primaryKeyChangeEvents.add(
             DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
                 .category(ChangeCategory.TECHNICAL_SCHEMA)
-                .fieldUrn(getSchemaFieldUrn(datasetUrn, keyChangeTarget))
-                .fieldPath(keyChangeTarget)
-                .modifier(getSchemaFieldUrn(datasetUrn, keyChangeTarget).toString())
+                .modifier(getSchemaFieldUrn(datasetUrn, addedTargetKeyField).toString())
+                .fieldUrn(schemaFieldUrn)
+                .fieldPath(addedTargetKeyField)
                 .entityUrn(datasetUrn.toString())
                 .operation(ChangeOperation.MODIFY)
                 .semVerChange(SemanticChangeType.MAJOR)
-                .description(description.toString())
-                .modificationCategory(SchemaFieldModificationCategory.OTHER)
+                .description(
+                    BACKWARDS_INCOMPATIBLE_DESC
+                        + " addition of the primary key field '"
+                        + addedTargetKeyField
+                        + "'")
                 .auditStamp(auditStamp)
+                .modificationCategory(SchemaFieldModificationCategory.OTHER)
                 .build());
-        return primaryKeyChangeEvents;
       }
     }
-    return Collections.emptyList();
+    return primaryKeyChangeEvents;
   }
 
   @Override
@@ -598,7 +613,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                   baseSchema,
                   targetSchema,
                   DatasetUrn.createFromString(currentValue.getUrn()),
-                  changeCategory,
+                  Collections.singleton(changeCategory),
                   null));
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
@@ -632,18 +647,16 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       @Nonnull Aspect<SchemaMetadata> from,
       @Nonnull Aspect<SchemaMetadata> to,
       @Nonnull AuditStamp auditStamp) {
-    final List<ChangeEvent> changeEvents = new ArrayList<>();
-    changeEvents.addAll(
+    return new ArrayList<>(
         computeDiffs(
-            from.getValue(), to.getValue(), urn, ChangeCategory.DOCUMENTATION, auditStamp));
-    changeEvents.addAll(
-        computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.TAG, auditStamp));
-    changeEvents.addAll(
-        computeDiffs(
-            from.getValue(), to.getValue(), urn, ChangeCategory.TECHNICAL_SCHEMA, auditStamp));
-    changeEvents.addAll(
-        computeDiffs(
-            from.getValue(), to.getValue(), urn, ChangeCategory.GLOSSARY_TERM, auditStamp));
-    return changeEvents;
+            from.getValue(),
+            to.getValue(),
+            urn,
+            ImmutableSet.of(
+                ChangeCategory.DOCUMENTATION,
+                ChangeCategory.TAG,
+                ChangeCategory.TECHNICAL_SCHEMA,
+                ChangeCategory.GLOSSARY_TERM),
+            auditStamp));
   }
 }

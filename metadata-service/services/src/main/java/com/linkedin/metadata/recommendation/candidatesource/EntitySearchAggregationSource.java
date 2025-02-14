@@ -1,10 +1,12 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
@@ -15,7 +17,7 @@ import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Comparator;
@@ -167,9 +169,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
             .setFilters(
                 new CriterionArray(
                     ImmutableList.of(
-                        new Criterion()
-                            .setField(getSearchFieldName())
-                            .setValue(candidate.toString()))));
+                        buildCriterion(
+                            getSearchFieldName(), Condition.EQUAL, candidate.toString()))));
     ContentParams contentParams = new ContentParams().setCount(count);
     RecommendationContent content = new RecommendationContent();
     if (candidate instanceof Urn) {

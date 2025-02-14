@@ -31,14 +31,14 @@ def auto_system_metadata(
 
 class SystemMetadataTransformer(Transformer):
     def __init__(self, ctx: PipelineContext):
-        self._inner_transfomer = AutoHelperTransformer(
+        self._inner_transformer = AutoHelperTransformer(
             functools.partial(auto_system_metadata, ctx)
         )
 
     def transform(
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
-        yield from self._inner_transfomer.transform(record_envelopes)
+        yield from self._inner_transformer.transform(record_envelopes)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Transformer:

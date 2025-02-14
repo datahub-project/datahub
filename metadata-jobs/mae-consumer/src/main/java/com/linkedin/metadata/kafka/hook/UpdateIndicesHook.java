@@ -3,7 +3,6 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({
-  GraphServiceFactory.class,
   EntitySearchServiceFactory.class,
   TimeseriesAspectServiceFactory.class,
   EntityRegistryFactory.class,

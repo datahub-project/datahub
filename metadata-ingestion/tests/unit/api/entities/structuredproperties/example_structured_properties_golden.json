@@ -1,0 +1,194 @@
+[
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.privacy.retentionTime",
+            "displayName": "Retention Time",
+            "valueType": "urn:li:dataType:datahub.number",
+            "allowedValues": [
+                {
+                    "value": {
+                        "string": "30"
+                    },
+                    "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+                },
+                {
+                    "value": {
+                        "string": "90"
+                    },
+                    "description": "Use this for datasets that drive monthly reporting but contain pii"
+                },
+                {
+                    "value": {
+                        "string": "365"
+                    },
+                    "description": "Use this for non-sensitive data that can be retained for longer"
+                }
+            ],
+            "cardinality": "MULTIPLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset",
+                "urn:li:entityType:datahub.dataFlow"
+            ],
+            "description": "Retention Time is used to figure out how long to retain records in a dataset",
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.dataManagement.replicationSLA",
+            "displayName": "Replication SLA",
+            "valueType": "urn:li:dataType:datahub.number",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+            ],
+            "description": "SLA for how long data can be delayed before replicating to the destination cluster",
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.dataManagement.deprecationDate",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.dataManagement.deprecationDate",
+            "displayName": "Deprecation Date",
+            "valueType": "urn:li:dataType:datahub.date",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset",
+                "urn:li:entityType:datahub.dataFlow",
+                "urn:li:entityType:datahub.dataJob"
+            ],
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.dataManagement.steward",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.dataManagement.steward",
+            "displayName": "Steward",
+            "valueType": "urn:li:dataType:datahub.urn",
+            "typeQualifier": {
+                "allowedTypes": [
+                    "urn:li:entityType:datahub.corpuser",
+                    "urn:li:entityType:datahub.corpGroup"
+                ]
+            },
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset",
+                "urn:li:entityType:datahub.dataFlow",
+                "urn:li:entityType:datahub.dataJob"
+            ],
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.dataManagement.certifier",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.dataManagement.certifier",
+            "displayName": "Person Certifying the asset",
+            "valueType": "urn:li:dataType:datahub.urn",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset",
+                "urn:li:entityType:datahub.schemaField"
+            ],
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.acryl.dataManagement.team",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "io.acryl.dataManagement.team",
+            "displayName": "Management team",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+            ],
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:projectNames",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "projectNames",
+            "displayName": "Project names",
+            "valueType": "urn:li:dataType:datahub.string",
+            "allowedValues": [
+                {
+                    "value": {
+                        "string": "Tracking"
+                    },
+                    "description": "test value 1 for project"
+                },
+                {
+                    "value": {
+                        "string": "DataHub"
+                    },
+                    "description": "test value 2 for project"
+                }
+            ],
+            "cardinality": "MULTIPLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+            ],
+            "immutable": false
+        }
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:namespace",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "namespace",
+            "displayName": "Namespace",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+            ],
+            "immutable": false
+        }
+    }
+}
+]

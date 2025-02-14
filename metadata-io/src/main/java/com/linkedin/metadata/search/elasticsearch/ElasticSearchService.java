@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch;
 
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
@@ -51,7 +53,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
   private final EntityIndexBuilders indexBuilders;
-  private final ESSearchDAO esSearchDAO;
+  @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
 
@@ -104,17 +106,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public void appendRunId(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull Urn urn,
-      @Nullable String runId) {
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
     final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
 
-    log.info(
-        "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
+    log.debug(
+        "Appending run id for entity name: {}, doc id: {}, run id: {}",
+        urn.getEntityType(),
+        docId,
+        runId);
     esWriteDAO.applyScriptUpdate(
         opContext,
-        entityName,
+        urn.getEntityType(),
         docId,
         /*
           Script used to apply updates to the runId field of the index.

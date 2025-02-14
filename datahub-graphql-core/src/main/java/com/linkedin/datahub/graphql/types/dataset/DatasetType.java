@@ -86,10 +86,11 @@ public class DatasetType
           EMBED_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
           BROWSE_PATHS_V2_ASPECT_NAME,
-          ACCESS_DATASET_ASPECT_NAME,
+          ACCESS_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          SUB_TYPES_ASPECT_NAME);
+          SUB_TYPES_ASPECT_NAME,
+          VERSION_PROPERTIES_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataset";

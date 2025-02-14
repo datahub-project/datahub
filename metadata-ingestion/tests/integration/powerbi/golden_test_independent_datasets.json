@@ -13,7 +13,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -34,7 +35,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -49,7 +51,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -60,14 +63,14 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "PowerBI Dataset Table",
-                "View"
+                "Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

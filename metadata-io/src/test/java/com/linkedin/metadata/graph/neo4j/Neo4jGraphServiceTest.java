@@ -21,6 +21,8 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.SkipException;
@@ -42,16 +45,19 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;
   private Neo4jGraphService _client;
+  @Getter private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void init() {
+    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
     _client =
-        new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+        new Neo4jGraphService(
+            operationContext, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
     _client.clear();
   }
 
@@ -180,6 +186,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     RelatedEntitiesResult result =
         getGraphService()
             .findRelatedEntities(
+                operationContext,
                 Collections.singletonList(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
                 Collections.singletonList("tag"),
@@ -194,6 +201,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     result =
         getGraphService()
             .findRelatedEntities(
+                operationContext,
                 Collections.singletonList(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
                 Collections.singletonList("tag"),
@@ -231,7 +239,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
     // simple path finding
     final var upstreamLineageDataset3Hop3 =
-        service.getLineage(dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 3);
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 3);
     assertEquals(upstreamLineageDataset3Hop3.getTotal().intValue(), 3);
     assertEquals(
         getPathUrnArraysFromLineageResult(upstreamLineageDataset3Hop3),
@@ -242,7 +250,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
     // simple path finding
     final var upstreamLineageDatasetFiveHop2 =
-        service.getLineage(dataset5Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
+        service.getLineage(operationContext, dataset5Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineageDatasetFiveHop2.getTotal().intValue(), 4);
     assertEquals(
         getPathUrnArraysFromLineageResult(upstreamLineageDatasetFiveHop2),
@@ -255,7 +263,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     // there are two paths from p5 to p1, one longer and one shorter, and the longer one is
     // discarded from result
     final var upstreamLineageDataset5Hop5 =
-        service.getLineage(dataset5Urn, LineageDirection.UPSTREAM, 0, 1000, 5);
+        service.getLineage(operationContext, dataset5Urn, LineageDirection.UPSTREAM, 0, 1000, 5);
     assertEquals(upstreamLineageDataset5Hop5.getTotal().intValue(), 5);
     assertEquals(
         getPathUrnArraysFromLineageResult(upstreamLineageDataset5Hop5),
@@ -268,7 +276,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
     // downstream lookup
     final var downstreamLineageDataset1Hop2 =
-        service.getLineage(dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+        service.getLineage(operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineageDataset1Hop2.getTotal().intValue(), 4);
     assertEquals(
         getPathUrnArraysFromLineageResult(downstreamLineageDataset1Hop2),
@@ -294,7 +302,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
     // no time filtering
     EntityLineageResult upstreamLineageTwoHops =
-        service.getLineage(dataset4Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
+        service.getLineage(operationContext, dataset4Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineageTwoHops.getTotal().intValue(), 2);
     assertEquals(upstreamLineageTwoHops.getRelationships().size(), 2);
     assertEquals(
@@ -306,12 +314,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     // with time filtering
     EntityLineageResult upstreamLineageTwoHopsWithTimeFilter =
         service.getLineage(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setStartTimeMillis(10L).setEndTimeMillis(12L)),
             dataset4Urn,
             LineageDirection.UPSTREAM,
             0,
             1000,
-            2,
-            new LineageFlags().setStartTimeMillis(10L).setEndTimeMillis(12L));
+            2);
     assertEquals(upstreamLineageTwoHopsWithTimeFilter.getTotal().intValue(), 1);
     assertEquals(upstreamLineageTwoHopsWithTimeFilter.getRelationships().size(), 1);
     assertEquals(
@@ -321,12 +330,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     // with time filtering
     EntityLineageResult upstreamLineageTimeFilter =
         service.getLineage(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setStartTimeMillis(2L).setEndTimeMillis(6L)),
             dataset2Urn,
             LineageDirection.UPSTREAM,
             0,
             1000,
-            4,
-            new LineageFlags().setStartTimeMillis(2L).setEndTimeMillis(6L));
+            4);
     assertEquals(upstreamLineageTimeFilter.getTotal().intValue(), 2);
     assertEquals(upstreamLineageTimeFilter.getRelationships().size(), 2);
     assertEquals(
@@ -338,12 +348,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     // with time filtering
     EntityLineageResult downstreamLineageTimeFilter =
         service.getLineage(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(4L)),
             dataset1Urn,
             LineageDirection.DOWNSTREAM,
             0,
             1000,
-            4,
-            new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(4L));
+            4);
     assertEquals(downstreamLineageTimeFilter.getTotal().intValue(), 1);
     assertEquals(downstreamLineageTimeFilter.getRelationships().size(), 1);
     assertEquals(
@@ -368,7 +379,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
     // no time filtering, shorter path from d3 to d1 is returned
     EntityLineageResult upstreamLineageNoTimeFiltering =
-        service.getLineage(dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 3);
+        service.getLineage(operationContext, dataset3Urn, LineageDirection.UPSTREAM, 0, 1000, 3);
     assertEquals(
         getPathUrnArraysFromLineageResult(upstreamLineageNoTimeFiltering),
         Set.of(
@@ -379,12 +390,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     // with time filtering, shorter path from d3 to d1 is excluded so longer path is returned
     EntityLineageResult upstreamLineageTimeFiltering =
         service.getLineage(
+            operationContext.withLineageFlags(
+                f -> new LineageFlags().setStartTimeMillis(3L).setEndTimeMillis(17L)),
             dataset3Urn,
             LineageDirection.UPSTREAM,
             0,
             1000,
-            3,
-            new LineageFlags().setStartTimeMillis(3L).setEndTimeMillis(17L));
+            3);
     assertEquals(
         getPathUrnArraysFromLineageResult(upstreamLineageTimeFiltering),
         Set.of(

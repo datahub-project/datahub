@@ -1,5 +1,4 @@
 from datahub.configuration.common import (
-    ConfigModel,
-    ConfigurationMechanism,
-    DynamicTypedConfig,
+    ConfigModel as ConfigModel,
+    DynamicTypedConfig as DynamicTypedConfig,
 )

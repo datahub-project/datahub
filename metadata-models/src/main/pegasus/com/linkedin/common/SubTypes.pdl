@@ -17,7 +17,7 @@ record SubTypes {
       "fieldType": "KEYWORD",
       "addToFilters": true,
       "filterNameOverride": "Sub Type",
-      "queryByDefault": true
+      "queryByDefault": false,
      }
    }
   typeNames: array[string]

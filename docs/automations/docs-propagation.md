@@ -1,5 +1,11 @@
 # Documentation Propagation Automation
 
+:::info
+
+This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+
+:::
+
 ## Introduction
 
 Documentation Propagation is an automation automatically propagates column and asset (coming soon) descriptions based on downstream column-level lineage and sibling relationships. 
@@ -26,7 +32,6 @@ This feature is enabled by default in Open Source DataHub.
 | Column-Level Docs Propagation   | ✔️           | ✔️             |
 | Asset-Level Docs Propagation    | ✔️           | ✔️             |
 | Downstream Lineage + Siblings   | ✔️           | ✔️             |
-| Propagation Rollback (Undo)     | ❌           | ✔️             |
 | Historical Backfilling          | ❌           | ✔️             |
 
 ## Enabling Documentation Propagation
@@ -47,7 +52,7 @@ Notice that the user must have the `Manage Ingestion` permission to view and ena
   <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/oss/features-settings-link.png"/>
 </p>
 
-3**Enable Documentation Propagation**: Locate the 'Documentation Propagation' section and toggle the feature to enable it for column-level and asset-level propagation. 
+3. **Enable Documentation Propagation**: Locate the 'Documentation Propagation' section and toggle the feature to enable it for column-level and asset-level propagation. 
 Currently, Column Level propagation is supported, with asset level propagation coming soon. 
 
 <p align="left">
@@ -94,27 +99,6 @@ and then click "Initialize".
 
 This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating
 descriptions going forward, you can skip this step. 
-
-## Rolling Back Propagated Descriptions (DataHub Cloud Only)
-
-In DataHub Cloud, you can rollback all descriptions that have been propagated historically.
-
-This feature allows you to "clean up" or "undo" any accidental propagation that may have occurred automatically, in the case
-that you no longer want propagated descriptions to be visible. 
-
-To do this, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
-
-<p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
-</p>
-
-and then click "Rollback".
-
-<p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-rollback.png"/>
-</p>
-
-This one-time step will remove all propagated tags and glossary terms from Snowflake. To simply stop propagating new tags, you can disable the automation.
 
 ## Viewing Propagated Descriptions
 

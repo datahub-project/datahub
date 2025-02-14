@@ -4,7 +4,6 @@
 
 # NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
@@ -39,6 +38,8 @@ services:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
     env_file: ./datahub-gms/env/docker.cassandra.env
+    environment:
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     healthcheck:
       test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
       start_period: 20s

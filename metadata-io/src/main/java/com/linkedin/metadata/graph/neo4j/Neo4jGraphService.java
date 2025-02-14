@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.neo4j;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -32,7 +31,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,26 +65,32 @@ import org.neo4j.driver.types.Relationship;
 public class Neo4jGraphService implements GraphService {
 
   private static final int MAX_TRANSACTION_RETRY = 3;
-  private final LineageRegistry _lineageRegistry;
-  private final Driver _driver;
-  private SessionConfig _sessionConfig;
+  private final LineageRegistry lineageRegistry;
+  private final Driver driver;
+  private final OperationContext systemOperationContext;
+  private SessionConfig sessionConfig;
 
-  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
-    this(lineageRegistry, driver, SessionConfig.defaultConfig());
+  public Neo4jGraphService(
+      @Nonnull final OperationContext systemOperationContext,
+      @Nonnull LineageRegistry lineageRegistry,
+      @Nonnull Driver driver) {
+    this(systemOperationContext, lineageRegistry, driver, SessionConfig.defaultConfig());
   }
 
   public Neo4jGraphService(
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull LineageRegistry lineageRegistry,
       @Nonnull Driver driver,
       @Nonnull SessionConfig sessionConfig) {
-    this._lineageRegistry = lineageRegistry;
-    this._driver = driver;
-    this._sessionConfig = sessionConfig;
+    this.systemOperationContext = systemOperationContext;
+    this.lineageRegistry = lineageRegistry;
+    this.driver = driver;
+    this.sessionConfig = sessionConfig;
   }
 
   @Override
   public LineageRegistry getLineageRegistry() {
-    return _lineageRegistry;
+    return lineageRegistry;
   }
 
   @Override
@@ -250,33 +255,24 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Nonnull
-  @WithSpan
   @Override
   public EntityLineageResult getLineage(
+      @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
       int offset,
       int count,
       int maxHops) {
-    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
-  }
-
-  @Nonnull
-  @Override
-  public EntityLineageResult getLineage(
-      @Nonnull Urn entityUrn,
-      @Nonnull LineageDirection direction,
-      GraphFilters graphFilters,
-      int offset,
-      int count,
-      int maxHops,
-      @Nullable LineageFlags lineageFlags) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
     final var statementAndParams =
         generateLineageStatementAndParameters(
-            entityUrn, direction, graphFilters, maxHops, lineageFlags);
+            entityUrn,
+            direction,
+            graphFilters,
+            maxHops,
+            opContext.getSearchContext().getLineageFlags());
 
     final var statement = statementAndParams.getFirst();
     final var parameters = statementAndParams.getSecond();
@@ -338,7 +334,7 @@ public class Neo4jGraphService implements GraphService {
     final var filterComponents = new HashSet<String>();
     for (final var entityName : entityNames) {
       if (direction != null) {
-        for (final var edgeInfo : _lineageRegistry.getLineageRelationships(entityName, direction)) {
+        for (final var edgeInfo : lineageRegistry.getLineageRelationships(entityName, direction)) {
           final var type = edgeInfo.getType();
           if (edgeInfo.getDirection() == RelationshipDirection.INCOMING) {
             filterComponents.add("<" + type);
@@ -351,7 +347,7 @@ public class Neo4jGraphService implements GraphService {
         for (final var direction1 :
             List.of(LineageDirection.UPSTREAM, LineageDirection.DOWNSTREAM)) {
           for (final var edgeInfo :
-              _lineageRegistry.getLineageRelationships(entityName, direction1)) {
+              lineageRegistry.getLineageRelationships(entityName, direction1)) {
             filterComponents.add(edgeInfo.getType());
           }
         }
@@ -457,6 +453,7 @@ public class Neo4jGraphService implements GraphService {
 
   @Nonnull
   public RelatedEntitiesResult findRelatedEntities(
+      @Nonnull final OperationContext opContext,
       @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
@@ -497,7 +494,7 @@ public class Neo4jGraphService implements GraphService {
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (StringUtils.isNotEmpty(srcCriteria)) {
       final String urnValue =
-          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValues().get(0).toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
@@ -600,7 +597,7 @@ public class Neo4jGraphService implements GraphService {
     return whereClause;
   }
 
-  public void removeNode(@Nonnull final Urn urn) {
+  public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
 
     log.debug(String.format("Removing Neo4j node with urn: %s", urn));
     final String srcNodeLabel = urn.getEntityType();
@@ -627,6 +624,7 @@ public class Neo4jGraphService implements GraphService {
    * @param relationshipFilter Query relationship filter
    */
   public void removeEdgesFromNode(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
@@ -743,7 +741,7 @@ public class Neo4jGraphService implements GraphService {
     final StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     int retry = 0;
-    try (final Session session = _driver.session(_sessionConfig)) {
+    try (final Session session = driver.session(sessionConfig)) {
       for (retry = 0; retry <= MAX_TRANSACTION_RETRY; retry++) {
         try {
           session.executeWrite(
@@ -780,9 +778,11 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
-      return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
-    }
+    return systemOperationContext.withSpan(
+        "runQuery",
+        () -> driver.session(sessionConfig).run(statement.getCommandText(), statement.getParams()),
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "runQuery"));
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it
@@ -847,7 +847,8 @@ public class Neo4jGraphService implements GraphService {
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
     criterionArray.forEach(
-        criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
+        criterion ->
+            joiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0))));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
   }
@@ -915,6 +916,7 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nonnull OperationContext opContext,
       @Nullable List<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
       @Nullable List<String> destinationTypes,
@@ -949,7 +951,7 @@ public class Neo4jGraphService implements GraphService {
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (StringUtils.isNotEmpty(srcCriteria)) {
       final String urnValue =
-          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValues().get(0).toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();

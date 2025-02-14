@@ -232,6 +232,17 @@
       }
     },
     {
+      "Path": "https://hudi.apache.org/docs/syncing_datahub/",
+      "imgPath": "img/logos/platforms/hudi.png",
+      "Title": "Apache Hudi",
+      "Description": "Apache Hudi is an open-source data lake framework that provides ACID transactions, efficient upserts, time travel queries, and incremental data processing for large-scale datasets.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/iceberg",
       "imgPath": "img/logos/platforms/iceberg.png",
       "Title": "Iceberg",

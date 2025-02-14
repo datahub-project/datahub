@@ -11,7 +11,7 @@ const Trial = ({onOpenTourModal}) => {
           <div className={styles.left_content}>
             <span className="">Discover. Observe. Govern.</span>
             <p className="">
-              Get a free trial of<br/><b>DataHub</b> cloud today.
+              Get started with<br/><b>DataHub</b> cloud today.
             </p>
             <div className={styles.btn_div}>
               <Link to="/cloud">Book a Demo</Link>
@@ -20,11 +20,13 @@ const Trial = ({onOpenTourModal}) => {
                 onClick={onOpenTourModal}
               >Product Tour</a>
             </div>
-            <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
+            <Link className={styles.start_arrow} to="/docs">Get started with Open Source →</Link>
           </div>
         </div>
         <div className={styles.trial_right}>
           <div className={styles.right_content}>
+            <div className={styles.gradientTop} />
+            <div className={styles.gradientBottom} />
             <div className={styles.right_l}>
               <div className={styles.soc}>
                 <img

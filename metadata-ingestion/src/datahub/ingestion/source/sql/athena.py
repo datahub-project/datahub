@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -35,6 +36,7 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -47,6 +49,15 @@ from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
+
+try:
+    from typing_extensions import override
+except ImportError:
+    _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
+
+    def override(f: _F, /) -> _F:  # noqa: F811
+        return f
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +104,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             return "\n".join([r for r in res])
 
     @typing.no_type_check
-    def _get_column_type(
-        self, type_: Union[str, Dict[str, Any]]
-    ) -> TypeEngine:  # noqa: C901
+    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:  # noqa: C901
         """Derives the data type of the Athena column.
 
         This method is overwritten to extend the behavior of PyAthena.
@@ -322,11 +331,14 @@ class AthenaSource(SQLAlchemySource):
     - Profiling when enabled.
     """
 
-    table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
+    config: AthenaConfig
+    report: SQLSourceReport
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None
+
+        self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -452,6 +464,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
     # It seems like database/schema filter in the connection string does not work and this to work around that
+    @override
     def get_schema_names(self, inspector: Inspector) -> List[str]:
         athena_config = typing.cast(AthenaConfig, self.config)
         schemas = inspector.get_schema_names()
@@ -459,34 +472,42 @@ class AthenaSource(SQLAlchemySource):
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
 
-    # Overwrite to get partitions
+    @classmethod
+    def _casted_partition_key(cls, key: str) -> str:
+        # We need to cast the partition keys to a VARCHAR, since otherwise
+        # Athena may throw an error during concatenation / comparison.
+        return f"CAST({key} as VARCHAR)"
+
+    @override
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
-    ) -> List[str]:
-        partitions = []
-
-        athena_config = typing.cast(AthenaConfig, self.config)
-
-        if not athena_config.extract_partitions:
-            return []
+    ) -> Optional[List[str]]:
+        if not self.config.extract_partitions:
+            return None
 
         if not self.cursor:
-            return []
+            return None
 
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
             table_name=table, schema_name=schema
         )
 
-        if metadata.partition_keys:
-            for key in metadata.partition_keys:
-                if key.name:
-                    partitions.append(key.name)
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
+        if not partitions:
+            return []
 
-            if not partitions:
-                return []
-
-            # We create an artiificaial concatenated partition key to be able to query max partition easier
-            part_concat = "|| '-' ||".join(partitions)
+        with self.report.report_exc(
+            message="Failed to extract partition details",
+            context=f"{schema}.{table}",
+            level=StructuredLogLevel.WARN,
+        ):
+            # We create an artifical concatenated partition key to be able to query max partition easier
+            part_concat = " || '-' || ".join(
+                self._casted_partition_key(key) for key in partitions
+            )
             max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
@@ -500,9 +521,8 @@ class AthenaSource(SQLAlchemySource):
                 partitions=partitions,
                 max_partition=max_partition,
             )
-            return partitions
 
-        return []
+        return partitions
 
     # Overwrite to modify the creation of schema fields
     def get_schema_fields_for_column(
@@ -551,7 +571,9 @@ class AthenaSource(SQLAlchemySource):
         if partition and partition.max_partition:
             max_partition_filters = []
             for key, value in partition.max_partition.items():
-                max_partition_filters.append(f"CAST({key} as VARCHAR) = '{value}'")
+                max_partition_filters.append(
+                    f"{self._casted_partition_key(key)} = '{value}'"
+                )
             max_partition = str(partition.max_partition)
             return (
                 max_partition,

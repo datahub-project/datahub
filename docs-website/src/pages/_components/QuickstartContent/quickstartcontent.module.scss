@@ -100,11 +100,11 @@
     }
 
     .quickstart__bar {
-        width: 10px;
+        width: 4px;
         height: 100%;
         position: absolute;
 
-        background: linear-gradient(180deg, #29B5E8 18.71%, #FFBF4C 143.37%);
+        background: linear-gradient(180deg, #546167 0.71%, #58595f 95.37%, #69cfff 100%);
         border-radius: 10px;
         transform-origin: top;
         // transition: transform 0.3s;
@@ -129,7 +129,7 @@
 
     .quickstart__content {
       display: flex;
-      margin-bottom: 3rem;
+      margin-bottom: 6rem;
       width: 100%;
 
       .quickstart__text {
@@ -193,6 +193,11 @@
           .learn_more {
             color: #1890FF;
             font-weight: 500;
+
+            &:hover {
+              text-decoration: none !important;
+              opacity: 0.8;
+            }
           }
         }
       }
@@ -235,6 +240,7 @@
           min-width: 0;
           width: 100%;
           padding-left: 20px;
+          padding-right: 0;
 
           div {
             padding-left: 0;

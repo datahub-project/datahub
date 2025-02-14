@@ -20,11 +20,13 @@ import java.util.Optional;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchResponse;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
 public class OpenAPIAnalyticsTestConfiguration {
+  @MockBean TracingInterceptor tracingInterceptor;
 
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext() {

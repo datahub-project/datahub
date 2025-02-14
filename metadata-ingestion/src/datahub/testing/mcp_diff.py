@@ -206,7 +206,7 @@ class MCPDiff:
         """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for (_, old, new) in aspect_diff.aspects_changed.keys():
+            for _, old, new in aspect_diff.aspects_changed.keys():
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()
@@ -246,7 +246,7 @@ class MCPDiff:
         for urn in self.aspect_changes.keys() - self.urns_added - self.urns_removed:
             aspect_map = self.aspect_changes[urn]
             s.append(f"Urn changed, {urn}:")
-            for aspect_name, aspect_diffs in aspect_map.items():
+            for aspect_diffs in aspect_map.values():
                 for i, ga in aspect_diffs.aspects_added.items():
                     s.append(self.report_aspect(ga, i, "added"))
                     if verbose:

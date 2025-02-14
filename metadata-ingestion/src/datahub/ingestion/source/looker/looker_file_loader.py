@@ -3,15 +3,17 @@ import pathlib
 from dataclasses import replace
 from typing import Dict, Optional
 
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
-from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerConstant,
+    LookerViewFile,
+)
 from datahub.ingestion.source.looker.looker_template_language import (
-    process_lookml_template_language,
+    load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _EXPLORE_FILE_EXTENSION,
-    _VIEW_FILE_EXTENSION,
+    EXPLORE_FILE_EXTENSION,
+    VIEW_FILE_EXTENSION,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -31,19 +33,21 @@ class LookerViewFileLoader:
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
         source_config: LookMLSourceConfig,
+        manifest_constants: Dict[str, LookerConstant] = {},
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
         self.source_config = source_config
+        self.manifest_constants = manifest_constants
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        allowed_extensions = [_VIEW_FILE_EXTENSION, _EXPLORE_FILE_EXTENSION]
+        allowed_extensions = [VIEW_FILE_EXTENSION, EXPLORE_FILE_EXTENSION]
         matched_any_extension = [
             match for match in [path.endswith(x) for x in allowed_extensions] if match
         ]
@@ -61,7 +65,7 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.failure(
+            self.reporter.report_warning(
                 title="LKML File Loading Error",
                 message="A lookml file is not present on local storage or GitHub",
                 context=f"file path: {path}",
@@ -72,11 +76,15 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
 
-            parsed = load_lkml(path)
-
-            process_lookml_template_language(
-                view_lkml_file_dict=parsed,
+            # load_and preprocess_file is called multiple times for loading view file from multiple flows.
+            # Flag resolve_constants is a hack to avoid passing around manifest_constants from all of the flows.
+            # This is fine as rest of flows do not need resolution of constants.
+            parsed = load_and_preprocess_file(
+                path=path,
+                reporter=self.reporter,
                 source_config=self.source_config,
+                resolve_constants=True,
+                manifest_constants=self.manifest_constants,
             )
 
             looker_viewfile = LookerViewFile.from_looker_dict(
@@ -86,13 +94,14 @@ class LookerViewFileLoader:
                 root_project_name=self._root_project_name,
                 base_projects_folder=self._base_projects_folder,
                 raw_file_content=raw_file_content,
+                source_config=self.source_config,
                 reporter=reporter,
             )
             logger.debug(f"adding viewfile for path {path} to the cache")
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            self.reporter.failure(
+            self.reporter.report_warning(
                 title="LKML File Parsing Error",
                 message="The input file is not lookml file",
                 context=f"file path: {path}",

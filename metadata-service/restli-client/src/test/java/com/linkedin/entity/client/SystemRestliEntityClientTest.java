@@ -47,7 +47,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient noCacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -86,7 +93,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient cacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -121,7 +135,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient noCacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -160,7 +181,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient cacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -195,7 +223,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient noCacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -238,7 +273,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient cacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(

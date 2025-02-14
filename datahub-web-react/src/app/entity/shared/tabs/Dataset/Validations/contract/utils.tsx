@@ -111,4 +111,5 @@ export const DATA_QUALITY_ASSERTION_TYPES = new Set([
     AssertionType.Sql,
     AssertionType.Field,
     AssertionType.Dataset,
+    AssertionType.Custom,
 ]);

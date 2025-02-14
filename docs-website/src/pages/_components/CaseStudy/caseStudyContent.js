@@ -10,13 +10,23 @@ const caseStudyData = [
     link: "https://datahubproject.io/adoption-stories/#netflix",
   },
   {
+    title: "A Solid Foundation For Data and AI",
+    description:
+      "How Apple built a solid foundation for observability, governance, and data sharing with DataHub.",
+    tag: "Technology",
+    backgroundImage:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Aerial_view_of_Apple_Park_dllu.jpg/2560px-Aerial_view_of_Apple_Park_dllu.jpg",
+    image: "/img/logos/companies/apple_text.png",
+    link: "https://datahubproject.io/adoption-stories/#apple",
+  },
+  {
     title: "Scaling Data Governance",
     description:
       "How VISA Uses DataHub to Scale Data Governance.",
     tag: "Finance",
     backgroundImage:
       "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
-    image: "https://datahubproject.io/img/logos/companies/visa.png",
+    image: "/img/logos/companies/visa_text.png",
     link: "https://datahubproject.io/adoption-stories/#visa",
   },
   {
@@ -26,8 +36,28 @@ const caseStudyData = [
     tag: "Technology",
     backgroundImage:
       "https://www.notion.so/cdn-cgi/image/format=webp,width=1920/front-static/pages/product/super-duper/hero-illo.png",
-    image: "https://boost.space/wp-content/uploads/2023/08/notion.png",
+    image: "https://datahubproject.io/img/logos/scrollingCompanies/notion.png",
     link: "https://datahubproject.io/adoption-stories/#notion",
+  },
+  {
+    title: "Building on DataHub",
+    description:
+      "Why Pinterest chose DataHub to serve their needs.",
+    tag: "Technology",
+    backgroundImage:
+      "https://newsroom-archive.pinterest.com/static/images/pin32189_primary-image_hero_0db73.png",
+    image: "https://datahubproject.io/img/logos/companies/pinterest.png",
+    link: "https://www.youtube.com/watch?v=YoxTg8tQSwg",
+  },
+  {
+    title: "Reliable Data Products",
+    description:
+      "How Miro leverages DataHub Cloud to deliver reliable data products.",
+    tag: "Technology",
+    backgroundImage:
+      "https://miro.com/blog/wp-content/uploads/2024/08/header-diagramming-s4-02.png",
+    image: "/img/logos/companies/miro.png",
+    link: "https://miro.com/careers/life-at-miro/tech/data-products-reliability-the-power-of-metadata/",
   },
   {
     title: "Working with Petabyte Scale Healthcare Data",
@@ -36,7 +66,7 @@ const caseStudyData = [
     tag: "Healthcare",
     backgroundImage:
       "https://opensource.optum.com/static/images/mesh-overview-e26ea2aaa8d3dbb1f1771b50f4e31449.png",
-    image: "/img/logos/companies/optum.png",
+    image: "https://datahubproject.io/img/logos/companies/optum.png",
     link: "https://datahubproject.io/adoption-stories/#optum",
   },
   {

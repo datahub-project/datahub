@@ -12,7 +12,7 @@ ext {
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
     docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
-    revision = 7 // increment to trigger rebuild
+    revision = 10 // increment to trigger rebuild
 }
 
 docker {
