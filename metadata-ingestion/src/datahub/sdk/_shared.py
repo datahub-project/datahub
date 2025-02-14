@@ -36,6 +36,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._entity import Entity
+from datahub.sdk._utils import add_list_unique, remove_list_unique
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -298,6 +299,10 @@ TagsInputType: TypeAlias = List[TagInputType]
 class HasTags(Entity):
     __slots__ = ()
 
+    def _ensure_tags(self) -> List[models.TagAssociationClass]:
+        tags = self._setdefault_aspect(models.GlobalTagsClass(tags=[])).tags
+        return tags
+
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     @property
     def tags(self) -> Optional[List[models.TagAssociationClass]]:
@@ -320,6 +325,24 @@ class HasTags(Entity):
             models.GlobalTagsClass(
                 tags=[self._parse_tag_association_class(tag) for tag in tags]
             )
+        )
+
+    @classmethod
+    def _tag_key(cls, tag: models.TagAssociationClass) -> str:
+        return tag.tag
+
+    def add_tag(self, tag: TagInputType) -> None:
+        add_list_unique(
+            self._ensure_tags(),
+            self._tag_key,
+            self._parse_tag_association_class(tag),
+        )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        remove_list_unique(
+            self._ensure_tags(),
+            self._tag_key,
+            self._parse_tag_association_class(tag),
         )
 
 
