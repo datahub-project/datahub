@@ -28,11 +28,7 @@ def client(mock_graph: Mock) -> DataHubClient:
     return DataHubClient(graph=mock_graph)
 
 
-def assert_client_golden(
-    pytestconfig: pytest.Config,
-    client: DataHubClient,
-    golden_path: pathlib.Path,
-) -> None:
+def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> None:
     mcps = client._graph.emit_mcps.call_args[0][0]  # type: ignore
     mce_helpers.check_goldens_stream(
         outputs=mcps,
@@ -41,9 +37,7 @@ def assert_client_golden(
     )
 
 
-def test_container_creation_flow(
-    pytestconfig: pytest.Config, client: DataHubClient, mock_graph: Mock
-) -> None:
+def test_container_creation_flow(client: DataHubClient, mock_graph: Mock) -> None:
     # Create database and schema containers
     db = DatabaseKey(platform="snowflake", database="test_db")
     schema = SchemaKey(**db.dict(), schema="test_schema")
@@ -53,27 +47,21 @@ def test_container_creation_flow(
 
     # Test database container creation
     client.entities.upsert(db_container)
-    assert_client_golden(
-        pytestconfig, client, _GOLDEN_DIR / "test_container_db_golden.json"
-    )
+    assert_client_golden(client, _GOLDEN_DIR / "test_container_db_golden.json")
 
     # Test schema container creation
     client.entities.upsert(schema_container)
-    assert_client_golden(
-        pytestconfig, client, _GOLDEN_DIR / "test_container_schema_golden.json"
-    )
+    assert_client_golden(client, _GOLDEN_DIR / "test_container_schema_golden.json")
 
 
-def test_dataset_creation(
-    pytestconfig: pytest.Config, client: DataHubClient, mock_graph: Mock
-) -> None:
+def test_dataset_creation(client: DataHubClient, mock_graph: Mock) -> None:
     schema = SchemaKey(platform="snowflake", database="test_db", schema="test_schema")
 
     dataset = Dataset(
         platform="snowflake",
         name="test_db.test_schema.table_1",
         env="prod",
-        container=schema,
+        parent_container=schema,
         schema=[
             ("col1", "string"),
             ("col2", "int"),
@@ -83,14 +71,10 @@ def test_dataset_creation(
     )
 
     client.entities.create(dataset)
-    assert_client_golden(
-        pytestconfig, client, _GOLDEN_DIR / "test_dataset_creation_golden.json"
-    )
+    assert_client_golden(client, _GOLDEN_DIR / "test_dataset_creation_golden.json")
 
 
-def test_dataset_read_modify_write(
-    pytestconfig: pytest.Config, client: DataHubClient, mock_graph: Mock
-) -> None:
+def test_dataset_read_modify_write(client: DataHubClient, mock_graph: Mock) -> None:
     # Setup mock for existing dataset
     mock_graph.exists.return_value = True
     dataset_urn = DatasetUrn(
@@ -111,9 +95,27 @@ def test_dataset_read_modify_write(
     dataset.set_description("updated description")
 
     client.entities.update(dataset)
-    assert_client_golden(
-        pytestconfig, client, _GOLDEN_DIR / "test_dataset_update_golden.json"
-    )
+    assert_client_golden(client, _GOLDEN_DIR / "test_dataset_update_golden.json")
+
+
+def test_container_read_modify_write(client: DataHubClient, mock_graph: Mock) -> None:
+    database_key = DatabaseKey(platform="snowflake", database="test_db")
+    container_urn = database_key.as_urn_typed()
+
+    # Setup mocks for the container.
+    mock_graph.exists.return_value = True
+    mock_graph.get_entity_semityped.return_value = {
+        "containerProperties": models.ContainerPropertiesClass(
+            name="test_db",
+        )
+    }
+
+    # Get and update the container
+    container = client.entities.get(container_urn)
+    container.set_description("updated description")
+
+    client.entities.update(container)
+    assert_client_golden(client, _GOLDEN_DIR / "test_container_update_golden.json")
 
 
 def test_create_existing_dataset_fails(client: DataHubClient, mock_graph: Mock) -> None:

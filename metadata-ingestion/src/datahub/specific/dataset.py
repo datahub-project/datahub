@@ -15,6 +15,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass as Upstream,
     UpstreamLineageClass as UpstreamLineage,
 )
+from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.structured_properties import (
@@ -22,8 +23,6 @@ from datahub.specific.aspect_helpers.structured_properties import (
 )
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.aspect_helpers.terms import HasTermsPatch
-from datahub.utilities.urns.tag_urn import TagUrn
-from datahub.utilities.urns.urn import Urn
 
 _Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
@@ -104,12 +103,12 @@ class DatasetPatchBuilder(
 ):
     def __init__(
         self,
-        urn: str,
+        urn: Union[str, DatasetUrn],
         system_metadata: Optional[SystemMetadataClass] = None,
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         super().__init__(
-            urn, system_metadata=system_metadata, audit_header=audit_header
+            str(urn), system_metadata=system_metadata, audit_header=audit_header
         )
 
     @classmethod

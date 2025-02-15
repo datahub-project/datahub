@@ -110,19 +110,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -150,6 +137,19 @@
                     "id": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
                     "urn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056"
                 }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
             ]
         }
     }

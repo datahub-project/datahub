@@ -1,0 +1,15 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "test_db",
+            "description": "updated description"
+        }
+    }
+}
+]
