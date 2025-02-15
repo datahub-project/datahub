@@ -28,8 +28,7 @@ export default function EntityValueMenu({
     className,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const isSearchable =
-        field.entityTypes?.length && field.entityTypes.every((t) => entityRegistry.getEntity(t).isSearchEnabled());
+    const isSearchable = !!field.entityTypes?.length;
     const { displayName } = field;
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -43,7 +42,8 @@ export default function EntityValueMenu({
     const finalSearchOptions = [...localSearchOptions, ...deduplicateOptions(localSearchOptions, searchOptions)];
 
     // Compute the final options to show to the user.
-    const finalOptions = searchQuery ? finalSearchOptions : defaultOptions;
+    const finalDefaultOptions = defaultOptions.length ? defaultOptions : searchOptions;
+    const finalOptions = searchQuery ? finalSearchOptions : finalDefaultOptions;
 
     // Finally, create the option set.
     // TODO: Add an option set for "no x".
