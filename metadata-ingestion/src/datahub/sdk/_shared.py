@@ -4,13 +4,14 @@ import warnings
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Callable,
     List,
     Optional,
     Tuple,
     Union,
 )
 
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
@@ -123,11 +124,11 @@ class HasSubtype(Entity):
         self._set_aspect(models.SubTypesClass(typeNames=[subtype]))
 
 
+# TODO: Reference OwnershipTypeClass as the valid ownership type enum.
 OwnershipTypeType: TypeAlias = Union[str, OwnershipTypeUrn]
 OwnerInputType: TypeAlias = Union[
-    str,
     ActorUrn,
-    Tuple[Union[str, ActorUrn], OwnershipTypeType],
+    Tuple[ActorUrn, OwnershipTypeType],
     models.OwnerClass,
 ]
 OwnersInputType: TypeAlias = List[OwnerInputType]
@@ -137,15 +138,17 @@ class HasOwnership(Entity):
     __slots__ = ()
 
     @staticmethod
-    def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
+    def _parse_owner_class(owner: OwnerInputType) -> Tuple[models.OwnerClass, bool]:
         if isinstance(owner, models.OwnerClass):
-            return owner
+            return owner, False
 
+        was_type_specified = False
         owner_type = models.OwnershipTypeClass.TECHNICAL_OWNER
         owner_type_urn = None
 
         if isinstance(owner, tuple):
             raw_owner, raw_owner_type = owner
+            was_type_specified = True
 
             if isinstance(raw_owner_type, OwnershipTypeUrn):
                 owner_type = models.OwnershipTypeClass.CUSTOM
@@ -162,17 +165,15 @@ class HasOwnership(Entity):
                 owner=make_user_urn(raw_owner),
                 type=owner_type,
                 typeUrn=owner_type_urn,
-            )
+            ), was_type_specified
         elif isinstance(raw_owner, Urn):
             return models.OwnerClass(
                 owner=str(raw_owner),
                 type=owner_type,
                 typeUrn=owner_type_urn,
-            )
+            ), was_type_specified
         else:
-            raise SdkUsageError(
-                f"Invalid owner {owner}: {type(owner)} is not a valid owner type"
-            )
+            assert_never(raw_owner)
 
     # TODO: Return a custom type with deserialized urns, instead of the raw aspect.
     # Ideally we'd also use first-class ownership type urns here, not strings.
@@ -184,8 +185,47 @@ class HasOwnership(Entity):
 
     def set_owners(self, owners: OwnersInputType) -> None:
         # TODO: add docs on the default parsing + default ownership type
-        parsed_owners = [self._parse_owner_class(owner) for owner in owners]
+        parsed_owners = [self._parse_owner_class(owner)[0] for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
+
+    @classmethod
+    def _owner_key_method(
+        cls, consider_owner_type: bool
+    ) -> Callable[[models.OwnerClass], Tuple[str, ...]]:
+        if consider_owner_type:
+            return cls._typed_owner_key
+        else:
+            return cls._simple_owner_key
+
+    @classmethod
+    def _typed_owner_key(cls, owner: models.OwnerClass) -> Tuple[str, str]:
+        return (owner.owner, owner.typeUrn or str(owner.type))
+
+    @classmethod
+    def _simple_owner_key(cls, owner: models.OwnerClass) -> Tuple[str,]:
+        return (owner.owner,)
+
+    def _ensure_owners(self) -> List[models.OwnerClass]:
+        owners = self._setdefault_aspect(models.OwnershipClass(owners=[])).owners
+        return owners
+
+    def add_owner(self, owner: OwnerInputType) -> None:
+        # Tricky: when adding an owner, we always use the ownership type.
+        # For removals, we only use it if it was explicitly specified.
+        parsed_owner, _ = self._parse_owner_class(owner)
+        add_list_unique(
+            self._ensure_owners(),
+            key=self._typed_owner_key,
+            item=parsed_owner,
+        )
+
+    def remove_owner(self, owner: OwnerInputType) -> None:
+        parsed_owner, was_type_specified = self._parse_owner_class(owner)
+        remove_list_unique(
+            self._ensure_owners(),
+            key=self._owner_key_method(was_type_specified),
+            item=parsed_owner,
+        )
 
 
 # If you pass in a container object, we can build on top of its browse path.

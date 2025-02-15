@@ -1,6 +1,6 @@
 import pathlib
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pytest
 
@@ -9,11 +9,14 @@ from datahub.emitter.mcp_builder import SchemaKey
 from datahub.errors import SchemaFieldKeyError
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.urns import (
+    CorpGroupUrn,
     CorpUserUrn,
     DatasetUrn,
     DomainUrn,
     GlossaryTermUrn,
+    OwnershipTypeUrn,
     TagUrn,
+    Urn,
 )
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.sdk.dataset import Dataset
@@ -276,3 +279,66 @@ def test_terms_add_remove() -> None:
         assert _term_names(field.terms) == ["field2_term2", "PII"]
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_terms_add_remove_golden.json")
+
+
+def _owner_names(owners: Optional[List[models.OwnerClass]]) -> List[Tuple[Urn, str]]:
+    if owners is None:
+        return []
+    return [(Urn.from_string(o.owner), o.typeUrn or str(o.type)) for o in owners]
+
+
+def test_owners_add_remove() -> None:
+    admin = CorpUserUrn("admin@datahubproject.io")
+    group = CorpGroupUrn("group@datahubproject.io")
+
+    business = models.OwnershipTypeClass.BUSINESS_OWNER
+    technical = models.OwnershipTypeClass.TECHNICAL_OWNER
+    custom = OwnershipTypeUrn("urn:li:ownershipType:custom_1")
+
+    d = Dataset(
+        platform="redshift",
+        name="db.schema.table",
+        owners=[
+            (admin, business),
+            (group, technical),
+        ],
+    )
+    assert _owner_names(d.owners) == [
+        (admin, business),
+        (group, technical),
+    ]
+
+    # Add the admin as a technical owner.
+    for _ in range(2):
+        d.add_owner(admin)
+        assert _owner_names(d.owners) == [
+            (admin, business),
+            (group, technical),
+            (admin, technical),
+        ]
+
+    # Add the admin as a custom owner.
+    for _ in range(2):
+        d.add_owner((admin, custom))
+        assert _owner_names(d.owners) == [
+            (admin, business),
+            (group, technical),
+            (admin, technical),
+            (admin, str(custom)),
+        ]
+
+    # Type-specific removal.
+    for _ in range(2):
+        d.remove_owner((admin, technical))
+        assert _owner_names(d.owners) == [
+            (admin, business),
+            (group, technical),
+            (admin, str(custom)),
+        ]
+
+    # This should remove both admin owner types.
+    for _ in range(2):
+        d.remove_owner(admin)
+        assert _owner_names(d.owners) == [(group, technical)]
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_owners_add_remove_golden.json")
