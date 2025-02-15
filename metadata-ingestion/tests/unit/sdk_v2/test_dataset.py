@@ -19,6 +19,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
+from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.dataset import Dataset
 from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
 
@@ -342,3 +343,29 @@ def test_owners_add_remove() -> None:
         assert _owner_names(d.owners) == [(group, technical)]
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_owners_add_remove_golden.json")
+
+
+def test_browse_path() -> None:
+    schema = SchemaKey(
+        platform="snowflake",
+        database="MY_DB",
+        schema="MY_SCHEMA",
+    )
+    db = schema.parent_key()
+    assert db is not None
+
+    path: list[UrnOrStr] = [
+        "Folders",
+        db.as_urn_typed(),
+        "Subfolder",
+        schema.as_urn_typed(),
+    ]
+    d = Dataset(
+        platform="snowflake",
+        name="MY_DB.MY_SCHEMA.MY_TABLE",
+        parent_container=path,
+    )
+    assert d.parent_container == schema.as_urn_typed()
+    assert d.browse_path == path
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_browse_path_golden.json")

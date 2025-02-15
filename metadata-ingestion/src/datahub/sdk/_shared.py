@@ -332,6 +332,12 @@ class HasContainer(Entity):
         )
 
     @property
+    def parent_container(self) -> Optional[ContainerUrn]:
+        if container := self._get_aspect(models.ContainerClass):
+            return ContainerUrn.from_string(container.container)
+        return None
+
+    @property
     def browse_path(self) -> Optional[List[UrnOrStr]]:
         if browse_path := self._get_aspect(models.BrowsePathsV2Class):
             path: List[UrnOrStr] = []
