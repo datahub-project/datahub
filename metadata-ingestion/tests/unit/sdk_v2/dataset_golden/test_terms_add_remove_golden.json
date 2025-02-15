@@ -260,10 +260,10 @@
                     "glossaryTerms": {
                         "terms": [
                             {
-                                "urn": "urn:li:glossaryTerm:field2_term1"
+                                "urn": "urn:li:glossaryTerm:field2_term2"
                             },
                             {
-                                "urn": "urn:li:glossaryTerm:field2_term2"
+                                "urn": "urn:li:glossaryTerm:PII"
                             }
                         ],
                         "auditStamp": {

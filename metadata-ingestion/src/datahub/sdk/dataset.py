@@ -33,6 +33,7 @@ from datahub.sdk._shared import (
     ParentContainerInputType,
     TagInputType,
     TagsInputType,
+    TermInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
@@ -312,14 +313,12 @@ class SchemaField:
                 )
 
             editable_field = self._ensure_editable_schema_field()
-            if editable_field.globalTags is None:
-                editable_field.globalTags = models.GlobalTagsClass(tags=[])
-
-            remove_list_unique(
-                editable_field.globalTags.tags,
-                key=self._parent._tag_key,
-                item=parsed_tag,
-            )
+            if editable_field.globalTags is not None:
+                remove_list_unique(
+                    editable_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                )
 
     @property
     def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
@@ -367,6 +366,55 @@ class SchemaField:
                     auditStamp=self._parent._terms_audit_stamp(),
                 )
             )
+
+    def add_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is None:
+                editable_field.glossaryTerms = models.GlossaryTermsClass(
+                    terms=[],
+                    auditStamp=self._parent._terms_audit_stamp(),
+                )
+
+            add_list_unique(
+                editable_field.glossaryTerms.terms,
+                key=self._parent._terms_key,
+                item=parsed_term,
+            )
+
+    def remove_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Removing field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.glossaryTerms is not None:
+                remove_list_unique(
+                    base_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is not None:
+                remove_list_unique(
+                    editable_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
 
 
 class Dataset(

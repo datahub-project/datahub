@@ -221,6 +221,10 @@ def test_tags_add_remove() -> None:
     assert_entity_golden(d, _GOLDEN_DIR / "test_tags_add_remove_golden.json")
 
 
+# TODO: We should have add/remove/set tests where there's tags/terms
+# in both base and editable entries for a schema field.
+
+
 def _term_names(
     terms: Optional[List[models.GlossaryTermAssociationClass]],
 ) -> List[str]:
@@ -240,5 +244,15 @@ def test_terms_add_remove() -> None:
     for _ in range(2):
         d.remove_term(GlossaryTermUrn("AccountBalance"))
         assert _term_names(d.terms) == ["Sensitive"]
+
+    # Test field term add/remove flows.
+    field = d["field2"]
+    assert _term_names(field.terms) == ["field2_term1", "field2_term2"]
+    for _ in range(2):
+        field.add_term(GlossaryTermUrn("PII"))
+        assert _term_names(field.terms) == ["field2_term1", "field2_term2", "PII"]
+    for _ in range(2):
+        field.remove_term(GlossaryTermUrn("field2_term1"))
+        assert _term_names(field.terms) == ["field2_term2", "PII"]
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_terms_add_remove_golden.json")
