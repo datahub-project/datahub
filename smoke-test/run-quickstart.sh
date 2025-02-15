@@ -26,4 +26,4 @@ DATAHUB_SEARCH_IMAGE="$DATAHUB_SEARCH_IMAGE" DATAHUB_SEARCH_TAG="$DATAHUB_SEARCH
 XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTICSEARCH_USE_SSL" \
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
 DATAHUB_VERSION=${DATAHUB_VERSION} \
-docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
+docker compose --project-directory ../docker/profiles --profile quickstart-consumers-legacy-ui up -d --quiet-pull --wait --wait-timeout 900

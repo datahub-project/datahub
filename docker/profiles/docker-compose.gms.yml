@@ -350,6 +350,16 @@ services:
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
+  datahub-gms-quickstart-consumers-legacy-ui:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-consumers-legacy-ui
+    environment:
+      <<: *datahub-gms-env
+      THEME_V2_DEFAULT: false  # Override the environment variable for the ui default.
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
   datahub-gms-debug:
     <<: *datahub-gms-service-dev
     profiles:
@@ -412,6 +422,13 @@ services:
       - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-mae-consumer-quickstart-consumers-legacy-ui:
+    <<: *datahub-mae-consumer-service
+    profiles:
+      - quickstart-consumers-legacy-ui
+    depends_on:
+      datahub-gms-quickstart-consumers-legacy-ui:
         condition: service_healthy
   datahub-mae-consumer-quickstart-consumers-dev:
     <<: *datahub-mae-consumer-service-dev
