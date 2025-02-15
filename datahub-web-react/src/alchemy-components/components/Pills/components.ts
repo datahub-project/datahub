@@ -30,6 +30,4 @@ export const PillText = styled.span({
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    fontSize: '12px',
-    fontWeight: 400,
 });
