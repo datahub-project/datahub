@@ -191,16 +191,18 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                     <CopyText>
                         <pre>{inviteLink}</pre>
                     </CopyText>
-                    <Tooltip title="Copy invite link.">
-                        <CopyButton
-                            onClick={() => {
-                                navigator.clipboard.writeText(inviteLink);
-                                message.success('Copied invite link to clipboard');
-                            }}
-                        >
-                            COPY
-                        </CopyButton>
-                    </Tooltip>
+                    {navigator.clipboard && (
+                        <Tooltip title="Copy invite link.">
+                            <CopyButton
+                                onClick={() => {
+                                    navigator.clipboard.writeText(inviteLink);
+                                    message.success('Copied invite link to clipboard');
+                                }}
+                            >
+                                COPY
+                            </CopyButton>
+                        </Tooltip>
+                    )}
                     <Tooltip title="Generate a new link. Any old links will no longer be valid.">
                         <RefreshButton
                             onClick={() => {

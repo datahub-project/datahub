@@ -24,19 +24,23 @@ export default function CopyLinkMenuItem() {
      */
     const [isClicked, setIsClicked] = useState(false);
 
-    return (
-        <StyledMenuItem
-            onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                setIsClicked(true);
-            }}
-        >
-            <Tooltip title="Copy a shareable link to this entity.">
-                {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
-                <TextSpan>
-                    <b>Copy Link</b>
-                </TextSpan>
-            </Tooltip>
-        </StyledMenuItem>
-    );
+    if (navigator.clipboard) {
+        return (
+            <StyledMenuItem
+                onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    setIsClicked(true);
+                }}
+            >
+                <Tooltip title="Copy a shareable link to this entity.">
+                    {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
+                    <TextSpan>
+                        <b>Copy Link</b>
+                    </TextSpan>
+                </Tooltip>
+            </StyledMenuItem>
+        );
+    }
+
+    return null;
 }
