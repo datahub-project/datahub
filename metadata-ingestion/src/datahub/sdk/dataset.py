@@ -13,6 +13,7 @@ from datahub.errors import (
     IngestionAttributionWarning,
     ItemNotFoundError,
     SchemaFieldKeyError,
+    SdkUsageError,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
@@ -30,11 +31,13 @@ from datahub.sdk._shared import (
     HasTerms,
     OwnersInputType,
     ParentContainerInputType,
+    TagInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk._utils import add_list_unique, remove_list_unique
 from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
@@ -269,6 +272,53 @@ class SchemaField:
 
             self._ensure_editable_schema_field().globalTags = models.GlobalTagsClass(
                 tags=parsed_tags
+            )
+
+    def add_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is None:
+                editable_field.globalTags = models.GlobalTagsClass(tags=[])
+
+            add_list_unique(
+                editable_field.globalTags.tags,
+                key=self._parent._tag_key,
+                item=parsed_tag,
+            )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.globalTags is not None:
+                remove_list_unique(
+                    base_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is None:
+                editable_field.globalTags = models.GlobalTagsClass(tags=[])
+
+            remove_list_unique(
+                editable_field.globalTags.tags,
+                key=self._parent._tag_key,
+                item=parsed_tag,
             )
 
     @property

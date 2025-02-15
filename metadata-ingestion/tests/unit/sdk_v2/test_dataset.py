@@ -1,8 +1,10 @@
 import pathlib
 from datetime import datetime, timezone
+from typing import List, Optional
 
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import SchemaKey
 from datahub.errors import SchemaFieldKeyError
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -183,5 +185,60 @@ def test_dataset_complex() -> None:
 def test_dataset_ingestion() -> None:
     with change_default_attribution(KnownAttribution.INGESTION):
         d = _build_complex_dataset()
-
         assert_entity_golden(d, _GOLDEN_DIR / "test_dataset_ingestion_golden.json")
+
+
+def _tag_names(tags: Optional[List[models.TagAssociationClass]]) -> List[str]:
+    if tags is None:
+        return []
+    return [TagUrn(t.tag).name for t in tags]
+
+
+def test_tags_add_remove() -> None:
+    d = _build_complex_dataset()
+
+    # For each loop - the second iteration should be a no-op.
+
+    # Test tag add/remove flows.
+    assert _tag_names(d.tags) == ["tag1", "tag2"]
+    for _ in range(2):
+        d.add_tag(TagUrn("tag3"))
+        assert _tag_names(d.tags) == ["tag1", "tag2", "tag3"]
+    for _ in range(2):
+        d.remove_tag(TagUrn("tag1"))
+        assert _tag_names(d.tags) == ["tag2", "tag3"]
+
+    # Test field tag add/remove flows.
+    field = d["field1"]
+    assert _tag_names(field.tags) == ["field1_tag1", "field1_tag2"]
+    for _ in range(2):
+        field.add_tag(TagUrn("field1_tag3"))
+        assert _tag_names(field.tags) == ["field1_tag1", "field1_tag2", "field1_tag3"]
+    for _ in range(2):
+        field.remove_tag(TagUrn("field1_tag1"))
+        assert _tag_names(field.tags) == ["field1_tag2", "field1_tag3"]
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_tags_add_remove_golden.json")
+
+
+def _term_names(
+    terms: Optional[List[models.GlossaryTermAssociationClass]],
+) -> List[str]:
+    if terms is None:
+        return []
+    return [GlossaryTermUrn(t.urn).name for t in terms]
+
+
+def test_terms_add_remove() -> None:
+    d = _build_complex_dataset()
+
+    # Test term add/remove flows.
+    assert _term_names(d.terms) == ["AccountBalance"]
+    for _ in range(2):
+        d.add_term(GlossaryTermUrn("Sensitive"))
+        assert _term_names(d.terms) == ["AccountBalance", "Sensitive"]
+    for _ in range(2):
+        d.remove_term(GlossaryTermUrn("AccountBalance"))
+        assert _term_names(d.terms) == ["Sensitive"]
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_terms_add_remove_golden.json")
