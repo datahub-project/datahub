@@ -354,7 +354,7 @@ def test_browse_path() -> None:
     db = schema.parent_key()
     assert db is not None
 
-    path: list[UrnOrStr] = [
+    path: List[UrnOrStr] = [
         "Folders",
         db.as_urn_typed(),
         "Subfolder",
