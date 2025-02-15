@@ -594,6 +594,8 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
+        logger.info(f"dataset url is: {dataset_url}")
+
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
