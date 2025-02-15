@@ -195,7 +195,16 @@ def _tag_names(tags: Optional[List[models.TagAssociationClass]]) -> List[str]:
 
 
 def test_tags_add_remove() -> None:
-    d = _build_complex_dataset()
+    d = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        schema=[
+            ("field1", "string"),
+            ("field2", "int64", "field2 description"),
+        ],
+        tags=[TagUrn("tag1"), TagUrn("tag2")],
+    )
+    d["field1"].set_tags([TagUrn("field1_tag1"), TagUrn("field1_tag2")])
 
     # For each loop - the second iteration should be a no-op.
 
@@ -234,7 +243,18 @@ def _term_names(
 
 
 def test_terms_add_remove() -> None:
-    d = _build_complex_dataset()
+    d = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        schema=[
+            ("field1", "string"),
+            ("field2", "int64", "field2 description"),
+        ],
+        terms=[GlossaryTermUrn("AccountBalance")],
+    )
+    d["field2"].set_terms(
+        [GlossaryTermUrn("field2_term1"), GlossaryTermUrn("field2_term2")]
+    )
 
     # Test term add/remove flows.
     assert _term_names(d.terms) == ["AccountBalance"]

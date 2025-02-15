@@ -336,7 +336,7 @@ class SchemaField:
 
         return terms
 
-    def set_terms(self, terms: List[models.GlossaryTermAssociationClass]) -> None:
+    def set_terms(self, terms: TermsInputType) -> None:
         parsed_terms = [
             self._parent._parse_glossary_term_association_class(term) for term in terms
         ]
