@@ -106,6 +106,7 @@ class SupersetDataset(BaseModel):
     table_name: str
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
+    url: Optional[str] = ""
 
     @property
     def modified_dt(self) -> Optional[datetime]:
@@ -309,6 +310,10 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
+        if not dataset_id:
+            logger.warning("Dataset id cannot be empty")
+            return {}
+
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
         )
@@ -323,7 +328,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
-        platform = self.get_platform_from_database_id(database_id)
+
+        if platform_instance:
+            platform = self.platform
+        else:
+            platform = self.get_platform_from_database_id(database_id)
 
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
@@ -592,9 +601,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response, self.platform
         )
 
-        dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
-
-        logger.info(f"dataset url is: {dataset_url}")
+        dataset_url = f"{self.config.display_uri}{dataset.url or ''}"
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
