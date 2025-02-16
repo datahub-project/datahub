@@ -131,9 +131,9 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       LabelUtils.validateLabel(
           context.getOperationContext(), tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
 
-      if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
+      if (!LabelUtils.isAuthorizedToAssociateEntity(context, tagUrn)) {
         throw new AuthorizationException(
-            "Only users granted permission to this tag can assign or remove it");
+            "Only users granted permission to this entity can assign or remove it");
       }
     }
   }

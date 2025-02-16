@@ -42,7 +42,7 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
           // First, validate the tag urns
           validateTags(tagUrns, context);
 
-          // First, validate the batch
+          // Next, validate the batch
           validateInputResources(context.getOperationContext(), resources, context);
 
           try {
@@ -62,9 +62,9 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
 
   private void validateTags(List<Urn> tagUrns, QueryContext context) {
     for (Urn tagUrn : tagUrns) {
-      if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
+      if (!LabelUtils.isAuthorizedToAssociateEntity(context, tagUrn)) {
         throw new AuthorizationException(
-            "Only users granted permission to this tag can assign or remove it");
+            "Only users granted permission to this entity can assign or remove it");
       }
     }
   }

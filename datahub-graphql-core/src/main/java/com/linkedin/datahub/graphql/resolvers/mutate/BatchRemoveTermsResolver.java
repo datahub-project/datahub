@@ -39,7 +39,10 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
-          // First, validate the batch
+          // First, validate the tag urns
+          validateTerms(termUrns, context);
+
+          // Next, validate the batch
           validateInputResources(context.getOperationContext(), resources, context);
 
           try {
@@ -55,6 +58,15 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private void validateTerms(List<Urn> termUrns, QueryContext context) {
+    for (Urn termUrn : termUrns) {
+      if (!LabelUtils.isAuthorizedToAssociateEntity(context, termUrn)) {
+        throw new AuthorizationException(
+            "Only users granted permission to this entity can assign or remove it");
+      }
+    }
   }
 
   private void validateInputResources(

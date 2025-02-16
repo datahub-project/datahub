@@ -17,7 +17,7 @@ What you need to add tags:
 
 * **Edit Tags** metadata privilege to add tags at the entity level
 * **Edit Dataset Column Tags** to edit tags at the column level 
-* **Associate Tags** metadata privilege at tag entity to associate that tag at the entity level or column level
+* **Associate Entities** metadata privilege at tag entity to associate that tag at the entity level or column level
 
 You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
