@@ -24,6 +24,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.cli.cli_utils import S3Path
 
 logger = logging.getLogger(__name__)
 
@@ -414,7 +415,7 @@ def parse_restli_response(response):
 
 
 @ingest.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument("path", type=S3Path(exists=True))
 def mcps(path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.
