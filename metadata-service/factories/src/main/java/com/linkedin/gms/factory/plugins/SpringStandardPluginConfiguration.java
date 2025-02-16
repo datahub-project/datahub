@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.plugins;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -25,9 +27,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Configuration
 @Slf4j
@@ -273,11 +272,12 @@ public class SpringStandardPluginConfiguration {
                     // Special note: RESTATE is not included to allow out of order restoration of
                     // aspects.
                     List.of(DELETE))
-                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName
-                    .builder()
-                    .entityName(CORP_USER_ENTITY_NAME)
-                    .aspectName(ALL)
-                    .build()))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(ALL)
+                            .build()))
                 .build());
   }
 }
