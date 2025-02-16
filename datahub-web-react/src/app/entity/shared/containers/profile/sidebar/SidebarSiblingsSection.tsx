@@ -58,8 +58,16 @@ export const SidebarSiblingsSection = () => {
     return (
         <div>
             <SidebarHeader title="Composed Of" />
-            <EntityListContainer>
-                <CompactEntityNameList entities={allSiblingsInGroupThatExist} />
+            <EntityListContainer data-testid="siblings-list">
+                <CompactEntityNameList
+                    entities={allSiblingsInGroupThatExist}
+                    linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
+                />
+                {numSiblingsNotShown > 0 && (
+                    <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>
+                        and {numSiblingsNotShown} more
+                    </AndMoreWrapper>
+                )}
             </EntityListContainer>
         </div>
     );
