@@ -49,7 +49,9 @@ describe("siblings", () => {
     );
     cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.get('[class*="CompactEntityNameList').first().click();
+    const bqUrn =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)";
+    cy.get(`[data-testid="compact-entity-link-${bqUrn}"]`).click();
     cy.get(".ant-table-row").should("be.visible");
     // check merged platforms is not shown
     cy.get('[data-testid="entity-header-test-id"]')
@@ -74,7 +76,7 @@ describe("siblings", () => {
     );
     cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.get('[class*="CompactEntityNameList').first().click();
+    cy.get('[data-testid="siblings-list"]').first().click();
     cy.get(".ant-table-row").should("be.visible");
     cy.clickOptionWithText("Add Term");
 

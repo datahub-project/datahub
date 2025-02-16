@@ -82,7 +82,7 @@ export const SidebarSiblingsSection = () => {
     return (
         <div>
             <SidebarHeader title="Composed Of" />
-            <EntityListContainer>
+            <EntityListContainer data-testid="siblings-list">
                 <CompactEntityNameList
                     entities={allSiblingsInGroupThatExist}
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
