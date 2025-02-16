@@ -36,6 +36,10 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
+    if (!LabelUtils.isAuthorizedToAssociateEntity(environment.getContext(), tagUrn)) {
+      throw new AuthorizationException(
+          "Only users granted permission to this entity can assign or remove it");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

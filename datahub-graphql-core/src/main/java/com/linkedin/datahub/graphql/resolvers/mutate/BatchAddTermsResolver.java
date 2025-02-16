@@ -15,7 +15,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -45,7 +44,7 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
         () -> {
 
           // First, validate the batch
-          validateTerms(context.getOperationContext(), termUrns);
+          validateTerms(context, termUrns);
 
           if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
             return handleAddTermsToSingleSchemaField(context, resources, termUrns);
@@ -127,10 +126,18 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
     }
   }
 
-  private void validateTerms(@Nonnull OperationContext opContext, List<Urn> termUrns) {
+  private void validateTerms(@Nonnull QueryContext context, List<Urn> termUrns) {
     for (Urn termUrn : termUrns) {
       LabelUtils.validateLabel(
-          opContext, termUrn, Constants.GLOSSARY_TERM_ENTITY_NAME, _entityService);
+          context.getOperationContext(),
+          termUrn,
+          Constants.GLOSSARY_TERM_ENTITY_NAME,
+          _entityService);
+
+      if (!LabelUtils.isAuthorizedToAssociateEntity(context, termUrn)) {
+        throw new AuthorizationException(
+            "Only users granted permission to this entity can assign or remove it");
+      }
     }
   }
 

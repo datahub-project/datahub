@@ -1524,14 +1524,14 @@
       "default" : [ ],
       "Relationship" : {
         "/*/destinationUrn" : {
-          "createdActor" : "datasetEdges/*/created/actor",
-          "createdOn" : "datasetEdges/*/created/time",
+          "createdActor" : "dashboards/*/created/actor",
+          "createdOn" : "dashboards/*/created/time",
           "entityTypes" : [ "dashboard" ],
           "isLineage" : true,
           "name" : "DashboardContainsDashboard",
-          "properties" : "datasetEdges/*/properties",
-          "updatedActor" : "datasetEdges/*/lastModified/actor",
-          "updatedOn" : "datasetEdges/*/lastModified/time"
+          "properties" : "dashboards/*/properties",
+          "updatedActor" : "dashboards/*/lastModified/actor",
+          "updatedOn" : "dashboards/*/lastModified/time"
         }
       }
     }, {
@@ -5562,9 +5562,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
+                                    "symbols" : [ "EQUALS", "NOT_EQUALS", "STARTS_WITH" ],
                                     "symbolDocs" : {
                                       "EQUALS" : "Whether the field matches the value",
+                                      "NOT_EQUALS" : "Whether the field does not match the value",
                                       "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },

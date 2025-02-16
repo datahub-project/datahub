@@ -338,6 +338,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege ASSOCIATE_ENTITIES_PRIVILEGE =
+      Privilege.of(
+          "ASSOCIATE_ENTITIES_PRIVILEGE",
+          "Associate Entities",
+          "The ability to associate this entity to another entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -630,6 +636,7 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_TAG_COLOR_PRIVILEGE,
+              ASSOCIATE_ENTITIES_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
@@ -700,6 +707,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              ASSOCIATE_ENTITIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
