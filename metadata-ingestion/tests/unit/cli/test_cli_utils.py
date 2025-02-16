@@ -1,9 +1,29 @@
 import os
 from unittest import mock
+import pytest
+import click
+from botocore.exceptions import ClientError
 
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import _get_config_from_env
+from datahub.cli.cli_utils import S3Path
 
+
+def create_client_error(code='404'):
+    error_response = {'Error': {'Code': code, 'Message': 'Test error'}}
+    return ClientError(error_response, 'TestOperation')
+
+@pytest.fixture
+def s3_path():
+    return S3Path()
+
+@pytest.fixture
+def mock_ctx():
+    return mock.Mock()
+
+@pytest.fixture
+def mock_param():
+    return mock.Mock()
 
 def test_first_non_null():
     assert cli_utils.first_non_null([]) is None
@@ -89,3 +109,92 @@ def test_guess_frontend_url_from_gms_url():
         cli_utils.guess_frontend_url_from_gms_url("https://abc.acryl.io/gms")
         == "https://abc.acryl.io"
     )
+
+
+@mock.patch('boto3.client')
+def test_existing_s3_object(mock_boto3, s3_path, mock_param, mock_ctx):
+    mock_s3 = mock.Mock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.head_object.return_value = {}
+
+    result = s3_path.convert('s3://mybucket/mykey', mock_param, mock_ctx)
+    assert result == 's3://mybucket/mykey'
+    mock_s3.head_object.assert_called_once_with(Bucket='mybucket', Key='mykey')
+
+
+# Mock successful prefix check
+@mock.patch('boto3.client')
+def test_existing_s3_prefix(mock_boto3, s3_path, mock_param, mock_ctx):
+    mock_s3 = mock.Mock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.head_object.side_effect = create_client_error()
+    mock_s3.list_objects_v2.return_value = {'Contents': [{'Key': 'mykey/file1.txt'}]}
+
+    result = s3_path.convert('s3://mybucket/mykey/', mock_param, mock_ctx)
+    assert result == 's3://mybucket/mykey/'
+    mock_s3.list_objects_v2.assert_called_once_with(
+        Bucket='mybucket',
+        Prefix='mykey/',
+        MaxKeys=1
+    )
+
+
+# Mock nonexistent path
+@mock.patch('boto3.client')
+def test_nonexistent_s3_path(mock_boto3, s3_path, mock_param, mock_ctx):
+    mock_s3 = mock.Mock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.head_object.side_effect = create_client_error()
+    mock_s3.list_objects_v2.return_value = {}
+
+    with pytest.raises(click.BadParameter) as exc_info:
+        s3_path.convert('s3://mybucket/nonexistent', mock_param, mock_ctx)
+    assert 'Neither S3 object nor prefix exists' in str(exc_info.value)
+
+
+# Mock access denied
+@mock.patch('boto3.client')
+def test_s3_access_denied(mock_boto3, s3_path, mock_param, mock_ctx):
+    mock_s3 = mock.Mock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.head_object.side_effect = create_client_error('403')
+
+    with pytest.raises(click.BadParameter) as exc_info:
+        s3_path.convert('s3://mybucket/mykey', mock_param, mock_ctx)
+    assert 'Error checking S3 path' in str(exc_info.value)
+
+
+# Mock connection error
+@mock.patch('boto3.client')
+def test_s3_connection_error(mock_boto3, s3_path, mock_param, mock_ctx):
+    mock_boto3.side_effect = Exception('Connection failed')
+
+    with pytest.raises(click.BadParameter) as exc_info:
+        s3_path.convert('s3://mybucket/mykey', mock_param, mock_ctx)
+    assert 'Error accessing S3' in str(exc_info.value)
+
+
+# Test local path handling
+@mock.patch('click.Path.convert')
+def test_local_path(mock_convert, s3_path, mock_param, mock_ctx):
+    mock_convert.return_value = '/local/path'
+    result = s3_path.convert('/local/path', mock_param, mock_ctx)
+    assert result == '/local/path'
+    mock_convert.assert_called_once_with('/local/path', mock_param, mock_ctx)
+
+
+# Test various S3 path formats
+@pytest.mark.parametrize('s3_path_str', [
+    's3://bucket/key',
+    's3://bucket/key/',
+    's3://bucket/path/to/key',
+    's3://bucket/path/to/key/',
+])
+@mock.patch('boto3.client')
+def test_various_s3_path_formats(mock_boto3, s3_path, mock_param, mock_ctx, s3_path_str):
+    mock_s3 = mock.Mock()
+    mock_boto3.return_value = mock_s3
+    mock_s3.head_object.return_value = {}
+
+    result = s3_path.convert(s3_path_str, mock_param, mock_ctx)
+    assert result == s3_path_str
