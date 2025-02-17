@@ -39,6 +39,7 @@ import sacLogo from '../../../../images/saclogo.svg';
 import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
 import neo4j from '../../../../images/neo4j.png';
+import grafana from '../../../../images/grafana.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -68,6 +69,8 @@ export const FEAST_LEGACY = 'feast-legacy';
 export const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
 export const GLUE = 'glue';
 export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
+export const GRAFANA = 'grafana';
+export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 export const HIVE = 'hive';
 export const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 export const KAFKA = 'kafka';
@@ -154,6 +157,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
     [GLUE_URN]: glueLogo,
+    [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
