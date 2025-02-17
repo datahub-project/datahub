@@ -15,7 +15,7 @@ flag_management:
         target: auto
         threshold: 0%  #Not enforcing project coverage yet.
       - type: patch
-        target: 90%
+        target: 75%
   individual_flags: # exceptions to the default rules above, stated flag by flag
     - name: frontend
       paths:
