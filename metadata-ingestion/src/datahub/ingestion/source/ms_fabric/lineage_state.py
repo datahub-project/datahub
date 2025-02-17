@@ -16,7 +16,12 @@ class DatasetLineageState:
         }
 
     def register_dataset(
-        self, table_name: str, urn: str, columns: List[str], platform: str
+        self,
+        table_name: str,
+        urn: str,
+        columns: List[str],
+        platform: str,
+        additional_info: Dict = None,
     ):
         """Register a dataset and its columns"""
         normalized_name = self.normalize_name(table_name)
@@ -24,14 +29,8 @@ class DatasetLineageState:
             "urn": urn,
             "columns": columns,
             "platform": platform,
+            "additional_info": additional_info or {},
         }
-        self.debug_info["registered_datasets"].append(
-            f"{table_name} -> {normalized_name} -> {urn} ({platform}) with columns: {columns}"
-        )
-        logger.debug(
-            f"Registered dataset: {table_name} (normalized: {normalized_name}) -> {urn} "
-            f"platform: {platform} with columns: {columns}"
-        )
 
     def get_upstream_datasets(
         self, table_name: str = None, platform: str = None

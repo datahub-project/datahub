@@ -8,11 +8,13 @@ from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import WorkUnit
 from datahub.ingestion.source.ms_fabric.config import AzureFabricSourceConfig
 from datahub.ingestion.source.ms_fabric.fabric_utils import set_session
+from datahub.ingestion.source.ms_fabric.items import ReportManager
 from datahub.ingestion.source.ms_fabric.lakehouse import LakehouseManager
 from datahub.ingestion.source.ms_fabric.lineage_state import DatasetLineageState
 from datahub.ingestion.source.ms_fabric.mirrored_database import (
     MirroredDatabasesManager,
 )
+from datahub.ingestion.source.ms_fabric.power_bi import PowerBIManager
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
 from datahub.ingestion.source.ms_fabric.semantic_model import SemanticModelManager
 from datahub.ingestion.source.ms_fabric.types import Workspace
@@ -86,14 +88,24 @@ class AzureFabricSource(Source):
         )
         yield from semantic_model_manager.get_semantic_model_wus()
 
-        # # Process PowerBI Dashboards
-        # powerbi_manager = PowerBIManager(
-        #     azure_config=self.config.azure_config,
-        #     workspaces=workspaces,
-        #     ctx=self.ctx,
-        #     report=self.report,
-        # )
-        # yield from powerbi_manager.get_powerbi_wus()
+        # Process PowerBI Dashboards
+        powerbi_manager = PowerBIManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+            lineage_state=self.lineage_state,
+        )
+        yield from powerbi_manager.get_powerbi_wus()
+
+        report_manager = ReportManager(
+            azure_config=self.config.azure_config,
+            workspaces=workspaces,
+            ctx=self.ctx,
+            report=self.report,
+            lineage_state=self.lineage_state,
+        )
+        yield from report_manager.get_report_wus()
 
     def _get_workspaces(
         self, continuation_token: Optional[str] = None

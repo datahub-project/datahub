@@ -211,13 +211,23 @@ class SemanticModelManager:
         tmdl_content: str,
         container_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Process TMDL content and generate workunits for tables and lineage."""
         try:
-            logger.debug(
-                f"Processing TMDL content for {workspace.display_name}.{semantic_model.display_name}"
-            )
-
             model = self._parse_tmdl_content(tmdl_content)
+
+            # Register the semantic model itself
+            semantic_model_key = (
+                f"{workspace.display_name}.{semantic_model.display_name}"
+            )
+            self.lineage_state.register_dataset(
+                table_name=semantic_model_key,
+                urn=container_urn,
+                columns=[],
+                platform="semantic-model",
+                additional_info={
+                    "id": semantic_model.id,
+                    "tables": {},  # Will store table URNs
+                },
+            )
 
             for table in model.tables:
                 if not self._should_process_table(table.name):
@@ -227,6 +237,29 @@ class SemanticModelManager:
 
                 if self._is_duplicate(dataset_urn):
                     continue
+
+                # Get column fields for this table
+                fields = self._create_schema_fields(table)
+
+                # Register the table with reference to its semantic model
+                self.lineage_state.register_dataset(
+                    table_name=f"{semantic_model_key}.{table.name}",
+                    urn=dataset_urn,
+                    columns=[field.fieldPath for field in fields],
+                    platform="semantic-model-table",
+                    additional_info={
+                        "semantic_model_id": semantic_model.id,
+                        "semantic_model_name": semantic_model_key,
+                    },
+                )
+
+                # Update the semantic model's table mapping
+                semantic_model_entry = self.lineage_state.get_upstream_datasets(
+                    table_name=semantic_model_key, platform="semantic-model"
+                )[0]
+                semantic_model_entry["additional_info"]["tables"][table.name] = (
+                    dataset_urn
+                )
 
                 yield from self._emit_container_relationship(dataset_urn, container_urn)
                 yield from self._process_schema_metadata(table, dataset_urn)

@@ -1,5 +1,6 @@
 import copy
 import logging
+import re
 import struct
 from itertools import chain, repeat
 from typing import Dict, Iterable, List, Optional, Union
@@ -42,214 +43,89 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class LakehouseManager:
-    azure_config: AzureConnectionConfig
-    fabric_session: requests.Session
-    lakehouse_map: Dict[str, Dict[str, Union[List[Lakehouse], Workspace]]]
-    ctx: PipelineContext
-    report: AzureFabricSourceReport
+# Add this class to lakehouse.py
 
-    def __init__(
-        self,
-        azure_config: AzureConnectionConfig,
-        workspaces: List[Workspace],
-        ctx: PipelineContext,
-        report: AzureFabricSourceReport,
-        lineage_state: DatasetLineageState,
-    ):
-        self.azure_config = azure_config
-        self.fabric_session = set_session(requests.Session(), azure_config)
-        self.lakehouse_map = self.get_lakehouses(workspaces)
-        self.ctx = ctx
-        self.report = report
-        self.lineage_state = lineage_state
 
-    def get_lakehouse_wus(self) -> Iterable[WorkUnit]:
-        for _, workspace_data in self.lakehouse_map.items():
-            workspace: Workspace = workspace_data.get("workspace")
-            lakehouses: List[Lakehouse] = workspace_data.get("lakehouses")
+class LineageManager:
+    def __init__(self):
+        self.delta_tables: Dict[
+            str, Dict[str, any]
+        ] = {}  # table_name -> {urn, columns}
+        self.sql_tables: Dict[str, Dict[str, any]] = {}  # table_name -> {urn, columns}
+        self.debug_info: Dict[str, List[str]] = {
+            "delta_tables": [],
+            "sql_tables": [],
+            "matched_pairs": [],
+        }
 
-            for lakehouse in lakehouses:
-                delta_lake_locations: List[str] = []
-                token_bytes = self._get_sql_server_authentication()
+    def register_delta_table(self, table_name: str, urn: str, columns: List[str]):
+        """Register a Delta table and its columns for lineage tracking"""
+        normalized_name = self.normalize_table_name(table_name)
+        # Clean up Delta column names
+        normalized_columns = [self.normalize_delta_column(col) for col in columns]
 
-                for table in self._get_lakehouse_tables(workspace.id, lakehouse.id):
-                    if table.type == LakehouseTableType.MANAGED:
-                        delta_lake_locations.append(table.location)
+        self.delta_tables[normalized_name] = {"urn": urn, "columns": normalized_columns}
+        self.debug_info["delta_tables"].append(
+            f"{table_name} -> {normalized_name} -> {urn} with columns: {normalized_columns}"
+        )
+        logger.debug(
+            f"Registered Delta table: {table_name} (normalized: {normalized_name}) -> {urn} "
+            f"with columns: {normalized_columns}"
+        )
 
-                # Process Delta Lake tables
-                for delta_base_path in set(delta_lake_locations):
-                    try:
-                        ctx_copy = copy.deepcopy(self.ctx)
-                        delta_source = DeltaLakeSource(
-                            config=DeltaLakeSourceConfig(
-                                azure=Azure(
-                                    azure_config=self.azure_config,
-                                    use_abs_container_properties=True,
-                                    use_abs_blob_properties=True,
-                                    use_abs_blob_tags=True,
-                                ),
-                                base_path=delta_base_path,
-                                platform="delta-lake",
-                                platform_instance=workspace.display_name,
-                            ),
-                            ctx=ctx_copy,
-                        )
+    def register_sql_table(self, table_name: str, urn: str, columns: List[str]):
+        """Register a SQL Server table and its columns for lineage tracking"""
+        normalized_name = self.normalize_table_name(table_name)
+        self.sql_tables[normalized_name] = {"urn": urn, "columns": columns}
+        self.debug_info["sql_tables"].append(
+            f"{table_name} -> {normalized_name} -> {urn} with columns: {columns}"
+        )
+        logger.debug(
+            f"Registered SQL table: {table_name} (normalized: {normalized_name}) -> {urn} "
+            f"with columns: {columns}"
+        )
 
-                        for wu in delta_source.get_workunits():
-                            # Register Delta tables when we see a schema
-                            if isinstance(
-                                wu.metadata, MetadataChangeEventClass
-                            ) and isinstance(
-                                wu.metadata.proposedSnapshot, DatasetSnapshotClass
-                            ):
-                                table_name = None
-                                columns = []
+    @staticmethod
+    def normalize_table_name(table_name: str) -> str:
+        """Normalize table names for comparison"""
+        if "." in table_name:
+            table_name = table_name.split(".")[-1]
+        return table_name.lower().strip()
 
-                                for aspect in wu.metadata.proposedSnapshot.aspects:
-                                    if isinstance(aspect, DatasetPropertiesClass):
-                                        table_name = aspect.name
-                                    elif isinstance(aspect, SchemaMetadataClass):
-                                        columns = [
-                                            field.fieldPath for field in aspect.fields
-                                        ]
+    @staticmethod
+    def normalize_delta_column(column_name: str) -> str:
+        """Normalize Delta column names by removing metadata in square brackets"""
+        parts = column_name.split(".")
+        if not parts:
+            return column_name
 
-                                    if table_name and columns:
-                                        self.lineage_state.register_dataset(
-                                            table_name=table_name,
-                                            urn=wu.metadata.proposedSnapshot.urn,
-                                            columns=[
-                                                self.lineage_state.normalize_delta_column(
-                                                    col
-                                                )
-                                                for col in columns
-                                            ],
-                                            platform="delta-lake",
-                                        )
+        clean_name = parts[-1]
+        clean_name = re.sub(r"\[.*?\]", "", clean_name)
+        return clean_name.strip()
 
-                                # # Handle container properties
-                                # if "containerProperties" in wu.id:
-                                #     yield MetadataChangeProposalWrapper(
-                                #         entityUrn=wu.metadata.entityUrn,
-                                #         aspect=ContainerPropertiesClass(
-                                #             name=lakehouse.display_name
-                                #             if not wu.metadata.aspect.name
-                                #             else wu.metadata.aspect.name,
-                                #             customProperties=wu.metadata.aspect.customProperties,
-                                #             externalUrl=wu.metadata.aspect.externalUrl,
-                                #             qualifiedName=wu.metadata.aspect.qualifiedName,
-                                #             description=wu.metadata.aspect.description,
-                                #             env=wu.metadata.aspect.env,
-                                #             created=wu.metadata.aspect.created,
-                                #             lastModified=wu.metadata.aspect.lastModified,
-                                #         ),
-                                #     ).as_workunit()
-                                # else:
-                                yield wu
+    def generate_lineage_workunits(self) -> Iterable[WorkUnit]:
+        """Generate lineage work units between matching tables"""
+        logger.info(
+            f"Generating lineage for {len(self.delta_tables)} Delta tables and {len(self.sql_tables)} SQL tables"
+        )
 
-                    except Exception as e:
-                        logger.error(f"Failed to process Delta tables: {str(e)}")
-                        continue
+        # Log all registered tables for debugging
+        logger.debug("Registered Delta Tables:")
+        for info in self.debug_info["delta_tables"]:
+            logger.debug(f"  {info}")
 
-                # Process SQL Server tables
-                try:
-                    params = self.create_sql_server_connection_string(
-                        lakehouse.properties.sql_endpoint_properties.connection_string,
-                        lakehouse.display_name,
-                    )
+        logger.debug("Registered SQL Tables:")
+        for info in self.debug_info["sql_tables"]:
+            logger.debug(f"  {info}")
 
-                    ctx_copy = copy.deepcopy(self.ctx)
-                    ctx_copy.pipeline_name = f"{workspace.id}.{lakehouse.id}"
-                    source = SQLServerSource(
-                        config=SQLServerConfig(
-                            sqlalchemy_uri=f"mssql+pyodbc:///?odbc_connect={params}",
-                            use_odbc=True,
-                            include_jobs=False,
-                            include_stored_procedures=False,
-                            platform_instance=f"{workspace.display_name}",
-                            stateful_ingestion=StatefulIngestionConfig(enabled=True),
-                            options={
-                                "connect_args": {"attrs_before": {1256: token_bytes}}
-                            },
-                        ),
-                        ctx=ctx_copy,
-                    )
-
-                    for wu in source.get_workunits():
-                        # Register SQL tables when we see a schema
-                        if isinstance(
-                            wu.metadata, MetadataChangeEventClass
-                        ) and isinstance(
-                            wu.metadata.proposedSnapshot, DatasetSnapshotClass
-                        ):
-                            table_name = None
-                            columns = []
-
-                            for aspect in wu.metadata.proposedSnapshot.aspects:
-                                if isinstance(aspect, DatasetPropertiesClass):
-                                    table_name = aspect.name
-                                elif isinstance(aspect, SchemaMetadataClass):
-                                    columns = [
-                                        field.fieldPath for field in aspect.fields
-                                    ]
-
-                                if table_name and columns:
-                                    self.lineage_state.register_dataset(
-                                        table_name=table_name,
-                                        urn=wu.metadata.proposedSnapshot.urn,
-                                        columns=columns,
-                                        platform="mssql",
-                                    )
-
-                            # # Handle container properties
-                            # if "containerProperties" in wu.id:
-                            #     yield MetadataChangeProposalWrapper(
-                            #         entityUrn=wu.metadata.entityUrn,
-                            #         aspect=ContainerPropertiesClass(
-                            #             name=lakehouse.display_name
-                            #             if not wu.metadata.aspect.name
-                            #             else wu.metadata.aspect.name,
-                            #             customProperties=wu.metadata.aspect.customProperties,
-                            #             externalUrl=wu.metadata.aspect.externalUrl,
-                            #             qualifiedName=wu.metadata.aspect.qualifiedName,
-                            #             description=wu.metadata.aspect.description,
-                            #             env=wu.metadata.aspect.env,
-                            #             created=wu.metadata.aspect.created,
-                            #             lastModified=wu.metadata.aspect.lastModified,
-                            #         ),
-                            #     ).as_workunit()
-                            # else:
-                            yield wu
-
-                except Exception as e:
-                    logger.error(
-                        f"Failed to process warehouse {lakehouse.properties.connection_string}: {str(e)}"
-                    )
-                    continue
-
-                # Generate lineage between Delta and SQL tables for this lakehouse
-                yield from self.generate_delta_sql_lineage()
-
-    def generate_delta_sql_lineage(self) -> Iterable[WorkUnit]:
-        """Generate lineage work units between Delta and SQL tables"""
-
-        # Get all delta tables
-        delta_tables = self.lineage_state.get_upstream_datasets(platform="delta-lake")
-
-        for delta_info in delta_tables:
-            # Look for matching SQL tables
-            sql_tables = self.lineage_state.get_upstream_datasets(
-                table_name=self.lineage_state.normalize_name(delta_info["table_name"]),
-                platform="mssql",
-            )
-
-            for sql_info in sql_tables:
+        for delta_table_name, delta_info in self.delta_tables.items():
+            if delta_table_name in self.sql_tables:
                 logger.info(
-                    f"Creating lineage: Delta table {delta_info['table_name']} -> "
-                    f"SQL table {sql_info['table_name']}"
+                    f"Found matching tables - Delta: {delta_table_name} -> SQL: {delta_table_name}"
                 )
+                sql_info = self.sql_tables[delta_table_name]
 
-                # Create fine-grained column lineage
+                # Create fine-grained lineage for matching columns
                 fine_grained_lineages = []
 
                 # Find matching columns between delta and sql tables
@@ -280,7 +156,184 @@ class LakehouseManager:
                     entityUrn=sql_info["urn"], aspect=upstream_lineage
                 )
 
+                self.debug_info["matched_pairs"].append(
+                    f"{delta_table_name}: {delta_info['urn']} -> {sql_info['urn']} with {len(fine_grained_lineages)} column matches"
+                )
                 yield mcp.as_workunit()
+
+        # Log matched pairs for debugging
+        logger.debug("Matched Table Pairs:")
+        for pair in self.debug_info["matched_pairs"]:
+            logger.debug(f"  {pair}")
+
+
+class LakehouseManager:
+    azure_config: AzureConnectionConfig
+    fabric_session: requests.Session
+    lakehouse_map: Dict[str, Dict[str, Union[List[Lakehouse], Workspace]]]
+    ctx: PipelineContext
+    report: AzureFabricSourceReport
+
+    def __init__(
+        self,
+        azure_config: AzureConnectionConfig,
+        workspaces: List[Workspace],
+        ctx: PipelineContext,
+        report: AzureFabricSourceReport,
+        lineage_state: DatasetLineageState,
+    ):
+        self.azure_config = azure_config
+        self.fabric_session = set_session(requests.Session(), azure_config)
+        self.lakehouse_map = self.get_lakehouses(workspaces)
+        self.ctx = ctx
+        self.report = report
+        self.lineage_state = lineage_state
+
+    def get_lakehouse_wus(self) -> Iterable[WorkUnit]:
+        for _, workspace_data in self.lakehouse_map.items():
+            workspace: Workspace = workspace_data.get("workspace")
+            lakehouses: List[Lakehouse] = workspace_data.get("lakehouses")
+
+            for lakehouse in lakehouses:
+                # Create a new LineageManager for each lakehouse
+                lineage_manager = LineageManager()
+                delta_lake_locations: List[str] = []
+                token_bytes = self._get_sql_server_authentication()
+
+                for table in self._get_lakehouse_tables(workspace.id, lakehouse.id):
+                    if table.type == LakehouseTableType.MANAGED:
+                        delta_lake_locations.append(table.location)
+
+                # Process Delta Lake tables
+                for delta_base_path in set(delta_lake_locations):
+                    try:
+                        ctx_copy = copy.deepcopy(self.ctx)
+                        delta_source = DeltaLakeSource(
+                            config=DeltaLakeSourceConfig(
+                                azure=Azure(
+                                    azure_config=self.azure_config,
+                                    use_abs_container_properties=True,
+                                    use_abs_blob_properties=True,
+                                    use_abs_blob_tags=True,
+                                ),
+                                base_path=delta_base_path,
+                                platform="delta-lake",
+                                platform_instance=workspace.display_name,
+                            ),
+                            ctx=ctx_copy,
+                        )
+
+                        for wu in delta_source.get_workunits():
+                            # Register in both lineage managers when we see a schema
+                            if isinstance(
+                                wu.metadata, MetadataChangeEventClass
+                            ) and isinstance(
+                                wu.metadata.proposedSnapshot, DatasetSnapshotClass
+                            ):
+                                table_name = None
+                                columns = []
+
+                                for aspect in wu.metadata.proposedSnapshot.aspects:
+                                    if isinstance(aspect, DatasetPropertiesClass):
+                                        table_name = aspect.name
+                                    elif isinstance(aspect, SchemaMetadataClass):
+                                        columns = [
+                                            field.fieldPath for field in aspect.fields
+                                        ]
+
+                                if table_name and columns:
+                                    # Register in original LineageManager
+                                    lineage_manager.register_delta_table(
+                                        table_name,
+                                        wu.metadata.proposedSnapshot.urn,
+                                        columns,
+                                    )
+                                    # Register in DatasetLineageState
+                                    self.lineage_state.register_dataset(
+                                        table_name=table_name,
+                                        urn=wu.metadata.proposedSnapshot.urn,
+                                        columns=[
+                                            self.lineage_state.normalize_delta_column(
+                                                col
+                                            )
+                                            for col in columns
+                                        ],
+                                        platform="delta-lake",
+                                    )
+
+                            yield wu
+
+                    except Exception as e:
+                        logger.error(f"Failed to process Delta tables: {str(e)}")
+                        continue
+
+                # Process SQL Server tables
+                try:
+                    params = self.create_sql_server_connection_string(
+                        lakehouse.properties.sql_endpoint_properties.connection_string,
+                        lakehouse.display_name,
+                    )
+
+                    ctx_copy = copy.deepcopy(self.ctx)
+                    ctx_copy.pipeline_name = f"{workspace.id}.{lakehouse.id}"
+                    source = SQLServerSource(
+                        config=SQLServerConfig(
+                            sqlalchemy_uri=f"mssql+pyodbc:///?odbc_connect={params}",
+                            use_odbc=True,
+                            database=lakehouse.display_name,
+                            include_jobs=False,
+                            include_stored_procedures=False,
+                            platform_instance=f"{workspace.display_name}: {lakehouse.display_name}",
+                            stateful_ingestion=StatefulIngestionConfig(enabled=True),
+                            options={
+                                "connect_args": {"attrs_before": {1256: token_bytes}}
+                            },
+                        ),
+                        ctx=ctx_copy,
+                    )
+
+                    for wu in source.get_workunits():
+                        # Register in both lineage managers when we see a schema
+                        if isinstance(
+                            wu.metadata, MetadataChangeEventClass
+                        ) and isinstance(
+                            wu.metadata.proposedSnapshot, DatasetSnapshotClass
+                        ):
+                            table_name = None
+                            columns = []
+
+                            for aspect in wu.metadata.proposedSnapshot.aspects:
+                                if isinstance(aspect, DatasetPropertiesClass):
+                                    table_name = aspect.name
+                                elif isinstance(aspect, SchemaMetadataClass):
+                                    columns = [
+                                        field.fieldPath for field in aspect.fields
+                                    ]
+
+                            if table_name and columns:
+                                # Register in original LineageManager
+                                lineage_manager.register_sql_table(
+                                    table_name,
+                                    wu.metadata.proposedSnapshot.urn,
+                                    columns,
+                                )
+                                # Register in DatasetLineageState
+                                self.lineage_state.register_dataset(
+                                    table_name=table_name,
+                                    urn=wu.metadata.proposedSnapshot.urn,
+                                    columns=columns,
+                                    platform="mssql",
+                                )
+
+                        yield wu
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process warehouse {lakehouse.properties.connection_string}: {str(e)}"
+                    )
+                    continue
+
+                yield from lineage_manager.generate_lineage_workunits()
 
     def get_lakehouses(
         self, workspaces: List[Workspace]
