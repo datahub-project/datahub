@@ -144,6 +144,10 @@ class PathSpec(ConfigModel):
         default=False,
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
+    allowed_tables: Optional[List[str]] = Field(
+        default=None,
+        description="List of tables that are allowed to be ingested. If not specified, all tables are allowed.",
+    )
 
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
@@ -177,6 +181,11 @@ class PathSpec(ConfigModel):
                 ):
                     return False
         logger.debug(f"{path} is not excluded")
+        
+        if not self.is_allowed_table(self._get_table_name(path) or ''):
+            return False 
+        logger.debug(f"{path} is passed table check")
+        
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
@@ -218,6 +227,11 @@ class PathSpec(ConfigModel):
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
                     return False
+        
+        if not self.is_allowed_table(self._get_table_name(path) or ''):
+            return False
+        logger.debug(f"{path} is passed table check")
+        
         return True
 
     @classmethod
@@ -561,3 +575,23 @@ class PathSpec(ConfigModel):
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
+
+    def _get_table_name(self, path: str) -> str | None:
+        try:
+            table_idx = self.include.split('/').index('{table}')
+        except ValueError:
+            return None
+        
+        if  table_idx > len(path_items := path.rstrip('/').split('/')) - 1:
+            raise ValueError(f"Unable to parse table name from path: {path}")
+        
+        return path_items[table_idx]
+
+    def is_allowed_table(self, table_name: str) -> bool:
+        if not self.allowed_tables :
+            return True
+        
+        if not table_name:
+            return False
+        
+        return table_name in self.allowed_tables
