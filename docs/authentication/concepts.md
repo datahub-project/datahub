@@ -135,7 +135,13 @@ The Guest Authentication configuration is present in two configuration files - t
 `application.yaml` for GMS. To enable Guest Authentication, set the environment variable `GUEST_AUTHENTICATION_ENABLED` to `true` 
 for both the GMS and the frontend service and restart those services. 
 If enabled, the default user designated as guest is called `guest`. This user must be explicitly created and privileges assigned 
-to control the guest user privileges. 
+to control the guest user privileges.
+
+A recommended approach to operationalize guest access is, first, create a designated guest user account with login credentials,
+but keep guest access disabled. This allows you to configure and test the exact permissions this user should have. Once you've
+confirmed the privileges are set correctly, you can then enable guest access, which removes the need for login/credentials
+while maintaining the verified permission settings.
+
 The name of the designated guest user can be changed by defining the env var `GUEST_AUTHENTICATION_USER`. 
 The entry URL to authenticate as the guest user is `/public` and can be changed via the env var `GUEST_AUTHENTICATION_PATH`
 
