@@ -158,9 +158,8 @@ def _test_basic_table_ops(spark_session):
     assert result.count() == 0
 
     spark_session.sql("drop table test_table")
-    with pytest.raises(Exception) as ex_info:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("select * from test_table")
-    assert "TABLE_OR_VIEW_NOT_FOUND" in str(ex_info.value)
 
     # TODO: Add dataset verification
 
@@ -174,9 +173,8 @@ def _test_basic_view_ops(spark_session):
     assert result.count() == 1
 
     spark_session.sql("DROP VIEW test_view")
-    with pytest.raises(Exception) as ex_info:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("SELECT * FROM test_view")
-    assert "TABLE_OR_VIEW_NOT_FOUND" in str(ex_info.value)
 
     spark_session.sql("drop table test_table")
 
@@ -187,9 +185,8 @@ def _test_rename_ops(spark_session):
 
     spark_session.sql("alter table test_table rename to test_table_renamed")
 
-    with pytest.raises(Exception) as ex_info:
+    with pytest.raises(Exception, match="TABLE_OR_VIEW_NOT_FOUND"):
         spark_session.sql("SELECT * FROM test_table")
-    assert "TABLE_OR_VIEW_NOT_FOUND" in str(ex_info.value)
 
     spark_session.sql("insert into test_table_renamed values(2, 'bar' ) ")
     result = spark_session.sql("SELECT * FROM test_table_renamed")
