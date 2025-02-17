@@ -28,7 +28,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
     );
     const propRow = property ? mapStructuredPropertyToPropertyRow(property) : undefined;
     const values = propRow?.values;
-    const isRichText = propRow?.dataType?.info.type === StdDataType.RichText;
+    const isRichText = propRow?.dataType?.info?.type === StdDataType.RichText;
 
     const hasMoreValues = values && values.length > 2;
     const displayedValues = hasMoreValues ? values.slice(0, 1) : values;

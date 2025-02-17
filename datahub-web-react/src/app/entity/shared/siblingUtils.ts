@@ -474,7 +474,7 @@ export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set
 
     const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };
     const siblings =
-        (combinedEntity.entity as GenericEntityProperties).siblingsSearch?.searchResults.map((r) => r.entity) ?? [];
+        (combinedEntity.entity as GenericEntityProperties).siblingsSearch?.searchResults?.map((r) => r.entity) ?? [];
     const isPrimary = (combinedEntity.entity as GenericEntityProperties).siblings?.isPrimary;
     const siblingUrns = siblings.map((sibling) => sibling?.urn);
 

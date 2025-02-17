@@ -48,7 +48,7 @@ export default function StructuredPropertyTooltip({ propertyRow }: Props) {
                 ) : (
                     <span />
                 )}
-                {structuredProperty?.definition.allowedValues && (
+                {structuredProperty?.definition?.allowedValues && (
                     <CardinalityLabel structuredProperty={structuredProperty} />
                 )}
             </NameLabelWrapper>
