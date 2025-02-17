@@ -3682,6 +3682,16 @@
   resolved "https://registry.yarnpkg.com/@storybook/components/-/components-8.4.7.tgz#09eeffa07aa672ad3966ca1764a43003731b1d30"
   integrity sha512-uyJIcoyeMWKAvjrG9tJBUCKxr2WZk+PomgrgrUwejkIfXMO76i6jw9BwLa0NZjYdlthDv30r9FfbYZyeNPmF0g==
 
+"@storybook/components@^8.3.0":
+  version "8.5.6"
+  resolved "https://registry.yarnpkg.com/@storybook/components/-/components-8.5.6.tgz#63ab2c8cf47cab8a62898251cfd8828d8c2a8045"
+  integrity sha512-d2mhnnce2C03lRhBEtVR9lS78YueQGBS949R3QXPsEXmrkfDMpcnFI3DIOByjnea6ZeS0+i4lYjnfiAJb0oiMQ==
+
+"@storybook/core-events@^8.3.0":
+  version "8.5.6"
+  resolved "https://registry.yarnpkg.com/@storybook/core-events/-/core-events-8.5.6.tgz#fe97b6406a17fdf179419bd30b69699e698503e0"
+  integrity sha512-sqSeK6r9drup+pTrrS+5+GLUkflhz53F3TVdJUEdvkCehDE/gYgw3VKPgvYLDCQogTovCwzaz0LebKsSKmpl1g==
+
 "@storybook/core@8.4.7":
   version "8.4.7"
   resolved "https://registry.yarnpkg.com/@storybook/core/-/core-8.4.7.tgz#af9cbb3f26f0b6c98c679a134ce776c202570d66"
@@ -3741,6 +3751,11 @@
   resolved "https://registry.yarnpkg.com/@storybook/preview-api/-/preview-api-8.4.7.tgz#85e01a97f4182b974581765d725f6c7a7d190013"
   integrity sha512-0QVQwHw+OyZGHAJEXo6Knx+6/4er7n2rTDE5RYJ9F2E2Lg42E19pfdLlq2Jhoods2Xrclo3wj6GWR//Ahi39Eg==
 
+"@storybook/preview-api@^8.3.0":
+  version "8.5.6"
+  resolved "https://registry.yarnpkg.com/@storybook/preview-api/-/preview-api-8.5.6.tgz#3626bd2f59351c061d4968e81a177c75b8fe5dab"
+  integrity sha512-brT8jvw+QYoAyddOtPTqMc6tHDKye24oYkL5Bvp96nQi5AcNhkpL1eYfS7dtcQFV7j010Ox6RlzHPt+Ln8XB+Q==
+
 "@storybook/react-dom-shim@8.4.7":
   version "8.4.7"
   resolved "https://registry.yarnpkg.com/@storybook/react-dom-shim/-/react-dom-shim-8.4.7.tgz#f0dd5bbf2fc185def72d9d08a11c8de22f152c2a"
@@ -3791,6 +3806,11 @@
   version "8.4.7"
   resolved "https://registry.yarnpkg.com/@storybook/theming/-/theming-8.4.7.tgz#c308f6a883999bd35e87826738ab8a76515932b5"
   integrity sha512-99rgLEjf7iwfSEmdqlHkSG3AyLcK0sfExcr0jnc6rLiAkBhzuIsvcHjjUwkR210SOCgXqBPW0ZA6uhnuyppHLw==
+
+"@storybook/types@^8.3.0":
+  version "8.5.6"
+  resolved "https://registry.yarnpkg.com/@storybook/types/-/types-8.5.6.tgz#8ceb77dca4b2626e1ca8d6308d70863791efd93b"
+  integrity sha512-6int2DZ0BtokbG25ubHofw2YMA9255hVdzI58/hUyNMWYNBozafChiy6/i2nk/0AjRvWfRSm2WyvBetq0zKGUQ==
 
 "@svgmoji/blob@^3.2.0":
   version "3.2.0"
