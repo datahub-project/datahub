@@ -130,5 +130,16 @@ public class OpenAPIV3GeneratorTest {
                   Character.isUpperCase(refName.charAt(0)),
                   "schema reference should start with capital letter: " + name);
             });
+
+    // Check for pegasus name example
+    assertTrue(
+        valueProperty.getOneOf().stream()
+            .anyMatch(
+                schema ->
+                    schema.get$ref().equals("#/components/schemas/StructuredPropertyDefinition")));
+    assertTrue(
+        valueProperty.getOneOf().stream()
+            .noneMatch(
+                schema -> schema.get$ref().equals("#/components/schemas/PropertyDefinition")));
   }
 }

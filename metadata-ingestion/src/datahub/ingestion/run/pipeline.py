@@ -439,7 +439,7 @@ class Pipeline:
             return True
         return False
 
-    def run(self) -> None:  # noqa: C901
+    def run(self) -> None:
         with contextlib.ExitStack() as stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
