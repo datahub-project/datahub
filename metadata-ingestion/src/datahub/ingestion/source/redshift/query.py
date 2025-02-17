@@ -362,6 +362,29 @@ ORDER BY target_schema, target_table, filename
     ) -> str:
         raise NotImplementedError
 
+    @staticmethod
+    def list_outbound_datashares() -> str:
+        return """SELECT \
+            share_type, \
+            share_name, \
+            producer_namespace, \
+            source_database \
+        FROM svv_datashares
+        WHERE share_type='OUTBOUND'\
+        """
+
+    @staticmethod
+    def get_inbound_datashare(database: str) -> str:
+        return f"""SELECT \
+            share_type, \
+            share_name, \
+            producer_namespace, \
+            consumer_database \
+        FROM svv_datashares
+        WHERE share_type='INBOUND'
+        AND consumer_database= '{database}'\
+        """
+
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
     @staticmethod

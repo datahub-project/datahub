@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Literal, Optional, Tuple
 
 import redshift_connector
 
@@ -105,6 +105,22 @@ class AlterTableRow:
     session_id: str
     query_text: str
     start_time: datetime
+
+
+@dataclass
+class OutboundDatashare:
+    share_type: Literal["OUTBOUND"]
+    share_name: str
+    producer_namespace: str
+    source_database: str
+
+
+@dataclass
+class InboundDatashare:
+    share_type: Literal["INBOUND"]
+    share_name: str
+    producer_namespace: str
+    consumer_database: str
 
 
 def _stringy(x: Optional[int]) -> Optional[str]:
@@ -508,3 +524,34 @@ class RedshiftDataDictionary:
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_outbound_datashares(
+        conn: redshift_connector.Connection,
+    ) -> Iterable[OutboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.list_outbound_datashares())
+        for item in cursor.fetchall():
+            yield OutboundDatashare(
+                share_type="OUTBOUND",
+                share_name=item[1],
+                producer_namespace=item[2],
+                source_database=item[3],
+            )
+
+    @staticmethod
+    def get_inbound_datashare(
+        conn: redshift_connector.Connection,
+        database: str,
+    ) -> Optional[InboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.get_inbound_datashare(database))
+        item = cursor.fetchone()
+        if item:
+            return InboundDatashare(
+                share_type="INBOUND",
+                share_name=item[1],
+                producer_namespace=item[2],
+                consumer_database=item[3],
+            )
+        return None

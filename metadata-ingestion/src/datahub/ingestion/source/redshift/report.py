@@ -60,5 +60,8 @@ class RedshiftReport(
     sql_aggregator: Optional[SqlAggregatorReport] = None
     lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
 
+    outbound_shares_count: Optional[int] = None
+    database_created_from_share: Optional[bool] = None
+
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)
