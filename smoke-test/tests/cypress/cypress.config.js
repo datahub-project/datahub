@@ -2,13 +2,13 @@
 const { defineConfig } = require("cypress");
 
 module.exports = defineConfig({
-  reporter: 'cypress-junit-reporter',
+  reporter: "cypress-junit-reporter",
   reporterOptions: {
-    mochaFile: 'junit.cypress.xml',
+    mochaFile: "junit.cypress.xml",
     toConsole: true,
     testCasesSingleFile: true,
     jenkinsMode: true,
-    attachScreenshots: true
+    attachScreenshots: true,
   },
   chromeWebSecurity: false,
   viewportHeight: 960,
