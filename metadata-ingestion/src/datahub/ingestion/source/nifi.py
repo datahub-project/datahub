@@ -488,7 +488,7 @@ class NifiSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -894,7 +894,7 @@ class NifiSource(Source):
         if not delete_response.ok:
             logger.error("failed to delete provenance ", provenance_uri)
 
-    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = self.make_flow_urn()
