@@ -207,7 +207,8 @@ def test_run_cypress(auth_session):
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
-    reporter_arg = " --reporter cypress-junit-reporter --reporter-options 'mochaFile=junit.cypress.xml'"
+    junit_path = os.path.join(CYPRESS_TEST_DATA_DIR, "junit.cypress.xml")
+    reporter_arg = f" --reporter cypress-junit-reporter --reporter-options 'mochaFile={junit_path}' --reporter spec"
     if record_key:
         record_arg = " --record "
         batch_number = os.getenv("BATCH_NUMBER")
