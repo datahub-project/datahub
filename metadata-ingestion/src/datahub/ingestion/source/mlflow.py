@@ -7,7 +7,6 @@ from mlflow.entities import Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
-from datahub.ingestion.graph.client import get_default_graph
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -26,9 +25,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
+    ContainerClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DataProcessInstanceOutputClass,
@@ -48,11 +49,9 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TimeStampClass,
     VersionPropertiesClass,
+    VersionSetKeyClass,
     VersionSetPropertiesClass,
     VersionTagClass,
-    VersionSetKeyClass,
-    ContainerClass,
-    ContainerKeyClass,
 )
 from datahub.metadata.urns import (
     DataPlatformUrn,
@@ -126,6 +125,7 @@ class MLflowEntityMap:
     """
     Maintains mappings between MLflow IDs and DataHub URNs during ingestion.
     """
+
     experiment_id_to_urn: Dict[str, str] = field(default_factory=dict)
     run_id_to_urn: Dict[str, str] = field(default_factory=dict)
     model_version_to_urn: Dict[str, str] = field(default_factory=dict)
@@ -277,11 +277,10 @@ class MLflowSource(Source):
             )
 
     def _get_run_workunits(
-            self, experiment: Experiment, run: Run
+        self, experiment: Experiment, run: Run
     ) -> List[MetadataWorkUnit]:
         experiment_key = ContainerKeyWithId(
-            platform=str(DataPlatformUrn.create_from_id("mlflow")),
-            id=experiment.name
+            platform=str(DataPlatformUrn.create_from_id("mlflow")), id=experiment.name
         )
 
         dpi_id = run.info.run_name or run.info.run_id
@@ -318,9 +317,7 @@ class MLflowSource(Source):
         workunits.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
-                aspect=ContainerClass(
-                    container=experiment_key.as_urn()
-                ),
+                aspect=ContainerClass(container=experiment_key.as_urn()),
             ).as_workunit()
         )
 
@@ -488,7 +485,12 @@ class MLflowSource(Source):
     class SequencedMetadataWorkUnit(MetadataWorkUnit):
         """A workunit that knows its dependencies"""
 
-        def __init__(self, id: str, mcp: MetadataChangeProposalWrapper, depends_on: Optional[str] = None):
+        def __init__(
+            self,
+            id: str,
+            mcp: MetadataChangeProposalWrapper,
+            depends_on: Optional[str] = None,
+        ):
             super().__init__(id=id, mcp=mcp)
             self.depends_on = depends_on
 
@@ -518,60 +520,56 @@ class MLflowSource(Source):
                 # )
                 yield self._get_global_tags_workunit(model_version=model_version)
 
-
-    def _get_version_set_urn(self,
-                         model_version: ModelVersion,
-                         ) -> VersionSetUrn:
-
+    def _get_version_set_urn(
+        self,
+        model_version: ModelVersion,
+    ) -> VersionSetUrn:
         version_set_urn = VersionSetUrn(
             id=f"{model_version.name}{self.config.model_name_separator}{model_version.version}",
-            entity_type="mlModel"
+            entity_type="mlModel",
         )
 
         return version_set_urn
-    def _get_version_set(
-            self,
-            version_set_urn: VersionSetUrn,
-    ) -> MetadataWorkUnit:
 
+    def _get_version_set(
+        self,
+        version_set_urn: VersionSetUrn,
+    ) -> MetadataWorkUnit:
         version_set_key = VersionSetKeyClass(
             id=version_set_urn.id,
             entityType="mlModel",
         )
 
         wu = MetadataChangeProposalWrapper(
-                entityUrn=str(version_set_urn),
-                aspect=version_set_key,
+            entityUrn=str(version_set_urn),
+            aspect=version_set_key,
         ).as_workunit()
 
         return wu
 
-    def _get_version_latest(self
-                            , model_version: ModelVersion
-                            , version_set_urn: VersionSetUrn
-                            ) -> MetadataWorkUnit:
+    def _get_version_latest(
+        self, model_version: ModelVersion, version_set_urn: VersionSetUrn
+    ) -> MetadataWorkUnit:
         ml_model_urn = self._make_ml_model_urn(model_version)
         version_set_properties = VersionSetPropertiesClass(
             latest=str(
                 ml_model_urn
             ),  # TODO: this returns cannot set latest to unversioned entity
-            versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB", # TODO: wait for change in the backend
+            versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",  # TODO: wait for change in the backend
         )
 
         wu = MetadataChangeProposalWrapper(
-                entityUrn=str(version_set_urn),
-                aspect=version_set_properties,
-            ).as_workunit()
-
+            entityUrn=str(version_set_urn),
+            aspect=version_set_properties,
+        ).as_workunit()
 
         return wu
 
     def _get_ml_model_version_properties_workunit(
-            self,
-            model_version: ModelVersion,
-            version_set_urn: VersionSetUrn,
+        self,
+        model_version: ModelVersion,
+        version_set_urn: VersionSetUrn,
     ) -> List[MetadataWorkUnit]:
-
         ml_model_urn = self._make_ml_model_urn(model_version)
 
         # get mlmodel name from ml model urn
@@ -580,7 +578,7 @@ class MLflowSource(Source):
                 versionTag=str(model_version.version),
             ),
             versionSet=str(version_set_urn),
-            sortId='AAAAAAAA',  # TODO: wait for change in the backend
+            sortId="AAAAAAAA",  # TODO: wait for change in the backend
             aliases=[
                 VersionTagClass(versionTag=alias) for alias in model_version.aliases
             ],
