@@ -690,6 +690,7 @@ module.exports = {
       "Advanced Guides": [
         "metadata-ingestion/docs/dev_guides/reporting_telemetry",
         "docs/advanced/mcp-mcl",
+        "docs/advanced/writing-mcps",
         "docker/datahub-upgrade/README",
         "docs/advanced/no-code-modeling",
         "datahub-web-react/src/app/analytics/README",
