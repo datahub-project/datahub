@@ -19,8 +19,8 @@ def test_deploy_source_vars():
     config = pathlib.Path(__file__).parent / "sample_demo.dhub.yaml"
     urn = None
     executor_id = "default"
-    cli_version = None
-    schedule = None
+    cli_version = "0.15.0.1"
+    schedule = "5 4 * * *"
     time_zone = "UTC"
     extra_pip = '["pandas"]'
     debug = False
@@ -40,12 +40,16 @@ def test_deploy_source_vars():
         "urn": "urn:li:dataHubIngestionSource:deploy-2b895b6efaa28b818284e5c696a18799",
         "input": {
             "name": "test",
+            "schedule": {
+                "interval": "5 4 * * *",
+                "timezone": "UTC",
+            },
             "type": "demo-data",
             "config": {
                 "recipe": '{"source": {"type": "demo-data", "config": {}}}',
                 "debugMode": False,
                 "executorId": "default",
-                "version": None,
+                "version": "0.15.0.1",
                 "extraArgs": [{"key": "extra_pip_requirements", "value": '["pandas"]'}],
             },
         },
