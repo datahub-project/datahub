@@ -21,8 +21,8 @@ function matchesBusinessAttributesProperties(field: SchemaField, filterText: str
     const businessAttributeProperties =
         field.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties;
     return (
-        businessAttributeProperties?.description?.toLocaleLowerCase().includes(filterText) ||
-        businessAttributeProperties?.name?.toLocaleLowerCase().includes(filterText) ||
+        businessAttributeProperties?.description?.toLocaleLowerCase()?.includes(filterText) ||
+        businessAttributeProperties?.name?.toLocaleLowerCase()?.includes(filterText) ||
         businessAttributeProperties?.glossaryTerms?.terms?.find((termAssociation) =>
             entityRegistry
                 .getDisplayName(EntityType.GlossaryTerm, termAssociation.term)

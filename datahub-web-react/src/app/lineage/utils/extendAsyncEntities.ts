@@ -116,7 +116,7 @@ export function extendColumnLineage(
                     // if this upstreamEntityUrn is a sibling of one of the already rendered nodes,
                     // update the fine grained map with the rendered node instead of its sibling
                     Array.from(fetchedEntities.keys()).forEach((urn) => {
-                        fetchedEntities.get(urn)?.siblingsSearch?.searchResults.forEach((sibling) => {
+                        fetchedEntities.get(urn)?.siblingsSearch?.searchResults?.forEach((sibling) => {
                             if (sibling && sibling.entity.urn === upstreamEntityUrn) {
                                 updateFineGrainedMap(
                                     fineGrainedMap,
