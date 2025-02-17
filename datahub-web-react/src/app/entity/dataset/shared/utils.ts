@@ -5,7 +5,7 @@ export function getLastUpdatedMs(
     operations: Pick<Operation, 'lastUpdatedTimestamp'>[] | null | undefined,
 ): number | undefined {
     return (
-        Math?.max(
+        Math.max(
             properties?.lastModified?.time || 0,
             (operations?.length && operations[0].lastUpdatedTimestamp) || 0,
         ) || undefined

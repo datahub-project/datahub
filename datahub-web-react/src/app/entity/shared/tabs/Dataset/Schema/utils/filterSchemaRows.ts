@@ -12,7 +12,7 @@ function matchesTagsOrTermsOrDescription(field: SchemaField, filterText: string,
                 .toLocaleLowerCase()
                 .includes(filterText),
         ) ||
-        field.description?.toLocaleLowerCase()?.includes(filterText)
+        field.description?.toLocaleLowerCase().includes(filterText)
     );
 }
 
@@ -21,8 +21,8 @@ function matchesBusinessAttributesProperties(field: SchemaField, filterText: str
     const businessAttributeProperties =
         field.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties;
     return (
-        businessAttributeProperties?.description?.toLocaleLowerCase()?.includes(filterText) ||
-        businessAttributeProperties?.name?.toLocaleLowerCase()?.includes(filterText) ||
+        businessAttributeProperties?.description?.toLocaleLowerCase().includes(filterText) ||
+        businessAttributeProperties?.name?.toLocaleLowerCase().includes(filterText) ||
         businessAttributeProperties?.glossaryTerms?.terms?.find((termAssociation) =>
             entityRegistry
                 .getDisplayName(EntityType.GlossaryTerm, termAssociation.term)
