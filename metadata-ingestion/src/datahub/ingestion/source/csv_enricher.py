@@ -371,11 +371,11 @@ class CSVEnricherSource(Source):
         domain: Optional[str],
         description: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
-        maybe_terms_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_glossary_terms_work_unit(
-            entity_urn=entity_urn,
-            term_associations=term_associations,
+        maybe_terms_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_glossary_terms_work_unit(
+                entity_urn=entity_urn,
+                term_associations=term_associations,
+            )
         )
         if maybe_terms_wu:
             self.report.num_glossary_term_workunits_produced += 1
@@ -389,31 +389,31 @@ class CSVEnricherSource(Source):
             self.report.num_tag_workunits_produced += 1
             yield maybe_tags_wu
 
-        maybe_owners_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_owners_work_unit(
-            entity_urn=entity_urn,
-            owners=owners,
+        maybe_owners_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_owners_work_unit(
+                entity_urn=entity_urn,
+                owners=owners,
+            )
         )
         if maybe_owners_wu:
             self.report.num_owners_workunits_produced += 1
             yield maybe_owners_wu
 
-        maybe_domain_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_domain_work_unit(
-            entity_urn=entity_urn,
-            domain=domain,
+        maybe_domain_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_domain_work_unit(
+                entity_urn=entity_urn,
+                domain=domain,
+            )
         )
         if maybe_domain_wu:
             self.report.num_domain_workunits_produced += 1
             yield maybe_domain_wu
 
-        maybe_description_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_description_work_unit(
-            entity_urn=entity_urn,
-            description=description,
+        maybe_description_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_description_work_unit(
+                entity_urn=entity_urn,
+                description=description,
+            )
         )
         if maybe_description_wu:
             self.report.num_description_workunits_produced += 1
@@ -426,9 +426,9 @@ class CSVEnricherSource(Source):
         needs_write: bool,
     ) -> Tuple[EditableSchemaMetadataClass, bool]:
         field_path: str = sub_resource_row.field_path
-        term_associations: List[
-            GlossaryTermAssociationClass
-        ] = sub_resource_row.term_associations
+        term_associations: List[GlossaryTermAssociationClass] = (
+            sub_resource_row.term_associations
+        )
         tag_associations: List[TagAssociationClass] = sub_resource_row.tag_associations
         description: Optional[str] = sub_resource_row.description
         has_terms: bool = len(term_associations) > 0
@@ -517,9 +517,9 @@ class CSVEnricherSource(Source):
             # Boolean field to tell whether we need to write an MCPW.
             needs_write = False
 
-            current_editable_schema_metadata: Optional[
-                EditableSchemaMetadataClass
-            ] = None
+            current_editable_schema_metadata: Optional[EditableSchemaMetadataClass] = (
+                None
+            )
             if self.ctx.graph and not self.should_overwrite:
                 # Fetch the current editable schema metadata
                 current_editable_schema_metadata = self.ctx.graph.get_aspect(
@@ -653,11 +653,11 @@ class CSVEnricherSource(Source):
 
             is_resource_row: bool = not row["subresource"]
             entity_urn = row["resource"]
-            entity_type = Urn.create_from_string(row["resource"]).get_type()
+            entity_type = Urn.from_string(row["resource"]).get_type()
 
-            term_associations: List[
-                GlossaryTermAssociationClass
-            ] = self.maybe_extract_glossary_terms(row)
+            term_associations: List[GlossaryTermAssociationClass] = (
+                self.maybe_extract_glossary_terms(row)
+            )
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
 

@@ -28,7 +28,7 @@ export default function FailingAssertions({ upstreamSummary }: Props) {
             failing assertions
             <FailingDataWrapper>
                 {datasetsWithFailingAssertions.map((dataset) => {
-                    const totalNumAssertions = dataset.assertions?.assertions.length;
+                    const totalNumAssertions = dataset.assertions?.assertions?.length;
                     const numAssertionsFailing = getNumAssertionsFailing(dataset);
 
                     return (

@@ -111,7 +111,7 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
+def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs, together with their description and the tags
     """

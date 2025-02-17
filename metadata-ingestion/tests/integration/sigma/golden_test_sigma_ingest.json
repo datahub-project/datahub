@@ -261,37 +261,8 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "sigma",
-                "workbookId": "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b",
-                "path": "Acryl Data",
-                "latestVersion": "2"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
-            "name": "Acryl Workbook",
-            "created": {
-                "time": 1713188691477
-            },
-            "lastModified": {
-                "time": 1713189117302
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619227,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -300,7 +271,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713795619228,
+        "lastObserved": 1732513099680,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -338,6 +309,114 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099681,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "path": "Acryl Data",
+                "latestVersion": "2"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
+            "title": "Acryl Workbook",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)"
+                },
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 1713188691477,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1713189117302,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732535135915,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099681,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Warning"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099682,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,5LqGLu14qUnqh3cN6wRJBd,PROD)",
     "changeType": "UPSERT",
@@ -357,66 +436,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713795619226,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619229,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Sigma Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619229,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sigma"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619228,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -457,6 +476,70 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545848809,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099682,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545848807,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
         "json": {
@@ -470,6 +553,7 @@
                 "urn:li:chart:(sigma,Ml9C5ezT5W)"
             ],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -515,42 +599,6 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:Warning"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619230,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619234,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,5LqGLu14qUnqh3cN6wRJBd,PROD)",
     "changeType": "UPSERT",
@@ -566,47 +614,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713795619226,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-                },
-                {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619234,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619231,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -642,51 +649,13 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713795619375,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619231,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619373,
+        "lastObserved": 1732545848872,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -883,6 +852,7 @@
                 "urn:li:chart:(sigma,tQJu5N1l81)"
             ],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -902,6 +872,30 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545848877,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
     "changeType": "UPSERT",
@@ -914,14 +908,13 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713795619270,
+        "lastObserved": 1732545848829,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1180,54 +1173,6 @@
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619382,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619267,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619449,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
     "changeType": "UPSERT",
@@ -1410,31 +1355,6 @@
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-                },
-                {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619383,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
     "changeType": "UPSERT",
@@ -1554,14 +1474,13 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713795619453,
+        "lastObserved": 1732545848921,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

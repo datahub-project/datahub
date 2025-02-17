@@ -14,6 +14,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
@@ -58,7 +59,7 @@ public class PatchItemImpl implements PatchMCP {
   private final Urn urn;
   // aspectName name of the aspect being inserted
   private final String aspectName;
-  private final SystemMetadata systemMetadata;
+  private SystemMetadata systemMetadata;
   private final AuditStamp auditStamp;
 
   private final JsonPatch patch;
@@ -101,6 +102,14 @@ public class PatchItemImpl implements PatchMCP {
           GenericRecordUtils.serializeAspect(
               EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
       return mcp;
+    }
+  }
+
+  @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    this.systemMetadata = systemMetadata;
+    if (this.metadataChangeProposal != null) {
+      this.metadataChangeProposal.setSystemMetadata(systemMetadata);
     }
   }
 
@@ -217,6 +226,11 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -228,12 +242,13 @@ public class PatchItemImpl implements PatchMCP {
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)
+        && auditStamp.equals(that.auditStamp)
         && patch.equals(that.patch);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, patch);
+    return Objects.hash(urn, aspectName, systemMetadata, auditStamp, patch);
   }
 
   @Override

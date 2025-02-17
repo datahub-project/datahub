@@ -37,9 +37,9 @@ def test_partitioned_executor():
         saw_keys_in_parallel = False
         while executing_tasks or not done_tasks:
             keys_executing = [key for key, _ in executing_tasks]
-            assert list(sorted(keys_executing)) == list(
-                sorted(set(keys_executing))
-            ), "partitioning not working"
+            assert list(sorted(keys_executing)) == list(sorted(set(keys_executing))), (
+                "partitioning not working"
+            )
 
             if len(keys_executing) == 2:
                 saw_keys_in_parallel = True
@@ -80,7 +80,8 @@ def test_partitioned_executor_bounding():
         assert len(done_tasks) == 16
 
 
-def test_batch_partition_executor_sequential_key_execution():
+@pytest.mark.parametrize("max_workers", [1, 2, 10])
+def test_batch_partition_executor_sequential_key_execution(max_workers: int) -> None:
     executing_tasks = set()
     done_tasks = set()
     done_task_batches = set()
@@ -99,7 +100,7 @@ def test_batch_partition_executor_sequential_key_execution():
         done_task_batches.add(tuple(id for _, id in batch))
 
     with BatchPartitionExecutor(
-        max_workers=2,
+        max_workers=max_workers,
         max_pending=10,
         max_per_batch=2,
         process_batch=process_batch,

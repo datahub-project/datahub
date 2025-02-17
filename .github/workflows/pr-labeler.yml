@@ -3,6 +3,10 @@ on:
   pull_request_target:
     types: [opened, reopened]
 
+permissions:
+    contents: read
+    pull-requests: write
+    
 jobs:
   triage:
     permissions:
@@ -10,11 +14,11 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v4
+      - uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
-      - uses: actions-ecosystem/action-add-labels@v1.1.0
+      - uses: actions-ecosystem/action-add-labels@v1.1.3
         # only add names of Acryl Data team members here
         if: 
           ${{ 
@@ -25,11 +29,9 @@ jobs:
                 "chriscollins3456",
                 "david-leifker",
                 "shirshanka",
-                "sid-acryl",
                 "swaroopjagadish",
                 "treff7es",
                 "yoonhyejin",
-                "eboneil",
                 "gabe-lyons",
                 "hsheth2",
                 "jjoyce0510",
@@ -37,16 +39,20 @@ jobs:
                 "pedro93",
                 "RyanHolstien",
                 "sakethvarma397",
-                "Kunal-kankriya",
                 "purnimagarg1",
-                "dushayntAW",
                 "sagar-salvi-apptware",
                 "kushagra-apptware",
                 "Salman-Apptware",
                 "mayurinehate",
                 "noggi",
                 "skrydal",
-                "kevinkarchacryl"
+                "kevinkarchacryl",
+                "sgomezvillamor",
+                "acrylJonny",
+                "chakru-r",
+                "brock-acryl",
+                "mminichino",
+                "jayacryl"
               ]'), 
               github.actor
             ) 
@@ -55,7 +61,7 @@ jobs:
           github_token: ${{ github.token }}
           labels: |
             community-contribution
-      - uses: actions-ecosystem/action-add-labels@v1.1.0
+      - uses: actions-ecosystem/action-add-labels@v1.1.3
         # only add names of champions here. Confirm with DevRel Team
         if: 
           ${{ 

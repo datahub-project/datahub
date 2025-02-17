@@ -1,0 +1,34 @@
+import { Meta, Source } from '@storybook/blocks';
+
+import { AVAILABLE_ICONS } from '@components';
+import { IconGalleryWithSearch } from './mdx-components';
+
+<Meta title="Icons" />
+
+<div className="custom-docs">
+	## Icons
+
+    Under the hood, we're utilizing the Material Design Icon Library. However, we've crafted out own resuable component to make it easier to use these icons in our application.
+
+    <a href="/?path=/docs/media-icon--docs">
+    	View the component documentation to learn more
+    </a>
+
+    In addition to using Materials Design Icons, we've also added a few custom icons to the library. You can access them through the same `<Icon />` component and are represented in the list of available options below.
+
+    ```tsx
+    import { Icon } from '@components';
+
+    <Icon icon="AccountCircle" />
+    ```
+
+    <br />
+
+    ### Gallery
+
+    There are {AVAILABLE_ICONS.length} icons available. <br />
+    Name values populate the `icon` prop on the `<Icon />` component.
+
+    <IconGalleryWithSearch icons={AVAILABLE_ICONS} />
+
+</div>

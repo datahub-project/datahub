@@ -5,9 +5,10 @@ import pytest
 import yaml
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka.kafka import KafkaSource
+from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from tests.integration.kafka import oauth  # type: ignore
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -42,20 +43,21 @@ def mock_kafka_service(docker_compose_runner, test_resources_dir):
         yield docker_compose_runner
 
 
+@pytest.mark.parametrize("approach", ["kafka_without_schemas", "kafka"])
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time, approach
 ):
     # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "kafka_to_file.yml").resolve()
+    config_file = (test_resources_dir / f"{approach}_to_file.yml").resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "kafka_mces.json",
-        golden_path=test_resources_dir / "kafka_mces_golden.json",
+        output_path=tmp_path / f"{approach}_mces.json",
+        golden_path=test_resources_dir / f"{approach}_mces_golden.json",
         ignore_paths=[],
     )
 
@@ -100,7 +102,7 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
         test_connection_helpers.assert_capability_report(
             capability_report=report.capability_report,
             failure_capabilities={
-                SourceCapability.SCHEMA_METADATA: "Failed to establish a new connection"
+                SourceCapability.SCHEMA_METADATA: "[Errno 111] Connection refused"
             },
         )
 
@@ -128,11 +130,60 @@ def test_kafka_oauth_callback(
 
     pipeline.run()
 
-    is_found: bool = False
-    with open(log_file, "r") as file:
-        for line_number, line in enumerate(file, 1):
-            if oauth.MESSAGE in line:
-                is_found = True
-                break
+    # Initialize flags to track oauth events
+    checks = {
+        "consumer_polling": False,
+        "consumer_oauth_callback": False,
+        "admin_polling": False,
+        "admin_oauth_callback": False,
+    }
 
-    assert is_found
+    # Read log file and check for oauth events
+    with open(log_file, "r") as file:
+        for line in file:
+            # Check for polling events
+            if "Initiating polling for kafka admin client" in line:
+                checks["admin_polling"] = True
+            elif "Initiating polling for kafka consumer" in line:
+                checks["consumer_polling"] = True
+
+            # Check for oauth callbacks
+            if oauth.MESSAGE in line:
+                if checks["consumer_polling"] and not checks["admin_polling"]:
+                    checks["consumer_oauth_callback"] = True
+                elif checks["consumer_polling"] and checks["admin_polling"]:
+                    checks["admin_oauth_callback"] = True
+
+    # Verify all oauth events occurred
+    assert checks["consumer_polling"], "Consumer polling was not initiated"
+    assert checks["consumer_oauth_callback"], "Consumer oauth callback not found"
+    assert checks["admin_polling"], "Admin polling was not initiated"
+    assert checks["admin_oauth_callback"], "Admin oauth callback not found"
+
+
+def test_kafka_source_oauth_cb_signature():
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {"oauth_cb": "oauth:create_token_no_args"},
+                }
+            }
+        )
+
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {"oauth_cb": "oauth:create_token_only_kwargs"},
+                }
+            }
+        )

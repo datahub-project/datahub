@@ -22,6 +22,9 @@ class DatasetSubTypes(StrEnum):
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
+    NEO4J_NODE = "Neo4j Node"
+    NEO4J_RELATIONSHIP = "Neo4j Relationship"
+    SNOWFLAKE_STREAM = "Snowflake Stream"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

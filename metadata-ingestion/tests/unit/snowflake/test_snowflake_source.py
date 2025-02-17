@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+import datahub.ingestion.source.snowflake.snowflake_utils
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
@@ -17,6 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
     create_deny_regex_sql_filter,
@@ -26,6 +28,7 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowsightUrlBuilder
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.testing.doctest import assert_doctest
 from tests.test_helpers import test_connection_helpers
 
 default_oauth_dict: Dict[str, Any] = {
@@ -130,6 +133,60 @@ def test_snowflake_oauth_happy_paths():
     )
 
 
+def test_snowflake_oauth_token_happy_path():
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+            "token": "valid-token",
+            "username": "test-user",
+            "oauth_config": None,
+        }
+    )
+
+
+def test_snowflake_oauth_token_without_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_wrong_auth_type():
+    with pytest.raises(
+        ValueError,
+        match="Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN.",
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "token": "some-token",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_empty_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "token": "",
+                "username": "test-user",
+            }
+        )
+
+
 default_config_dict: Dict[str, Any] = {
     "username": "user",
     "password": "password",
@@ -198,17 +255,6 @@ def test_options_contain_connect_args():
     config = SnowflakeV2Config.parse_obj(default_config_dict)
     connect_args = config.get_options().get("connect_args")
     assert connect_args is not None
-
-
-def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
-    config_dict = default_config_dict.copy()
-    config_dict["include_view_lineage"] = True
-    config_dict["include_table_lineage"] = False
-    with pytest.raises(
-        ValidationError,
-        match="include_table_lineage must be True for include_view_lineage to be set",
-    ):
-        SnowflakeV2Config.parse_obj(config_dict)
 
 
 def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
@@ -604,3 +650,42 @@ def test_create_snowsight_base_url_ap_northeast_1():
     ).snowsight_base_url
 
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"
+
+
+def test_snowflake_utils() -> None:
+    assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)
+
+
+def test_using_removed_fields_causes_no_error() -> None:
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "username": "snowflake",
+            "password": "snowflake",
+            "include_view_lineage": "true",
+            "include_view_column_lineage": "true",
+        }
+    )
+
+
+def test_snowflake_query_result_parsing():
+    db_row = {
+        "DOWNSTREAM_TABLE_NAME": "db.schema.downstream_table",
+        "DOWNSTREAM_TABLE_DOMAIN": "Table",
+        "UPSTREAM_TABLES": [
+            {
+                "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
+                "upstream_object_domain": "Table",
+                "upstream_object_name": "db.schema.upstream_table",
+            }
+        ],
+        "UPSTREAM_COLUMNS": [{}],
+        "QUERIES": [
+            {
+                "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
+                "query_text": "Query test",
+                "start_time": "2022-12-01 19:56:34",
+            }
+        ],
+    }
+    assert UpstreamLineageEdge.parse_obj(db_row)

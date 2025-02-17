@@ -1,0 +1,1362 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "athena",
+                "env": "PROD",
+                "database": "test_schema"
+            },
+            "name": "test_schema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:athena"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "key": "value",
+                            "table_type": "EXTERNAL_TABLE",
+                            "is_view": "True",
+                            "view_definition": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT *\nFROM\n  \"test_schema\".\"test_table\""
+                        },
+                        "name": "test_table",
+                        "description": "Test table description",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_schema.test_table",
+                        "platform": "urn:li:dataPlatform:athena",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "nullable": false,
+                                "description": "Unique identifier for the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "nullable": true,
+                                "description": "Annual salary of the employee in USD",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "BIGINT",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "nullable": false,
+                                "description": "Full name of the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                                "nullable": true,
+                                "description": "Job history map: year to details (company, role)",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "record"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                                "nullable": true,
+                                "description": "Map of department names to their respective budgets",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "long"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), BIGINT())",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                                "nullable": true,
+                                "description": "List of skills possessed by the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "string"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<VARCHAR>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+                    "urn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "key": "value",
+                            "table_type": "EXTERNAL_TABLE",
+                            "is_view": "True",
+                            "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
+                        },
+                        "name": "test_view_1",
+                        "description": "Test table description",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_schema.test_view_1",
+                        "platform": "urn:li:dataPlatform:athena",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "nullable": false,
+                                "description": "Unique identifier for the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "nullable": true,
+                                "description": "Annual salary of the employee in USD",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "BIGINT",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "nullable": false,
+                                "description": "Full name of the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                                "nullable": true,
+                                "description": "Job history map: year to details (company, role)",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "record"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                                "nullable": true,
+                                "description": "Map of department names to their respective budgets",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "long"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), BIGINT())",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                                "nullable": true,
+                                "description": "List of skills possessed by the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "string"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<VARCHAR>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT *\nFROM\n  \"test_schema\".\"test_table\"",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+                    "urn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "key": "value",
+                            "table_type": "EXTERNAL_TABLE",
+                            "is_view": "True",
+                            "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
+                        },
+                        "name": "test_view_2",
+                        "description": "Test table description",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_schema.test_view_2",
+                        "platform": "urn:li:dataPlatform:athena",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "nullable": false,
+                                "description": "Unique identifier for the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "nullable": true,
+                                "description": "Annual salary of the employee in USD",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "BIGINT",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "nullable": false,
+                                "description": "Full name of the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                                "nullable": true,
+                                "description": "Job history map: year to details (company, role)",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "record"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                                "nullable": true,
+                                "description": "Map of department names to their respective budgets",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.MapType": {
+                                            "keyType": "string",
+                                            "valueType": "long"
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "MapType(String(), BIGINT())",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                                "nullable": true,
+                                "description": "List of skills possessed by the employee",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "string"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<VARCHAR>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\"",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67",
+                    "urn": "urn:li:container:28d9272f625e7a366dfdc276b6ce4a67"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1671098400000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD)",
+                    "type": "COPY"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),annual_salary)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),annual_salary)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),department_budgets)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),department_budgets)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),skills)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),skills)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1671098400000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),annual_salary)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),annual_salary)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),job_history)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),department_budgets)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),department_budgets)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),skills)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT\n  *\nFROM \"test_schema\".\"test_table\"",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1671098400000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),annual_salary)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),department_budgets)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),skills)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),annual_salary)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),job_history)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),department_budgets)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:athena"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1671098400000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_id)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_name)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),skills)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT\n  employee_id,\n  employee_name,\n  skills\nFROM \"test_schema\".\"test_view_1\"",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1671098400000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),skills)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:athena"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

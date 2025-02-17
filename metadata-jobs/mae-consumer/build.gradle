@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
 }
-
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply plugin: 'pegasus'
 
 configurations {
@@ -33,6 +33,7 @@ dependencies {
 
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi
+    implementation externalDependency.opentelemetrySdkTrace
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

@@ -66,4 +66,16 @@ public class TransactionContext {
     }
     success();
   }
+
+  public void flush() {
+    if (tx != null) {
+      tx.flush();
+    }
+  }
+
+  public void rollback() {
+    if (tx != null) {
+      tx.rollback();
+    }
+  }
 }

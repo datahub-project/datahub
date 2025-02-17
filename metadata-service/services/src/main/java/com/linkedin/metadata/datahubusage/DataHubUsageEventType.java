@@ -78,7 +78,30 @@ public enum DataHubUsageEventType {
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
   EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
-  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent");
+  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent"),
+  CREATE_STRUCTURED_PROPERTY_CLICK_EVENT("CreateStructuredPropertyClickEvent"),
+  CREATE_STRUCTURED_PROPERTY_EVENT("CreateStructuredPropertyEvent"),
+  EDIT_STRUCTURED_PROPERTY_EVENT("EditStructuredPropertyEvent"),
+  DELETE_STRUCTURED_PROPERTY_EVENT("DeleteStructuredPropertyEvent"),
+  VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
+  APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
+  UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent"),
+  CLICK_DOC_REQUEST_CTA("ClickDocRequestCTA"),
+  SHOW_THEME_V2_EVENT("ShowV2ThemeEvent"),
+  REVERT_THEME_V2_EVENT("RevertV2ThemeEvent"),
+  INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent"),
+  INTRODUCE_YOURSELF_SUBMIT_EVENT("IntroduceYourselfSubmitEvent"),
+  INTRODUCE_YOURSELF_SKIP_EVENT("IntroduceYourselfSkipEvent"),
+  EXPAND_LINEAGE_EVENT("ExpandLineageEvent"),
+  CONTRACT_LINEAGE_EVENT("ContractLineageEvent"),
+  SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
+  SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
+  FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
+  SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
+  LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
+  UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent");
 
   private final String type;
 

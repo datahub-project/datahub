@@ -5,6 +5,8 @@ from typing import Iterable, List, Optional, Tuple
 
 from pydantic import Field, SecretStr
 from slack_sdk import WebClient
+from tenacity import retry, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -294,6 +296,10 @@ class SlackSource(Source):
                 return
             raise e
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
+    )
     def get_user_to_be_updated(self) -> Iterable[CorpUser]:
         graphql_query = textwrap.dedent(
             """

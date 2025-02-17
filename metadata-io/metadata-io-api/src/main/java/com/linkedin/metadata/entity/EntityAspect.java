@@ -9,6 +9,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
@@ -51,6 +52,26 @@ public class EntityAspect {
   private String createdBy;
 
   private String createdFor;
+
+  @Override
+  public String toString() {
+    return "EntityAspect{"
+        + "urn='"
+        + urn
+        + '\''
+        + ", aspect='"
+        + aspect
+        + '\''
+        + ", version="
+        + version
+        + ", metadata='"
+        + metadata
+        + '\''
+        + ", systemMetadata='"
+        + systemMetadata
+        + '\''
+        + '}';
+  }
 
   /**
    * Provide a typed EntityAspect without breaking the existing public contract with generic types.
@@ -142,6 +163,11 @@ public class EntityAspect {
       envelopedAspect.setCreated(getAuditStamp());
 
       return envelopedAspect;
+    }
+
+    @Override
+    public String toString() {
+      return entityAspect.toString();
     }
 
     public static class EntitySystemAspectBuilder {

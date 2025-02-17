@@ -97,6 +97,7 @@ class DremioSource(StatefulIngestionSourceBase):
     - Ownership and Glossary Terms:
         - Metadata related to ownership of datasets, extracted from Dremio’s ownership model.
         - Glossary terms and business metadata associated with datasets, providing additional context to the data.
+        - Note: Ownership information will only be available for the Cloud and Enterprise editions, it will not be available for the Community edition.
 
     - Optional SQL Profiling (if enabled):
         - Table, row, and column statistics can be profiled and ingested via optional SQL queries.
@@ -123,6 +124,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
+            ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             ui_url=dremio_api.ui_url,
@@ -394,10 +396,12 @@ class DremioSource(StatefulIngestionSourceBase):
         ):
             yield dremio_mcp
             # Check if the emitted aspect is SchemaMetadataClass
-            if isinstance(dremio_mcp.metadata, SchemaMetadataClass):
+            if isinstance(
+                dremio_mcp.metadata, MetadataChangeProposalWrapper
+            ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
-                    schema=dremio_mcp.metadata,
+                    schema=dremio_mcp.metadata.aspect,
                 )
 
         if dataset_info.dataset_type == DremioDatasetType.VIEW:
@@ -415,6 +419,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     view_urn=dataset_urn,
                     view_definition=dataset_info.sql_definition,
                     default_db=self.default_db,
+                    default_schema=dataset_info.default_schema,
                 )
 
         elif dataset_info.dataset_type == DremioDatasetType.TABLE:
@@ -467,8 +472,8 @@ class DremioSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        self.report.set_ingestion_stage(dataset_info.resource_name, PROFILING)
-        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+        with self.report.new_stage(f"{dataset_info.resource_name}: {PROFILING}"):
+            yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]

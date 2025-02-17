@@ -1124,9 +1124,10 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testNestedAggregation() {
     Set<String> expectedFacets = Set.of("platform");
+    OperationContext context =
+        getOperationContext().withSearchFlags(flags -> flags.setIncludeDefaultFacets(false));
     SearchResult testResult =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult.getMetadata().getAggregations().size(), 1);
     expectedFacets.forEach(
         facet -> {
@@ -1143,8 +1144,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
     SearchResult testResult2 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1191,8 +1191,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "entity");
     SearchResult testResult3 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult3.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1222,8 +1221,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
     expectedFacets = Set.of(singleNestedFacet);
     SearchResult testResultSingleNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
     Map<String, Long> expectedNestedFacetCounts = new HashMap<>();
     expectedNestedFacetCounts.put("datajob␞urn:li:corpuser:datahub", 2L);
@@ -1245,8 +1243,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
     SearchResult testResultNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1367,8 +1364,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
-    // expect 2 total matching results
-    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
+    // expect 8 total matching results
+    assertEquals(totalResults, 8, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
@@ -1745,7 +1742,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -1776,7 +1773,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,

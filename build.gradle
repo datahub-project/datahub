@@ -34,20 +34,22 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.13'
+  ext.versionGradle = '8.11.1'
+  ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
-  ext.openTelemetryVersion = '1.18.0'
-  ext.neo4jVersion = '5.14.0'
-  ext.neo4jTestVersion = '5.14.0'
-  ext.neo4jApocVersion = '5.14.0'
+  ext.openTelemetryVersion = '1.45.0'
+  ext.neo4jVersion = '5.20.0'
+  ext.neo4jTestVersion = '5.20.0'
+  ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
-  ext.jettyVersion = '11.0.21'
+  ext.jettyVersion = '12.0.16'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
+  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
@@ -56,7 +58,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.24.2'
+  ext.openLineageVersion = '1.25.0'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'
@@ -77,7 +79,7 @@ buildscript {
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
-  id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
+  id 'com.gradleup.shadow' version '8.3.5' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.6'
   id "com.diffplug.spotless" version "6.23.3"
@@ -105,7 +107,14 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10",
+    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
+    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
+    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
+    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
+    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
+    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -127,7 +136,8 @@ project.ext.externalDependency = [
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
-    'dgraph4j' : 'io.dgraph:dgraph4j:21.12.0',
+    'dgraph4j' : 'io.dgraph:dgraph4j:24.1.1',
+    'dgraphNetty': 'io.grpc:grpc-netty-shaded:1.69.0',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
@@ -167,15 +177,16 @@ project.ext.externalDependency = [
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
+    'jettySecurity': "org.eclipse.jetty:jetty-security:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
+    'jettyJmx': "org.eclipse.jetty:jetty-jmx:$jettyVersion",
     'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.4.9',
+    'jsonSmart': 'net.minidev:json-smart:2.5.2',
     'json': 'org.json:json:20231013',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'junit': 'junit:junit:4.13.2',
@@ -184,9 +195,9 @@ project.ext.externalDependency = [
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
-    'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
+    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
-    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.5',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
@@ -202,14 +213,17 @@ project.ext.externalDependency = [
     'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'mysql:mysql-connector-java:8.0.28',
+    'mysqlConnector': 'com.mysql:mysql-connector-j:8.4.0',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
+    'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
+    'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
+    'opentelemetryAutoConfig': 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:' + openTelemetryVersion,
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
@@ -226,7 +240,7 @@ project.ext.externalDependency = [
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.3.9',
+    'postgresql': 'org.postgresql:postgresql:42.7.4',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -277,7 +291,8 @@ project.ext.externalDependency = [
     'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
-    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14'
+    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
+    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7'
 ]
 
 allprojects {
@@ -350,6 +365,7 @@ allprojects {
       }
     }
   }
+
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
@@ -363,9 +379,19 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+    exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+    exclude group: "javax.mail", module: "mail"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+    resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
+    resolutionStrategy {
+      force "org.eclipse.jetty:jetty-security:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-server:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-ee10-servlet:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-ee10-webapp:${jettyVersion}"
+      force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
+    }
   }
 }
 
@@ -393,7 +419,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.115.Final')
+        implementation('io.netty:netty-all:4.1.118.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
@@ -463,10 +489,6 @@ subprojects {
       if (compileJavaTask != null) {
         spotlessJavaTask.dependsOn compileJavaTask
       }
-      // TODO - Do not run this in CI. How?
-      // tasks.withType(JavaCompile) {
-      //   finalizedBy(tasks.findByName('spotlessApply'))
-      // }
     }
   }
 
@@ -489,4 +511,9 @@ subprojects {
       }
     }
   }
+}
+
+wrapper {
+  gradleVersion = project.versionGradle
+  distributionType = Wrapper.DistributionType.ALL
 }

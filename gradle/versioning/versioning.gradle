@@ -21,7 +21,7 @@ Produces the following variables and supports token replacement
 import org.apache.tools.ant.filters.ReplaceTokens
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "0.12.0" // base default cli major version
+def cliMajorVersion = "0.15.0" // base default cli major version
 def snapshotVersion = false
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion

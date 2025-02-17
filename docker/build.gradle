@@ -18,24 +18,136 @@ ext {
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
-    quickstart_modules = backend_profile_modules + [
-            ':metadata-jobs:mce-consumer-job',
-            ':metadata-jobs:mae-consumer-job',
-            ':datahub-frontend'
+
+    python_services_modules = []
+
+    // Common configuration for all tasks
+    common_config = [
+            captureContainersOutput: true,
+            captureContainersOutputToFiles: project.file('build/container-logs')
     ]
 
-    debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
-                                          ':metadata-jobs:mae-consumer-job']
-    compose_args = ['-f', compose_base]
-    debug_reloadable = [
-            'datahub-gms-debug',
-            'system-update-debug',
-            'frontend-debug'
+    // declarative task configuration
+    quickstart_configs = [
+            'quickstart': [
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':metadata-jobs:mce-consumer-job',
+                            ':metadata-jobs:mae-consumer-job',
+                    ]
+            ],
+            'quickstartDebug': [
+                    profile: 'debug',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
+                    isDebug: true
+            ],
+            'quickstartDebugConsumers': [
+                    profile: 'debug-consumers',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
+                                                                          ':metadata-jobs:mce-consumer-job',
+                                                                          ':metadata-jobs:mae-consumer-job'],
+                    isDebug: true
+            ],
+            'quickstartPg': [
+                    profile: 'quickstart-postgres',
+                    modules: (backend_profile_modules - [':docker:mysql-setup']) + [
+                            ':docker:postgres-setup',
+                            ':datahub-frontend'
+                    ]
+            ],
+            'quickstartPgDebug': [
+                    profile: 'debug-postgres',
+                    modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
+                            ':docker:postgres-setup',
+                            ':datahub-frontend'
+                    ],
+                    isDebug: true
+            ],
+            'quickstartSlim': [
+                    profile: 'quickstart-backend',
+                    modules: backend_profile_modules + [':docker:datahub-ingestion'],
+                    additionalEnv: [
+                            'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
+                            'ACTIONS_VERSION': "v${version}-slim",
+                            'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
+                            'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
+                    ]
+            ],
+            'quickstartStorage': [
+                    profile: 'quickstart-storage',
+                    preserveVolumes: true
+            ]
     ]
-    // Postgres
-    pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+}
 
-    revision = 1 // increment to trigger rebuild
+// Register all quickstart tasks
+quickstart_configs.each { taskName, config ->
+    tasks.register(taskName)
+}
+
+// Dynamically create all quickstart tasks and configurations
+dockerCompose {
+    // Configure default settings that apply to all configurations
+    useComposeFiles = [compose_base]
+    projectName = project_name
+    projectNamePrefix = ''
+    buildBeforeUp = false
+    buildBeforePull = false
+    stopContainers = false
+    removeVolumes = false
+
+    quickstart_configs.each { taskName, config ->
+        "${taskName}" {
+            isRequiredBy(tasks.named(taskName))
+            if (config.profile) {
+                composeAdditionalArgs = ['--profile', config.profile]
+            }
+
+            // Common environment variables
+            environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION") ?: "v${version}"
+            environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
+            environment.put "METADATA_TESTS_ENABLED", "true"
+            environment.put "DATAHUB_REPO", "${docker_registry}"
+
+            // Additional environment variables if specified
+            if (config.additionalEnv) {
+                config.additionalEnv.each { key, value ->
+                    environment.put key, value
+                }
+            }
+
+            useComposeFiles = [compose_base]
+            projectName = project_name
+            projectNamePrefix = ''
+            buildBeforeUp = false
+            buildBeforePull = false
+            stopContainers = false
+            removeVolumes = false
+
+            // Apply common configuration
+            common_config.each { key, value ->
+                delegate."${key}" = value
+            }
+
+            // Apply additional task-specific configuration if specified
+            if (config.additionalConfig) {
+                config.additionalConfig.each { key, value ->
+                    delegate."${key}" = value
+                }
+            }
+        }
+    }
+}
+
+// Configure dependencies for ComposeUp tasks
+quickstart_configs.each { taskName, config ->
+    if (config.modules) {
+        tasks.getByName("${taskName}ComposeUp").dependsOn(
+                config.modules.collect { it + ":${config.isDebug ? 'dockerTagDebug' : 'dockerTag'}" }
+        )
+    }
 }
 
 tasks.register('minDockerCompose2.20', Exec) {
@@ -43,18 +155,11 @@ tasks.register('minDockerCompose2.20', Exec) {
     args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
-tasks.register('quickstart') {}
-tasks.register('quickstartSlim') {}
-tasks.register('quickstartDebug') {}
-tasks.register('quickstartPg') {}
-tasks.register('quickstartStorage') {}
-
 tasks.register('quickstartNuke') {
     doFirst {
-        dockerCompose.quickstart.removeVolumes = true
-        dockerCompose.quickstartPg.removeVolumes = true
-        dockerCompose.quickstartSlim.removeVolumes = true
-        dockerCompose.quickstartDebug.removeVolumes = true
+        quickstart_configs.each { taskName, config ->
+            dockerCompose."${taskName}".removeVolumes = !config.preserveVolumes
+        }
     }
     finalizedBy(tasks.withType(ComposeDownForced))
 }
@@ -63,117 +168,17 @@ tasks.register('quickstartDown') {
     finalizedBy(tasks.withType(ComposeDownForced))
 }
 
-dockerCompose {
-    quickstart {
-        isRequiredBy(tasks.named('quickstart'))
-        composeAdditionalArgs = ['--profile', 'quickstart-consumers']
-
-        environment.put 'DATAHUB_VERSION', "v${version}"
-        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
-
-        useComposeFiles = [compose_base]
-        projectName = project_name
-        projectNamePrefix = ''
-        buildBeforeUp = false
-        buildBeforePull = false
-        stopContainers = false
-        removeVolumes = false
-        captureContainersOutput = true
-        captureContainersOutputToFiles = project.file('build/container-logs')
-    }
-
-    quickstartPg {
-        isRequiredBy(tasks.named('quickstartPg'))
-        composeAdditionalArgs = ['--profile', 'quickstart-postgres']
-
-        environment.put 'DATAHUB_VERSION', "v${version}"
-        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
-
-        useComposeFiles = [compose_base]
-        projectName = project_name
-        projectNamePrefix = ''
-        buildBeforeUp = false
-        buildBeforePull = false
-        stopContainers = false
-        removeVolumes = false
-    }
-
-    /**
-     * The smallest disk footprint required for Spark integration tests
-     *
-     * No frontend, mae, mce, or other services
-     */
-    quickstartSlim {
-        isRequiredBy(tasks.named('quickstartSlim'))
-        composeAdditionalArgs = ['--profile', 'quickstart-backend']
-
-        environment.put 'DATAHUB_VERSION', "v${version}"
-        environment.put "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
-        environment.put "ACTIONS_VERSION", "v${version}-slim"
-        environment.put "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
-        environment.put "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
-        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
-        // disabled for spark-lineage smoke-test
-        environment.put 'DATAHUB_LOCAL_COMMON_ENV', "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
-
-        useComposeFiles = [compose_base]
-        projectName = project_name
-        projectNamePrefix = ''
-        buildBeforeUp = false
-        buildBeforePull = false
-        stopContainers = false
-        removeVolumes = false
-        captureContainersOutput = true
-        captureContainersOutputToFiles = project.file('build/container-logs')
-    }
-
-    quickstartDebug {
-        isRequiredBy(tasks.named('quickstartDebug'))
-        composeAdditionalArgs = ['--profile', 'debug']
-
-        if (System.getenv().containsKey("DATAHUB_VERSION")) {
-            environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION")
-        }
-        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
-
-        useComposeFiles = [compose_base]
-        projectName = project_name
-        projectNamePrefix = ''
-        buildBeforeUp = false
-        buildBeforePull = false
-        stopContainers = false
-        removeVolumes = false
-    }
-
-    quickstartStorage {
-        isRequiredBy(tasks.named('quickstartStorage'))
-        composeAdditionalArgs = ['--profile', 'quickstart-storage']
-
-        useComposeFiles = [compose_base]
-        projectName = project_name
-        projectNamePrefix = ''
-        buildBeforeUp = false
-        buildBeforePull = false
-        stopContainers = false
-        removeVolumes = false
-    }
-}
-tasks.getByName('quickstartComposeUp').dependsOn(
-        quickstart_modules.collect { it + ':dockerTag' })
-tasks.getByName('quickstartPgComposeUp').dependsOn(
-        pg_quickstart_modules.collect { it + ':dockerTag' })
-tasks.getByName('quickstartSlimComposeUp').dependsOn(
-        ([':docker:datahub-ingestion'] + backend_profile_modules)
-                .collect { it + ':dockerTag' })
-tasks.getByName('quickstartDebugComposeUp').dependsOn(
-        debug_modules.collect { it + ':dockerTagDebug' }
-)
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
     dependsOn tasks.named("minDockerCompose2.20")
 }
 
 task debugReload(type: Exec) {
-    def cmd = ['docker compose -p datahub --profile debug'] + compose_args + ['restart'] + debug_reloadable
+    def cmd = ['docker compose -p datahub --profile debug'] + ['-f', compose_base] + [
+            'restart',
+            'datahub-gms-debug',
+            'system-update-debug',
+            'frontend-debug'
+    ]
     commandLine 'bash', '-c', cmd.join(" ")
 }

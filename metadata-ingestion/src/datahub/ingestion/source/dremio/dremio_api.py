@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+import re
 import warnings
 from collections import defaultdict
 from enum import Enum
@@ -180,7 +181,7 @@ class DremioAPIOperations:
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
-        for retry in range(1, self._retry_count + 1):
+        for _ in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
@@ -190,9 +191,9 @@ class DremioAPIOperations:
                     )
                     return
                 else:
-                    assert (
-                        connection_args.username and connection_args.password
-                    ), "Username and password are required for authentication"
+                    assert connection_args.username and connection_args.password, (
+                        "Username and password are required for authentication"
+                    )
                     host = connection_args.hostname
                     port = connection_args.port
                     protocol = "https" if connection_args.tls else "http"
@@ -609,32 +610,6 @@ class DremioAPIOperations:
 
         return self.execute_query(query=jobs_query)
 
-    def get_source_by_id(self, source_id: str) -> Optional[Dict]:
-        """
-        Fetch source details by ID.
-        """
-        response = self.get(
-            url=f"/source/{source_id}",
-        )
-        return response if response else None
-
-    def get_source_for_dataset(self, schema: str, dataset: str) -> Optional[Dict]:
-        """
-        Get source information for a dataset given its schema and name.
-        """
-        dataset_id = self.get_dataset_id(schema, dataset)
-        if not dataset_id:
-            return None
-
-        catalog_entry = self.get(
-            url=f"/catalog/{dataset_id}",
-        )
-        if not catalog_entry or "path" not in catalog_entry:
-            return None
-
-        source_id = catalog_entry["path"][0]
-        return self.get_source_by_id(source_id)
-
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
         Get Dremio tags for a given resource_id.
@@ -673,55 +648,119 @@ class DremioAPIOperations:
             )
         return None
 
-    def get_containers_for_location(
-        self, resource_id: str, path: List[str]
-    ) -> List[Dict[str, str]]:
-        containers = []
+    def _check_pattern_match(
+        self,
+        pattern: str,
+        paths: List[str],
+        allow_prefix: bool = True,
+    ) -> bool:
+        """
+        Helper method to check if a pattern matches any of the paths.
+        Handles hierarchical matching where each level is matched independently.
+        Also handles prefix matching for partial paths.
+        """
+        if pattern == ".*":
+            return True
 
-        def traverse_path(location_id: str, entity_path: List[str]) -> List:
-            nonlocal containers
-            try:
-                response = self.get(url=f"/catalog/{location_id}")
-                if (
-                    response.get("entityType")
-                    == DremioEntityContainerType.FOLDER.value.lower()
+        # Convert the pattern to regex with proper anchoring
+        regex_pattern = pattern
+        if pattern.startswith("^"):
+            # Already has start anchor
+            regex_pattern = pattern.replace(".", r"\.")  # Escape dots
+            regex_pattern = regex_pattern.replace(
+                r"\.*", ".*"
+            )  # Convert .* to wildcard
+        else:
+            # Add start anchor and handle dots
+            regex_pattern = "^" + pattern.replace(".", r"\.").replace(r"\.*", ".*")
+
+        # Handle end matching
+        if not pattern.endswith(".*"):
+            if pattern.endswith("$"):
+                # Keep explicit end anchor
+                pass
+            elif not allow_prefix:
+                # Add end anchor for exact matching
+                regex_pattern = regex_pattern + "$"
+
+        for path in paths:
+            if re.match(regex_pattern, path, re.IGNORECASE):
+                return True
+
+        return False
+
+    def should_include_container(self, path: List[str], name: str) -> bool:
+        """
+        Helper method to check if a container should be included based on schema patterns.
+        Used by both get_all_containers and get_containers_for_location.
+        """
+        path_components = path + [name] if path else [name]
+        full_path = ".".join(path_components)
+
+        # Default allow everything case
+        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
+            self.report.report_container_scanned(full_path)
+            return True
+
+        # Check deny patterns first
+        if self.deny_schema_pattern:
+            for pattern in self.deny_schema_pattern:
+                if self._check_pattern_match(
+                    pattern=pattern,
+                    paths=[full_path],
+                    allow_prefix=False,
                 ):
-                    containers.append(
-                        {
-                            "id": location_id,
-                            "name": entity_path[-1],
-                            "path": entity_path[:-1],
-                            "container_type": DremioEntityContainerType.FOLDER,
-                        }
-                    )
+                    self.report.report_container_filtered(full_path)
+                    return False
 
-                for container in response.get("children", []):
-                    if (
-                        container.get("type")
-                        == DremioEntityContainerType.CONTAINER.value
-                    ):
-                        traverse_path(container.get("id"), container.get("path"))
+        # Check allow patterns
+        for pattern in self.allow_schema_pattern:
+            # For patterns with wildcards, check if this path is a parent of the pattern
+            if "*" in pattern:
+                pattern_parts = pattern.split(".")
+                path_parts = path_components
 
-            except Exception as exc:
-                logging.info(
-                    "Location {} contains no tables or views. Skipping...".format(id)
-                )
-                self.report.warning(
-                    message="Failed to get tables or views",
-                    context=f"{id}",
-                    exc=exc,
-                )
+                # If pattern has exact same number of parts, check each component
+                if len(pattern_parts) == len(path_parts):
+                    matches = True
+                    for p_part, c_part in zip(pattern_parts, path_parts):
+                        if p_part != "*" and p_part.lower() != c_part.lower():
+                            matches = False
+                            break
+                    if matches:
+                        self.report.report_container_scanned(full_path)
+                        return True
+                # Otherwise check if current path is prefix match
+                else:
+                    # Remove the trailing wildcard if present
+                    if pattern_parts[-1] == "*":
+                        pattern_parts = pattern_parts[:-1]
 
-            return containers
+                    for i in range(len(path_parts)):
+                        current_path = ".".join(path_parts[: i + 1])
+                        pattern_prefix = ".".join(pattern_parts[: i + 1])
 
-        return traverse_path(location_id=resource_id, entity_path=path)
+                        if pattern_prefix.startswith(current_path):
+                            self.report.report_container_scanned(full_path)
+                            return True
+
+            # Direct pattern matching
+            if self._check_pattern_match(
+                pattern=pattern,
+                paths=[full_path],
+                allow_prefix=True,
+            ):
+                self.report.report_container_scanned(full_path)
+                return True
+
+        self.report.report_container_filtered(full_path)
+        return False
 
     def get_all_containers(self):
         """
-        Query the Dremio sources API and return source information.
+        Query the Dremio sources API and return filtered source information.
         """
         containers = []
-
         response = self.get(url="/catalog")
 
         def process_source(source):
@@ -731,34 +770,41 @@ class DremioAPIOperations:
                 )
 
                 source_config = source_resp.get("config", {})
-                if source_config.get("database"):
-                    db = source_config.get("database")
-                else:
-                    db = source_config.get("databaseName", "")
+                db = source_config.get(
+                    "database", source_config.get("databaseName", "")
+                )
 
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SOURCE,
-                    "source_type": source_resp.get("type"),
-                    "root_path": source_config.get("rootPath"),
-                    "database_name": db,
-                }
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SOURCE,
+                        "source_type": source_resp.get("type"),
+                        "root_path": source_config.get("rootPath"),
+                        "database_name": db,
+                    }
             else:
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SPACE,
-                }
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SPACE,
+                    }
+            return None
 
         def process_source_and_containers(source):
             container = process_source(source)
+            if not container:
+                return []
+
+            # Get sub-containers
             sub_containers = self.get_containers_for_location(
                 resource_id=container.get("id"),
                 path=[container.get("name")],
             )
+
             return [container] + sub_containers
 
         # Use ThreadPoolExecutor to parallelize the processing of sources
@@ -771,6 +817,78 @@ class DremioAPIOperations:
             }
 
             for future in concurrent.futures.as_completed(future_to_source):
-                containers.extend(future.result())
+                source = future_to_source[future]
+                try:
+                    containers.extend(future.result())
+                except Exception as exc:
+                    logger.error(f"Error processing source: {exc}")
+                    self.report.warning(
+                        message="Failed to process source",
+                        context=f"{source}",
+                        exc=exc,
+                    )
 
         return containers
+
+    def get_context_for_vds(self, resource_id: str) -> str:
+        context_array = self.get(
+            url=f"/catalog/{resource_id}",
+        ).get("sqlContext")
+        if context_array:
+            return ".".join(
+                f'"{part}"' if "." in part else f"{part}" for part in context_array
+            )
+        else:
+            return ""
+
+    def get_containers_for_location(
+        self, resource_id: str, path: List[str]
+    ) -> List[Dict[str, str]]:
+        containers = []
+
+        def traverse_path(location_id: str, entity_path: List[str]) -> List:
+            nonlocal containers
+            try:
+                response = self.get(url=f"/catalog/{location_id}")
+
+                # Check if current folder should be included
+                if (
+                    response.get("entityType")
+                    == DremioEntityContainerType.FOLDER.value.lower()
+                ):
+                    folder_name = entity_path[-1]
+                    folder_path = entity_path[:-1]
+
+                    if self.should_include_container(folder_path, folder_name):
+                        containers.append(
+                            {
+                                "id": location_id,
+                                "name": folder_name,
+                                "path": folder_path,
+                                "container_type": DremioEntityContainerType.FOLDER,
+                            }
+                        )
+
+                # Recursively process child containers
+                for container in response.get("children", []):
+                    if (
+                        container.get("type")
+                        == DremioEntityContainerType.CONTAINER.value
+                    ):
+                        traverse_path(container.get("id"), container.get("path"))
+
+            except Exception as exc:
+                logging.info(
+                    "Location {} contains no tables or views. Skipping...".format(
+                        location_id
+                    )
+                )
+                self.report.warning(
+                    message="Failed to get tables or views",
+                    context=f"{location_id}",
+                    exc=exc,
+                )
+
+            return containers
+
+        return traverse_path(location_id=resource_id, entity_path=path)

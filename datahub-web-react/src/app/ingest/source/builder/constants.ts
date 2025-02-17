@@ -29,7 +29,7 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
-import mlflowLogo from '../../../../images/mlflowlogo.png';
+import mlflowLogo2 from '../../../../images/mlflowlogo2.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
@@ -38,6 +38,7 @@ import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
 import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
+import neo4j from '../../../../images/neo4j.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -137,6 +138,8 @@ export const DATAHUB_GC = 'datahub-gc';
 export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
 export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
+export const NEO4J = 'neo4j';
+export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -156,7 +159,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [METABASE_URN]: metabaseLogo,
-    [MLFLOW_URN]: mlflowLogo,
+    [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
@@ -180,6 +183,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SAC_URN]: sacLogo,
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
+    [NEO4J_URN]: neo4j,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

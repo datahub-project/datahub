@@ -62,6 +62,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -111,10 +112,10 @@ class ElasticToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
-        type_class: Optional[
-            Type
-        ] = ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
-            elastic_column_type
+        type_class: Optional[Type] = (
+            ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
+                elastic_column_type
+            )
         )
         if type_class is None:
             logger.warning(
@@ -189,7 +190,7 @@ class ElasticToSchemaFieldConverter:
 @dataclass
 class ElasticsearchSourceReport(SourceReport):
     index_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_index_scanned(self, index: str) -> None:
         self.index_scanned += 1
@@ -227,7 +228,7 @@ def collapse_name(name: str, collapse_urns: CollapseUrns) -> str:
 def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
     if len(collapse_urns.urns_suffix_regex) == 0:
         return urn
-    urn_obj = DatasetUrn.create_from_string(urn)
+    urn_obj = DatasetUrn.from_string(urn)
     name = collapse_name(name=urn_obj.get_dataset_name(), collapse_urns=collapse_urns)
     data_platform_urn = urn_obj.get_data_platform_urn()
     return str(

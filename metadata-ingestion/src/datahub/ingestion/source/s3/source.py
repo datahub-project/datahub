@@ -6,9 +6,9 @@ import pathlib
 import re
 import time
 from datetime import datetime
-from itertools import groupby
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -72,7 +72,11 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import Bucket
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -224,7 +228,7 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
-        os.environ.setdefault("SPARK_VERSION", "3.3")
+        os.environ.setdefault("SPARK_VERSION", "3.5")
         spark_version = os.environ["SPARK_VERSION"]
 
         # Importing here to avoid Deequ dependency for non profiling use cases
@@ -841,7 +845,7 @@ class S3Source(StatefulIngestionSourceBase):
     def get_folder_info(
         self,
         path_spec: PathSpec,
-        bucket: Any,  # Todo: proper type
+        bucket: "Bucket",
         prefix: str,
     ) -> List[Folder]:
         """
@@ -856,31 +860,37 @@ class S3Source(StatefulIngestionSourceBase):
 
         Parameters:
         path_spec (PathSpec): The path specification used to determine partitioning.
-        bucket (Any): The S3 bucket object.
+        bucket (Bucket): The S3 bucket object.
         prefix (str): The prefix path in the S3 bucket to list objects from.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
 
-        prefix_to_list = prefix
-        files = list(
-            bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
+        def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
+            allowed = path_spec_.allowed(s3_uri)
+            if not allowed:
+                logger.debug(f"File {s3_uri} not allowed and skipping")
+                self.report.report_file_dropped(s3_uri)
+            return allowed
+
+        s3_objects = (
+            obj
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+            if _is_allowed_path(path_spec, f"s3://{obj.bucket_name}/{obj.key}")
         )
-        files = sorted(files, key=lambda a: a.last_modified)
-        grouped_files = groupby(files, lambda x: x.key.rsplit("/", 1)[0])
 
         partitions: List[Folder] = []
-        for key, group in grouped_files:
+        grouped_s3_objects_by_dirname = groupby_unsorted(
+            s3_objects,
+            key=lambda obj: obj.key.rsplit("/", 1)[0],
+        )
+        for key, group in grouped_s3_objects_by_dirname:
             file_size = 0
             creation_time = None
             modification_time = None
 
             for item in group:
-                file_path = self.create_s3_path(item.bucket_name, item.key)
-                if not path_spec.allowed(file_path):
-                    logger.debug(f"File {file_path} not allowed and skipping")
-                    continue
                 file_size += item.size
                 if creation_time is None or item.last_modified < creation_time:
                     creation_time = item.last_modified
@@ -903,7 +913,7 @@ class S3Source(StatefulIngestionSourceBase):
                 Folder(
                     partition_id=id,
                     is_partition=bool(id),
-                    creation_time=creation_time if creation_time else None,
+                    creation_time=creation_time if creation_time else None,  # type: ignore[arg-type]
                     modification_time=modification_time,
                     sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
                     size=file_size,
@@ -993,9 +1003,7 @@ class S3Source(StatefulIngestionSourceBase):
                         folders = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = dir.rstrip("\\").lstrip(
-                                self.create_s3_path(bucket_name, "/")
-                            )
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
 
                             folders.extend(
                                 self.get_folder_info(
@@ -1129,7 +1137,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():

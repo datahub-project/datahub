@@ -25,38 +25,43 @@ import com.datahub.plugins.configuration.ConfigProvider;
 import com.datahub.plugins.factory.PluginConfigFactory;
 import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import jakarta.inject.Named;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.context.support.SpringBeanAutowiringSupport;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * A servlet {@link Filter} for authenticating requests inbound to the Metadata Service. This filter
  * is applied to the GraphQL Servlet, the Rest.li Servlet, and the Auth (token) Servlet.
  */
+@Component
 @Slf4j
-public class AuthenticationFilter implements Filter {
+public class AuthenticationFilter extends OncePerRequestFilter {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
@@ -72,18 +77,32 @@ public class AuthenticationFilter implements Filter {
   private boolean _logAuthenticatorExceptions;
 
   private AuthenticatorChain authenticatorChain;
+  private Set<String> excludedPathPatterns;
 
-  @Override
-  public void init(FilterConfig filterConfig) throws ServletException {
-    SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
+  @PostConstruct
+  public void init() {
     buildAuthenticatorChain();
+    initializeExcludedPaths();
     log.info("AuthenticationFilter initialized.");
   }
 
+  private void initializeExcludedPaths() {
+    excludedPathPatterns = new HashSet<>();
+    String excludedPaths = configurationProvider.getAuthentication().getExcludedPaths();
+    if (StringUtils.hasText(excludedPaths)) {
+      excludedPathPatterns.addAll(
+          Arrays.stream(excludedPaths.split(","))
+              .map(String::trim)
+              .filter(path -> !path.isBlank())
+              .toList());
+    }
+  }
+
   @Override
-  public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-      throws IOException, ServletException {
-    AuthenticationRequest context = buildAuthContext((HttpServletRequest) request);
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
+    AuthenticationRequest context = buildAuthContext(request);
     Authentication authentication = null;
     try {
       authentication = this.authenticatorChain.authenticate(context, _logAuthenticatorExceptions);
@@ -98,11 +117,12 @@ public class AuthenticationFilter implements Filter {
     }
 
     if (authentication != null) {
+      String actorUrnStr = authentication.getActor().toUrnStr();
       // Successfully authenticated.
       log.debug(
-          String.format(
-              "Successfully authenticated request for Actor with type: %s, id: %s",
-              authentication.getActor().getType(), authentication.getActor().getId()));
+          "Successfully authenticated request for Actor with type: {}, id: {}",
+          authentication.getActor().getType(),
+          authentication.getActor().getId());
       AuthenticationContext.setAuthentication(authentication);
       chain.doFilter(request, response);
     } else {
@@ -110,10 +130,40 @@ public class AuthenticationFilter implements Filter {
       log.debug(
           "Failed to authenticate request. Received 'null' Authentication value from authenticator chain.");
       ((HttpServletResponse) response)
-          .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
+          .sendError(
+              HttpServletResponse.SC_UNAUTHORIZED,
+              "Unauthorized to perform this action due to expired auth.");
       return;
     }
     AuthenticationContext.remove();
+  }
+
+  @VisibleForTesting
+  @Override
+  public boolean shouldNotFilter(HttpServletRequest request) {
+    String path = request.getServletPath();
+    if (path == null) {
+      return false;
+    }
+
+    // Check if the path matches any of the excluded patterns
+    boolean shouldExclude =
+        excludedPathPatterns.stream()
+            .anyMatch(
+                pattern -> {
+                  if (pattern.endsWith("/*")) {
+                    // Handle wildcard patterns
+                    String basePattern = pattern.substring(0, pattern.length() - 2);
+                    return path.startsWith(basePattern);
+                  }
+                  return path.equals(pattern);
+                });
+
+    if (shouldExclude) {
+      log.debug("Skipping authentication for excluded path: {}", path);
+    }
+
+    return shouldExclude;
   }
 
   @Override
