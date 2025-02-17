@@ -110,6 +110,14 @@ class MLflowConfig(EnvConfigMixin):
         default="_",
         description="A string which separates model name from its version (e.g. model_1 or model-1)",
     )
+    base_external_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base URL to use when constructing external URLs to MLflow."
+            " If not set, tracking_uri is used if it's an HTTP URL."
+            " If neither is set, external URLs are not generated."
+        ),
+    )
 
 
 @dataclass
@@ -183,6 +191,9 @@ class MLflowSource(Source):
         yield from self._get_ml_model_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Create tags for each Stage in MLflow Model Registry.
+        """
         for stage_info in self.registered_model_stages_info:
             tag_urn = self._make_stage_tag_urn(stage_info.name)
             tag_properties = TagPropertiesClass(
@@ -202,6 +213,9 @@ class MLflowSource(Source):
         return f"{self.platform}_{stage_name.lower()}"
 
     def _create_workunit(self, urn: str, aspect: Any) -> MetadataWorkUnit:
+        """
+        Utility to create an MCP workunit.
+        """
         return MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=aspect,
@@ -380,6 +394,9 @@ class MLflowSource(Source):
         return workunits
 
     def _get_mlflow_registered_models(self) -> Iterable[RegisteredModel]:
+        """
+        Get all Registered Models in MLflow Model Registry.
+        """
         registered_models: Iterable[RegisteredModel] = (
             self._traverse_mlflow_search_func(
                 search_func=self.client.search_registered_models,
@@ -405,6 +422,9 @@ class MLflowSource(Source):
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
+        """
+        Utility to traverse an MLflow search_* functions which return PagedList.
+        """
         next_page_token = None
         while True:
             paged_list = search_func(page_token=next_page_token, **kwargs)
@@ -424,6 +444,9 @@ class MLflowSource(Source):
         self,
         registered_model: RegisteredModel,
     ) -> MetadataWorkUnit:
+        """
+        Generate an MLModelGroup workunit for an MLflow Registered Model.
+        """
         ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
         ml_model_group_properties = MLModelGroupPropertiesClass(
             customProperties=registered_model.tags,
@@ -457,6 +480,9 @@ class MLflowSource(Source):
         self,
         registered_model: RegisteredModel,
     ) -> Iterable[ModelVersion]:
+        """
+        Get all Model Versions for each Registered Model.
+        """
         filter_string = f"name = '{registered_model.name}'"
         model_versions: Iterable[ModelVersion] = self._traverse_mlflow_search_func(
             search_func=self.client.search_model_versions,
@@ -475,6 +501,9 @@ class MLflowSource(Source):
         return list(model_versions)
 
     def _get_mlflow_run(self, model_version: ModelVersion) -> Union[None, Run]:
+        """
+        Get a Run associated with a Model Version. Some MVs may exist without Run.
+        """
         if model_version.run_id:
             run = self.client.get_run(model_version.run_id)
             return run
@@ -494,6 +523,9 @@ class MLflowSource(Source):
             self.depends_on = depends_on
 
     def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Traverse each Registered Model in Model Registry and generate a corresponding workunit.
+        """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
             yield self._get_ml_group_workunit(registered_model)
@@ -596,6 +628,11 @@ class MLflowSource(Source):
         model_version: ModelVersion,
         run: Union[None, Run],
     ) -> MetadataWorkUnit:
+        """
+        Generate an MLModel workunit for an MLflow Model Version.
+        Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
+        If a model was registered without an associated Run then hyperparams and metrics are not available.
+        """
         ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
         ml_model_urn = self._make_ml_model_urn(model_version)
 
@@ -652,6 +689,27 @@ class MLflowSource(Source):
     ) -> Union[None, str]:
         base_uri = self.client.tracking_uri
         if base_uri.startswith("http"):
+            return f"{base_uri.rstrip('/')}/#/models/{model_version.name}/versions/{model_version.version}"
+        else:
+            return None
+
+    def _get_base_external_url_from_tracking_uri(self) -> Optional[str]:
+        if isinstance(
+            self.client.tracking_uri, str
+        ) and self.client.tracking_uri.startswith("http"):
+            return self.client.tracking_uri
+        else:
+            return None
+
+    def _make_external_url(self, model_version: ModelVersion) -> Optional[str]:
+        """
+        Generate URL for a Model Version to MLflow UI.
+        """
+        base_uri = (
+            self.config.base_external_url
+            or self._get_base_external_url_from_tracking_uri()
+        )
+        if base_uri:
             return f"{base_uri.rstrip('/')}/#/models/{model_version.name}/versions/{model_version.version}"
         else:
             return None
