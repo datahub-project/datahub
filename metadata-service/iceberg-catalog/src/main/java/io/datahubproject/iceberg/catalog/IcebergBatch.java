@@ -55,9 +55,10 @@ public class IcebergBatch {
     }
 
     public void platformInstance(String platformInstanceName) {
-      DataPlatformInstance platformInstance = new DataPlatformInstance();
-      platformInstance.setPlatform(platformUrn());
-      platformInstance.setInstance(platformInstanceUrn(platformInstanceName));
+      DataPlatformInstance platformInstance =
+          new DataPlatformInstance()
+              .setPlatform(platformUrn())
+              .setInstance(platformInstanceUrn(platformInstanceName));
 
       aspect(DATA_PLATFORM_INSTANCE_ASPECT_NAME, platformInstance);
     }
@@ -125,9 +126,11 @@ public class IcebergBatch {
   }
 
   public void softDeleteEntity(Urn urn, String entityName) {
+    // UPSERT instead of UPDATE here, for backward compatibility
+    // i.e. if there are existing datasets without Status aspect
     mcps.add(
         newMcp(
-            urn, entityName, STATUS_ASPECT_NAME, new Status().setRemoved(true), ChangeType.UPDATE));
+            urn, entityName, STATUS_ASPECT_NAME, new Status().setRemoved(true), ChangeType.UPSERT));
   }
 
   private static MetadataChangeProposal newMcp(
@@ -151,5 +154,10 @@ public class IcebergBatch {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
         .build();
+  }
+
+  @VisibleForTesting
+  List<MetadataChangeProposal> getMcps() {
+    return mcps;
   }
 }

@@ -3,10 +3,8 @@ package io.datahubproject.iceberg.catalog;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.Constants;
 import java.util.Map;
 import java.util.Set;
 import org.apache.iceberg.TableMetadata;
@@ -25,14 +23,6 @@ public class UtilsTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-  }
-
-  @Test
-  public void testAuditStamp() {
-    AuditStamp stamp = Utils.auditStamp();
-    assertNotNull(stamp);
-    assertEquals(stamp.getActor().toString(), Constants.SYSTEM_ACTOR);
-    assertTrue(stamp.getTime() > 0);
   }
 
   @Test

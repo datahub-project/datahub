@@ -3,6 +3,7 @@ package io.datahubproject.iceberg.catalog;
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
@@ -167,7 +168,7 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
   public void createNamespace(Namespace namespace, Map<String, String> properties) {
     Urn containerUrn = containerUrn(platformInstance(), namespace);
 
-    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
     IcebergBatch.EntityBatch containerBatch =
         icebergBatch.createEntity(
             containerUrn,
@@ -309,7 +310,7 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     properties.putAll(request.updates());
     properties.keySet().removeAll(request.removals());
 
-    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
     Urn containerUrn = containerUrn(platformInstance(), namespace);
     icebergBatch
         .updateEntity(containerUrn, CONTAINER_ENTITY_NAME)
@@ -324,6 +325,11 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
   public void close() throws IOException {
     super.close();
     this.closeableGroup.close();
+  }
+
+  @VisibleForTesting
+  IcebergBatch newIcebergBatch(OperationContext operationContext) {
+    return new IcebergBatch(operationContext);
   }
 
   private void ingestBatch(IcebergBatch icebergBatch) {

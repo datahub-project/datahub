@@ -1,7 +1,6 @@
 package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
 import static io.datahubproject.iceberg.catalog.Utils.fullTableName;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,7 +8,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -17,15 +15,12 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringMap;
 import com.linkedin.dataplatforminstance.IcebergWarehouseInfo;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.platformresource.PlatformResourceInfo;
 import com.linkedin.secret.DataHubSecretValue;
 import com.linkedin.util.Pair;
@@ -38,7 +33,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -55,6 +49,9 @@ public class DataHubIcebergWarehouseTest {
 
   @Mock private RecordTemplate warehouseAspect;
 
+  @Mock private IcebergBatch mockIcebergBatch;
+  @Mock private AspectsBatch mockAspectsBatch;
+
   private final Urn testUser = new CorpuserUrn("urn:li:corpuser:testUser");
 
   @BeforeMethod
@@ -63,6 +60,8 @@ public class DataHubIcebergWarehouseTest {
     ActorContext actorContext = mock(ActorContext.class);
     when(operationContext.getActorContext()).thenReturn(actorContext);
     when(actorContext.getActorUrn()).thenReturn(testUser);
+
+    when(mockIcebergBatch.asAspectsBatch()).thenReturn(mockAspectsBatch);
   }
 
   @Test
@@ -197,13 +196,6 @@ public class DataHubIcebergWarehouseTest {
     PlatformResourceInfo resourceInfo = new PlatformResourceInfo();
     resourceInfo.setPrimaryKey(expectedDatasetUrn.toString());
 
-    when(entityService.getLatestAspect(
-            any(),
-            any(),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
-
     when(entityService.getLatestAspects(
             same(operationContext),
             eq(Set.of(resourceUrn)),
@@ -212,8 +204,17 @@ public class DataHubIcebergWarehouseTest {
         .thenReturn(Map.of(resourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
 
     DataHubIcebergWarehouse warehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
     Optional<DatasetUrn> result = warehouse.getDatasetUrn(tableId);
 
@@ -237,13 +238,6 @@ public class DataHubIcebergWarehouseTest {
     IcebergCatalogInfo expectedMetadata =
         new IcebergCatalogInfo().setMetadataPointer("s3://bucket/path");
 
-    when(entityService.getLatestAspect(
-            any(),
-            any(),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
-
     // Mock getDatasetUrn behavior
     PlatformResourceInfo resourceInfo = new PlatformResourceInfo();
     resourceInfo.setPrimaryKey(datasetUrn.toString());
@@ -262,8 +256,17 @@ public class DataHubIcebergWarehouseTest {
         .thenReturn(Map.of(datasetUrn, List.of(expectedMetadata)));
 
     DataHubIcebergWarehouse warehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
     Optional<IcebergCatalogInfo> result = warehouse.getIcebergMetadata(tableId);
 
@@ -286,13 +289,6 @@ public class DataHubIcebergWarehouseTest {
 
     EnvelopedAspect expectedEnvelopedAspect = mock(EnvelopedAspect.class);
 
-    when(entityService.getLatestAspect(
-            any(),
-            any(),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
-
     // Mock getDatasetUrn behavior
     PlatformResourceInfo resourceInfo = new PlatformResourceInfo();
     resourceInfo.setPrimaryKey(datasetUrn.toString());
@@ -311,8 +307,17 @@ public class DataHubIcebergWarehouseTest {
         .thenReturn(Map.of(datasetUrn, List.of(expectedEnvelopedAspect)));
 
     DataHubIcebergWarehouse warehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
     Pair<EnvelopedAspect, DatasetUrn> result = warehouse.getIcebergMetadataEnveloped(tableId);
 
@@ -333,12 +338,6 @@ public class DataHubIcebergWarehouseTest {
             "uuid",
             FabricType.PROD);
 
-    when(entityService.getLatestAspect(
-            any(),
-            any(),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
     when(entityService.exists(eq(operationContext), eq(resourceUrn))).thenReturn(true);
 
     // Mock getDatasetUrn behavior
@@ -351,52 +350,28 @@ public class DataHubIcebergWarehouseTest {
             eq(false)))
         .thenReturn(Map.of(resourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
 
-    List<MetadataChangeProposal> expectedMcps = new ArrayList<>();
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(resourceUrn)
-            .setEntityType(PLATFORM_RESOURCE_ENTITY_NAME)
-            .setAspectName(STATUS_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(serializeAspect(new Status().setRemoved(true)))
-            .setChangeType(ChangeType.UPDATE));
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(datasetUrn)
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(STATUS_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(serializeAspect(new Status().setRemoved(true)))
-            .setChangeType(ChangeType.UPDATE));
-
-    AspectsBatchImpl markerBatch = mock(AspectsBatchImpl.class);
-
-    when(entityService.ingestProposal(same(operationContext), same(markerBatch), eq(false)))
+    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
         .thenReturn(List.of());
 
-    AspectsBatchImpl.AspectsBatchImplBuilder builder =
-        mock(AspectsBatchImpl.AspectsBatchImplBuilder.class);
-    when(builder.mcps(eq(expectedMcps), any(AuditStamp.class), any())).thenReturn(builder);
-    when(builder.build()).thenReturn(markerBatch);
+    DataHubIcebergWarehouse warehouse =
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
-    try (MockedStatic<AspectsBatchImpl> stsClientMockedStatic =
-        mockStatic(AspectsBatchImpl.class)) {
-      stsClientMockedStatic.when(AspectsBatchImpl::builder).thenReturn(builder);
+    boolean result = warehouse.deleteDataset(tableId);
+    assertTrue(result);
 
-      DataHubIcebergWarehouse warehouse =
-          DataHubIcebergWarehouse.of(
-              platformInstance, entityService, secretService, operationContext);
-
-      boolean result = warehouse.deleteDataset(tableId);
-      assertTrue(result);
-    }
-
-    verify(builder).mcps(eq(expectedMcps), any(AuditStamp.class), any());
-    verify(entityService).deleteUrn(eq(operationContext), eq(resourceUrn));
-    verify(entityService).deleteUrn(eq(operationContext), eq(datasetUrn));
-    verify(entityService).ingestProposal(same(operationContext), same(markerBatch), eq(false));
+    verify(mockIcebergBatch).softDeleteEntity(eq(resourceUrn), eq(PLATFORM_RESOURCE_ENTITY_NAME));
+    verify(mockIcebergBatch).softDeleteEntity(eq(datasetUrn), eq(DATASET_ENTITY_NAME));
+    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
   }
 
   @Test
@@ -404,14 +379,18 @@ public class DataHubIcebergWarehouseTest {
     String platformInstance = "test-platform";
     TableIdentifier tableId = TableIdentifier.of("db", "table");
 
-    when(entityService.getLatestAspect(any(), any(), eq("icebergWarehouseInfo")))
-        .thenReturn(warehouseAspect);
-    IcebergWarehouseInfo warehouse = new IcebergWarehouseInfo().setEnv(FabricType.PROD);
-    when(warehouseAspect.data()).thenReturn(warehouse.data());
-
-    DataHubIcebergWarehouse icebergWarehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+    DataHubIcebergWarehouse warehouse =
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo().setEnv(FabricType.PROD),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
     Urn resourceUrn =
         Urn.createFromString("urn:li:platformResource:iceberg.test-platform.db.table");
@@ -423,20 +402,22 @@ public class DataHubIcebergWarehouseTest {
             any(PlatformResourceInfo.class)))
         .thenReturn(null);
 
-    DatasetUrn result = icebergWarehouse.createDataset(tableId, false, icebergBatch);
+    DatasetUrn result = warehouse.createDataset(tableId, false, icebergBatch);
 
     assertNotNull(result);
     assertEquals(result.getPlatformEntity(), Urn.createFromString("urn:li:dataPlatform:iceberg"));
     assertEquals(result.getOriginEntity(), FabricType.PROD);
     assertTrue(result.getDatasetNameEntity().startsWith(platformInstance + "."));
 
-    // TODO validate platformResourceInfo
     verify(icebergBatch)
         .createEntity(
             eq(resourceUrn),
             eq(PLATFORM_RESOURCE_ENTITY_NAME),
             eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME),
-            any(PlatformResourceInfo.class));
+            eq(
+                new PlatformResourceInfo()
+                    .setPrimaryKey(result.toString())
+                    .setResourceType("icebergTable")));
   }
 
   @Test
@@ -454,13 +435,6 @@ public class DataHubIcebergWarehouseTest {
             "test-dataset",
             FabricType.PROD);
 
-    when(entityService.getLatestAspect(
-            any(),
-            any(),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
-
     // Mock getDatasetUrn behavior for source table
 
     PlatformResourceInfo resourceInfo =
@@ -476,71 +450,44 @@ public class DataHubIcebergWarehouseTest {
         .thenReturn(Map.of(fromResourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
 
     DataHubIcebergWarehouse warehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
-    List<MetadataChangeProposal> expectedMcps = new ArrayList<>();
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(fromResourceUrn)
-            .setEntityType(PLATFORM_RESOURCE_ENTITY_NAME)
-            .setAspectName(STATUS_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(serializeAspect(new Status().setRemoved(true)))
-            .setChangeType(ChangeType.UPDATE));
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(toResourceUrn)
-            .setEntityType(PLATFORM_RESOURCE_ENTITY_NAME)
-            .setAspectName(PLATFORM_RESOURCE_INFO_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(serializeAspect(resourceInfo))
-            .setChangeType(ChangeType.CREATE_ENTITY));
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(toResourceUrn)
-            .setEntityType(PLATFORM_RESOURCE_ENTITY_NAME)
-            .setAspectName(STATUS_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(serializeAspect(new Status().setRemoved(false)))
-            .setChangeType(ChangeType.CREATE));
-    expectedMcps.add(
-        new MetadataChangeProposal()
-            .setEntityUrn(existingDatasetUrn)
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
-            .setHeaders(
-                new StringMap(Map.of(SYNC_INDEX_UPDATE_HEADER_NAME, Boolean.toString(true))))
-            .setAspect(
-                serializeAspect(
-                    new DatasetProperties()
-                        .setName(toTableId.name())
-                        .setQualifiedName(fullTableName(platformInstance, toTableId))))
-            .setChangeType(ChangeType.UPDATE));
+    IcebergBatch.EntityBatch datasetUpdateBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.updateEntity(eq(existingDatasetUrn), eq(DATASET_ENTITY_NAME)))
+        .thenReturn(datasetUpdateBatch);
 
-    // no container aspect as rename is within same namespace
-    AspectsBatchImpl markerBatch = mock(AspectsBatchImpl.class);
-
-    when(entityService.ingestProposal(same(operationContext), same(markerBatch), eq(false)))
+    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
         .thenReturn(List.of());
 
-    AspectsBatchImpl.AspectsBatchImplBuilder builder =
-        mock(AspectsBatchImpl.AspectsBatchImplBuilder.class);
+    warehouse.renameDataset(fromTableId, toTableId, false);
 
-    when(builder.mcps(eq(expectedMcps), any(AuditStamp.class), any())).thenReturn(builder);
-    when(builder.build()).thenReturn(markerBatch);
+    verify(mockIcebergBatch)
+        .softDeleteEntity(eq(fromResourceUrn), eq(PLATFORM_RESOURCE_ENTITY_NAME));
+    verify(mockIcebergBatch)
+        .createEntity(
+            eq(toResourceUrn),
+            eq(PLATFORM_RESOURCE_ENTITY_NAME),
+            eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME),
+            eq(resourceInfo));
+    verify(datasetUpdateBatch)
+        .aspect(
+            DATASET_PROPERTIES_ASPECT_NAME,
+            new DatasetProperties()
+                .setName(toTableId.name())
+                .setQualifiedName(fullTableName(platformInstance, toTableId)));
+    // no container aspect as rename is within same namespace
 
-    try (MockedStatic<AspectsBatchImpl> stsClientMockedStatic =
-        mockStatic(AspectsBatchImpl.class)) {
-      stsClientMockedStatic.when(AspectsBatchImpl::builder).thenReturn(builder);
-      warehouse.renameDataset(fromTableId, toTableId, false);
-    }
-
-    verify(builder).mcps(eq(expectedMcps), any(AuditStamp.class), any());
-    verify(entityService).ingestProposal(same(operationContext), same(markerBatch), eq(false));
+    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
     verify(entityService).deleteUrn(eq(operationContext), eq(fromResourceUrn));
   }
 
@@ -549,18 +496,19 @@ public class DataHubIcebergWarehouseTest {
     String platformInstance = "test-platform";
     TableIdentifier fromTableId = TableIdentifier.of("db", "oldTable");
     TableIdentifier toTableId = TableIdentifier.of("db", "newTable");
-    AuditStamp auditStamp =
-        new AuditStamp()
-            .setTime(System.currentTimeMillis())
-            .setActor(Urn.createFromString("urn:li:corpuser:testUser"));
-
-    when(entityService.getLatestAspect(any(), any(), eq("icebergWarehouseInfo")))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(new IcebergWarehouseInfo().data());
 
     DataHubIcebergWarehouse warehouse =
-        DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, operationContext);
+        new DataHubIcebergWarehouse(
+            platformInstance,
+            new IcebergWarehouseInfo(),
+            entityService,
+            secretService,
+            operationContext) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
 
     // by default mock to return null on entity-service calls, so dataset should not be found
     warehouse.renameDataset(fromTableId, toTableId, false);

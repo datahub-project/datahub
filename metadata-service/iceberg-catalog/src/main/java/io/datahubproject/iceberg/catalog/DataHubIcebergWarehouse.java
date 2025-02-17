@@ -3,6 +3,7 @@ package io.datahubproject.iceberg.catalog;
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
@@ -47,7 +48,8 @@ public class DataHubIcebergWarehouse {
 
   @Getter private final String platformInstance;
 
-  private DataHubIcebergWarehouse(
+  @VisibleForTesting
+  DataHubIcebergWarehouse(
       String platformInstance,
       IcebergWarehouseInfo icebergWarehouse,
       EntityService entityService,
@@ -254,7 +256,7 @@ public class DataHubIcebergWarehouse {
       return false;
     }
 
-    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
     icebergBatch.softDeleteEntity(resourceUrn, PLATFORM_RESOURCE_ENTITY_NAME);
     icebergBatch.softDeleteEntity(datasetUrn.get(), DATASET_ENTITY_NAME);
 
@@ -295,7 +297,7 @@ public class DataHubIcebergWarehouse {
 
     DatasetUrn datasetUrn = optDatasetUrn.get();
 
-    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
     icebergBatch.softDeleteEntity(resourceUrn(fromTableId), PLATFORM_RESOURCE_ENTITY_NAME);
     createResource(datasetUrn, toTableId, view, icebergBatch);
 
@@ -372,5 +374,10 @@ public class DataHubIcebergWarehouse {
 
   private String tableName(TableIdentifier tableIdentifier) {
     return fullTableName(platformInstance, tableIdentifier);
+  }
+
+  @VisibleForTesting
+  IcebergBatch newIcebergBatch(OperationContext operationContext) {
+    return new IcebergBatch(operationContext);
   }
 }

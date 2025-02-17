@@ -6,6 +6,7 @@ import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_
 import static io.datahubproject.iceberg.catalog.Utils.*;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
@@ -133,7 +134,7 @@ abstract class TableOrViewOpsDelegate<M> {
             Set.of(metadata.location()));
     String newMetadataLocation = metadataWriter.get();
 
-    IcebergBatch icebergBatch = new IcebergBatch(operationContext);
+    IcebergBatch icebergBatch = newIcebergBatch(operationContext);
 
     if (creation) {
       try {
@@ -201,8 +202,7 @@ abstract class TableOrViewOpsDelegate<M> {
         // condition
         throw new AlreadyExistsException("%s already exists: %s", capitalize(type()), name());
       } else {
-        throw new CommitFailedException(
-            "Cannot commit to %s %s: stale metadata", capitalize(type()), name());
+        throw new CommitFailedException("Cannot commit to %s %s: stale metadata", type(), name());
       }
     }
 
@@ -217,7 +217,8 @@ abstract class TableOrViewOpsDelegate<M> {
             .setAspectName(DATASET_PROFILE_ASPECT_NAME)
             .setAspect(serializeAspect(datasetProfile))
             .setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp(), true);
+    entityService.ingestProposal(
+        operationContext, datasetProfileMcp, icebergBatch.getAuditStamp(), true);
   }
 
   protected abstract DatasetProfile getDataSetProfile(M metadata);
@@ -232,6 +233,12 @@ abstract class TableOrViewOpsDelegate<M> {
 
   private String platformInstance() {
     return warehouse.getPlatformInstance();
+  }
+
+  // override-able for testing
+  @VisibleForTesting
+  IcebergBatch newIcebergBatch(OperationContext operationContext) {
+    return new IcebergBatch(operationContext);
   }
 
   abstract boolean isView();

@@ -2,10 +2,8 @@ package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.net.URLEncoder;
@@ -23,13 +21,6 @@ public class Utils {
   public static final String PLATFORM_NAME = "iceberg";
 
   private static final String NAMESPACE_CONTAINER_PREFIX = "urn:li:container:iceberg__";
-
-  @SneakyThrows
-  public static AuditStamp auditStamp() {
-    return new AuditStamp()
-        .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-        .setTime(System.currentTimeMillis());
-  }
 
   public static DataPlatformUrn platformUrn() {
     return new DataPlatformUrn(PLATFORM_NAME);
