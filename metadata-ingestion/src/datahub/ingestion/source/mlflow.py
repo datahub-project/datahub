@@ -38,7 +38,6 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     GlobalTagsClass,
-    MetadataChangeProposalClass,
     MLHyperParamClass,
     MLMetricClass,
     MLModelGroupPropertiesClass,
@@ -74,7 +73,7 @@ class Container:
 
     def generate_mcp(
         self,
-    ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         container_urn = self.key.as_urn()
 
         container_subtype = SubTypesClass(typeNames=[self.subtype])
@@ -245,17 +244,17 @@ class MLflowSource(Source):
         workunits = [mcp.as_workunit() for mcp in experiment_container.generate_mcp()]
         return workunits
 
-    def _get_run_custom_properties(self, run: Run):
-        custom_props = {}
+    def _get_run_custom_properties(self, run: Run) -> Dict[str, str]:
+        custom_props: dict[str, str] = {}
         custom_props.update(getattr(run, "tags", {}) or {})
         return custom_props
 
-    def _get_run_metrics(self, run: Run):
+    def _get_run_metrics(self, run: Run) -> List[MLMetricClass]:
         return [
             MLMetricClass(name=k, value=str(v)) for k, v in run.data.metrics.items()
         ]
 
-    def _get_run_params(self, run: Run):
+    def _get_run_params(self, run: Run) -> List[MLHyperParamClass]:
         return [
             MLHyperParamClass(name=k, value=str(v)) for k, v in run.data.params.items()
         ]
@@ -296,7 +295,7 @@ class MLflowSource(Source):
         run_custom_props = self._get_run_custom_properties(run)
         created_time = run.info.start_time or int(time.time() * 1000)
         created_actor = (
-            f"urn:li:platformResource:{run.info.user_id}" if run.info.user_id else None
+            f"urn:li:platformResource:{run.info.user_id}" if run.info.user_id else ""
         )
 
         workunits.append(
@@ -394,8 +393,8 @@ class MLflowSource(Source):
         )
         return experiments
 
-    def _get_mlflow_runs_from_experiment(self, experiment: Experiment) -> List[Run]:
-        runs: List[Run] = self._traverse_mlflow_search_func(
+    def _get_mlflow_runs_from_experiment(self, experiment: Experiment) -> Iterable[Run]:
+        runs: Iterable[Run] = self._traverse_mlflow_search_func(
             search_func=self.client.search_runs,
             experiment_ids=[experiment.experiment_id],
         )
@@ -569,7 +568,7 @@ class MLflowSource(Source):
         self,
         model_version: ModelVersion,
         version_set_urn: VersionSetUrn,
-    ) -> List[MetadataWorkUnit]:
+    ) -> MetadataWorkUnit:
         ml_model_urn = self._make_ml_model_urn(model_version)
 
         # get mlmodel name from ml model urn
@@ -687,6 +686,6 @@ class MLflowSource(Source):
         return wu
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":
         config = MLflowConfig.parse_obj(config_dict)
         return cls(ctx, config)
