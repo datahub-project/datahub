@@ -469,9 +469,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
-                        message="schema-parse",
+                        message="Missed schema because of parsing issues",
                         context=str(schema),
-                        title=f"Error parsing schema {schema}",
+                        title="Error parsing schema",
                         exc=e,
                     )
                     continue
