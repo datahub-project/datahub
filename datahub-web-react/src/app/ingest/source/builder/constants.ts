@@ -39,7 +39,7 @@ import sacLogo from '../../../../images/saclogo.svg';
 import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
 import neo4j from '../../../../images/neo4j.png';
-import grafana from '../../../../images/grafana.png';
+import grafanaLogo from '../../../../images/grafana.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
