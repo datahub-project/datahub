@@ -245,7 +245,7 @@ class MLflowSource(Source):
         return workunits
 
     def _get_run_custom_properties(self, run: Run) -> Dict[str, str]:
-        custom_props: dict[str, str] = {}
+        custom_props: Dict[str, str] = {}
         custom_props.update(getattr(run, "tags", {}) or {})
         return custom_props
 
