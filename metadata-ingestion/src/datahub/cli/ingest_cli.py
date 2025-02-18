@@ -14,7 +14,6 @@ from tabulate import tabulate
 
 from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.cli_utils import S3Path
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
@@ -350,7 +349,9 @@ def parse_restli_response(response):
 
 
 @ingest.command()
-@click.argument("path", type=S3Path(exists=True))
+@click.argument(
+    "path", type=click.Path(exists=False)
+)  # exists=False since it only supports local filesystems
 def mcps(path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.
