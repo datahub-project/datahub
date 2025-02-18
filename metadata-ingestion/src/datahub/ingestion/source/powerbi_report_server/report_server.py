@@ -28,7 +28,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -44,6 +44,7 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -149,13 +150,10 @@ def get_response_dict(response: requests.Response, error_message: str) -> dict:
     return result_dict
 
 
-class PowerBiReportServerAPI(StatefulIngestionSourceBase):
+class PowerBiReportServerAPI:
     # API endpoints of PowerBI Report Server to fetch reports, datasets
 
-    def __init__(
-        self, config: PowerBiReportServerAPIConfig, ctx: PipelineContext
-    ) -> None:
-        super().__init__(config, ctx)
+    def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
             f"{self.__config.workstation_name}\\{self.__config.username}",
@@ -490,7 +488,7 @@ class Mapper:
 
 
 @dataclass
-class PowerBiReportServerDashboardSourceReport(SourceReport):
+class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
     scanned_report: int = 0
     filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
@@ -505,7 +503,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
-class PowerBiReportServerDashboardSource(Source):
+class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
     Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
     It extracts the following:
@@ -535,11 +533,12 @@ class PowerBiReportServerDashboardSource(Source):
     def __init__(
         self, config: PowerBiReportServerDashboardSourceConfig, ctx: PipelineContext
     ):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
+        self.ctx = ctx
         self.report = PowerBiReportServerDashboardSourceReport()
-        self.auth = PowerBiReportServerAPI(self.source_config, ctx).get_auth_credentials
-        self.powerbi_client = PowerBiReportServerAPI(self.source_config, ctx)
+        self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
+        self.powerbi_client = PowerBiReportServerAPI(self.source_config)
         self.mapper = Mapper(config)
 
     @classmethod
