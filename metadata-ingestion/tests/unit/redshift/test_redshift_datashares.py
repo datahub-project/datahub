@@ -4,12 +4,14 @@ from unittest.mock import patch
 
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
+    PlatformResourceKey,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.datashares import (
     InboundDatashare,
     OutboundDatashare,
+    OutboundSharePlatformResource,
     RedshiftDatasharesHelper,
     RedshiftTable,
 )
@@ -68,21 +70,22 @@ class TestDatasharesHelper:
 
         # Mock PlatformResource.search_by_key
         def mock_search_by_key(*args, **kwargs):
-            resource = PlatformResource(id="xyz")
-            resource.resource_info = type(
-                "ResourceInfo",
-                (),
-                {
-                    "resource_type": "OUTBOUND_DATASHARE",
-                    "value": {
-                        "namespace": "producer_namespace",
-                        "platform_instance": "producer_instance",
-                        "env": "PROD",
-                        "source_database": "producer_db",
-                        "share_name": "test_share",
-                    },
-                },
-            )()
+            resource = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance="producer_instance",
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="producer_namespace.some_share",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="producer_namespace",
+                    platform_instance="producer_instance",
+                    env="PROD",
+                    source_database="producer_db",
+                    share_name="test_share",
+                ),
+            )
+
             return [resource]
 
         with patch.object(PlatformResource, "search_by_key") as mocked_method:
@@ -175,12 +178,12 @@ class TestDatasharesHelper:
         # Assertions
         assert len(result) == 0, "No lineage mappings should be generated"
         assert report.database_created_from_share is True
-        assert len(report.warnings) == 1
+        assert len(report.infos) == 1
         assert (
-            list(report.warnings)[0].title
+            list(report.infos)[0].title
             == "Upstream lineage of inbound datashare will be missing"
         )
-        assert "Missing platform resource" in list(report.warnings)[0].message
+        assert "Missing platform resource" in list(report.infos)[0].message
 
     def test_generate_lineage_malformed_share_platform_resource(self):
         """
@@ -208,20 +211,21 @@ class TestDatasharesHelper:
 
         # Mock PlatformResource.search_by_key to return a resource
         def mock_search_by_key(*args, **kwargs):
-            resource = PlatformResource(id="xyz")
-            resource.resource_info = type(
-                "ResourceInfo",
-                (),
-                {
-                    "resource_type": "OUTBOUND_DATASHARE",
-                    "value": {
-                        "namespace": "producer_namespace",
-                        "platform_instance": "producer_instance",
-                        "env": "PROD",
-                        "outbound_share_name_to_source_database": {},  # Empty dict to simulate missing share
-                    },
+            resource = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance="producer_instance",
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="producer_namespace.some_share",
+                ),
+                value={
+                    "namespace": "producer_namespace",
+                    "platform_instance": "producer_instance",
+                    "env": "PROD",
+                    "outbound_share_name_to_source_database": {},  # Empty dict to simulate missing share
                 },
-            )()
+            )
+
             return [resource]
 
         with patch.object(PlatformResource, "search_by_key") as mocked_method:

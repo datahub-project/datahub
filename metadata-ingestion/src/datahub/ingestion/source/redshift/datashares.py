@@ -132,9 +132,10 @@ class RedshiftDatasharesHelper:
                 ]
             )
         ):
-            self.report.warning(
+            self.report.info(
                 title="Upstream lineage of inbound datashare will be missing",
-                message="Missing platform resource for share. Setup redshift ingestion for namespace if not already done"
+                message="Missing platform resource for share. "
+                "Setup redshift ingestion for namespace if not already done"
                 "If ingestion is setup, check whether ingestion user has permission to share",
                 context=f"Namespace {share.producer_namespace} Share {share.share_name}",
             )
@@ -145,9 +146,13 @@ class RedshiftDatasharesHelper:
         # and type is "OUTBOUND_DATASHARE"
         for resource in resources:
             try:
-                assert resource.resource_info is not None
-                upstream_share = OutboundSharePlatformResource.parse_obj(
-                    resource.resource_info.value
+                # TODO: should this be part of platform resource helper ?
+                assert (
+                    resource.resource_info is not None
+                    and resource.resource_info.value is not None
+                )
+                upstream_share = OutboundSharePlatformResource.parse_raw(
+                    resource.resource_info.value.blob
                 )
                 break
             except Exception as e:

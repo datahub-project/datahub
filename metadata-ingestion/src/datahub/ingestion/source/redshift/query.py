@@ -367,7 +367,7 @@ ORDER BY target_schema, target_table, filename
         return """SELECT \
             share_type, \
             share_name, \
-            producer_namespace, \
+            trim(producer_namespace) as producer_namespace, \
             source_database \
         FROM svv_datashares
         WHERE share_type='OUTBOUND'\
@@ -378,7 +378,7 @@ ORDER BY target_schema, target_table, filename
         return f"""SELECT \
             share_type, \
             share_name, \
-            producer_namespace, \
+            trim(producer_namespace) as producer_namespace, \
             consumer_database \
         FROM svv_datashares
         WHERE share_type='INBOUND'
