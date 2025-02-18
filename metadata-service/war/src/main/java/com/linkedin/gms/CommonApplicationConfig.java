@@ -83,7 +83,8 @@ public class CommonApplicationConfig {
                 UriCompliance.from(
                     Set.of(
                         UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
-                        UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING)));
+                        UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING,
+                        UriCompliance.Violation.SUSPICIOUS_PATH_CHARACTERS)));
             // set this for Servlet 6+
             server
                 .getContainedBeans(ServletHandler.class)

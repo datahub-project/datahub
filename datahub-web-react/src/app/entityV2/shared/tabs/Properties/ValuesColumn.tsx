@@ -10,7 +10,7 @@ interface Props {
 
 export default function ValuesColumn({ propertyRow, filterText }: Props) {
     const { values } = propertyRow;
-    const isRichText = propertyRow.dataType?.info.type === StdDataType.RichText;
+    const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
     return (
         <>

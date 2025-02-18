@@ -64,7 +64,7 @@ export default function VersionsPreview({ versionSet }: Props) {
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
             </Header>
             <VersionsWrapper>
-                {versionSet?.versionsSearch?.searchResults.map((result) => (
+                {versionSet?.versionsSearch?.searchResults?.map((result) => (
                     <VersionPreviewRow entity={result.entity} />
                 ))}
             </VersionsWrapper>
@@ -127,7 +127,7 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
         <VersionPreviewEntry isViewing={isViewing}>
             <VersionPreviewHeader>
                 <VersionPill
-                    label={versionProperties?.version.versionTag ?? '<unlabeled>'}
+                    label={versionProperties?.version?.versionTag ?? '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
                 {!!versionProperties?.isLatest && (

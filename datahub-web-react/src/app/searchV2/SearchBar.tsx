@@ -258,7 +258,7 @@ export const SearchBar = ({
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            recommendationData?.listRecommendations?.modules.map((module) => ({
+            recommendationData?.listRecommendations?.modules?.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
