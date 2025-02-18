@@ -94,53 +94,83 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.1)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "text"
+            },
+            "title": "Dashboard Information",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=1",
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "type": "text"
-                        },
-                        "title": "Dashboard Information",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/d/default?viewPanel=1",
-                        "inputs": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
         }
@@ -379,62 +409,92 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.2)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "timeseries",
+                "datasourceType": "postgres",
+                "datasourceUid": "test-postgres",
+                "description": "Response times tracked across different dimensions",
+                "queryCount": "1"
+            },
+            "title": "Response Times by Dimension",
+            "description": "Response times tracked across different dimensions",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)"
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "type": "timeseries",
-                            "datasourceType": "postgres",
-                            "datasourceUid": "test-postgres",
-                            "description": "Response times tracked across different dimensions",
-                            "queryCount": "1"
-                        },
-                        "title": "Response Times by Dimension",
-                        "description": "Response times tracked across different dimensions",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)"
-                            }
-                        ],
-                        "type": "LINE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
         }
@@ -750,62 +810,92 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.4)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "table",
+                "datasourceType": "postgres",
+                "datasourceUid": "test-postgres",
+                "description": "Recent metrics from all sources",
+                "queryCount": "1"
+            },
+            "title": "Recent Metrics",
+            "description": "Recent metrics from all sources",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=4",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)"
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.4)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "type": "table",
-                            "datasourceType": "postgres",
-                            "datasourceUid": "test-postgres",
-                            "description": "Recent metrics from all sources",
-                            "queryCount": "1"
-                        },
-                        "title": "Recent Metrics",
-                        "description": "Recent metrics from all sources",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/d/default?viewPanel=4",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)"
-                            }
-                        ],
-                        "type": "TABLE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
         }
@@ -1097,62 +1187,92 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.5)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "stat",
+                "datasourceType": "postgres",
+                "datasourceUid": "test-postgres",
+                "description": "Total number of metrics collected",
+                "queryCount": "1"
+            },
+            "title": "Total Metrics Count",
+            "description": "Total number of metrics collected",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=5",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)"
+                }
+            ],
+            "type": "TEXT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "type": "stat",
-                            "datasourceType": "postgres",
-                            "datasourceUid": "test-postgres",
-                            "description": "Total number of metrics collected",
-                            "queryCount": "1"
-                        },
-                        "title": "Total Metrics Count",
-                        "description": "Total number of metrics collected",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/d/default?viewPanel=5",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)"
-                            }
-                        ],
-                        "type": "TEXT"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
         }
@@ -1414,62 +1534,92 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(grafana,local-grafana.default.6)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "timeseries",
+                "datasourceType": "prometheus",
+                "datasourceUid": "test-prometheus",
+                "description": "Prometheus system metrics",
+                "queryCount": "2"
+            },
+            "title": "System Metrics",
+            "description": "Prometheus system metrics",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=6",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)"
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "type": "timeseries",
-                            "datasourceType": "prometheus",
-                            "datasourceUid": "test-prometheus",
-                            "description": "Prometheus system metrics",
-                            "queryCount": "2"
-                        },
-                        "title": "System Metrics",
-                        "description": "Prometheus system metrics",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/d/default?viewPanel=6",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)"
-                            }
-                        ],
-                        "type": "LINE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
         }
@@ -1569,81 +1719,122 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(grafana,local-grafana.default)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "timezone": "browser",
+                "schema_version": "36",
+                "version": "1",
+                "refresh": "5s"
+            },
+            "title": "Test Integration Dashboard",
+            "description": "A comprehensive test dashboard for integration testing with various panel types and data sources",
+            "charts": [
+                "urn:li:chart:(grafana,local-grafana.default.1)",
+                "urn:li:chart:(grafana,local-grafana.default.2)",
+                "urn:li:chart:(grafana,local-grafana.default.4)",
+                "urn:li:chart:(grafana,local-grafana.default.5)",
+                "urn:li:chart:(grafana,local-grafana.default.6)"
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "http://localhost:3000/d/default"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:grafana",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                    }
+                    "owner": "urn:li:corpuser:default",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
                 },
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "timezone": "browser",
-                            "schema_version": "36",
-                            "version": "1",
-                            "refresh": "5s"
-                        },
-                        "title": "Test Integration Dashboard",
-                        "description": "A comprehensive test dashboard for integration testing with various panel types and data sources",
-                        "charts": [
-                            "urn:li:chart:(grafana,local-grafana.default.1)",
-                            "urn:li:chart:(grafana,local-grafana.default.2)",
-                            "urn:li:chart:(grafana,local-grafana.default.4)",
-                            "urn:li:chart:(grafana,local-grafana.default.5)",
-                            "urn:li:chart:(grafana,local-grafana.default.6)"
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "dashboardUrl": "http://localhost:3000/d/default"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:default",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:test-tag"
-                            },
-                            {
-                                "tag": "urn:li:tag:integration-test"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "tag": "urn:li:tag:integration-test"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
