@@ -11,6 +11,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.urns._urn_base import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +65,14 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         cleaned_owner_urns: List[str] = []
         for owner_urn in current_owner_urns:
             try:
-                user_id: str = owner_urn.split(_USER_URN_PREFIX)[1]
+                owner: Urn = Urn.from_string(owner_urn)
+                id: str = owner.entity_ids[0]
                 for value in self.config.pattern_for_cleanup:
-                    user_id = re.sub(value, "", user_id)
-                cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
-            except IndexError:
-                try:
-                    group_id: str = owner_urn.split(_GROUP_URN_PREFIX)[1]
-                    for value in self.config.pattern_for_cleanup:
-                        group_id = re.sub(value, "", group_id)
-                    cleaned_owner_urns.append(_GROUP_URN_PREFIX + group_id)[1]
-                except IndexError:
-                    logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
+                    id = re.sub(value, "", id)
+                owner.entity_ids = [id]
+                cleaned_owner_urns.append(owner.urn())
+            except InvalidUrnError:
+                logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
             OwnershipTypeClass.DATAOWNER
