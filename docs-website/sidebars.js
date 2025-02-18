@@ -849,7 +849,7 @@ module.exports = {
       ],
     },
     {
-      "s": [
+      "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
         {
