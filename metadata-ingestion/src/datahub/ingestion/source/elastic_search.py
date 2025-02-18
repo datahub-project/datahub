@@ -37,10 +37,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_config.operation_config import (
@@ -196,7 +196,7 @@ class ElasticToSchemaFieldConverter:
 
 
 @dataclass
-class ElasticsearchSourceReport(StatefulIngestionReport):
+class ElasticsearchSourceReport(StaleEntityRemovalSourceReport):
     index_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 

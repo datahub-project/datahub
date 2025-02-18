@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from dataclasses import field as dataclass_field
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -36,10 +36,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_config.operation_config import (
@@ -161,7 +161,8 @@ class SalesforceConfig(
         return config_clean.remove_trailing_slashes(v)
 
 
-class SalesforceSourceReport(StatefulIngestionReport):
+@dataclass
+class SalesforceSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:

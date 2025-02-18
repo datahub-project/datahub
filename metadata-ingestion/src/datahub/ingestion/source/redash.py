@@ -30,10 +30,10 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -291,7 +291,7 @@ class RedashConfig(
 
 
 @dataclass
-class RedashSourceReport(StatefulIngestionReport):
+class RedashSourceReport(StaleEntityRemovalSourceReport):
     items_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: LossySet[str] = field(default_factory=LossySet)
