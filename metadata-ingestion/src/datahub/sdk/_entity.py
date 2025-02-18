@@ -10,6 +10,8 @@ from datahub.errors import SdkUsageError
 from datahub.metadata.urns import Urn
 from datahub.utilities.urns._urn_base import _SpecificUrn
 
+ExtraAspectsType = Union[None, List[AspectTypeVar]]
+
 
 class Entity:
     __slots__ = ("_urn", "_prev_aspects", "_aspects")
@@ -86,6 +88,12 @@ class Entity:
                 )
             )
         return mcps
+
+    def _set_extra_aspects(self, extra_aspects: ExtraAspectsType) -> None:
+        # TODO: Add validation to ensure that an "extra aspect" does not conflict
+        # with / get overridden by a standard aspect.
+        for aspect in extra_aspects or []:
+            self._set_aspect(aspect)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}('{self.urn}')"
