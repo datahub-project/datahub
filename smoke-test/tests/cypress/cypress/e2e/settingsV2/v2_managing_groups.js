@@ -14,13 +14,14 @@ describe("create and manage group", () => {
   it("add test user", () => {
     cy.visitWithLogin("/settings/identities/users");
     cy.waitTextVisible("Settings");
-    cy.wait(1000);
+    cy.wait(3000);
     cy.clickOptionWithText("Invite Users");
     cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
       const inviteLink = $elem.text();
       cy.visit("/settings/identities/users");
       cy.logoutV2();
       cy.visit(inviteLink);
+      cy.skipIntroducePage();
       cy.enterTextInTestId("email", email);
       cy.enterTextInTestId("name", username);
       cy.enterTextInTestId("password", password);
@@ -29,6 +30,7 @@ describe("create and manage group", () => {
       cy.waitTextVisible("Other").click();
       cy.get("[type=submit]").click();
       cy.contains("Accepted invite!").should("not.exist");
+      cy.wait(5000);
       cy.waitTextVisible(username);
     });
   });
