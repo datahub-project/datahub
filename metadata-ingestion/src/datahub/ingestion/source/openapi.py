@@ -270,7 +270,7 @@ class APISource(Source, ABC):
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return ApiWorkUnit(id=dataset_name, mce=mce)
 
-    def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
+    def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:
         config = self.config
 
         sw_dict = self.config.get_swagger()

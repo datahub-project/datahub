@@ -108,6 +108,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=True,
         description="Enable lineage extraction for stored procedures",
     )
+    include_containers_for_pipelines: bool = Field(
+        default=False,
+        description="Enable the container aspects ingestion for both pipelines and tasks. Note that this feature requires the corresponding model support in the backend, which was introduced in version 0.15.0.1.",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -397,7 +401,7 @@ class SQLServerSource(SQLAlchemySource):
                 data_job.add_property(name=data_name, value=str(data_value))
             yield from self.construct_job_workunits(data_job)
 
-    def loop_stored_procedures(  # noqa: C901
+    def loop_stored_procedures(
         self,
         inspector: Inspector,
         schema: str,
@@ -641,6 +645,12 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
 
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_job.as_container_aspect,
+            ).as_workunit()
+
         if include_lineage:
             yield MetadataChangeProposalWrapper(
                 entityUrn=data_job.urn,
@@ -683,6 +693,13 @@ class SQLServerSource(SQLAlchemySource):
                 entityUrn=data_flow.urn,
                 aspect=data_platform_instance_aspect,
             ).as_workunit()
+
+        if self.config.include_containers_for_pipelines:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_flow.urn,
+                aspect=data_flow.as_container_aspect,
+            ).as_workunit()
+
         # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:

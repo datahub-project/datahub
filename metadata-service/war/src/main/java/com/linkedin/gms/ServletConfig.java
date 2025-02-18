@@ -7,16 +7,21 @@ import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
 import com.datahub.gms.servlet.HealthCheck;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
+import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -129,6 +134,7 @@ public class ServletConfig implements WebMvcConfigurer {
     messageConverters.add(new StringHttpMessageConverter());
     messageConverters.add(new ByteArrayHttpMessageConverter());
     messageConverters.add(new FormHttpMessageConverter());
+    messageConverters.add(createIcebergMessageConverter());
 
     ObjectMapper objectMapper = new ObjectMapper();
     int maxSize =
@@ -143,6 +149,16 @@ public class ServletConfig implements WebMvcConfigurer {
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);
+  }
+
+  private HttpMessageConverter<?> createIcebergMessageConverter() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    MappingJackson2HttpMessageConverter jsonConverter = new IcebergJsonConverter(objectMapper);
+
+    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.setPropertyNamingStrategy(new PropertyNamingStrategies.KebabCaseStrategy());
+    RESTSerializers.registerAll(objectMapper);
+    return jsonConverter;
   }
 
   @Override

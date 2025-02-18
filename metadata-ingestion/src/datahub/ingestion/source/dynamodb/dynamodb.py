@@ -71,6 +71,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 MAX_ITEMS_TO_RETRIEVE = 100
@@ -124,7 +125,7 @@ class DynamoDBConfig(
 
 @dataclass
 class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -172,6 +173,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
+)
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
 )
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
@@ -252,6 +257,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             name=dataset_name,
         )
         dataset_properties = DatasetPropertiesClass(
+            name=table_name,
             tags=[],
             customProperties={
                 "table.arn": table_info["TableArn"],

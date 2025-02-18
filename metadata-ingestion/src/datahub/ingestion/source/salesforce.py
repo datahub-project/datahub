@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -71,6 +72,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +164,7 @@ class SalesforceConfig(
 
 
 class SalesforceSourceReport(StatefulIngestionReport):
-    filtered: List[str] = []
+    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)

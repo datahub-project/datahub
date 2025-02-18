@@ -23,3 +23,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 Each processing thread will open several files/sockets to download manifest files from blob storage. If you experience
 exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
 files (i.e. using `ulimit` in Linux).
+
+## DataHub Iceberg REST Catalog
+DataHub also implements the Iceberg REST Catalog. See [here](docs/iceberg-catalog.md) for more details.

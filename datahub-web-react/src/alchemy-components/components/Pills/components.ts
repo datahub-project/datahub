@@ -1,12 +1,10 @@
 import { spacing } from '@components/theme';
 import styled from 'styled-components';
-
 import { PillStyleProps } from './types';
+
 import { getPillStyle } from './utils';
 
 export const PillContainer = styled.div(
-    // Dynamic styles
-    (props: PillStyleProps) => ({ ...getPillStyle(props as PillStyleProps) }),
     {
         // Base root styles
         display: 'inline-flex',
@@ -22,6 +20,8 @@ export const PillContainer = styled.div(
             cursor: 'not-allowed',
         },
     },
+    // Dynamic styles
+    (props: PillStyleProps) => ({ ...getPillStyle(props) }),
 );
 
 export const PillText = styled.span({
@@ -30,4 +30,6 @@ export const PillText = styled.span({
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    fontSize: '12px',
+    fontWeight: 400,
 });

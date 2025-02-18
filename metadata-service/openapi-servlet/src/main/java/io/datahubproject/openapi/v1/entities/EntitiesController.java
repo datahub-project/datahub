@@ -7,7 +7,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -104,7 +103,7 @@ public class EntitiesController {
           @RequestParam(name = "aspectNames", required = false)
           @Nullable
           String[] aspectNames) {
-    Timer.Context context = MetricUtils.timer("getEntities").time();
+
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded
@@ -167,7 +166,6 @@ public class EntitiesController {
       } else {
         MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
       }
-      context.stop();
     }
   }
 
@@ -263,7 +261,7 @@ public class EntitiesController {
           boolean soft,
       @RequestParam(required = false, name = "async") Boolean async) {
     Throwable exceptionally = null;
-    try (Timer.Context context = MetricUtils.timer("deleteEntities").time()) {
+    try {
       Authentication authentication = AuthenticationContext.getAuthentication();
       String actorUrnStr = authentication.getActor().toUrnStr();
 

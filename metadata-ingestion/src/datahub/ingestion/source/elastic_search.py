@@ -71,6 +71,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ class ElasticToSchemaFieldConverter:
 @dataclass
 class ElasticsearchSourceReport(StatefulIngestionReport):
     index_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_index_scanned(self, index: str) -> None:
         self.index_scanned += 1

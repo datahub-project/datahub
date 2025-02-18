@@ -61,6 +61,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -469,7 +470,7 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 @dataclass
 class NifiSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -510,7 +511,7 @@ class NifiSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -916,7 +917,7 @@ class NifiSource(StatefulIngestionSourceBase):
         if not delete_response.ok:
             logger.error("failed to delete provenance ", provenance_uri)
 
-    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = self.make_flow_urn()

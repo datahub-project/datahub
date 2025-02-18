@@ -63,6 +63,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.lossy_collections import LossyList
 
 LOGGER = logging.getLogger(__name__)
 
@@ -491,7 +492,7 @@ class Mapper:
 @dataclass
 class PowerBiReportServerDashboardSourceReport(SourceReport):
     scanned_report: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_scanned(self, count: int = 1) -> None:
         self.scanned_report += count

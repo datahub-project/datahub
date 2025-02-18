@@ -923,7 +923,7 @@ class LookerExplore:
             tags=cast(List, dict.get("tags")) if dict.get("tags") is not None else [],
         )
 
-    @classmethod  # noqa: C901
+    @classmethod
     def from_api(  # noqa: C901
         cls,
         model: str,
@@ -931,7 +931,7 @@ class LookerExplore:
         client: LookerAPI,
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
-    ) -> Optional["LookerExplore"]:  # noqa: C901
+    ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
@@ -1183,7 +1183,7 @@ class LookerExplore:
         base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
 
-    def _to_metadata_events(  # noqa: C901
+    def _to_metadata_events(
         self,
         config: LookerCommonConfig,
         reporter: SourceReport,
@@ -1673,10 +1673,11 @@ class LookerUserRegistry:
                 primary_key="",
             )
 
-            # Extract user email mappings
+            # Extract user email mappings.
+            # Sort it to ensure the order is deterministic.
             user_email_cache = {
                 user_id: user.email
-                for user_id, user in self._user_cache.items()
+                for user_id, user in sorted(self._user_cache.items())
                 if user.email
             }
 

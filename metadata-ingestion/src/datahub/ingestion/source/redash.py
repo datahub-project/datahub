@@ -2,7 +2,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
@@ -52,7 +52,7 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
@@ -296,9 +296,9 @@ class RedashConfig(
 class RedashSourceReport(StatefulIngestionReport):
     items_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
-    queries_problem_parsing: Set[str] = field(default_factory=set)
-    queries_no_dataset: Set[str] = field(default_factory=set)
-    charts_no_input: Set[str] = field(default_factory=set)
+    queries_problem_parsing: LossySet[str] = field(default_factory=LossySet)
+    queries_no_dataset: LossySet[str] = field(default_factory=LossySet)
+    charts_no_input: LossySet[str] = field(default_factory=LossySet)
     total_queries: Optional[int] = field(
         default=None,
     )

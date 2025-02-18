@@ -27,6 +27,7 @@ from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -162,10 +163,7 @@ class ModeConfig(
     workspace: str = Field(
         description="The Mode workspace name. Find it in Settings > Workspace > Details."
     )
-    default_schema: str = Field(
-        default="public",
-        description="Default schema to use when schema is not provided in an SQL query",
-    )
+    _default_schema = pydantic_removed_field("default_schema")
 
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(
@@ -768,9 +766,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 return platform, database
         else:
             self.report.report_warning(
-                title="Failed to create Data Platform Urn",
-                message=f"Cannot create datasource urn for datasource id: "
-                f"{data_source_id}",
+                title="Unable to construct upstream lineage",
+                message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
+                context=f"Data Source ID: {data_source_id}",
             )
         return None, None
 

@@ -359,6 +359,11 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
+    include_database_name: bool = Field(
+        default=True,
+        description="Whether to add database name to the table urn. "
+        "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
