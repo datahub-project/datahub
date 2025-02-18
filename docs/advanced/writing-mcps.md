@@ -1,4 +1,4 @@
-# Writing MCPs as Files
+# Saving MCPs to a File
 
 ## What is an MCP?
 
@@ -57,7 +57,7 @@ MCPs in JSON file format are particularly valuable because they represent the lo
 
 ### Testing
 
-MCPs allow you to test your metadata ingestion without setting up complex connector dependencies. You can:
+MCPs allow you to easily ingest metadata. You can:
 
 - Test entity ingestion by running a simple command:
     
@@ -78,7 +78,7 @@ MCPs are valuable for debugging because they let you:
 
 For example, if you want to understand the structure of entities in your DataHub instance, you can emit them as MCP files and examine their contents in detail.
 
-## How to write MCPs as files?
+## Saving MCPs to a file
 
 ### Exporting rom DataHub Instance
 
