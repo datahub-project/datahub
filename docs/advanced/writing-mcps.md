@@ -8,58 +8,17 @@ A `MetadataChangeProposal` (MCP) represents an atomic unit of change in the Data
 - Used for proposing metadata changes to DataHub
 - Serves as the basic building block for metadata ingestion
 
-For more information, please see [Guide in MCPs](https://datahubproject.io/docs/advanced/mcp-mcl/)
-
-### Basic MCP Structure
-
-Here's the essential structure of an MCP in JSON format:
-
-```json
-{
-  "entityType": string,          // Type of entity (e.g., "dataset", "chart")
-  "entityUrn": string,          // URN of the entity being updated
-  "changeType": string,         // Type of change (UPSERT, CREATE, DELETE, etc.)
-  "aspectName": string,         // Name of the aspect being modified
-  "aspect": {                   // The aspect content
-    "value": bytes,            // Serialized aspect value
-    "contentType": string      // Serialization format (usually "application/json")
-  }
-}
-
-```
-
-### Example MCP File
-
-Here's a practical example of an MCP for a dataset:
-
-```json
-{
-  "entityType": "dataset",
-  "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,example_dataset,PROD)",
-  "changeType": "UPSERT",
-  "aspectName": "datasetProperties",
-  "aspect": {
-    "value": {
-      "description": "Example dataset description",
-      "customProperties": {
-        "encoding": "utf-8"
-      }
-    },
-    "contentType": "application/json"
-  }
-}
-
-```
+For more information, please see guides on [DataHub Metadata Events](../what/mxe.md) and [MCPs](mcp-mcl.md). 
 
 ## Why Write MCPs as Files?
 
-MCPs in JSON file format are particularly valuable because they represent the lowest and most granular form of events in DataHub. There are two main use cases for working with MCP files:
+MCPs in JSON file format are particularly valuable because they represent the lowest and most granular form of events in DataHub. There are two main use cases for using previously saved MCP files:
 
 ### Testing
 
 MCPs allow you to easily ingest metadata. You can:
 
-- Test entity ingestion by running a simple command:
+- Use it for entity ingestion by running a simple command, without a dependency on a ingestion connector:
     
     ```bash
     datahub ingest mcps <file_name>.json
@@ -90,7 +49,7 @@ You can export MCPs directly from your DataHub instance using a recipe file. Thi
 
 First, create a recipe file (e.g., `export_mcps.yaml`):
 
-```python
+```yaml
 source:
   type: datahub
   config:
@@ -114,43 +73,16 @@ This will write all the entities from your DataHub instance to `mcps.json` in MC
 
 ### Creating MCPs with Python SDK
 
-You can use the `FileEmitter` class to generate MCPs programmatically:
+You can use the `write_metadata_file` helper to generate MCPs programmatically:
 
 ```python
-import argparse
+from datahub.ingestion.sink.file import write_metadata_file
+from pathlib import Path
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-)
 
-import time
-
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-
-class FileEmitter:
-    def __init__(
-        self, filename: str, run_id: str = f"test_{int(time.time() * 1000.0)}"
-    ) -> None:
-        self.sink: FileSink = FileSink(
-            ctx=PipelineContext(run_id=run_id),
-            config=FileSinkConfig(filename=filename),
-        )
-
-    def emit(self, event):
-        self.sink.write_record_async(
-            record_envelope=RecordEnvelope(record=event, metadata={}),
-            write_callback=NoopWriteCallback(),
-        )
-
-    def close(self):
-        self.sink.close()
-
-def create_mcps() -> list[MetadataChangeProposalWrapper]:
-    # Create dataset MCP
-    mcps = [
-		    MetadataChangeProposalWrapper(
+records = [
+    MetadataChangeProposalWrapper(
         entityType="dataset",
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,example_dataset,PROD)",
         changeType="UPSERT",
@@ -158,34 +90,41 @@ def create_mcps() -> list[MetadataChangeProposalWrapper]:
         aspect=DatasetPropertiesClass(
             description="Example dataset description",
             customProperties={"encoding": "utf-8"}
-        )
-    )]
-    return mcps
+        ))
 
-def emit_to_file(mcps: list[MetadataChangeProposalWrapper], filename: str):
-    file_emitter = FileEmitter(filename)
-    for mcp in mcps:
-        file_emitter.emit(mcp)
-    file_emitter.close()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--output_file",
-        required=True,
-        help="Output file path for MCPs"
-    )
-    args = parser.parse_args()
-
-    mcps = create_mcps()
-    emit_to_file(mcps, args.output_file)
-
+]
+write_metadata_file(
+    file=Path("mcps.json"),
+    records=records,
+)
 ```
 
-Edit `mcps` list in create_mcps to create the event and entities for your needs.
+Edit `records` to create the event and entities for your needs.
 
 Run the Python script to generate your defined MCPs and save them to a file:
 
 ```bash
-python <file_name>.py --output_file="mcps.json"
+python <file_name>.py
+```
+
+For example, the above script will generate an MCP file with a single dataset entity.
+
+```json
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,example_dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "encoding": "utf-8"
+            },
+            "description": "Example dataset description",
+            "tags": []
+        }
+    }
+}
+]
 ```
