@@ -72,7 +72,6 @@ export default function StorageSizeGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
                     popoverRenderer={(datum: StorageSizeData) => (

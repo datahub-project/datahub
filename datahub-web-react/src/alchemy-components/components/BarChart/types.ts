@@ -29,19 +29,21 @@ export type GridProps = Omit<VisxGridProps, 'numTicks'> & {
     computeNumTicks?: (width: number, height: number, margin: Margin, data: BaseDatum[]) => number | undefined;
 };
 
-export type YAccessor = (datum: BaseDatum) => number;
-
-export type XAccessor = (datum: BaseDatum) => number;
+export type ValueAccessor = (datum: BaseDatum) => number;
+export type YAccessor = ValueAccessor;
+export type XAccessor = ValueAccessor;
 
 export type ColorAccessor = (datum: Datum, index: number) => string;
+
+export type Scale = ScaleConfig<AxisScaleOutput, any, any>;
 
 export type BarChartProps = {
     data: Datum[];
     isEmpty?: boolean;
     horizontal?: boolean;
 
-    xScale?: ScaleConfig<AxisScaleOutput, any, any>;
-    yScale?: ScaleConfig<AxisScaleOutput, any, any>;
+    xScale?: Scale;
+    yScale?: Scale;
     maxYDomainForZeroData?: number;
     minYForZeroData?: number;
 

@@ -20,7 +20,7 @@ export const lineChartDefault: LineChartProps = {
     isEmpty: false,
 
     xScale: { type: 'time' },
-    yScale: { type: 'log', nice: true, round: true, base: 2 },
+    yScale: { type: 'linear', nice: true, round: true, zero: true },
 
     lineColor: colors.violet[500],
     areaColor: 'url(#line-gradient)',

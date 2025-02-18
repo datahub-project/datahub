@@ -71,7 +71,6 @@ export default function RowCountGraph() {
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true }}
                     popoverRenderer={(datum: RowCountData) => (

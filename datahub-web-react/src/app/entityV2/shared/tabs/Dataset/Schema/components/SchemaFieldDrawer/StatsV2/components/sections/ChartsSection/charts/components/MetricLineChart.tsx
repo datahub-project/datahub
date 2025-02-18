@@ -85,13 +85,6 @@ export default function MetricLineChart({
                 <LineChart
                     data={dataToShow}
                     isEmpty={dataToShow.length === 0}
-                    xScale={{ type: 'time' }}
-                    yScale={{
-                        type: 'linear',
-                        nice: true,
-                        round: true,
-                        zero: true,
-                    }}
                     leftAxisProps={{ hideZero: true }}
                     bottomAxisProps={bottomAxisProps}
                     popoverRenderer={(datum) => (

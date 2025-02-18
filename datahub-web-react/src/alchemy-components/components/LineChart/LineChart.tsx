@@ -3,7 +3,7 @@ import { curveMonotoneX } from '@visx/curve';
 import { ParentSize } from '@visx/responsive';
 import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
 import React, { useMemo, useState } from 'react';
-import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import usePrepareScales from '../BarChart/hooks/usePrepareScales';
 import useMergedProps from '../BarChart/hooks/useMergedProps';
 import { AxisProps, GridProps } from '../BarChart/types';
 import { getMockedProps } from '../BarChart/utils';
@@ -19,6 +19,7 @@ import { Datum, LineChartProps } from './types';
 import LeftAxisMarginSetter from '../BarChart/components/LeftAxisMarginSetter';
 import './customTooltip.css';
 import { lineChartDefault } from './defaults';
+import useMinDataValue from '../BarChart/hooks/useMinDataValue';
 
 export function LineChart({
     data,
@@ -62,8 +63,7 @@ export function LineChart({
     const xAccessor = (datum: Datum) => datum?.x;
     const yAccessor = (datum: Datum) => datum.y;
     const accessors = { xAccessor, yAccessor };
-
-    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
+    const scales = usePrepareScales(data, false, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
@@ -80,6 +80,8 @@ export function LineChart({
         lineChartDefault.gridProps,
     );
 
+    const minDataValue = useMinDataValue(data, yAccessor);
+
     // In case of no data we should render empty graph with axises
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
@@ -95,10 +97,9 @@ export function LineChart({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={xScale}
-                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={!isEmpty}
+                            {...scales}
                         >
                             {renderGradients?.()}
 
@@ -153,6 +154,8 @@ export function LineChart({
                                 fill={!isEmpty ? areaColor : 'transparent'}
                                 curve={curveMonotoneX}
                                 lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
+                                // adjust baseline to show area correctly with negative values in data
+                                y0Accessor={() => Math.min(minDataValue, 0)}
                                 {...accessors}
                             />
 

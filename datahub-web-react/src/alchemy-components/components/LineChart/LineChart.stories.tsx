@@ -3,7 +3,7 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { LineChart } from './LineChart';
 import { getMockedProps } from '../BarChart/utils';
-import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/useAdaptYScaleToZeroValues';
+import { DEFAULT_MAX_DOMAIN_VALUE } from '../BarChart/hooks/usePrepareScales';
 
 const meta = {
     title: 'Charts / LineChart',
@@ -87,6 +87,7 @@ const meta = {
     args: {
         ...getMockedProps(),
         popoverRenderer: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
+        yScale: { type: 'linear', round: true, clamp: true },
     },
 } satisfies Meta<typeof LineChart>;
 

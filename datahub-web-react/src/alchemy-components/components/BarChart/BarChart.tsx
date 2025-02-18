@@ -8,9 +8,8 @@ import { ChartWrapper, StyledBarSeries } from './components';
 import { AxisProps, BarChartProps, ColorAccessor, Datum, GridProps, XAccessor, YAccessor } from './types';
 import { getMockedProps } from './utils';
 import useMergedProps from './hooks/useMergedProps';
-import useAdaptYScaleToZeroValues from './hooks/useAdaptYScaleToZeroValues';
-import useAdaptYAccessorToZeroValue from './hooks/useAdaptYAccessorToZeroValues';
-import useMaxDataValue from './hooks/useMaxDataValue';
+import usePrepareScales from './hooks/usePrepareScales';
+import usePrepareAccessors from './hooks/usePrepareAccessors';
 import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
 import TruncatableTick from './components/TruncatableTick';
 import { barChartDefault } from './defaults';
@@ -54,12 +53,8 @@ export function BarChart({
 
     const xAccessor: XAccessor = (datum) => datum.x;
     const yAccessor: YAccessor = (datum) => datum.y;
-
-    const maxDataValue = useMaxDataValue(data, yAccessor);
-    const adaptedYScale = useAdaptYScaleToZeroValues(data, yScale, maxYDomainForZeroData);
-    const adaptedYAccessor = useAdaptYAccessorToZeroValue(yAccessor, maxDataValue, minYForZeroData);
-
-    const accessors = { xAccessor, yAccessor: adaptedYAccessor };
+    const accessors = usePrepareAccessors(data, !!horizontal, xAccessor, yAccessor, minYForZeroData);
+    const scales = usePrepareScales(data, !!horizontal, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
@@ -82,9 +77,12 @@ export function BarChart({
             const colorThemeParams = COLOR_SCHEME_TO_PARAMS[colorTheme];
             if (index === selectedBarIndex) return colorThemeParams.mainColor;
             if (index === howeredBarIndex) return colorThemeParams.mainColor;
-            return `url(#${gradientIdSuffix}-${colorTheme})`;
+
+            const isInversed = (horizontal ? accessors.xAccessor(datum) : accessors.yAccessor(datum)) < 0;
+
+            return `url(#${gradientIdSuffix}-${colorTheme}${isInversed ? '-inversed' : ''})`;
         },
-        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty],
+        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty, accessors, horizontal],
     );
 
     const renderGradients = () => {
@@ -103,15 +101,28 @@ export function BarChart({
                     const { alternativeColor } = colorSchemeParams;
                     const fromColor = horizontal ? alternativeColor : mainColor;
                     const toColor = horizontal ? mainColor : alternativeColor;
+                    const gradientId = `${gradientIdSuffix}-${colorScheme}`;
+                    const gradientInversedId = `${gradientId}-inversed`;
 
                     return (
-                        <LinearGradient
-                            id={`${gradientIdSuffix}-${colorScheme}`}
-                            from={fromColor}
-                            to={toColor}
-                            vertical={!horizontal}
-                            {...(horizontal ? { fromOpacity: 0.6 } : { toOpacity: 0.6 })}
-                        />
+                        <>
+                            <LinearGradient
+                                key={gradientId}
+                                id={gradientId}
+                                from={fromColor}
+                                to={toColor}
+                                vertical={!horizontal}
+                                {...(horizontal ? { fromOpacity: 0.6 } : { toOpacity: 0.6 })}
+                            />
+                            <LinearGradient
+                                key={gradientInversedId}
+                                id={gradientInversedId}
+                                from={toColor}
+                                to={fromColor}
+                                vertical={!horizontal}
+                                {...(!horizontal ? { fromOpacity: 0.6 } : { toOpacity: 0.6 })}
+                            />
+                        </>
                     );
                 })}
             </>
@@ -133,11 +144,10 @@ export function BarChart({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={xScale}
-                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={false}
                             horizontal={horizontal}
+                            {...scales}
                         >
                             {renderGradients()}
 

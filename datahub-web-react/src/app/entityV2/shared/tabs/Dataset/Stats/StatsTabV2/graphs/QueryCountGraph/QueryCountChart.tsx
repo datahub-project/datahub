@@ -48,7 +48,6 @@ const QueryCountChart = () => {
         return (
             <BarChart
                 data={chartData}
-                yScale={{ type: 'linear', nice: true, round: true, zero: true }}
                 bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
                 popoverRenderer={(datum: ChartData) => (

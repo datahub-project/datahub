@@ -3,8 +3,8 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { BarChart } from './BarChart';
 import { generateMockDataHorizontal, getMockedProps } from './utils';
-import { DEFAULT_MIN_VALUE } from './hooks/useAdaptYAccessorToZeroValues';
-import { DEFAULT_MAX_DOMAIN_VALUE } from './hooks/useAdaptYScaleToZeroValues';
+import { DEFAULT_MIN_VALUE } from './hooks/usePrepareAccessors';
+import { DEFAULT_MAX_DOMAIN_VALUE } from './hooks/usePrepareScales';
 import { abbreviateNumber } from '../dataviz/utils';
 import { DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL } from './constants';
 
