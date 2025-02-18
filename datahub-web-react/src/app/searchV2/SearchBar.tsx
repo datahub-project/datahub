@@ -31,7 +31,7 @@ import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '../useAppConfig'
 
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
-    max-width: ${(props) => (props.$isShowNavBarRedesign ? '423px' : '540px')};
+    max-width: ${(props) => (props.$isShowNavBarRedesign ? '632px' : '540px')};
 `;
 
 const SkeletonContainer = styled.div`
@@ -466,7 +466,7 @@ export const SearchBar = ({
                         maxHeight: 1000,
                         overflowY: 'visible',
                         position: (fixAutoComplete && 'fixed') || 'relative',
-                        ...(isShowNavBarRedesign ? { minWidth: '435px' } : {}),
+                        ...(isShowNavBarRedesign ? { minWidth: '648px' } : {}),
                     }}
                     onDropdownVisibleChange={(isOpen) => {
                         if (!isOpen) {
