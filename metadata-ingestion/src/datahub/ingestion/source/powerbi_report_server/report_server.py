@@ -16,7 +16,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -70,7 +69,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PowerBiReportServerAPIConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+    StatefulIngestionConfigBase, EnvConfigMixin
 ):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")

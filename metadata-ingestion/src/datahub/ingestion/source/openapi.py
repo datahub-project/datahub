@@ -7,7 +7,7 @@ from typing import Dict, Iterable, Optional, Tuple
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
