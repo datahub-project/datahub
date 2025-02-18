@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional

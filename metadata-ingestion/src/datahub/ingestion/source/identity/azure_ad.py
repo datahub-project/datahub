@@ -16,7 +16,6 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
