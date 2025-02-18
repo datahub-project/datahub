@@ -102,9 +102,9 @@ export default function UserProfile({ urn }: Props) {
     const castedCorpUser = data?.corpUser as any;
 
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urn } });
     // Routed Tabs Constants

@@ -82,7 +82,7 @@ export const NavSidebar = () => {
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
 
-    const showAnalytics = (config?.analyticsConfig.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
