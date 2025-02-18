@@ -23,7 +23,6 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -239,7 +238,6 @@ class DBTCommonConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,

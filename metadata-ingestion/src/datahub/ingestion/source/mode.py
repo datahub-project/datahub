@@ -25,7 +25,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -143,7 +142,6 @@ class ModeAPIConfig(ConfigModel):
 class ModeConfig(
     StatefulIngestionConfigBase,
     DatasetLineageProviderConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication

@@ -7,7 +7,6 @@ import pydantic
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -114,7 +113,6 @@ class QlikSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
     api_key: str = pydantic.Field(description="Qlik API Key")

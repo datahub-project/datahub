@@ -5,7 +5,6 @@ from pydantic import Field, SecretStr
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import (
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -36,7 +35,6 @@ from datahub.metadata.schema_classes import DashboardInfoClass, StatusClass
 class GrafanaSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     url: str = Field(
         default="",

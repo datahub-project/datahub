@@ -13,7 +13,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import (
@@ -125,7 +124,6 @@ class SupersetConfig(
     StatefulIngestionConfigBase,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api

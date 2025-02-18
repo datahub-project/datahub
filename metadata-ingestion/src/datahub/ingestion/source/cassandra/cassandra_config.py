@@ -5,7 +5,6 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
@@ -53,7 +52,6 @@ class CassandraSourceConfig(
     PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     """
     Configuration for connecting to a Cassandra or DataStax Astra DB source.

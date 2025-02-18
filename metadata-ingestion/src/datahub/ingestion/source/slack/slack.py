@@ -9,7 +9,6 @@ from tenacity import retry, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -59,7 +58,6 @@ class CorpUser:
 
 class SlackSourceConfig(
     StatefulIngestionConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     bot_token: SecretStr = Field(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email` and `users.profile:read` scopes.",

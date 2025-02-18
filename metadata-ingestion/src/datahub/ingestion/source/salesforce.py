@@ -19,7 +19,6 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -99,7 +98,6 @@ class SalesforceProfilingConfig(ConfigModel):
 class SalesforceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     platform: str = "salesforce"
 

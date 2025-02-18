@@ -13,7 +13,6 @@ from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -250,7 +249,6 @@ def get_full_qualified_name(platform: str, database_name: str, table_name: str) 
 
 class RedashConfig(
     StatefulIngestionConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api

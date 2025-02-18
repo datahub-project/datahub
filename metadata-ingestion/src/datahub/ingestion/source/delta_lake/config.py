@@ -9,7 +9,6 @@ from typing_extensions import Literal
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -42,7 +41,6 @@ class S3(ConfigModel):
 class DeltaLakeSourceConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     StatefulIngestionConfigBase,
 ):
     base_path: str = Field(

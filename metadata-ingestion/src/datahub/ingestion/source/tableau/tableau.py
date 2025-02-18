@@ -50,7 +50,6 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -480,7 +479,6 @@ class TableauConfig(
     DatasetSourceConfigMixin,
     TableauConnectionConfig,
     TableauPageSizeConfig,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     projects: Optional[List[str]] = Field(
         default=["default"],

@@ -7,7 +7,6 @@ import pydantic
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -76,7 +75,6 @@ class SigmaSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     api_url: str = pydantic.Field(
         default=Constant.DEFAULT_API_URL, description="Sigma API hosted URL."

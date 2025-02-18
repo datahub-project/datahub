@@ -10,7 +10,6 @@ from pydantic.fields import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -50,9 +49,7 @@ from datahub.metadata.schema_classes import (
 T = TypeVar("T")
 
 
-class MLflowConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
-):
+class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
         description=(

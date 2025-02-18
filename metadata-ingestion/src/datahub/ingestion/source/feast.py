@@ -20,7 +20,6 @@ from feast.data_source import DataSource
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -96,7 +95,6 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
 
 class FeastRepositorySourceConfig(
     StatefulIngestionConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     path: str = Field(description="Path to Feast repository")
     fs_yaml_file: Optional[str] = Field(

@@ -11,7 +11,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -105,7 +104,6 @@ def set_cookie(
 class LDAPSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     """Config used by the LDAP Source."""
 

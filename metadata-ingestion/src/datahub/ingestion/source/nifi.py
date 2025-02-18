@@ -24,7 +24,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
@@ -96,9 +95,7 @@ class ProcessGroupKey(ContainerKey):
     process_group_id: str
 
 
-class NifiSourceConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
-):
+class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     site_url: str = Field(
         description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
     )

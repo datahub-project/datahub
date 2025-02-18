@@ -13,7 +13,6 @@ from pymongo.mongo_client import MongoClient
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import (
@@ -90,7 +89,6 @@ class MongoDBConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     StatefulIngestionConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html

@@ -14,7 +14,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_host_port import validate_host_port
@@ -253,7 +252,6 @@ class ElasticsearchSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."

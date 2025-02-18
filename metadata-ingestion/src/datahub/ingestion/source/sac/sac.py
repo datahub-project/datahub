@@ -16,7 +16,6 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -111,7 +110,6 @@ class SACSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     IncrementalLineageConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

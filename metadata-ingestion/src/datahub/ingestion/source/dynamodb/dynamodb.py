@@ -17,7 +17,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -95,7 +94,6 @@ class DynamoDBConfig(
     StatefulIngestionConfigBase,
     ClassificationSourceConfigMixin,
     AwsSourceConfig,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),

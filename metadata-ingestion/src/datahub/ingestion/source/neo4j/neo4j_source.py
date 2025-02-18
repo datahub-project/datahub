@@ -9,7 +9,6 @@ from pydantic.fields import Field
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -67,9 +66,7 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 }
 
 
-class Neo4jConfig(
-    EnvConfigMixin, LowerCaseDatasetUrnConfigMixin, StatefulIngestionConfigBase
-):
+class Neo4jConfig(EnvConfigMixin, StatefulIngestionConfigBase):
     username: str = Field(description="Neo4j Username")
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")

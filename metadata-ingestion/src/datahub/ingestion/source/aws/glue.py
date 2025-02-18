@@ -28,7 +28,6 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -128,7 +127,6 @@ class GlueSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     AwsSourceConfig,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,

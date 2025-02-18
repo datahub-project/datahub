@@ -15,7 +15,6 @@ from requests.models import HTTPError
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -67,7 +66,6 @@ DATASOURCE_URN_RECURSION_LIMIT = 5
 class MetabaseConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
