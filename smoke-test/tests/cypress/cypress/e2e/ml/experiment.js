@@ -2,7 +2,7 @@ describe("experiment", () => {
   it("can visit experiment end run", () => {
     cy.visit("/");
     cy.login();
-//    replace the following line with the correct URL
+    //    replace the following line with the correct URL
     cy.visit(
       "/container/urn:li:container:airline_forecast_experiment/Summary?is_lineage_mode=false",
     );
@@ -12,7 +12,7 @@ describe("experiment", () => {
     cy.contains("MLflow");
     // the model has its name and description
     cy.contains("Airline Forecast Experiment");
-    cy.contains("Experiment to forecast airline passenger numbers")
+    cy.contains("Experiment to forecast airline passenger numbers");
 
     // the model has a training run
     cy.contains("Simple Training Run").click();
@@ -27,7 +27,7 @@ describe("experiment", () => {
       "/dataProcessInstance/urn:li:dataProcessInstance:simple_training_run",
     );
     // the run has subtype, na
-    cy.contains("ML Training Run")
+    cy.contains("ML Training Run");
     cy.contains("Simple Training Run");
 
     // the run has its details
@@ -35,7 +35,7 @@ describe("experiment", () => {
     cy.contains("1 secs"); // TODO: should be 1 sec
     cy.contains("simple_training_run");
     cy.contains("urn:li:corpuser:datahub");
-    cy.contains("s3://my-bucket/output")
+    cy.contains("s3://my-bucket/output");
 
     // the run has its metrics and parameters
     cy.contains("accuracy");
@@ -44,6 +44,6 @@ describe("experiment", () => {
     // the run has a container and can visit it
     cy.contains("Airline Forecast Experiment").click();
     cy.contains("ML Experiment");
-    cy.contains("Simple Training Run")
+    cy.contains("Simple Training Run");
   });
 });
