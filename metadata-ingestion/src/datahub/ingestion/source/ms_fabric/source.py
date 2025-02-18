@@ -4,6 +4,12 @@ from typing import Dict, Iterable, List, Optional
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import WorkUnit
 from datahub.ingestion.source.ms_fabric.config import AzureFabricSourceConfig
@@ -23,6 +29,9 @@ from datahub.ingestion.source.ms_fabric.warehouse import WarehouseManager
 logger = logging.getLogger(__name__)
 
 
+@platform_name("Microsoft Fabric")
+@config_class(AzureFabricSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class AzureFabricSource(Source):
     """Azure Fabric source for DataHub metadata ingestion"""
 
