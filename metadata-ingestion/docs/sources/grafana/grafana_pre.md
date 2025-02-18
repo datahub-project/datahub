@@ -1,14 +1,14 @@
 ### Concept Mapping
 
-| Source Concept | DataHub Concept | Notes |
-| -------------- | --------------- | ----- |
+| Source Concept | DataHub Concept                                           | Notes |
+| -------------- |-----------------------------------------------------------| ----- |
 | `"grafana"` | [Data Platform](../../metamodel/entities/dataPlatform.md) | |
-| Grafana Folder | [Container](../../metamodel/entities/container.md) | Subtype `Folder` |
-| Grafana Dashboard | [Container](../../metamodel/entities/container.md) | Subtype `Dashboard` |
-| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md) | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE) |
-| Grafana Data Source | [Dataset](../../metamodel/entities/dataset.md) | Created for each panel's data source |
-| Dashboard Owner | [Corp User](../../metamodel/entities/corpUser.md) | Derived from dashboard UID and creator |
-| Dashboard Tags | [Tag](../../metamodel/entities/tag.md) | Supports both simple tags and key:value tags |
+| Grafana Folder | [Container](../../metamodel/entities/container.md)        | Subtype `Folder` |
+| Grafana Dashboard | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard` |
+| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE) |
+| Grafana Data Source | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source |
+| Dashboard Owner | [Corp User](../../metamodel/entities/corpuser.md)         | Derived from dashboard UID and creator |
+| Dashboard Tags | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags |
 
 ### Compatibility
 
