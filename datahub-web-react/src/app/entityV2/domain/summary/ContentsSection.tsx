@@ -70,7 +70,7 @@ export const ContentsSection = () => {
             {loading && <ContentSectionLoading />}
             <Carousel>
                 {!loading &&
-                    contentsSummary?.types.map((summary) => {
+                    contentsSummary?.types?.map((summary) => {
                         const { type, count, entityType: summaryEntityType } = summary;
                         const typeName = (
                             type ||

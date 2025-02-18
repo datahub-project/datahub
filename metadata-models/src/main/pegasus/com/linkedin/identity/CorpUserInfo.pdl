@@ -101,4 +101,13 @@ record CorpUserInfo includes CustomProperties {
    * two uppercase letters country code. e.g.  US
    */
   countryCode: optional string
+
+  /**
+   * Whether the corpUser is a system user.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
+  }
+  system: optional boolean = false
 }
