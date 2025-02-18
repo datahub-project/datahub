@@ -13,17 +13,11 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_STATUS_PENDING,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
 )
-from datahub_executor.common.discovery.utils import (
-    get_remote_executor_id_from_urn,
-    send_remote_executor_status,
-)
+from datahub_executor.common.discovery.utils import send_remote_executor_status
 from datahub_executor.common.graph import DataHubExecutorGraph
+from datahub_executor.common.identity.utils import get_remote_executor_id_from_urn
 from datahub_executor.common.ingestion.helpers import emit_execution_request_input
-from datahub_executor.common.monitoring.metrics import (
-    STATS_SWEEPER_ACTIONS_EXECUTED,
-    STATS_SWEEPER_ACTIONS_PLANNED,
-    STATS_SWEEPER_EXECUTION_REQUESTS_COUNT,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutionRequestStatus, SweeperAction
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD,
@@ -405,7 +399,7 @@ class SweeperJob:
         for ingestion in ingestions:
             stats[ingestion.status] = stats.get(ingestion.status, 0) + 1
         for status, count in stats.items():
-            STATS_SWEEPER_EXECUTION_REQUESTS_COUNT.labels(status).set(count)
+            METRIC("SWEEPER_EXECUTION_REQUESTS", status=status).set(count)
 
     def _get_execution_plan(self) -> List[SweeperAction]:
         actions: List[SweeperAction] = []
@@ -535,9 +529,9 @@ class SweeperJob:
                 executed_total += 1
 
         for action, count in stats["planned"].items():
-            STATS_SWEEPER_ACTIONS_PLANNED.labels(action).set(count)
+            METRIC("SWEEPER_ACTIONS_PLANNED", action=action).set(count)
         for action, count in stats["executed"].items():
-            STATS_SWEEPER_ACTIONS_EXECUTED.labels(action).set(count)
+            METRIC("SWEEPER_ACTIONS_EXECUTED", action=action).set(count)
 
         return executed_total
 

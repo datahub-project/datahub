@@ -15,10 +15,7 @@ from datahub_executor.common.client.fetcher.ingestion.mapper import (
 from datahub_executor.common.client.fetcher.ingestion.types import IngestionSource
 from datahub_executor.common.constants import LIST_INGESTION_SOURCES_BATCH_SIZE
 from datahub_executor.common.helpers import paginate_datahub_query_results
-from datahub_executor.common.monitoring.metrics import (
-    STATS_INGESTION_FETCHER_ERRORS,
-    STATS_INGESTION_FETCHER_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutionRequestSchedule
 
 logger = logging.getLogger(__name__)
@@ -31,11 +28,11 @@ class IngestionFetcher(Fetcher):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
-        retry_error_callback=lambda x: STATS_INGESTION_FETCHER_ERRORS.labels(
-            "Retry"
+        retry_error_callback=lambda x: METRIC(
+            "INGESTION_FETCHER_ERRORS", exception="Retry"
         ).inc(),
     )
-    @STATS_INGESTION_FETCHER_REQUESTS.time()
+    @METRIC("INGESTION_FETCHER_REQUESTS").time()  # type: ignore
     def _fetch_ingestion_sources(self) -> List[IngestionSource]:
         """
         Fetch the list of monitors from the API.

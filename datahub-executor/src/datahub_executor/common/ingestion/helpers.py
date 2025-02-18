@@ -32,14 +32,7 @@ from datahub_executor.common.constants import (
     RUN_INGEST_TASK_NAME,
 )
 from datahub_executor.common.helpers import create_datahub_graph
-from datahub_executor.common.monitoring.metrics import (
-    STATS_EXECUTION_FETCH_REQUESTS,
-    STATS_EXECUTION_FETCH_SIGNAL_ERRORS,
-    STATS_EXECUTION_FETCH_SIGNAL_REQUESTS,
-    STATS_INGESTION_HANDLER_CANCEL_REQUESTS,
-    STATS_MCP_EMIT_ERRORS,
-    STATS_MCP_EMIT_EVENTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
     DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
@@ -182,7 +175,7 @@ def exec_id_to_urn(exec_id: str) -> str:
     return f"urn:li:{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}:{exec_id}"
 
 
-@STATS_EXECUTION_FETCH_SIGNAL_REQUESTS.time()
+@METRIC("INGESTION_FETCH_SIGNAL_REQUESTS").time()  # type: ignore
 def fetch_execution_signal_requests(
     graph: DataHubGraph, exec_ids: List[str]
 ) -> Dict[str, Any]:
@@ -194,7 +187,7 @@ def fetch_execution_signal_requests(
     )
 
 
-@STATS_EXECUTION_FETCH_REQUESTS.time()
+@METRIC("INGESTION_FALLBACK_FETCH_REQUESTS").time()  # type: ignore
 def fetch_execution_requests(
     graph: DataHubGraph, urns: List[str]
 ) -> List[ExecutionRequest]:
@@ -270,11 +263,11 @@ def handle_ingestion_signal_requests(
                 )
                 ingestion_executor.signal(signal_request)
 
-                STATS_INGESTION_HANDLER_CANCEL_REQUESTS.inc()
+                METRIC("INGESTION_CANCEL_REQUESTS").inc()
                 logger.info(f"Got {signal.signal} signal for task {exec_id}")
             return True
         except Exception as e:
-            STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("Exception").inc()
+            METRIC("INGESTION_FETCH_SIGNAL_ERRORS", exception="exception").inc()
             logger.error(f"Failed to fetch signal requests: {e}")
     return False
 
@@ -292,12 +285,12 @@ def emit_execution_request_input(input: ExecutionRequestInputClass) -> bool:
     )
 
     try:
-        STATS_MCP_EMIT_EVENTS.inc()
+        METRIC("INGESTION_EMIT_MCP_EVENTS").inc()
         graph = create_datahub_graph()
         graph.emit_mcp(mcpw, async_flag=False)
         return True
     except Exception as e:
-        STATS_MCP_EMIT_ERRORS.labels("GmsError").inc()
+        METRIC("INGESTION_EMIT_MCP_ERRORS", exception="GmsError").inc()
         logger.exception(
             f"An unknown error occurred when attempting to emit dataHubExecutionRequestInput - {e}"
         )

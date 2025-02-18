@@ -10,10 +10,7 @@ from datahub_executor.common.client.config.graphql.query import (
     GRAPHQL_FETCH_EXECUTOR_CONFIGS,
 )
 from datahub_executor.common.helpers import create_datahub_graph
-from datahub_executor.common.monitoring.metrics import (
-    STATS_CONFIG_FETCHER_ERRORS,
-    STATS_CONFIG_FETCHER_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutorConfig
 from datahub_executor.config import DATAHUB_EXECUTOR_MODE
 
@@ -79,16 +76,16 @@ class ExecutorConfigResolver:
     @retry(
         wait=wait_exponential(multiplier=2, min=4, max=60),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
-        retry_error_callback=lambda x: STATS_CONFIG_FETCHER_ERRORS.labels(
-            "Retry"
+        retry_error_callback=lambda x: METRIC(
+            "CONFIG_FETCHER_ERRORS", exception="Retry"
         ).inc(),
     )
-    @STATS_CONFIG_FETCHER_REQUESTS.time()
+    @METRIC("CONFIG_FETCHER_REQUESTS").time()  # type: ignore
     def _fetch_executor_configs(self) -> List[ExecutorConfig]:
         result = self.graph.execute_graphql(GRAPHQL_FETCH_EXECUTOR_CONFIGS)
 
         if "error" in result and result["error"] is not None:
-            STATS_CONFIG_FETCHER_ERRORS.labels("GmsError").inc()
+            METRIC("CONFIG_FETCHER_ERRORS", exception="GmsError").inc()
             raise Exception(
                 f"Received error while fetching executor_configs from GMS! {result.get('error')}"
             )
@@ -97,7 +94,7 @@ class ExecutorConfigResolver:
             "listExecutorConfigs" not in result
             or "executorConfigs" not in result["listExecutorConfigs"]
         ):
-            STATS_CONFIG_FETCHER_ERRORS.labels("IncompleteResults").inc()
+            METRIC("CONFIG_FETCHER_ERRORS", exception="IncompleteResults").inc()
             raise Exception(
                 "Found incomplete search results when fetching executor_configs from GMS!"
             )
@@ -107,7 +104,7 @@ class ExecutorConfigResolver:
             DATAHUB_EXECUTOR_MODE != "coordinator"
             and len(result["listExecutorConfigs"]["executorConfigs"]) == 0
         ):
-            STATS_CONFIG_FETCHER_ERRORS.labels("EmptyConfig").inc()
+            METRIC("CONFIG_FETCHER_ERRORS", exception="EmptyConfig").inc()
             raise Exception("GMS returned no executor configs, unable to proceed.")
 
         executor_configs = []
@@ -115,7 +112,7 @@ class ExecutorConfigResolver:
             try:
                 executor_configs.append(ExecutorConfig.parse_obj(credential))
             except Exception:
-                STATS_CONFIG_FETCHER_ERRORS.labels("ParseError").inc()
+                METRIC("CONFIG_FETCHER_ERRORS", exception="ParseError").inc()
                 raise Exception(
                     f"Failed to convert ExecutorConfig object to Python object. {credential}"
                 )

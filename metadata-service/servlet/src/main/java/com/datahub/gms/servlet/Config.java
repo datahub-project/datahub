@@ -136,7 +136,6 @@ public class Config extends HttpServlet {
         new HashMap<String, Object>() {
           {
             put("revision", executorConfig.getBackendRevision());
-            put("instanceId", executorConfig.getExecutorCustomerId());
           }
         };
     config.put("remoteExecutorBackend", remoteExecutorBackendConfig);

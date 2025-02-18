@@ -6,10 +6,7 @@ from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.client.fetcher.ingestion.types import IngestionSource
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
-from datahub_executor.common.monitoring.metrics import (
-    STATS_INGESTION_FETCHER_ITEMS_ERRORED,
-    STATS_INGESTION_FETCHER_ITEMS_MAPPED,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import CronSchedule, ExecutionRequestSchedule
 
 logger = logging.getLogger(__name__)
@@ -24,7 +21,7 @@ def graphql_to_ingestion_sources(
     ingestion_sources = []
     for ingestion_source in graphql_ingestion_sources:
         try:
-            STATS_INGESTION_FETCHER_ITEMS_MAPPED.inc()
+            METRIC("INGESTION_FETCHER_ITEMS_MAPPED").inc()
             if (
                 "urn" in ingestion_source
                 and "urn:li:dataHubIngestionSource:cli-" in ingestion_source["urn"]
@@ -34,7 +31,7 @@ def graphql_to_ingestion_sources(
             # Simply parse to our Pydantic models using the raw GraphQL Response.
             ingestion_sources.append(IngestionSource.parse_obj(ingestion_source))
         except Exception:
-            STATS_INGESTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
+            METRIC("INGESTION_FETCHER_ITEMS_ERRORED", exception="exception").inc()
             logger.exception(
                 f"Failed to convert GraphQL IngestionSource object to Python object. {ingestion_source}"
             )
@@ -82,7 +79,7 @@ def ingestion_sources_to_execution_requests(
                     )
                 )
         except Exception as e:
-            STATS_INGESTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
+            METRIC("INGESTION_FETCHER_ITEMS_ERRORED", exception="exception").inc()
             logger.warning(f"Exception while fetching ingestion sources: {e}")
 
     return execution_requests

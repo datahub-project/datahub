@@ -6,10 +6,7 @@ from kombu import Queue
 from kombu.utils.url import safequote
 
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
-from datahub_executor.common.monitoring.metrics import (
-    STATS_CREDENTIALS_REFRESH_ERRORS,
-    STATS_CREDENTIALS_REFRESH_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutorConfig
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_POOL_NAME,
@@ -70,7 +67,9 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
     executor_config_resolver = ExecutorConfigResolver()
 
     if is_startup:
-        STATS_CREDENTIALS_REFRESH_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
+        METRIC(
+            "CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+        ).inc()
 
         executor_configs = executor_config_resolver.get_executor_configs()
         config = update_celery_config(CeleryConfig(), executor_configs)
@@ -92,7 +91,9 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
             ) = executor_config_resolver.refresh_executor_configs()
 
         if did_refresh:
-            STATS_CREDENTIALS_REFRESH_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
+            METRIC(
+                "CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+            ).inc()
 
             config = update_celery_config(CeleryConfig(), executor_configs)
             app.config_from_object(config)
@@ -112,8 +113,10 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
         )
 
         if queue_name not in updated_queues:
-            STATS_CREDENTIALS_REFRESH_ERRORS.labels(
-                "NoQueue", DATAHUB_EXECUTOR_POOL_NAME
+            METRIC(
+                "CREDENTIALS_REFRESH_ERRORS",
+                exception="NoQueue",
+                pool_name=DATAHUB_EXECUTOR_POOL_NAME,
             ).inc()
             logger.error(f"SQS qeueue {queue_name} does not exist or misconfigured.")
             return False

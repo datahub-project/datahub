@@ -23,7 +23,6 @@ class TestDatahubExecutorDiscovery:
             "baseUrl": "http://localhost.localdomain",
             "remoteExecutorBackend": {
                 "revision": 1,
-                "instanceId": "test-customer-0",
             },
         }
         discovery = DatahubExecutorDiscovery(graph)

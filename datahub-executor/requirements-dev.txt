@@ -1386,8 +1386,12 @@ types-pytz==2024.2.0.20241003
     # via acryl-datahub-executor (pyproject.toml)
 types-pyyaml==6.0.12.20240917
     # via acryl-datahub-executor (pyproject.toml)
+types-requests==2.31.0.6
+    # via acryl-datahub-executor (pyproject.toml)
 types-setuptools==75.6.0.20241126
     # via acryl-datahub-executor (pyproject.toml)
+types-urllib3==1.26.25.14
+    # via types-requests
 typing-extensions==4.12.2
     # via
     #   -r requirements.txt

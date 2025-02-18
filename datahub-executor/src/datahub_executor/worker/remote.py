@@ -9,9 +9,7 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
 )
-from datahub_executor.common.monitoring.metrics import (
-    STATS_SCHEDULER_SQS_LIMIT_EXCEEDED,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH,
     DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION,
@@ -39,7 +37,7 @@ def apply_remote_assertion_request(
 
         message_size = len(execution_request.json())
         if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
-            STATS_SCHEDULER_SQS_LIMIT_EXCEEDED.inc()
+            METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
             logger.error(
                 f"Assertion ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
             )
@@ -70,7 +68,7 @@ def truncate_remote_ingestion_request(
     if message_size <= DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
         return event
 
-    STATS_SCHEDULER_SQS_LIMIT_EXCEEDED.inc()
+    METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
     logger.error(
         f"Ingestion ExecutionRequest {event.entityUrn} is too big ({message_size}) to send via SQS and will be truncated."
     )

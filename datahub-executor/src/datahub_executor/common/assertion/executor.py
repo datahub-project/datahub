@@ -8,10 +8,7 @@ from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
 )
-from datahub_executor.common.monitoring.metrics import (
-    STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS,
-    STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
@@ -49,7 +46,7 @@ class AssertionExecutor:
             if not self.stop:
                 self.evaluate_assertion(request)
         except Exception as e:
-            STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS.labels("exception").inc()
+            METRIC("ASSERTION_EVALUATE_ERRORS", exception="exception").inc()
             logger.exception(
                 f"AssertionExecutor: error executing {request.exec_id}: %s", e
             )
@@ -59,7 +56,7 @@ class AssertionExecutor:
         self.stop = True
         self.tp.shutdown(wait)
 
-    @STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS.time()
+    @METRIC("ASSERTION_EVALUATE_REQUESTS").time()  # type: ignore
     def evaluate_assertion(self, execution_request: ExecutionRequest) -> None:
         assertion_spec = AssertionEvaluationSpec.parse_obj(
             execution_request.args["assertion_spec"]

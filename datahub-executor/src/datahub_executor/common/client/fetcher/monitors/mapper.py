@@ -5,10 +5,7 @@ from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.client.fetcher.monitors.util import is_dry_run_mode
 from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
-from datahub_executor.common.monitoring.metrics import (
-    STATS_ASSERTION_FETCHER_ITEMS_ERRORED,
-    STATS_ASSERTION_FETCHER_ITEMS_MAPPED,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
     ExecutionRequestSchedule,
@@ -23,7 +20,7 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
     monitors = []
     for graphql_monitor in graphql_monitors:
         try:
-            STATS_ASSERTION_FETCHER_ITEMS_MAPPED.inc()
+            METRIC("ASSERTION_FETCHER_ITEMS_MAPPED").inc()
             # Simply parse to our Pydantic models using the raw GraphQL Response.
             parsed_monitor = Monitor.parse_obj(graphql_monitor)
             if parsed_monitor.assertion_monitor is None:
@@ -56,7 +53,7 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
                     f"Validation error ignored for monitor. {graphql_monitor}: {error_message}"
                 )
             else:
-                STATS_ASSERTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
+                METRIC("ASSERTION_FETCHER_ITEMS_ERRORED", exception="exception").inc()
                 logger.exception(
                     f"Failed to convert GraphQL Monitor object to Python object. {graphql_monitor}"
                 )
@@ -104,7 +101,7 @@ def monitors_to_execution_requests(
                         )
                     )
         except Exception as e:
-            STATS_ASSERTION_FETCHER_ITEMS_MAPPED.inc()
+            METRIC("ASSERTION_FETCHER_ITEMS_MAPPED").inc()
             logger.warning(f"Exception while fetching monitors: {e}")
 
     return execution_requests

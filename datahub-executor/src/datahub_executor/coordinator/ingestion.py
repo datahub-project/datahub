@@ -16,18 +16,17 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
 )
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
+from datahub_executor.common.identity.base import (
+    DATAHUB_EXECUTOR_IDENTITY,
+    DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO,
+)
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
     extract_execution_request_weight,
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
-from datahub_executor.common.monitoring.metrics import (
-    STATS_INGESTION_HANDLER_ERRORS,
-    STATS_INGESTION_HANDLER_REQUESTS,
-    STATS_INGESTION_KAFKA_EXEC_EVENTS,
-    STATS_INGESTION_KAFKA_MCL_EVENTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
@@ -65,8 +64,8 @@ class IngestionAction(Action):
                 self.ingestion_executor = setup_ingestion_executor()
             else:
                 self.ingestion_executor = setup_ingestion_executor(
-                    executor_instance_id=discovery.get_instance_id(),
-                    executor_version=discovery.get_build_info().get_version(),
+                    executor_instance_id=DATAHUB_EXECUTOR_IDENTITY,
+                    executor_version=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
                 )
             self.tp = ThreadPoolExecutorWithQueueSizeLimit(
                 max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
@@ -106,7 +105,7 @@ class IngestionAction(Action):
         """This method listens for ExecutionRequest changes to execute in schedule and trigger events"""
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
             orig_event = cast(MetadataChangeLogClass, event.event)
-            STATS_INGESTION_KAFKA_MCL_EVENTS.inc()
+            METRIC("INGESTION_KAFKA_MCL_EVENTS").inc()
             if (
                 orig_event.get("entityType") == DATAHUB_EXECUTION_REQUEST_ENTITY_NAME
                 and orig_event.get("changeType") == "UPSERT"
@@ -115,7 +114,7 @@ class IngestionAction(Action):
                     orig_event.get("aspectName")
                     == DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME
                 ):
-                    STATS_INGESTION_KAFKA_EXEC_EVENTS.inc()
+                    METRIC("INGESTION_KAFKA_EXEC_EVENTS").inc()
                     logger.debug("Received execution request input. Processing...")
                     self._handle_execution_request_input(orig_event)
                     return True
@@ -125,12 +124,12 @@ class IngestionAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> None:
         if self.ingestion_enabled is False:
-            STATS_INGESTION_HANDLER_ERRORS.labels("IngestionsDisabled").inc()
+            METRIC("INGESTION_HANDLER_ERRORS", exception="IngestionsDisabled").inc()
             logger.info(f"Ingestion disabled, ignoring {orig_event.entityUrn}")
             return
 
         if not orig_event.aspect:
-            STATS_INGESTION_HANDLER_ERRORS.labels("ParseError").inc()
+            METRIC("INGESTION_HANDLER_ERRORS", exception="ParseError").inc()
             logger.error(
                 f"Unable to parse Execution Request Input, no aspect {orig_event.entityUrn}.."
             )
@@ -143,10 +142,14 @@ class IngestionAction(Action):
         if self.embedded_worker_enabled and (
             executor_id is None or executor_id == self.embedded_worker_id
         ):
-            STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "true").inc()
+            METRIC(
+                "INGESTION_HANDLER_REQUESTS", pool_name=executor_id, embedded="true"
+            ).inc()
             self._apply_ingestion_request(orig_event)
         else:
-            STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "false").inc()
+            METRIC(
+                "INGESTION_HANDLER_REQUESTS", pool_name=executor_id, embedded="false"
+            ).inc()
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
             logger.info(f"started task ingestion_request for exec_id = {task}")
 

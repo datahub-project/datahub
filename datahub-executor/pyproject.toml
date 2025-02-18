@@ -44,6 +44,7 @@ dev = [
   "pytest-asyncio",
   "types-setuptools",
   "types-cachetools",
+  "types-requests",
   "types-PyYAML",
   "isort",
   "faker",

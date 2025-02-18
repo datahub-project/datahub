@@ -2,12 +2,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Condition
 from typing import Callable, Optional
 
-from datahub_executor.common.monitoring.metrics import (
-    STATS_THREAD_POOL_ACTIVE_WEIGHT,
-    STATS_THREAD_POOL_ACTIVE_WORKERS,
-    STATS_THREAD_POOL_MAX_WEIGHT,
-    STATS_THREAD_POOL_MAX_WORKERS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 
 
 class ThreadPoolExecutorWithQueueSizeLimit:
@@ -23,8 +18,8 @@ class ThreadPoolExecutorWithQueueSizeLimit:
         self.active_threads: int = 0
         self.active_weight: float = 0.0
 
-        STATS_THREAD_POOL_MAX_WORKERS.labels(name).set(max_workers)
-        STATS_THREAD_POOL_MAX_WEIGHT.labels(name).set(1.0)
+        METRIC("THREAD_POOL_MAX_WORKERS", thread_pool_name=name).set(max_workers)
+        METRIC("THREAD_POOL_MAX_WEIGHT", thread_pool_name=name).set(1.0)
 
     def get_active_thread_count(self) -> int:
         return self.active_threads
@@ -57,8 +52,12 @@ class ThreadPoolExecutorWithQueueSizeLimit:
                 self.active_weight -= current_weight
                 self.cond.notify()
 
-            STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).set(self.active_threads)
-            STATS_THREAD_POOL_ACTIVE_WEIGHT.labels(self.name).set(self.active_weight)
+            METRIC("THREAD_POOL_ACTIVE_WORKERS", thread_pool_name=self.name).set(
+                self.active_threads
+            )
+            METRIC("THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
+                self.active_weight
+            )
 
         with self.cond:
             while (self.active_threads + 1) > self.max_threads or (
@@ -68,8 +67,12 @@ class ThreadPoolExecutorWithQueueSizeLimit:
             self.active_threads += 1
             self.active_weight += current_weight
 
-        STATS_THREAD_POOL_ACTIVE_WORKERS.labels(self.name).set(self.active_threads)
-        STATS_THREAD_POOL_ACTIVE_WEIGHT.labels(self.name).set(self.active_weight)
+        METRIC("THREAD_POOL_ACTIVE_WORKERS", thread_pool_name=self.name).set(
+            self.active_threads
+        )
+        METRIC("THREAD_POOL_ACTIVE_WEIGHT", thread_pool_name=self.name).set(
+            self.active_weight
+        )
 
         try:
             future = self.executor.submit(fn, *args, **kwargs)

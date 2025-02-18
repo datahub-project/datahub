@@ -15,10 +15,7 @@ from datahub_executor.common.client.fetcher.monitors.mapper import (
 from datahub_executor.common.client.fetcher.monitors.util import build_filters
 from datahub_executor.common.constants import LIST_MONITORS_BATCH_SIZE
 from datahub_executor.common.helpers import paginate_datahub_query_results
-from datahub_executor.common.monitoring.metrics import (
-    STATS_ASSERTION_FETCHER_ERRORS,
-    STATS_ASSERTION_FETCHER_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import ExecutionRequestSchedule, Monitor
 
 logger = logging.getLogger(__name__)
@@ -31,11 +28,11 @@ class MonitorFetcher(Fetcher):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
-        retry_error_callback=lambda x: STATS_ASSERTION_FETCHER_ERRORS.labels(
-            "Retry"
+        retry_error_callback=lambda x: METRIC(
+            "ASSERTION_FETCHER_ERRORS", exception="Retry"
         ).inc(),
     )
-    @STATS_ASSERTION_FETCHER_REQUESTS.time()
+    @METRIC("ASSERTION_FETCHER_REQUESTS").time()  # type: ignore
     def _fetch_monitors(self) -> List[Monitor]:
         """
         Fetch the list of monitors from the API.

@@ -14,17 +14,20 @@ from datahub_executor.common.assertion.helpers import handle_assertions_signal_r
 from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
+from datahub_executor.common.identity.base import (
+    DATAHUB_EXECUTOR_IDENTITY,
+    DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO,
+)
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
     extract_execution_request_weight,
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
-from datahub_executor.common.monitoring.base import monitoring_start
-from datahub_executor.common.monitoring.metrics import (
-    STATS_WORKER_ASSERTION_ERRORS,
-    STATS_WORKER_ASSERTION_REQUESTS,
-    STATS_WORKER_INGESTION_REQUESTS,
+from datahub_executor.common.monitoring.base import (
+    METRIC,
+    monitoring_start,
+    monitoring_stop,
 )
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
@@ -42,20 +45,17 @@ from .kombu_patch import patched_handle_sts_session
 
 logger = logging.getLogger(__name__)
 
-# Start prometheus server
-monitoring_start()
-
 # Kombu credentials patch
 Channel._handle_sts_session = patched_handle_sts_session
-
 update_celery_credentials(app, True, "")
 
 tp = None
 monitor = None
+graph = None
 discovery = None
+
 ingestion_executor = None
 assertion_executor = None
-graph = None
 
 # Health check status
 celery_liveness = 0
@@ -150,6 +150,9 @@ def monitor_thread() -> None:
 @celeryd_init.connect
 def worker_startup(*args, **kwargs):
     global graph, monitor, discovery
+
+    monitoring_start()
+
     graph = create_datahub_graph()
 
     discovery = DatahubExecutorDiscovery(graph)
@@ -157,8 +160,8 @@ def worker_startup(*args, **kwargs):
 
     global ingestion_executor
     ingestion_executor = setup_ingestion_executor(
-        executor_instance_id=discovery.get_instance_id(),
-        executor_version=discovery.get_build_info().get_version(),
+        executor_instance_id=DATAHUB_EXECUTOR_IDENTITY,
+        executor_version=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
     )
 
     global assertion_executor
@@ -182,13 +185,15 @@ def worker_startup(*args, **kwargs):
 @app.task
 def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
-        STATS_WORKER_ASSERTION_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
+        METRIC("WORKER_ASSERTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME).inc()
 
         global assertion_executor
         assertion_executor.execute(execution_request)
     else:
-        STATS_WORKER_ASSERTION_ERRORS.labels(
-            DATAHUB_EXECUTOR_POOL_NAME, "UnsupportedRequest"
+        METRIC(
+            "WORKER_ASSERTION_ERRORS",
+            pool_name=DATAHUB_EXECUTOR_POOL_NAME,
+            exception="UnsupportedRequest",
         ).inc()
         logger.error(
             f"Unsupported ExecutionRequest type {execution_request.name} provided. Skipping execution of {execution_request.exec_id}.."
@@ -221,7 +226,9 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
                 raise RuntimeError(
                     f"ExecutionRequest {execution_request.exec_id} dropped due to exceeded SQS visibility timeout."
                 )
-            STATS_WORKER_INGESTION_REQUESTS.labels(DATAHUB_EXECUTOR_POOL_NAME).inc()
+            METRIC(
+                "WORKER_INGESTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+            ).inc()
 
 
 @typing.no_type_check
@@ -250,3 +257,5 @@ def shutdown(**kwargs):
         tp.shutdown()
     if assertion_executor is not None:
         assertion_executor.shutdown()
+
+    monitoring_stop()

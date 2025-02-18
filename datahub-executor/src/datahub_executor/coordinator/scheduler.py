@@ -12,11 +12,7 @@ from datahub_executor.common.ingestion.helpers import (
     build_execution_request_input_from_request,
     emit_execution_request_input,
 )
-from datahub_executor.common.monitoring.metrics import (
-    STATS_SCHEDULER_ASSERTION_REQUESTS,
-    STATS_SCHEDULER_INGESTION_REQUESTS,
-    STATS_SCHEDULER_SUBMISSION_ERRORS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
@@ -110,8 +106,9 @@ class ExecutionRequestScheduler:
                 f"Running scheduled evaluation for execution_request with exec_id {execution_request.exec_id}"
             )
             if execution_request.name == RUN_INGEST_TASK_NAME:
-                STATS_SCHEDULER_INGESTION_REQUESTS.labels(
-                    execution_request.executor_id
+                METRIC(
+                    "SCHEDULER_INGESTION_REQUESTS",
+                    pool_name=execution_request.executor_id,
                 ).inc()
                 # for scheduled ingestion, we create an ExecutionRequestInput
                 # this will wind up being acted on as a pipeline (kafka) action.
@@ -119,26 +116,30 @@ class ExecutionRequestScheduler:
                 emit_execution_request_input(input)
             else:
                 if self.should_execute_embedded(execution_request):
-                    STATS_SCHEDULER_ASSERTION_REQUESTS.labels(
-                        execution_request.executor_id, "true"
+                    METRIC(
+                        "SCHEDULER_ASSERTION_REQUESTS",
+                        pool_name=execution_request.executor_id,
+                        embedded="true",
                     ).inc()
                     # submit request to the thread pool for async execution
                     self.assertion_executor.execute(execution_request)
                 else:
-                    STATS_SCHEDULER_ASSERTION_REQUESTS.labels(
-                        execution_request.executor_id, "false"
+                    METRIC(
+                        "SCHEDULER_ASSERTION_REQUESTS",
+                        pool_name=execution_request.executor_id,
+                        embedded="false",
                     ).inc()
-
                     task = apply_remote_assertion_request(
                         execution_request, execution_request.executor_id
                     )
 
                     logger.debug(f"started task assertion_request for exec_id = {task}")
         except Exception:
-            STATS_SCHEDULER_SUBMISSION_ERRORS.labels(
-                execution_request.executor_id,
-                str(self.should_execute_embedded(execution_request)),
-                "exception",
+            METRIC(
+                "SCHEDULER_SUBMISSION_ERRORS",
+                pool_name=execution_request.executor_id,
+                embedded=str(self.should_execute_embedded(execution_request)),
+                exception="exception",
             ).inc()
             logger.exception(
                 f"Failed to evaluate scheduled execution_request with exec_id {execution_request.exec_id}! This means that no execution_request results will be produced and could indicate missing data."

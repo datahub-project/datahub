@@ -7,7 +7,9 @@ from fastapi import FastAPI
 
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
-from datahub_executor.common.monitoring.base import monitoring_start
+
+# This must load before everything else
+from datahub_executor.common.monitoring.base import monitoring_start, monitoring_stop
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD,
@@ -22,9 +24,6 @@ from datahub_executor.coordinator.logging import configure_logging
 
 # Configure global logging.
 configure_logging()
-
-# Start prometheus server
-monitoring_start()
 
 # Create FastAPI Server
 app = FastAPI()
@@ -71,6 +70,10 @@ def shutdown_handler(*args, **kwargs):  # type: ignore
     stop_event.set()
     t.join()
 
+
+# Start monitoring
+sighandler.append(monitoring_stop)
+monitoring_start()
 
 # Create graph instance
 graph = create_datahub_graph()

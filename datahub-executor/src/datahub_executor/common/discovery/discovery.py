@@ -5,29 +5,21 @@ from threading import Event, Thread
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import RemoteExecutorStatusClass
 
-from datahub_executor.common.constants import (
-    DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME,
-    DATAHUB_URN_MAX_LEN,
+from datahub_executor.common.identity.base import (
+    DATAHUB_EXECUTOR_IDENTITY,
+    DATAHUB_EXECUTOR_IDENTITY_ADDRESS,
+    DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO,
+    DATAHUB_EXECUTOR_IDENTITY_HOSTNAME,
 )
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_DISCOVERY_INTERVAL,
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_INTERNAL_WORKER,
-    DATAHUB_EXECUTOR_NAMESPACE,
     DATAHUB_EXECUTOR_POOL_NAME,
-    DATAHUB_GMS_URL,
 )
 
-from .build_info import BuildInfo
-from .utils import (
-    get_host_address,
-    get_hostname,
-    get_hostname_from_url,
-    get_random_string,
-    get_string_hash,
-    get_utc_timestamp,
-    send_remote_executor_status,
-)
+from .utils import get_utc_timestamp, send_remote_executor_status
 
 logger = logging.getLogger(__name__)
 
@@ -41,63 +33,37 @@ class DatahubExecutorDiscovery:
         self.stop_flag = False
         self.loop = Thread(target=self._loop_handler)
 
-        self.my_hostname = get_hostname()
-        self.my_address = get_host_address(self.my_hostname)
-        self.my_address_hash = get_string_hash(self.my_address)
-
-        self.build_info = BuildInfo()
-        self.instance_id = self._generate_instance_id()
-
-    def _generate_instance_id(self) -> str:
-        # InstanceID has the following format:
-        #     {address-hash8}-{random4}.{executor-id}.{gms-host}
-        #
-        # For internal use cases, gms-host is always set to "dh-datahub-gms",
-        # which is non-descriptive and thus namespace is used instead.
-
-        if DATAHUB_EXECUTOR_INTERNAL_WORKER and DATAHUB_EXECUTOR_NAMESPACE is not None:
-            hostname = DATAHUB_EXECUTOR_NAMESPACE
-        else:
-            hostname = get_hostname_from_url(DATAHUB_GMS_URL)
-
-        instance_id = "{}-{}.{}.{}".format(
-            self.my_address_hash,
-            get_random_string(8),
-            DATAHUB_EXECUTOR_POOL_NAME,
-            hostname,
-        )
-
-        # Max URN length is 500 chars, including prefix. Truncate if ID length exceeds the limit
-        # to make it consistent across fields that do not enforce the limit. Keep the left-most part
-        # of the ID intact.
-        max_len = DATAHUB_URN_MAX_LEN - len(DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME) - 10
-        if len(instance_id) > max_len:
-            logger.warning(
-                f"Discovery: instance_id is longer than {max_len} and will be truncated."
-            )
-            instance_id = instance_id[:max_len]
-
-        return instance_id
+    def _get_uptime(self) -> float:
+        return time.time() - self.start_time
 
     def _ping(self) -> None:
-        try:
-            status = RemoteExecutorStatusClass(
-                poolName=DATAHUB_EXECUTOR_POOL_NAME,
-                executorReleaseVersion=self.build_info.get_version(),
-                executorAddress=self.my_address,
-                executorHostname=self.my_hostname,
-                executorUptime=self.get_uptime(),
-                executorStopped=self.stop_flag,
-                executorEmbedded=DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
-                executorInternal=DATAHUB_EXECUTOR_INTERNAL_WORKER,
-                logDeliveryEnabled=False,
-                reportedAt=get_utc_timestamp(),
-            )
-            logger.info("Discovery: sending status update.")
-            send_remote_executor_status(self.graph, self.instance_id, status)
-        except Exception as e:
-            logger.error(f"Discovery: failed to sending status to GMS: {e}")
-        return
+        with METRIC(
+            "DISCOVERY_PING_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+        ).time():
+            try:
+                status = RemoteExecutorStatusClass(
+                    poolName=DATAHUB_EXECUTOR_POOL_NAME,
+                    executorReleaseVersion=DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version(),
+                    executorAddress=DATAHUB_EXECUTOR_IDENTITY_ADDRESS,
+                    executorHostname=DATAHUB_EXECUTOR_IDENTITY_HOSTNAME,
+                    executorUptime=self._get_uptime(),
+                    executorStopped=self.stop_flag,
+                    executorEmbedded=DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+                    executorInternal=DATAHUB_EXECUTOR_INTERNAL_WORKER,
+                    logDeliveryEnabled=False,
+                    reportedAt=get_utc_timestamp(),
+                )
+                logger.info("Discovery: sending status update.")
+
+                send_remote_executor_status(
+                    self.graph, DATAHUB_EXECUTOR_IDENTITY, status
+                )
+            except Exception as e:
+                METRIC(
+                    "DISCOVERY_PING_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_NAME
+                ).inc()
+                logger.error(f"Discovery: failed to sending status to GMS: {e}")
+            return
 
     def _loop_handler(self) -> None:
         while not self.stop_flag:
@@ -109,15 +75,6 @@ class DatahubExecutorDiscovery:
             except Exception as e:
                 logger.error(f"Discovery: error in discovery loop: {e}")
 
-    def get_instance_id(self) -> str:
-        return self.instance_id
-
-    def get_build_info(self) -> BuildInfo:
-        return self.build_info
-
-    def get_uptime(self) -> float:
-        return time.time() - self.start_time
-
     def is_backend_discovery_capable(self) -> bool:
         server_config = self.graph.get_config()
         if server_config and server_config.get("remoteExecutorBackend"):
@@ -125,9 +82,9 @@ class DatahubExecutorDiscovery:
         return False
 
     def start(self) -> None:
-        version = self.build_info.get_version()
+        version = DATAHUB_EXECUTOR_IDENTITY_BUILD_INFO.get_version()
         logger.warning(
-            f"Discovery: starting discovery loop; Instance ID = {self.instance_id}; Version = {version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
+            f"Discovery: starting discovery loop; Instance ID = {DATAHUB_EXECUTOR_IDENTITY}; Version = {version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
         )
 
         # Register itself with GMS before starting the loop

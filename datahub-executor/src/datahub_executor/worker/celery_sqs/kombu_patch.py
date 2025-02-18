@@ -7,10 +7,7 @@ from botocore.client import BaseClient, Config
 from kombu.transport.SQS import Channel
 
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
-from datahub_executor.common.monitoring.metrics import (
-    STATS_CREDENTIALS_REFRESH_ERRORS,
-    STATS_CREDENTIALS_REFRESH_REQUESTS,
-)
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.config import DATAHUB_EXECUTOR_POOL_NAME
 
 logger = logging.getLogger(__name__)
@@ -21,7 +18,7 @@ def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
     _, executor_configs = executor_config_resolver.refresh_executor_configs()
     for executor_config in executor_configs:
         if executor_config.executor_id == queue_id:
-            STATS_CREDENTIALS_REFRESH_REQUESTS.labels(queue_id).inc()
+            METRIC("CREDENTIALS_REFRESH_REQUESTS", pool_name=queue_id).inc()
             return {
                 "region": executor_config.region,
                 "access_key": executor_config.access_key,
@@ -34,7 +31,7 @@ def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
                 ),
             }
 
-    STATS_CREDENTIALS_REFRESH_ERRORS.labels("NoQueue", queue_id).inc()
+    METRIC("CREDENTIALS_REFRESH_ERRORS", exception="NoQueue", pool_name=queue_id).inc()
 
     logger.error(f"Failed to find credentials for queue_id = {queue_id}")
     return {}
