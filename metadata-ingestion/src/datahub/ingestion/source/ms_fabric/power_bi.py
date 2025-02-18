@@ -4,7 +4,6 @@ import logging
 from typing import Iterable, List
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.ms_fabric.lineage_state import DatasetLineageState
@@ -14,6 +13,7 @@ from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceConfig
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.metadata.schema_classes import (
     GenericAspectClass,
+    MetadataChangeProposalClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,69 +53,67 @@ class PowerBIManager:
             ctx_copy = copy.deepcopy(self.ctx)
             source = PowerBiDashboardSource(config=pbi_config, ctx=ctx_copy)
 
+            chart_titles = {}  # Store chart URNs and their titles
+
             for wu in source.get_workunits():
-                if isinstance(
-                    wu.metadata, MetadataChangeProposalWrapper
-                ) and isinstance(wu.metadata.aspect, GenericAspectClass):
+                if isinstance(wu.metadata, MetadataChangeProposalClass) and isinstance(
+                    wu.metadata.aspect, GenericAspectClass
+                ):
                     # Parse the JSON patch operations
                     values_json = json.loads(wu.metadata.aspect.value.decode("utf-8"))
                     logger.debug(f"Processing workunit with values: {values_json}")
 
-                    # Extract dashboard ID from the entityUrn
                     dashboard_urn = wu.metadata.entityUrn
-                    dashboard_id = (
-                        dashboard_urn.split("(")[-1].split(")")[0].split(",")[-1]
-                    )
+                    if "reports." in dashboard_urn:
+                        report_id = dashboard_urn.split("reports.")[-1].split(")")[0]
+                        chart_urns = []
+                        dashboard_title = None
 
-                    # Initialize list to store chart URNs
-                    chart_urns = []
+                        for op in values_json:
+                            if op["path"] == "/title" and "value" in op:
+                                dashboard_title = op["value"]
+                            elif op["path"].startswith("/charts/"):
+                                chart_urn = op["value"]
+                                chart_urns.append(chart_urn)
+                            elif op["path"].startswith("/chartInfo/") and "value" in op:
+                                # Extract chart title if present
+                                try:
+                                    chart_info = json.loads(op["value"])
+                                    if "title" in chart_info:
+                                        chart_path = op["path"].split("/")[
+                                            2
+                                        ]  # Gets the chart identifier
+                                        chart_titles[chart_path] = chart_info["title"]
+                                except Exception as e:
+                                    logger.warning(e)
+                                    continue
 
-                    # Extract any title for the dashboard
-                    dashboard_title = None
-                    for op in values_json:
-                        if op["path"] == "/title" and "value" in op:
-                            dashboard_title = op["value"]
-                            break
+                        # Only register if we have charts
+                        if chart_urns:
+                            # Create a mapping of charts with their titles
+                            chart_info = {
+                                chart_urn: chart_titles.get(
+                                    chart_urn.split("pages.")[-1].split(")")[0],
+                                    "Untitled Chart",
+                                )
+                                for chart_urn in chart_urns
+                            }
 
-                    # Process chart relationships
-                    for op in values_json:
-                        if op["path"].startswith("/charts"):
-                            chart_urn = op["value"]
-                            chart_id = (
-                                chart_urn.split("(")[-1].split(")")[0].split(",")[-1]
-                            )
-                            chart_urns.append(chart_urn)
-
-                            # Register the chart in lineage state
+                            # Register using report_id as the key
                             self.lineage_state.register_dataset(
-                                table_name=chart_id,
-                                urn=chart_urn,
-                                columns=[],  # Charts don't have columns
-                                platform="powerbi-chart",
+                                table_name=report_id,
+                                urn=dashboard_urn,
+                                columns=[],
+                                platform="powerbi-dashboard",
                                 additional_info={
-                                    "dashboard_id": dashboard_id,
-                                    "dashboard_urn": dashboard_urn,
+                                    "title": dashboard_title,
+                                    "charts": chart_urns,
+                                    "chart_titles": chart_info,  # Add chart titles to additional_info
                                 },
                             )
                             logger.debug(
-                                f"Registered chart {chart_id} with URN {chart_urn}"
+                                f"Registered dashboard for report {report_id} with charts and titles: {chart_info}"
                             )
-
-                    # Register the dashboard if it has charts
-                    if chart_urns:
-                        self.lineage_state.register_dataset(
-                            table_name=dashboard_title or dashboard_id,
-                            urn=dashboard_urn,
-                            columns=[],  # Dashboards don't have columns
-                            platform="powerbi-dashboard",
-                            additional_info={
-                                "charts": chart_urns,
-                                "title": dashboard_title,
-                            },
-                        )
-                        logger.debug(
-                            f"Registered dashboard {dashboard_id} with {len(chart_urns)} charts"
-                        )
 
                 # Always yield the original workunit
                 yield wu

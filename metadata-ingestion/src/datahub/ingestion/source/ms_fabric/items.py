@@ -15,9 +15,10 @@ from datahub.ingestion.source.ms_fabric.lineage_state import DatasetLineageState
 from datahub.ingestion.source.ms_fabric.reporting import AzureFabricSourceReport
 from datahub.ingestion.source.ms_fabric.types import Workspace
 from datahub.metadata.schema_classes import (
-    GenericAspectClass,
-    UpstreamClass,
-    UpstreamLineageClass,
+    ChangeAuditStampsClass,
+    ChartInfoClass,
+    InputFieldClass,
+    InputFieldsClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class ReportManager:
     def _extract_semantic_model_ref(
         self, report_data: Dict
     ) -> Optional[Dict[str, str]]:
+        """Extract semantic model reference from report data"""
         try:
             dataset_ref = report_data.get("datasetReference", {})
             if "byConnection" in dataset_ref:
@@ -97,18 +99,33 @@ class ReportManager:
                 conn_str = conn.get("connectionString", "")
                 model_id = conn.get("pbiModelDatabaseName")
 
-                workspace_match = re.search(r'myorg/([^"]+)"', conn_str)
+                # Extract workspace name - handle more complex patterns
+                workspace_pattern = r'powerbi://api\.powerbi\.com/v1\.0/myorg/([^;/"]+)'
+                workspace_match = re.search(workspace_pattern, conn_str)
                 workspace_name = workspace_match.group(1) if workspace_match else None
 
-                model_match = re.search(r'Initial Catalog="([^"]+)"', conn_str)
+                # Extract model name
+                model_pattern = r'Initial Catalog="?([^;"]+)"?'
+                model_match = re.search(model_pattern, conn_str)
                 model_name = model_match.group(1) if model_match else None
 
                 if workspace_name and model_name and model_id:
+                    # Clean up workspace name and model name
+                    workspace_name = workspace_name.strip()
+                    model_name = model_name.strip()
+
+                    logger.debug(
+                        f"Extracted semantic model ref - workspace: {workspace_name}, model: {model_name}, id: {model_id}"
+                    )
                     return {
                         "workspace_name": workspace_name,
                         "model_name": model_name,
                         "model_id": model_id,
                     }
+                else:
+                    logger.warning(
+                        f"Incomplete model reference - workspace: {workspace_name}, model: {model_name}, id: {model_id}"
+                    )
 
         except Exception as e:
             logger.error(f"Failed to extract semantic model reference: {e}")
@@ -125,7 +142,7 @@ class ReportManager:
     def _get_report_definition(self, workspace_id: str, item_id: str) -> Optional[Dict]:
         url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{item_id}/getDefinition"
         max_retries = 3
-        retry_delay = 2  # seconds
+        retry_delay = 5
 
         for attempt in range(max_retries):
             try:
@@ -254,86 +271,99 @@ class ReportManager:
                 self.report_map[workspace.id][report["id"]] = report_def
 
     def get_report_wus(self) -> Iterable[WorkUnit]:
+        """Generate workunits for PowerBI reports"""
         self._populate_report_map()
+        logger.error(f"Report map: {self.report_map}")
 
-        for workspace_id, reports in self.report_map.items():
+        # Iterate through workspaces
+        for _workspace_id, reports in self.report_map.items():
+            # Iterate through reports in each workspace
             for report_id, report in reports.items():
-                yield from self._process_report(workspace_id, report_id, report)
+                yield from self._process_report(report_id, report)
 
     def _process_report(
-        self, workspace_id: str, report_id: str, report: ReportDefinition
+        self, report_id: str, report: ReportDefinition
     ) -> Iterable[WorkUnit]:
-        report_urn = f"urn:li:dashboard:(powerbi,reports.{report_id})"
-
-        # Register the report
-        self.lineage_state.register_dataset(
-            table_name=report.name,
-            urn=report_urn,
-            columns=report.columns,
-            platform="powerbi-report",
+        """Process a report and create chart relationships"""
+        logger.debug(
+            f"Processing report {report_id} with model refs: {report.semantic_model_refs}"
         )
 
         if report.semantic_model_refs:
             for model_ref in report.semantic_model_refs:
-                semantic_model_key = (
-                    f"{model_ref['workspace_name']}.{model_ref['model_name']}"
-                )
-
-                semantic_models = self.lineage_state.get_upstream_datasets(
-                    table_name=semantic_model_key, platform="semantic-model"
-                )
-
-                if not semantic_models:
+                model_id = model_ref.get("model_id")
+                if not model_id:
+                    logger.warning(
+                        f"No model_id found in model_ref for report {report_id}"
+                    )
                     continue
 
-                semantic_model = semantic_models[0]
+                # Find semantic model by ID
+                semantic_models = self.lineage_state.get_upstream_datasets(
+                    platform="semantic-model"
+                )
 
-                # Find dashboard and charts
+                matching_model = None
+                for model in semantic_models:
+                    if model.get("additional_info", {}).get("id") == model_id:
+                        matching_model = model
+                        break
+
+                if not matching_model:
+                    logger.warning(f"No semantic model found for ID {model_id}")
+                    continue
+
+                # Get table URNs from the semantic model
+                table_urns = (
+                    matching_model.get("additional_info", {}).get("tables", {}).values()
+                )
+                if not table_urns:
+                    logger.warning(f"No tables found in semantic model {model_id}")
+                    continue
+
+                # Find the dashboard to get its charts
                 dashboard_entries = self.lineage_state.get_upstream_datasets(
                     table_name=report_id, platform="powerbi-dashboard"
                 )
 
                 if not dashboard_entries:
+                    logger.warning(f"No dashboard found for report {report_id}")
                     continue
 
                 dashboard = dashboard_entries[0]
                 charts = dashboard.get("additional_info", {}).get("charts", [])
-
-                # Create inputEdges from semantic model tables to charts
-                for chart_urn in charts:
-                    table_urns = (
-                        semantic_model.get("additional_info", {})
-                        .get("tables", {})
-                        .values()
-                    )
-
-                    if not table_urns:
-                        continue
-
-                    input_edges = {
-                        "inputEdges": [
-                            {"source": table_urn, "target": chart_urn, "type": "USES"}
-                            for table_urn in table_urns
-                        ]
-                    }
-
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=chart_urn,
-                        aspect=GenericAspectClass(
-                            value=json.dumps(input_edges).encode(),
-                            contentType="application/json",
-                        ),
-                    )
-
-                    yield mcp.as_workunit()
-
-                # Create upstream lineage for the report
-                upstream_lineage = UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(dataset=semantic_model["urn"], type="TRANSFORMED")
-                    ]
+                chart_titles = dashboard.get("additional_info", {}).get(
+                    "chart_titles", {}
                 )
+                logger.debug(f"Found charts for report {report_id}: {charts}")
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=report_urn, aspect=upstream_lineage
-                ).as_workunit()
+                # Create chart info for each chart
+                for chart_urn in charts:
+                    # Get chart title
+                    chart_title = chart_titles.get(chart_urn, "Untitled Chart")
+
+                    # Create ChartInfo aspect
+                    chart_info = ChartInfoClass(
+                        title=chart_title,
+                        description="",
+                        inputs=[str(table_urn) for table_urn in table_urns],
+                        lastModified=ChangeAuditStampsClass(),
+                        customProperties={"modelId": model_id, "reportId": report_id},
+                    )
+
+                    # Create MCP with ChartInfo aspect
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=chart_urn, aspect=chart_info
+                    ).as_workunit()
+
+                    # If we have columns, create Input Fields
+                    if report.columns:
+                        input_fields = [
+                            InputFieldClass(schemaFieldUrn=f"{chart_urn}.{column}")
+                            for column in report.columns
+                        ]
+
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=chart_urn,
+                            aspect=InputFieldsClass(fields=input_fields),
+                        ).as_workunit()
