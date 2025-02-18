@@ -68,9 +68,7 @@ from datahub.utilities.lossy_collections import LossyList
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin
-):
+class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
