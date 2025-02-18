@@ -48,6 +48,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
@@ -61,7 +62,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.redshift.shares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
