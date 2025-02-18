@@ -8,7 +8,10 @@ from pyiceberg.catalog import Catalog, load_catalog
 from sortedcontainers import SortedList
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -56,7 +59,11 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class IcebergSourceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Iceberg Stateful Ingestion Config."

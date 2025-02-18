@@ -5,7 +5,10 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -26,7 +29,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataLakeSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     platform: str = Field(
         default="",

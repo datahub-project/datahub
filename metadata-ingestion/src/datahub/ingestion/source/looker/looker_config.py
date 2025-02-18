@@ -11,6 +11,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -104,7 +105,9 @@ class LookerViewNamingPattern(NamingPattern):
 
 
 # TODO: deprecate browse_pattern configs
-class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
+class LookerCommonConfig(
+    EnvConfigMixin, PlatformInstanceConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),

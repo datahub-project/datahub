@@ -10,6 +10,7 @@ from pydantic import Field
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import (
@@ -41,7 +42,9 @@ from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 logger = logging.getLogger(__name__)
 
 
-class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class SqlQueriesSourceConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     query_file: str = Field(description="Path to file to ingest")
 
     platform: str = Field(

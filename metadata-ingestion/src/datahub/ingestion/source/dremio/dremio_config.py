@@ -7,6 +7,7 @@ from pydantic import Field, validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
@@ -120,6 +121,7 @@ class DremioSourceConfig(
     StatefulIngestionConfigBase,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     domain: Optional[str] = Field(
         default=None,

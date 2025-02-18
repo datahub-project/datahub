@@ -14,7 +14,10 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,7 +28,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -38,6 +41,13 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     OwnershipData,
     PowerBiReport,
     Report,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -57,7 +67,9 @@ from datahub.utilities.dedup_list import deduplicate_list
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvConfigMixin):
+class PowerBiReportServerAPIConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
@@ -136,10 +148,13 @@ def get_response_dict(response: requests.Response, error_message: str) -> dict:
     return result_dict
 
 
-class PowerBiReportServerAPI:
+class PowerBiReportServerAPI(StatefulIngestionSourceBase):
     # API endpoints of PowerBI Report Server to fetch reports, datasets
 
-    def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
+    def __init__(
+        self, config: PowerBiReportServerAPIConfig, ctx: PipelineContext
+    ) -> None:
+        super().__init__(config, ctx)
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
             f"{self.__config.workstation_name}\\{self.__config.username}",
@@ -522,14 +537,22 @@ class PowerBiReportServerDashboardSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.report = PowerBiReportServerDashboardSourceReport()
-        self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
-        self.powerbi_client = PowerBiReportServerAPI(self.source_config)
+        self.auth = PowerBiReportServerAPI(self.source_config, ctx).get_auth_credentials
+        self.powerbi_client = PowerBiReportServerAPI(self.source_config, ctx)
         self.mapper = Mapper(config)
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

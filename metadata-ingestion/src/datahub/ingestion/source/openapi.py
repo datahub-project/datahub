@@ -7,7 +7,7 @@ from typing import Dict, Iterable, Optional, Tuple
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -46,7 +46,7 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class OpenApiConfig(ConfigModel):
+class OpenApiConfig(LowerCaseDatasetUrnConfigMixin):
     name: str = Field(description="Name of ingestion.")
     url: str = Field(description="Endpoint URL. e.g. https://example.com")
     swagger_file: str = Field(

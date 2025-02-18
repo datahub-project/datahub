@@ -22,7 +22,10 @@ from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -33,9 +36,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -80,7 +95,9 @@ class ProcessGroupKey(ContainerKey):
     process_group_id: str
 
 
-class NifiSourceConfig(EnvConfigMixin):
+class NifiSourceConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     site_url: str = Field(
         description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
     )
@@ -451,7 +468,7 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 
 @dataclass
-class NifiSourceReport(SourceReport):
+class NifiSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
 
     def report_dropped(self, ent_name: str) -> None:
@@ -463,13 +480,19 @@ class NifiSourceReport(SourceReport):
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
-class NifiSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
+class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
     report: NifiSourceReport
 
     def __init__(self, config: NifiSourceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
+        self.ctx = ctx
         self.report = NifiSourceReport()
         self.session = requests.Session()
 
@@ -1149,6 +1172,14 @@ class NifiSource(Source):
 
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:

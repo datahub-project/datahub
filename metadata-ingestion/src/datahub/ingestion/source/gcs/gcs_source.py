@@ -5,7 +5,10 @@ from urllib.parse import unquote
 from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -41,7 +44,10 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     credential: HMACKey = Field(
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
@@ -83,6 +89,11 @@ class GCSSourceReport(DataLakeSourceReport):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

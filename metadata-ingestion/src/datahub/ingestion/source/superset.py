@@ -13,6 +13,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import (
@@ -121,7 +122,10 @@ class SupersetDataset(BaseModel):
 
 
 class SupersetConfig(
-    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
@@ -207,6 +211,9 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

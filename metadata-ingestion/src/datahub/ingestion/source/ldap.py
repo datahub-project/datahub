@@ -9,7 +9,10 @@ from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -98,7 +101,11 @@ def set_cookie(
     return bool(cookie)
 
 
-class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class LDAPSourceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     """Config used by the LDAP Source."""
 
     # Server configuration.

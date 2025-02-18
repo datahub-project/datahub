@@ -12,7 +12,10 @@ from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -55,7 +58,11 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class AzureADConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     """Config to create a token and connect to Azure AD instance"""
 
     # Required

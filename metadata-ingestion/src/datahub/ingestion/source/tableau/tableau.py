@@ -50,6 +50,7 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -180,8 +181,8 @@ try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
     # was thrown when reauthentication was necessary. We'll keep both exceptions
     # around for now, but can remove this in the future.
-    from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
-        NotSignedInError,
+    from tableauserverclient.server.endpoint.exceptions import (
+        NotSignedInError,  # type: ignore
     )
 
     REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
@@ -478,6 +479,7 @@ class TableauConfig(
     DatasetSourceConfigMixin,
     TableauConnectionConfig,
     TableauPageSizeConfig,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     projects: Optional[List[str]] = Field(
         default=["default"],

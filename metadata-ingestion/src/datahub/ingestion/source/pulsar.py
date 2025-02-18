@@ -111,11 +111,15 @@ class PulsarSchema:
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+)
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "pulsar"
+        self.ctx = ctx
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
 

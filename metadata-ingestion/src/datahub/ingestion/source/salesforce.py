@@ -16,7 +16,10 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -28,9 +31,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionReport,
+    StatefulIngestionSourceBase,
+)
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
@@ -83,7 +94,11 @@ class SalesforceProfilingConfig(ConfigModel):
     # TODO - support field level profiling
 
 
-class SalesforceConfig(DatasetSourceConfigMixin):
+class SalesforceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     platform: str = "salesforce"
 
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
@@ -146,7 +161,7 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         return config_clean.remove_trailing_slashes(v)
 
 
-class SalesforceSourceReport(SourceReport):
+class SalesforceSourceReport(StatefulIngestionReport):
     filtered: List[str] = []
 
     def report_dropped(self, ent_name: str) -> None:
@@ -211,7 +226,7 @@ FIELD_TYPE_MAPPING = {
     capability_name=SourceCapability.TAGS,
     description="Enabled by default",
 )
-class SalesforceSource(Source):
+class SalesforceSource(StatefulIngestionSourceBase):
     base_url: str
     config: SalesforceConfig
     report: SalesforceSourceReport
@@ -220,7 +235,8 @@ class SalesforceSource(Source):
     fieldCounts: Dict[str, int]
 
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
+        super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
         self.report = SalesforceSourceReport()
         self.session = requests.Session()
@@ -324,6 +340,14 @@ class SalesforceSource(Source):
                 version=self.sf.sf_version
             )
         )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:

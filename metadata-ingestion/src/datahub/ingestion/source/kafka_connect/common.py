@@ -7,6 +7,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -41,6 +42,7 @@ class KafkaConnectSourceConfig(
     PlatformInstanceConfigMixin,
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#

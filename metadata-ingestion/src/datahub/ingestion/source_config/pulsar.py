@@ -7,6 +7,7 @@ from pydantic import Field, validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -33,7 +34,10 @@ def _is_valid_hostname(hostname: str) -> bool:
 
 
 class PulsarSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     web_service_url: str = Field(
         default="http://localhost:8080", description="The web URL for the cluster."
