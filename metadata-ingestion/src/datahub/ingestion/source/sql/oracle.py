@@ -87,13 +87,13 @@ class OracleConfig(BasicSQLAlchemyConfig):
         "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
     )
     # oracledb settings to enable thick mode and client library location
-    thick_mode: Optional[bool] = Field(
+    enable_thick_mode: Optional[bool] = Field(
         default=False,
         description="Connection defaults to thin mode. Set to True to enable thick mode.",
     )
-    lib_dir: Optional[str] = Field(
+    thick_mode_lib_dir: Optional[str] = Field(
         default=None,
-        description="If using thick mode on Windows or Mac, set lib_dir to the oracle client libraries path. "
+        description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
 
@@ -597,6 +597,17 @@ class OracleSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
 
+        # if connecting to oracle with enable_thick_mode, it must be initialized before calling
+        # create_engine, which is called in get_inspectors()
+        # https://python-oracledb.readthedocs.io/en/latest/user_guide/initialization.html#enabling-python-oracledb-thick-mode
+        if self.config.enable_thick_mode:
+            if platform.system() == "Darwin" or platform.system() == "Windows":
+                # windows and mac os require lib_dir to be set explicitly
+                oracledb.init_oracle_client(lib_dir=self.config.thick_mode_lib_dir)
+            else:
+                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                oracledb.init_oracle_client()
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = OracleConfig.parse_obj(config_dict)
@@ -619,16 +630,6 @@ class OracleSource(SQLAlchemySource):
         return db_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        # if connecting to oracle with thick_mode client it must be initialized before calling
-        # create_engine, which is called in super().get_inspectors()
-        if self.config.thick_mode:
-            if platform.system() == "Darwin" or platform.system() == "Windows":
-                # windows and mac os require lib_dir to be set explicitly
-                oracledb.init_oracle_client(lib_dir=self.config.lib_dir)
-            else:
-                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
-                oracledb.init_oracle_client()
-
         for inspector in super().get_inspectors():
             event.listen(
                 inspector.engine, "before_cursor_execute", before_cursor_execute
