@@ -286,10 +286,14 @@ class Tile:
     id: str
     title: str
     embedUrl: str
-    dataset: Optional["PowerBIDataset"]
     dataset_id: Optional[str]
-    report: Optional[Report]
+    report_id: Optional[str]
     createdFrom: CreatedFrom
+
+    # In a first pass, `dataset_id` and/or `report_id` are filled in.
+    # In a subsequent pass, the objects are populated.
+    dataset: Optional["PowerBIDataset"]
+    report: Optional[Report]
 
     def get_urn_part(self):
         return f"charts.{self.id}"

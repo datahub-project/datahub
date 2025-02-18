@@ -26,7 +26,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -43,6 +42,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -59,6 +59,8 @@ import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -160,8 +162,12 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
-      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepALive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+          @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -218,7 +224,7 @@ public class EntityController
             null,
             sortCriteria,
             scrollId,
-            pitKeepALive,
+            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {

@@ -170,6 +170,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -798,7 +799,7 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+    logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
 
@@ -2189,6 +2190,10 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(browse_paths)
             else:
                 logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
+                logger.warning(
+                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                )
+                continue
 
             dataset_properties = DatasetPropertiesClass(
                 name=csql.get(c.NAME),
@@ -2627,6 +2632,15 @@ class TableauSiteSource:
             datasource_info = datasource
 
         browse_path = self._get_project_browse_path_name(datasource)
+        if (
+            not is_embedded_ds
+            and self._get_published_datasource_project_luid(datasource) is None
+        ):
+            logger.warning(
+                f"Skip ingesting published datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+
         logger.debug(f"datasource {datasource.get(c.NAME)} browse-path {browse_path}")
         datasource_id = datasource[c.ID]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2850,6 +2864,11 @@ class TableauSiteSource:
             query_filter=tables_filter,
             page_size=self.config.effective_database_table_page_size,
         ):
+            if tableau_database_table_id_to_urn_map.get(tableau_table[c.ID]) is None:
+                logger.warning(
+                    f"Skipping table {tableau_table[c.ID]} due to filtered out published datasource"
+                )
+                continue
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
             ]
@@ -2904,6 +2923,7 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
+            return
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns

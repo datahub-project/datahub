@@ -1274,6 +1274,11 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
