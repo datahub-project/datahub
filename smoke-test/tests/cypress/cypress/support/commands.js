@@ -80,7 +80,7 @@ Cypress.Commands.add("logout", () => {
 });
 
 Cypress.Commands.add("logoutV2", () => {
-  cy.get(selectorWithtestId("navSidebarSignOut")).click({ force: true });
+  cy.get(selectorWithtestId("nav-sidebar-sign-out")).click({ force: true });
   cy.waitTextVisible("Username");
   cy.waitTextVisible("Password");
 });
@@ -522,6 +522,7 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
       req.on("response", (res) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
       });
     }
   });
