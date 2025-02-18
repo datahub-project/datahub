@@ -26,7 +26,6 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_LISTENER_API,
     HAS_AIRFLOW_STANDALONE_CMD,
 )
-from tests.utils import PytestConfig
 
 pytestmark = pytest.mark.integration
 
@@ -346,18 +345,13 @@ def _run_airflow(
 
 
 def check_golden_file(
-    pytestconfig: PytestConfig,
     output_path: pathlib.Path,
     golden_path: pathlib.Path,
     ignore_paths: Sequence[str] = (),
 ) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
-
     assert_metadata_files_equal(
         output_path=output_path,
         golden_path=golden_path,
-        update_golden=update_golden,
-        copy_output=False,
         ignore_paths=ignore_paths,
         ignore_order=True,
     )
@@ -434,7 +428,6 @@ test_cases = [
     ],
 )
 def test_airflow_plugin(
-    pytestconfig: PytestConfig,
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,
@@ -497,7 +490,6 @@ def test_airflow_plugin(
         _sanitize_output_file(airflow_instance.metadata_file)
 
         check_golden_file(
-            pytestconfig=pytestconfig,
             output_path=airflow_instance.metadata_file,
             golden_path=golden_path,
             ignore_paths=[
@@ -512,7 +504,6 @@ def test_airflow_plugin(
         if test_case.multiple_connections:
             _sanitize_output_file(airflow_instance.metadata_file2)
             check_golden_file(
-                pytestconfig=pytestconfig,
                 output_path=airflow_instance.metadata_file2,
                 golden_path=golden_path,
                 ignore_paths=[

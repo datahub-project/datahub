@@ -88,6 +88,14 @@ public class QueryUtils {
   }
 
   @Nonnull
+  public static Filter newDisjunctiveFilter(@Nonnull ConjunctiveCriterion... orCriterion) {
+    return new Filter()
+        .setOr(
+            Arrays.stream(orCriterion)
+                .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+  }
+
+  @Nonnull
   public static Filter newConjunctiveFilter(@Nonnull Criterion... andCriterion) {
     ConjunctiveCriterionArray orCriteria = new ConjunctiveCriterionArray();
     orCriteria.add(
