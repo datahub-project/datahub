@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActionType } from '../property/types/action';
 import { Action } from '../../../actions/types';
-import { getActionType, getValueOptions } from './utils';
+import { getActionType, getValueOptions, getActionTypeForName } from './utils';
 import { ValueSelect } from '../property/select/ValueSelect';
 import { ActionTypeSelect } from './select/ActionTypeSelect';
 
@@ -19,6 +19,7 @@ export const ActionBuilder = ({ selectedAction, onChangeAction, actionTypes }: P
         onChangeAction({
             type: newActionType,
             values: [],
+            ...getActionTypeForName(newActionType, actionTypes)?.additionalParams,
         });
     };
 
