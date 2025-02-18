@@ -49,10 +49,9 @@ describe("siblings", () => {
     );
 
     // navigate to the bq entity
-    const bqUrn =
-      "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)";
-    cy.get(`[data-testid="compact-entity-link-${bqUrn}"]`).click();
-    cy.get(".ant-table-row").should("be.visible");
+    cy.clickOptionWithTestId(
+      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    );
     // check merged platforms is not shown
     cy.get('[data-testid="entity-header-test-id"]')
       .contains("dbt & BigQuery")
@@ -76,15 +75,10 @@ describe("siblings", () => {
     );
 
     // navigate to the bq entity
-<<<<<<< HEAD
     cy.clickOptionWithTestId(
       "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
     );
 
-=======
-    cy.get('[data-testid="siblings-list"]').first().click();
-    cy.get(".ant-table-row").should("be.visible");
->>>>>>> d020307219 (fix(siblings): fixing siblings smoke test (#5140))
     cy.clickOptionWithText("Add Term");
 
     cy.selectOptionInTagTermModal("CypressTerm");
