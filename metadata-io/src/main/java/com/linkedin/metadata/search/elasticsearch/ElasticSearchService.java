@@ -26,6 +26,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,22 +116,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         urn.getEntityType(),
         docId,
         runId);
+
+    // Create an upsert document that will be used if the document doesn't exist
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("runId", Collections.singletonList(runId));
+
     esWriteDAO.applyScriptUpdate(
         opContext,
         urn.getEntityType(),
         docId,
-        /*
-          Script used to apply updates to the runId field of the index.
-          This script saves the past N run ids which touched a particular URN in the search index.
-          It only adds a new run id if it is not already stored inside the list. (List is unique AND ordered)
-        */
         String.format(
             "if (ctx._source.containsKey('runId')) { "
                 + "if (!ctx._source.runId.contains('%s')) { "
                 + "ctx._source.runId.add('%s'); "
                 + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
                 + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId));
+            runId, runId, MAX_RUN_IDS_INDEXED, runId),
+        upsert);
   }
 
   @Nonnull
