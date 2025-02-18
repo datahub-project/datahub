@@ -2,7 +2,7 @@ describe("experiment", () => {
   it("can visit experiment end run", () => {
     cy.visit("/");
     cy.login();
-    //    replace the following line with the correct URL
+    // replace the following line with the correct URL
     cy.visit(
       "/container/urn:li:container:airline_forecast_experiment/Summary?is_lineage_mode=false",
     );
@@ -26,6 +26,7 @@ describe("experiment", () => {
     cy.visit(
       "/dataProcessInstance/urn:li:dataProcessInstance:simple_training_run",
     );
+
     // the run has subtype, na
     cy.contains("ML Training Run");
     cy.contains("Simple Training Run");
