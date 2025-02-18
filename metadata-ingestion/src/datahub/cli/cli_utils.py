@@ -4,9 +4,9 @@ import time
 import typing
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from urllib.parse import urlparse
 
 import click
-from urllib.parse import urlparse
 import requests
 from requests.sessions import Session
 
@@ -429,7 +429,7 @@ def ensure_has_system_metadata(
 
 class S3Path(click.Path):
     def convert(self, value, param, ctx):
-        if value.startswith('s3://'):
+        if value.startswith("s3://"):
             # Only import boto3 when we actually need it
             import boto3
             from botocore.exceptions import ClientError
@@ -437,29 +437,29 @@ class S3Path(click.Path):
             # Parse the S3 URL
             parsed = urlparse(value)
             bucket = parsed.netloc
-            key = parsed.path.lstrip('/')
+            key = parsed.path.lstrip("/")
 
             try:
-                s3 = boto3.client('s3')
+                s3 = boto3.client("s3")
                 # First try to check if it's an object
                 try:
                     s3.head_object(Bucket=bucket, Key=key)
                     return value
                 except ClientError as e:
-                    if e.response['Error']['Code'] == '404':
+                    if e.response["Error"]["Code"] == "404":
                         # If object doesn't exist, check if it's a prefix
                         response = s3.list_objects_v2(
-                            Bucket=bucket,
-                            Prefix=key,
-                            MaxKeys=1
+                            Bucket=bucket, Prefix=key, MaxKeys=1
                         )
-                        if 'Contents' in response:
+                        if "Contents" in response:
                             return value
-                        self.fail(f'Neither S3 object nor prefix exists: {value}', param, ctx)
+                        self.fail(
+                            f"Neither S3 object nor prefix exists: {value}", param, ctx
+                        )
                     else:
-                        self.fail(f'Error checking S3 path: {str(e)}', param, ctx)
+                        self.fail(f"Error checking S3 path: {str(e)}", param, ctx)
             except Exception as e:
-                self.fail(f'Error accessing S3: {str(e)}', param, ctx)
+                self.fail(f"Error accessing S3: {str(e)}", param, ctx)
 
         # Fall back to normal path checking for local files
         return super().convert(value, param, ctx)

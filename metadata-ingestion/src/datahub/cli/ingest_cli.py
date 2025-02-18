@@ -14,6 +14,7 @@ from tabulate import tabulate
 
 from datahub._version import nice_version_name
 from datahub.cli import cli_utils
+from datahub.cli.cli_utils import S3Path
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
@@ -24,7 +25,6 @@ from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.ingest_utils import deploy_source_vars
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.cli.cli_utils import S3Path
 
 logger = logging.getLogger(__name__)
 
