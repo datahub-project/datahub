@@ -615,7 +615,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        dataset_url = f"{self.config.display_uri}{dataset.dataset_url or ''}"
+        dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         logger.info(f"dataset url is: {dataset_url}")
 
