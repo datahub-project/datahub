@@ -220,7 +220,7 @@ export function formatDuration(durationMs: number): string {
     const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
-        return `${seconds} secs`;
+        return seconds === 1 ? `${seconds} sec` : `${seconds} secs`;
     }
 
     if (hours === 0) {
@@ -246,7 +246,7 @@ export function formatDetailedDuration(durationMs: number): string {
         parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
     }
     if (seconds > 0) {
-        parts.push(`${seconds} secs`);
+        parts.push(seconds === 1 ? `${seconds} sec` : `${seconds} secs`);
     }
     return parts.join(' ');
 }
