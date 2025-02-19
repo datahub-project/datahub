@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import logging
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -9,7 +9,6 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp_builder import (
     ContainerKey,
-    gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -61,6 +60,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.sdk._entity import Entity
+from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,13 @@ class CassandraSource(StatefulIngestionSourceBase):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        for metadata in self._get_metadata():
+            if isinstance(metadata, MetadataWorkUnit):
+                yield metadata
+            else:
+                yield from auto_workunit(metadata._as_mcps())
+
+    def _get_metadata(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         if not self.cassandra_api.authenticate():
             return
         keyspaces: List[CassandraKeyspace] = self.cassandra_api.get_keyspaces()
@@ -138,7 +146,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(keyspace_name)
                 continue
 
-            yield from self._generate_keyspace_container(keyspace)
+            yield self._generate_keyspace_container(keyspace)
 
             try:
                 yield from self._extract_tables_from_keyspace(keyspace_name)
@@ -163,21 +171,20 @@ class CassandraSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             yield from self.profiler.get_workunits(self.cassandra_data)
 
-    def _generate_keyspace_container(
-        self, keyspace: CassandraKeyspace
-    ) -> Iterable[MetadataWorkUnit]:
+    def _generate_keyspace_container(self, keyspace: CassandraKeyspace) -> Container:
         keyspace_container_key = self._generate_keyspace_container_key(
             keyspace.keyspace_name
         )
-        yield from gen_containers(
-            container_key=keyspace_container_key,
-            name=keyspace.keyspace_name,
+
+        return Container(
+            keyspace_container_key,
+            display_name=keyspace.keyspace_name,
             qualified_name=keyspace.keyspace_name,
+            subtype=DatasetContainerSubTypes.KEYSPACE,
             extra_properties={
                 "durable_writes": str(keyspace.durable_writes),
                 "replication": json.dumps(keyspace.replication),
             },
-            sub_types=[DatasetContainerSubTypes.KEYSPACE],
         )
 
     def _generate_keyspace_container_key(self, keyspace_name: str) -> ContainerKey:
@@ -189,15 +196,13 @@ class CassandraSource(StatefulIngestionSourceBase):
         )
 
     # get all tables for a given keyspace, iterate over them to extract column metadata
-    def _extract_tables_from_keyspace(
-        self, keyspace_name: str
-    ) -> Iterable[MetadataWorkUnit]:
+    def _extract_tables_from_keyspace(self, keyspace_name: str) -> Iterable[Dataset]:
         self.cassandra_data.keyspaces.append(keyspace_name)
         tables: List[CassandraTable] = self.cassandra_api.get_tables(keyspace_name)
         for table in tables:
             dataset = self._generate_table(keyspace_name, table)
             if dataset:
-                yield from auto_workunit(dataset._as_mcps())
+                yield dataset
 
     def _generate_table(
         self, keyspace_name: str, table: CassandraTable
@@ -260,14 +265,12 @@ class CassandraSource(StatefulIngestionSourceBase):
 
         return schema_fields
 
-    def _extract_views_from_keyspace(
-        self, keyspace_name: str
-    ) -> Iterable[MetadataWorkUnit]:
+    def _extract_views_from_keyspace(self, keyspace_name: str) -> Iterable[Dataset]:
         views: List[CassandraView] = self.cassandra_api.get_views(keyspace_name)
         for view in views:
             dataset = self._generate_view(keyspace_name, view)
             if dataset:
-                yield from auto_workunit(dataset._as_mcps())
+                yield dataset
 
     def _generate_view(
         self, keyspace_name: str, view: CassandraView
