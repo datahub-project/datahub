@@ -183,9 +183,11 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                duration={firstState?.durationMillis}
-                status={firstState?.result?.resultType}
-                startTime={firstState?.timestampMillis}
+                dataProcessInstanceProps={{
+                    startTime: firstState?.timestampMillis,
+                    duration: firstState?.durationMillis ?? undefined,
+                    status: firstState?.result?.resultType ?? undefined,
+                }}
             />
         );
     };
