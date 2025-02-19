@@ -69,7 +69,12 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
     DatasetLineageTypeClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
     GlobalTagsClass,
     TagAssociationClass,
     UpstreamClass,
@@ -108,6 +113,7 @@ class SupersetDataset(BaseModel):
     table_name: str
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
+    dataset_url: Optional[str] = ""
 
     @property
     def modified_dt(self) -> Optional[datetime]:
@@ -291,6 +297,10 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
+        if not dataset_id:
+            logger.warning("Dataset id cannot be empty")
+            return {}
+
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
         )
@@ -309,6 +319,19 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
         database_name = self.config.database_alias.get(database_name, database_name)
+
+        # If the information about the datasource is already contained in the dataset response,
+        # can just return the urn directly
+        if schema_name and table_name and database_id:
+            return make_dataset_urn(
+                platform=platform_instance,
+                name=".".join(
+                    name for name in [database_name, schema_name, table_name] if name
+                ),
+                env=self.config.env,
+            )
+
+        platform = self.get_platform_from_database_id(database_id)
 
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
@@ -575,30 +598,23 @@ class SupersetSource(StatefulIngestionSourceBase):
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
+        logger.info(f"processing dataset id: {dataset_data.get('id', -1)}")
+
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         dataset = SupersetDataset(**dataset_response["result"])
+
 
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
+        dataset_url = f"{self.config.display_uri}{dataset.dataset_url or ''}"
+
+        logger.info(f"dataset url is: {dataset_url}")
 
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
 
-        # Preset has a way of naming their platforms differently than
-        # how datahub names them, so map the platform name to the correct naming
-        warehouse_naming = {
-            "awsathena": "athena",
-            "clickhousedb": "clickhouse",
-            "postgresql": "postgres",
-        }
-
-        if upstream_warehouse_platform in warehouse_naming:
-            upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
-
-        # TODO: Categorize physical vs virtual upstream dataset
         # mark all upstream dataset as physical for now, in the future we would ideally like
         # to differentiate physical vs virtual upstream datasets
         tag_urn = f"urn:li:tag:{self.platform}:physical"
@@ -610,10 +626,20 @@ class SupersetSource(StatefulIngestionSourceBase):
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=upstream_dataset,
-                    properties={"externalUrl": dataset_url},
                 )
             ]
         )
+
+        metrics = {
+            "Metrics": ", ".join(
+                [
+                    metric.get("metric_name")
+                    for metric in (
+                        dataset_response.get("result", {}).get("metrics", [])
+                    )
+                ]
+            )
+        }
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
@@ -622,7 +648,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 TimeStamp(time=dataset.modified_ts) if dataset.modified_ts else None
             ),
             externalUrl=dataset_url,
+            customProperties=metrics,
         )
+        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
         aspects_items: List[Any] = []
@@ -632,8 +661,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 dataset_info,
                 upstream_lineage,
                 global_tags,
+                upstream_lineage,
+                global_tags,
             ]
         )
+
+        logger.info(f"finished processing: {datasource_urn}")
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
