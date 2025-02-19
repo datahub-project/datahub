@@ -463,7 +463,11 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "msfabric": {"requests"} | {*abs_base, *data_lake_profiling},
+    "msfabric": {"requests"} | {*abs_base, *data_lake_profiling} | microsoft_common
+        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | sqlglot_lib
+        | threading_timeout_common |
+        sql_common | mssql_common | {"pyodbc"} | {*data_lake_profiling, *delta_lake},
     "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
