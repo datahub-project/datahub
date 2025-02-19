@@ -64,9 +64,6 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
-)
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport

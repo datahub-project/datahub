@@ -104,11 +104,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
 )
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

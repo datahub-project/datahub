@@ -15,9 +15,7 @@ from typing import (
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -166,11 +164,6 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",
-)
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
 )
 @capability(
     SourceCapability.CLASSIFICATION,

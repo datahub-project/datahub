@@ -349,11 +349,6 @@ class ElasticsearchSourceConfig(
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class ElasticsearchSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

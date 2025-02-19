@@ -130,11 +130,6 @@ class FeastRepositorySourceConfig(
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 @dataclass
 class FeastRepositorySource(StatefulIngestionSourceBase):
     """

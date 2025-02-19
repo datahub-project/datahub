@@ -109,9 +109,6 @@ logger = logging.getLogger(__name__)
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
-)
 class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

@@ -87,11 +87,6 @@ class GCSSourceReport(DataLakeSourceReport):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

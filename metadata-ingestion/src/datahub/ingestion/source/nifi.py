@@ -478,11 +478,6 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
     report: NifiSourceReport

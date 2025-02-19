@@ -15,14 +15,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
-    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
-    SourceCapability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -82,9 +80,6 @@ class Neo4jSourceReport(StatefulIngestionReport):
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
-)
 class Neo4jSource(StatefulIngestionSourceBase):
     NODE = "node"
     RELATIONSHIP = "relationship"

@@ -93,11 +93,6 @@ class MLflowRegisteredModelStageInfo:
     "Extract descriptions for MLflow Registered Models and Model Versions",
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class MLflowSource(StatefulIngestionSourceBase):
     platform = "mlflow"
     registered_model_stages_info = (

@@ -57,11 +57,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.

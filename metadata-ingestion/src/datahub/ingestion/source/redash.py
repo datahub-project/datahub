@@ -319,9 +319,6 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
-)
 class RedashSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

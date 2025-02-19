@@ -11,12 +11,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
-    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -52,11 +51,6 @@ class GrafanaReport(StaleEntityRemovalSourceReport):
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
 @support_status(SupportStatus.TESTING)
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class GrafanaSource(StatefulIngestionSourceBase):
     """
     This is an experimental source for Grafana.

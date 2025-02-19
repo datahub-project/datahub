@@ -85,11 +85,6 @@ OPERATION_STATEMENT_TYPES = {
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class DeltaLakeSource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

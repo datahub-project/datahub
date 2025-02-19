@@ -209,9 +209,6 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-@capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
-)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

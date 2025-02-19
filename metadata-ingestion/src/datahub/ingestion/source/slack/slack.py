@@ -13,14 +13,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
-    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
-    SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -106,11 +104,6 @@ PLATFORM_NAME = "slack"
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.TESTING)
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class SlackSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         super().__init__(config, ctx)
