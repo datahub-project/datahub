@@ -21,6 +21,7 @@ from datahub.configuration.common import (
     IgnorableError,
     PipelineExecutionError,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.global_context import set_graph_context
@@ -82,7 +83,7 @@ class LoggingCallback(WriteCallback):
         )
 
 
-class DeadLetterQueueCallback(WriteCallback):
+class DeadLetterQueueCallback(WriteCallback, Closeable):
     def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
         if not config:
             config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
@@ -236,76 +237,96 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        self.graph = None
-        with _add_init_error_context("connect to DataHub"):
-            if self.config.datahub_api:
-                self.graph = DataHubGraph(self.config.datahub_api)
-                self.graph.test_connection()
+        with contextlib.ExitStack() as exit_stack:
+            self.graph: Optional[DataHubGraph] = None
+            with _add_init_error_context("connect to DataHub"):
+                if self.config.datahub_api:
+                    self.graph = exit_stack.enter_context(
+                        DataHubGraph(self.config.datahub_api)
+                    )
+                    self.graph.test_connection()
 
-        with _add_init_error_context("set up framework context"):
-            self.ctx = PipelineContext(
-                run_id=self.config.run_id,
-                graph=self.graph,
-                pipeline_name=self.config.pipeline_name,
-                dry_run=dry_run,
-                preview_mode=preview_mode,
-                pipeline_config=self.config,
-            )
-
-        if self.config.sink is None:
-            logger.info(
-                "No sink configured, attempting to use the default datahub-rest sink."
-            )
-            with _add_init_error_context("configure the default rest sink"):
-                self.sink_type = "datahub-rest"
-                self.sink = _make_default_rest_sink(self.ctx)
-        else:
-            self.sink_type = self.config.sink.type
-            with _add_init_error_context(
-                f"find a registered sink for type {self.sink_type}"
-            ):
-                sink_class = sink_registry.get(self.sink_type)
-
-            with _add_init_error_context(f"configure the sink ({self.sink_type})"):
-                sink_config = self.config.sink.dict().get("config") or {}
-                self.sink = sink_class.create(sink_config, self.ctx)
-                logger.debug(f"Sink type {self.sink_type} ({sink_class}) configured")
-        logger.info(f"Sink configured successfully. {self.sink.configured()}")
-
-        if self.graph is None and isinstance(self.sink, DatahubRestSink):
-            with _add_init_error_context("setup default datahub client"):
-                self.graph = self.sink.emitter.to_graph()
-                self.graph.test_connection()
-        self.ctx.graph = self.graph
-        telemetry_instance.set_context(server=self.graph)
-
-        with set_graph_context(self.graph):
-            with _add_init_error_context("configure reporters"):
-                self._configure_reporting(report_to)
-
-            with _add_init_error_context(
-                f"find a registered source for type {self.source_type}"
-            ):
-                source_class = source_registry.get(self.source_type)
-
-            with _add_init_error_context(f"configure the source ({self.source_type})"):
-                self.source = source_class.create(
-                    self.config.source.dict().get("config", {}), self.ctx
-                )
-                logger.debug(
-                    f"Source type {self.source_type} ({source_class}) configured"
-                )
-                logger.info("Source configured successfully.")
-
-            extractor_type = self.config.source.extractor
-            with _add_init_error_context(f"configure the extractor ({extractor_type})"):
-                extractor_class = extractor_registry.get(extractor_type)
-                self.extractor = extractor_class(
-                    self.config.source.extractor_config, self.ctx
+            with _add_init_error_context("set up framework context"):
+                self.ctx = PipelineContext(
+                    run_id=self.config.run_id,
+                    graph=self.graph,
+                    pipeline_name=self.config.pipeline_name,
+                    dry_run=dry_run,
+                    preview_mode=preview_mode,
+                    pipeline_config=self.config,
                 )
 
-            with _add_init_error_context("configure transformers"):
-                self._configure_transforms()
+            if self.config.sink is None:
+                logger.info(
+                    "No sink configured, attempting to use the default datahub-rest sink."
+                )
+                with _add_init_error_context("configure the default rest sink"):
+                    self.sink_type = "datahub-rest"
+                    self.sink = exit_stack.enter_context(
+                        _make_default_rest_sink(self.ctx)
+                    )
+            else:
+                self.sink_type = self.config.sink.type
+                with _add_init_error_context(
+                    f"find a registered sink for type {self.sink_type}"
+                ):
+                    sink_class = sink_registry.get(self.sink_type)
+
+                with _add_init_error_context(f"configure the sink ({self.sink_type})"):
+                    sink_config = self.config.sink.dict().get("config") or {}
+                    self.sink = exit_stack.enter_context(
+                        sink_class.create(sink_config, self.ctx)
+                    )
+                    logger.debug(
+                        f"Sink type {self.sink_type} ({sink_class}) configured"
+                    )
+            logger.info(f"Sink configured successfully. {self.sink.configured()}")
+
+            if self.graph is None and isinstance(self.sink, DatahubRestSink):
+                with _add_init_error_context("setup default datahub client"):
+                    self.graph = self.sink.emitter.to_graph()
+                    self.graph.test_connection()
+            self.ctx.graph = self.graph
+            telemetry_instance.set_context(server=self.graph)
+
+            with set_graph_context(self.graph):
+                with _add_init_error_context("configure reporters"):
+                    self._configure_reporting(report_to)
+
+                with _add_init_error_context(
+                    f"find a registered source for type {self.source_type}"
+                ):
+                    source_class = source_registry.get(self.source_type)
+
+                with _add_init_error_context(
+                    f"configure the source ({self.source_type})"
+                ):
+                    self.source = exit_stack.enter_context(
+                        source_class.create(
+                            self.config.source.dict().get("config", {}), self.ctx
+                        )
+                    )
+                    logger.debug(
+                        f"Source type {self.source_type} ({source_class}) configured"
+                    )
+                    logger.info("Source configured successfully.")
+
+                extractor_type = self.config.source.extractor
+                with _add_init_error_context(
+                    f"configure the extractor ({extractor_type})"
+                ):
+                    extractor_class = extractor_registry.get(extractor_type)
+                    self.extractor = exit_stack.enter_context(
+                        extractor_class(self.config.source.extractor_config, self.ctx)
+                    )
+
+                with _add_init_error_context("configure transformers"):
+                    self._configure_transforms()
+
+            # If all of the initialization succeeds, we can preserve the exit stack until the pipeline run.
+            # We need to use an exit stack so that if we have an exception during initialization,
+            # things that were already initialized are still cleaned up.
+            self.exit_stack = exit_stack.pop_all()
 
     @property
     def source_type(self) -> str:
@@ -440,17 +461,15 @@ class Pipeline:
         return False
 
     def run(self) -> None:
-        with contextlib.ExitStack() as stack:
+        with self.exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
 
-                stack.enter_context(
+                self.exit_stack.enter_context(
                     memray.Tracker(
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
-
-            stack.enter_context(self.sink)
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
@@ -459,8 +478,10 @@ class Pipeline:
                 callback = (
                     LoggingCallback()
                     if not self.config.failure_log.enabled
-                    else DeadLetterQueueCallback(
-                        self.ctx, self.config.failure_log.log_config
+                    else self.exit_stack.enter_context(
+                        DeadLetterQueueCallback(
+                            self.ctx, self.config.failure_log.log_config
+                        )
                     )
                 )
                 for wu in itertools.islice(
@@ -506,12 +527,11 @@ class Pipeline:
                             "Failed to process some records. Continuing.",
                             exc_info=e,
                         )
-                        # TODO: Transformer errors should cause the pipeline to fail.
+                        # TODO: Transformer errors should be reported more loudly / as part of the pipeline report.
 
                     if not self.dry_run:
                         self.sink.handle_work_unit_end(wu)
-                self.extractor.close()
-                self.source.close()
+
                 # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
                 for record_envelope in self.transform(
                     [
@@ -538,9 +558,6 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
-                if callback and hasattr(callback, "close"):
-                    callback.close()  # type: ignore
 
                 self._notify_reporters_on_ingestion_completion()
 
