@@ -124,7 +124,11 @@ nodes:
 - Non-ASCII characters in any component trigger automatic GUID generation
 - Once an ID is created (either manually or automatically), it cannot be easily changed
 - All references to a term (in `inherits`, `contains`, etc.) must use its correct ID
-- For terms that other terms will reference, consider using explicit IDs
+- Moving terms in the hierarchy does NOT update their IDs:
+  - The ID retains its original path components even after moving
+  - This can lead to IDs that don't match the current location
+  - Consider using `enable_auto_id: true` if you plan to reorganize your glossary
+- For terms that other terms will reference, consider using explicit IDs or enable auto_id
 
 Example of how different names are handled:
 ```yaml

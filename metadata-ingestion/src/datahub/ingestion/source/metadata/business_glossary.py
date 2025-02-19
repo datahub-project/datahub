@@ -166,6 +166,9 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
         # Force auto_id if the cleaned URL still contains problematic characters
         if UrnEncoder.contains_extended_reserved_char(id_):
+            logger.warning(
+                f"ID '{id_}' contains problematic characters after URL cleaning. Falling back to GUID generation for stability."
+            )
             id_ = datahub_guid({"path": id_})
 
     return id_
