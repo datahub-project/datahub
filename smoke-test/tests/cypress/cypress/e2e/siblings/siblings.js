@@ -44,9 +44,8 @@ describe("siblings", () => {
     cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
     cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.clickOptionWithTestId(
-      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    );
+    cy.get(`[data-testid="compact-entity-link-${BIGQUERY_URN}"`).click();
+    cy.get(".ant-table-row").should("be.visible");
     // check merged platforms is not shown
     cy.get('[data-testid="entity-header-test-id"]')
       .contains("dbt & BigQuery")
