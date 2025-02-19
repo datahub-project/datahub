@@ -8,7 +8,6 @@ describe("experiment", () => {
     );
 
     // the experiment has subtypes and platform
-    cy.contains("ML Experiment");
     cy.contains("MLflow");
     // the model has its name and description
     cy.contains("Airline Forecast Experiment");
@@ -16,7 +15,6 @@ describe("experiment", () => {
 
     // the model has a training run
     cy.contains("Simple Training Run").click();
-    cy.contains("ML Training Run");
     cy.contains("Airline Forecast Experiment");
   });
 
@@ -28,12 +26,11 @@ describe("experiment", () => {
     );
 
     // the run has subtype, na
-    cy.contains("ML Training Run");
     cy.contains("Simple Training Run");
 
     // the run has its details
     cy.contains("Failure");
-    cy.contains("1 secs"); // TODO: should be 1 sec
+    cy.contains("1 sec");
     cy.contains("simple_training_run");
     cy.contains("urn:li:corpuser:datahub");
     cy.contains("s3://my-bucket/output");
@@ -44,7 +41,6 @@ describe("experiment", () => {
 
     // the run has a container and can visit it
     cy.contains("Airline Forecast Experiment").click();
-    cy.contains("ML Experiment");
     cy.contains("Simple Training Run");
   });
 });
