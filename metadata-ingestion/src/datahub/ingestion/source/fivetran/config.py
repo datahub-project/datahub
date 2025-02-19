@@ -12,9 +12,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationWarning,
 )
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.report import Report
@@ -175,10 +173,7 @@ class PlatformDetail(ConfigModel):
     )
 
 
-class FivetranSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-):
+class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     fivetran_log_config: FivetranLogConfig = pydantic.Field(
         description="Fivetran log connector destination server configurations.",
     )

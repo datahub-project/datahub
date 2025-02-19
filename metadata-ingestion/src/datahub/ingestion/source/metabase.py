@@ -13,9 +13,7 @@ from pydantic import Field, root_validator, validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import (
-    DatasetLineageProviderConfigBase,
-)
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -63,10 +61,7 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(
-    DatasetLineageProviderConfigBase,
-    StatefulIngestionConfigBase,
-):
+class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")

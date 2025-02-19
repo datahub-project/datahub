@@ -17,9 +17,7 @@ from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -75,10 +73,7 @@ class URIReplacePattern(ConfigModel):
     )
 
 
-class JsonSchemaSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-):
+class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path: Union[FilePath, DirectoryPath, AnyHttpUrl] = Field(
         description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json"
     )

@@ -121,9 +121,7 @@ class SupersetDataset(BaseModel):
 
 
 class SupersetConfig(
-    StatefulIngestionConfigBase,
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
+    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api

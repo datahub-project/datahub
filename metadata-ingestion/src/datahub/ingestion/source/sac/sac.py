@@ -13,10 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-    EnvConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     dataset_urn_to_key,
@@ -107,9 +104,7 @@ class ConnectionMappingConfig(EnvConfigMixin):
 
 
 class SACSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    IncrementalLineageConfigMixin,
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

@@ -26,9 +26,7 @@ from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -124,9 +122,7 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    AwsSourceConfig,
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,

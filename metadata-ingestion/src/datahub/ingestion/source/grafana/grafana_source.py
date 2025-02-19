@@ -4,9 +4,7 @@ import requests
 from pydantic import Field, SecretStr
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import (
-    PlatformInstanceConfigMixin,
-)
+from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -31,10 +29,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import DashboardInfoClass, StatusClass
 
 
-class GrafanaSourceConfig(
-    StatefulIngestionConfigBase,
-    PlatformInstanceConfigMixin,
-):
+class GrafanaSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
     url: str = Field(
         default="",
         description="Grafana URL in the format http://your-grafana-instance with no trailing slash",

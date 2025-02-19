@@ -72,9 +72,7 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 
 class SigmaSourceConfig(
-    StatefulIngestionConfigBase,
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
     api_url: str = pydantic.Field(
         default=Constant.DEFAULT_API_URL, description="Sigma API hosted URL."

@@ -5,9 +5,7 @@ from urllib.parse import unquote
 from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -43,9 +41,7 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    PathSpecsConfigMixin,
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
 ):
     credential: HMACKey = Field(
         description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",

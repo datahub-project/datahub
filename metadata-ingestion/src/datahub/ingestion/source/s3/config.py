@@ -28,9 +28,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataLakeSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    PathSpecsConfigMixin,
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
 ):
     platform: str = Field(
         default="",

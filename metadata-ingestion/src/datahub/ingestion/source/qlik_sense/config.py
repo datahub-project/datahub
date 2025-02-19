@@ -110,9 +110,7 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 
 class QlikSourceConfig(
-    StatefulIngestionConfigBase,
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
     tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
     api_key: str = pydantic.Field(description="Qlik API Key")

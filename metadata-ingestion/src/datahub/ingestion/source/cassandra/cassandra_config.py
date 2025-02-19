@@ -49,9 +49,7 @@ class CassandraCloudConfig(ConfigModel):
 
 
 class CassandraSourceConfig(
-    PlatformInstanceConfigMixin,
-    StatefulIngestionConfigBase,
-    EnvConfigMixin,
+    PlatformInstanceConfigMixin, StatefulIngestionConfigBase, EnvConfigMixin
 ):
     """
     Configuration for connecting to a Cassandra or DataStax Astra DB source.

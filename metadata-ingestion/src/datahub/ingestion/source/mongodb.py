@@ -86,9 +86,7 @@ class HostingEnvironment(Enum):
 
 
 class MongoDBConfig(
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
-    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
 ):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
