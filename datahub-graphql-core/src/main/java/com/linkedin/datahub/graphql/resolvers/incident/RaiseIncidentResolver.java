@@ -92,7 +92,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
             return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             log.error("Failed to create incident. {}", e.getMessage());
-            throw new RuntimeException("Failed to incident", e);
+            throw new RuntimeException(e.getMessage());
           }
         },
         this.getClass().getSimpleName(),
@@ -113,6 +113,10 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                 .getType()
                 .name())); // Assumption Alert: This assumes that GMS incident type === GraphQL
     // incident type.
+    if (IncidentType.CUSTOM.name().equals(input.getType().name())
+        && input.getCustomType() == null) {
+      throw new URISyntaxException("Failed to create incident.", "customType is required");
+    }
     result.setCustomType(input.getCustomType(), SetMode.IGNORE_NULL);
     result.setTitle(input.getTitle(), SetMode.IGNORE_NULL);
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);

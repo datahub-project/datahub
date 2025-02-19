@@ -124,10 +124,12 @@ public class IncidentMapper {
     if (actor.getEntityType().equals(Constants.CORP_USER_ENTITY_NAME)) {
       final CorpUser user = new CorpUser();
       user.setUrn(actor.toString());
+      user.setType(EntityType.CORP_USER);
       return user;
-    } else if (actor.equals(Constants.CORP_GROUP_ENTITY_NAME)) {
+    } else if (actor.getEntityType().equals(Constants.CORP_GROUP_ENTITY_NAME)) {
       final CorpGroup group = new CorpGroup();
       group.setUrn(actor.toString());
+      group.setType(EntityType.CORP_GROUP);
       return group;
     }
     throw new IllegalArgumentException(String.format("Invalid assignee urn: %s", actor));

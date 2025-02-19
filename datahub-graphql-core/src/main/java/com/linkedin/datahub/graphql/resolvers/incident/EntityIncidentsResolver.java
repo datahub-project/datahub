@@ -71,13 +71,13 @@ public class EntityIncidentsResolver
             final Filter filter =
                 buildIncidentsFilter(
                     entityUrn, maybeState, maybeStage, maybePriority, maybeAssigneeUrns);
-            final List<SortCriterion> sortCriterion = buildIncidentsSortCriteria();
+            final List<SortCriterion> sortCriteria = buildIncidentsSortCriteria();
             final SearchResult searchResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 

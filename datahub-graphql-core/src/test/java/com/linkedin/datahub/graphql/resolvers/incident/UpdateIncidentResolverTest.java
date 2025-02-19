@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
@@ -41,8 +41,8 @@ public class UpdateIncidentResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
                 Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
@@ -69,6 +69,7 @@ public class UpdateIncidentResolverTest {
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockEntityService.getAspect(
+                any(OperationContext.class),
                 Mockito.eq(TEST_INCIDENT_URN),
                 Mockito.eq(INCIDENT_INFO_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -128,11 +129,11 @@ public class UpdateIncidentResolverTest {
     // Verify entity client
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -141,8 +142,8 @@ public class UpdateIncidentResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
                 Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
@@ -169,6 +170,7 @@ public class UpdateIncidentResolverTest {
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockEntityService.getAspect(
+                any(OperationContext.class),
                 Mockito.eq(TEST_INCIDENT_URN),
                 Mockito.eq(INCIDENT_INFO_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -212,11 +214,11 @@ public class UpdateIncidentResolverTest {
     // Verify entity client
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 
@@ -225,8 +227,8 @@ public class UpdateIncidentResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
                 Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
@@ -253,6 +255,7 @@ public class UpdateIncidentResolverTest {
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockEntityService.getAspect(
+                any(OperationContext.class),
                 Mockito.eq(TEST_INCIDENT_URN),
                 Mockito.eq(INCIDENT_INFO_ASPECT_NAME),
                 Mockito.eq(0L)))

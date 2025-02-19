@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -66,14 +66,16 @@ public class EntityIncidentsResolverTest {
 
     IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.OPERATIONAL)
+            .setType(IncidentType.FIELD)
             .setCustomType("Custom Type")
             .setDescription("Description")
             .setPriority(5)
             .setTitle("Title")
             .setEntities(new UrnArray(ImmutableList.of(datasetUrn)))
             .setSource(
-                new IncidentSource().setType(IncidentSourceType.MANUAL).setSourceUrn(assertionUrn))
+                new IncidentSource()
+                    .setType(IncidentSourceType.ASSERTION_FAILURE)
+                    .setSourceUrn(assertionUrn))
             .setStatus(
                 new IncidentStatus()
                     .setState(IncidentState.ACTIVE)
@@ -85,9 +87,10 @@ public class EntityIncidentsResolverTest {
         Constants.INCIDENT_INFO_ASPECT_NAME,
         new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedInfo.data())));
 
-    final Map<String, String> criterionMap = new HashMap<>();
-    criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, datasetUrn.toString());
-    Filter expectedFilter = QueryUtils.newFilter(criterionMap);
+    final Map<String, List<String>> criterionMap = new HashMap<>();
+    criterionMap.put(
+        INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, ImmutableList.of(datasetUrn.toString()));
+    Filter expectedFilter = QueryUtils.newListsFilter(criterionMap);
 
     SortCriterion expectedSort = new SortCriterion();
     expectedSort.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
@@ -112,7 +115,7 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
-                any(),
+                any(OperationContext.class),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(incidentUrn)),
                 Mockito.eq(null)))
@@ -190,7 +193,7 @@ public class EntityIncidentsResolverTest {
 
     IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.DATASET_COLUMN)
+            .setType(IncidentType.FIELD)
             .setCustomType("Custom Type")
             .setDescription("Description")
             .setPriority(5)
@@ -239,7 +242,7 @@ public class EntityIncidentsResolverTest {
                 Mockito.any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
-                Mockito.eq(expectedSort),
+                Mockito.eq(Collections.singletonList(expectedSort)),
                 Mockito.eq(0),
                 Mockito.eq(10)))
         .thenReturn(
@@ -253,10 +256,10 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(incidentUrn)),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableMap.of(
                 incidentUrn,

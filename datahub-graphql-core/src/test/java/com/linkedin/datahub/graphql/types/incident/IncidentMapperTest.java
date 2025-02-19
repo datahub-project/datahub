@@ -13,6 +13,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Incident;
@@ -52,7 +53,7 @@ public class IncidentMapperTest {
     lastStatus.setActor(userUrn);
     incidentInfo.setCreated(lastStatus);
 
-    incidentInfo.setType(IncidentType.DATASET_COLUMN);
+    incidentInfo.setType(IncidentType.FIELD);
     incidentInfo.setCustomType("Custom Type");
     incidentInfo.setTitle("Test Incident", SetMode.IGNORE_NULL);
     incidentInfo.setDescription("This is a test incident", SetMode.IGNORE_NULL);
@@ -64,7 +65,7 @@ public class IncidentMapperTest {
                     .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
                     .setAssignedAt(lastStatus),
                 new IncidentAssignee()
-                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test2"))
+                    .setActor(UrnUtils.getUrn("urn:li:corpGroup:test2"))
                     .setAssignedAt(lastStatus))));
     incidentInfo.setEntities(new UrnArray(Collections.singletonList(urn)));
     Long incidentStartedAt = 10L;
@@ -113,14 +114,14 @@ public class IncidentMapperTest {
     assertEquals(incident.getCustomType(), "Custom Type");
     assertEquals(
         incident.getIncidentType().toString(),
-        com.linkedin.datahub.graphql.generated.IncidentType.OPERATIONAL.toString());
+        com.linkedin.datahub.graphql.generated.IncidentType.FIELD.toString());
     assertEquals(incident.getTitle(), "Test Incident");
     assertEquals(incident.getDescription(), "This is a test incident");
     assertEquals(incident.getPriority(), IncidentPriority.HIGH);
     assertEquals(incident.getStartedAt(), incidentStartedAt);
     assertEquals(
         incident.getSource().getType().toString(),
-        com.linkedin.datahub.graphql.generated.IncidentSourceType.MANUAL.toString());
+        com.linkedin.datahub.graphql.generated.IncidentSourceType.ASSERTION_FAILURE.toString());
     assertEquals(incident.getSource().getSource().getUrn(), assertionUrn.toString());
     assertEquals(
         incident.getStatus().getState().toString(),
@@ -134,8 +135,11 @@ public class IncidentMapperTest {
     assertEquals(incident.getCreated().getTime().longValue(), 1000L);
     assertEquals(incident.getCreated().getActor(), userUrn.toString());
     assertEquals(incident.getAssignees().size(), 2);
-
     assertEquals(((CorpUser) incident.getAssignees().get(0)).getUrn(), "urn:li:corpuser:test");
-    assertEquals(((CorpUser) incident.getAssignees().get(1)).getUrn(), "urn:li:corpuser:test2");
+    assertEquals(((CorpGroup) incident.getAssignees().get(1)).getUrn(), "urn:li:corpGroup:test2");
+
+    assertEquals(incident.getTags().getTags().size(), 1);
+    assertEquals(
+        incident.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");
   }
 }

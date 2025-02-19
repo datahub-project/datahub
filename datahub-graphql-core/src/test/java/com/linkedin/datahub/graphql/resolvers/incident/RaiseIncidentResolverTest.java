@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
@@ -28,6 +28,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -41,8 +42,8 @@ public class RaiseIncidentResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
                 Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
@@ -100,12 +101,39 @@ public class RaiseIncidentResolverTest {
     // Verify entity client
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
+  }
+
+  @Test
+  public void testCustomTypeRequired() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.CUSTOM);
+    testInput.setResourceUrn("urn:li:dataset:(test,test,test)");
+    testInput.setTitle("Title");
+    testInput.setDescription("Description");
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+
+    try {
+      resolver.get(mockEnv).get();
+      Assert.fail("Expected exception was not thrown");
+    } catch (ExecutionException e) {
+      Assert.assertEquals(
+          "customType is required: Failed to create incident.", e.getCause().getMessage());
+    }
   }
 
   @Test
@@ -146,8 +174,8 @@ public class RaiseIncidentResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
+                any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
                 Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
@@ -187,11 +215,11 @@ public class RaiseIncidentResolverTest {
     // Verify entity client
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.anyBoolean());
   }
 }
