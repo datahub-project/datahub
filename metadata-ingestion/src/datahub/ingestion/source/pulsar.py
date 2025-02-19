@@ -116,6 +116,7 @@ class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "pulsar"
+        self.ctx = ctx
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
 

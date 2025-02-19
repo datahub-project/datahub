@@ -56,7 +56,13 @@ const ListContainer = styled.div``;
 enum TabType {
     Sources = 'Sources',
     Secrets = 'Secrets',
+    RemoteExecutors = 'Executors',
 }
+
+const TabTypeToListComponent = {
+    [TabType.Sources]: <IngestionSourceList />,
+    [TabType.Secrets]: <SecretsList />,
+};
 
 export const ManageIngestionPage = () => {
     /**
@@ -78,7 +84,8 @@ export const ManageIngestionPage = () => {
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
     const onClickTab = (newTab: string) => {
-        setSelectedTab(TabType[newTab]);
+        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
+        setSelectedTab(matchingTab || selectedTab);
     };
 
     return (
@@ -94,7 +101,7 @@ export const ManageIngestionPage = () => {
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
-            <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
+            <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>
         </PageContainer>
     );
 };

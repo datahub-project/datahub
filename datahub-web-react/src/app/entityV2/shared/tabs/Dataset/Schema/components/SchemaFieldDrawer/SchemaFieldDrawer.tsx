@@ -239,6 +239,7 @@ export default function SchemaFieldDrawer({
         <>
             {!openTimelineDrawer && (
                 <StyledDrawer
+                    push={false}
                     open={!!expandedDrawerFieldPath}
                     onClose={() => setExpandedDrawerFieldPath(null)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}

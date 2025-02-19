@@ -1,95 +1,30 @@
-import { colors } from '@src/alchemy-components/theme';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
-import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
-import { AreaSeries, Axis, AxisScale, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
-import React, { useState } from 'react';
-import { Popover } from '../Popover';
-import { ChartWrapper, TooltipGlyph } from './components';
-import { LineChartProps } from './types';
-import { getMockedProps } from '../BarChart/utils';
+import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
+import React, { useMemo, useState } from 'react';
+import usePrepareScales from '../BarChart/hooks/usePrepareScales';
 import useMergedProps from '../BarChart/hooks/useMergedProps';
-import { roundToEven } from './utils';
 import { AxisProps, GridProps } from '../BarChart/types';
-import { GLYPH_DROP_SHADOW_FILTER } from './constants';
-import useAdaptYScaleToZeroValues from '../BarChart/hooks/useAdaptYScaleToZeroValues';
-import useMaxDataValue from '../BarChart/hooks/useMaxDataValue';
+import { getMockedProps } from '../BarChart/utils';
+import { Popover } from '../Popover';
+import { ChartWrapper } from './components';
+import { Datum, LineChartProps } from './types';
+// FIY: tooltip has a bug when glyph and vertical/horizontal crosshair can be shown behind the graph
+// issue: https://github.com/airbnb/visx/issues/1333
+// We have this problem when LineChart shown on Drawer
+// That can be fixed by adding z-idex
+// But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
+// https://github.com/styled-components/styled-components/issues/2620
+import LeftAxisMarginSetter from '../BarChart/components/LeftAxisMarginSetter';
+import './customTooltip.css';
+import { lineChartDefault } from './defaults';
+import useMinDataValue from '../BarChart/hooks/useMinDataValue';
 
-const commonTickLabelProps: TickLabelProps<any> = {
-    fontSize: 10,
-    fontFamily: 'Mulish',
-    fill: colors.gray[1700],
-};
-
-export const lineChartDefault: LineChartProps<any> = {
-    data: [],
-    isEmpty: false,
-
-    xAccessor: (datum) => datum?.x,
-    yAccessor: (datum) => datum?.y,
-    xScale: { type: 'time' },
-    yScale: { type: 'log', nice: true, round: true, base: 2 },
-
-    lineColor: colors.violet[500],
-    areaColor: 'url(#line-gradient)',
-    margin: { top: 0, right: 0, bottom: 0, left: 0 },
-
-    leftAxisProps: {
-        tickFormat: abbreviateNumber,
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'end',
-            width: 50,
-        },
-        computeNumTicks: () => 5,
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    bottomAxisProps: {
-        tickFormat: (x) => dayjs(x).format('D MMM'),
-        tickLabelProps: {
-            ...commonTickLabelProps,
-            textAnchor: 'middle',
-            verticalAnchor: 'start',
-        },
-        computeNumTicks: (width, _, margin, data) => {
-            const widthOfTick = 80;
-            const widthOfAxis = width - margin.right - margin.left;
-            const maxCountOfTicks = Math.ceil(widthOfAxis / widthOfTick);
-            const numOfTicks = roundToEven(maxCountOfTicks / 2);
-            return Math.min(numOfTicks, data.length - 1);
-        },
-        hideAxisLine: true,
-        hideTicks: true,
-    },
-    gridProps: {
-        rows: true,
-        columns: false,
-        stroke: '#e0e0e0',
-        computeNumTicks: () => 5,
-        lineStyle: {},
-    },
-
-    renderGradients: () => (
-        <LinearGradient id="line-gradient" from={colors.violet[200]} to={colors.white} toOpacity={0.6} />
-    ),
-    toolbarVerticalCrosshairStyle: {
-        stroke: colors.white,
-        strokeWidth: 2,
-        filter: GLYPH_DROP_SHADOW_FILTER,
-    },
-    renderTooltipGlyph: (props) => <TooltipGlyph x={props.x} y={props.y} />,
-};
-
-export function LineChart<DatumType extends object>({
+export function LineChart({
     data,
     isEmpty,
 
-    xAccessor = lineChartDefault.xAccessor,
-    yAccessor = lineChartDefault.yAccessor,
     xScale = lineChartDefault.xScale,
     yScale = lineChartDefault.yScale,
     maxYDomainForZeroData,
@@ -99,42 +34,53 @@ export function LineChart<DatumType extends object>({
     margin,
 
     leftAxisProps,
+    showLeftAxisLine = lineChartDefault.showLeftAxisLine,
     bottomAxisProps,
+    showBottomAxisLine = lineChartDefault.showBottomAxisLine,
     gridProps,
 
     popoverRenderer,
     renderGradients = lineChartDefault.renderGradients,
     toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
-}: LineChartProps<DatumType>) {
+    showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
+    renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
+}: LineChartProps) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
+    const [leftAxisMargin, setLeftAxisMargin] = useState<number>(0);
 
     // FYI: additional margins to show left and bottom axises
-    const internalMargin = {
-        top: (margin?.top ?? 0) + 30,
-        right: (margin?.right ?? 0) + 30,
-        bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 40,
-    };
+    const internalMargin = useMemo(
+        () => ({
+            top: (margin?.top ?? 0) + 30,
+            right: (margin?.right ?? 0) + 30,
+            bottom: (margin?.bottom ?? 0) + 35,
+            left: (margin?.left ?? 0) + leftAxisMargin + 6,
+        }),
+        [leftAxisMargin, margin],
+    );
 
-    const maxDataValue = useMaxDataValue(data, yAccessor);
-    const adaptedYScale = useAdaptYScaleToZeroValues(yScale, maxDataValue, maxYDomainForZeroData);
-
+    const xAccessor = (datum: Datum) => datum?.x;
+    const yAccessor = (datum: Datum) => datum.y;
     const accessors = { xAccessor, yAccessor };
+    const scales = usePrepareScales(data, false, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
 
-    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps<DatumType>>(
+    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
         lineChartDefault.leftAxisProps,
     );
 
-    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<
-        AxisProps<DatumType>
-    >(bottomAxisProps, lineChartDefault.bottomAxisProps);
+    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
+        bottomAxisProps,
+        lineChartDefault.bottomAxisProps,
+    );
 
-    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps<DatumType>>(
+    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps>(
         gridProps,
         lineChartDefault.gridProps,
     );
+
+    const minDataValue = useMinDataValue(data, yAccessor);
 
     // In case of no data we should render empty graph with axises
     // but they don't render at all without any data.
@@ -151,10 +97,9 @@ export function LineChart<DatumType extends object>({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={xScale}
-                            yScale={adaptedYScale}
                             margin={internalMargin}
                             captureEvents={!isEmpty}
+                            {...scales}
                         >
                             {renderGradients?.()}
 
@@ -163,6 +108,11 @@ export function LineChart<DatumType extends object>({
                                 numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                                 {...mergedLeftAxisProps}
                             />
+                            <LeftAxisMarginSetter
+                                setLeftMargin={setLeftAxisMargin}
+                                formatter={leftAxisProps?.tickFormat ?? abbreviateNumber}
+                                numOfTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
+                            />
 
                             <Axis
                                 orientation="bottom"
@@ -170,21 +120,26 @@ export function LineChart<DatumType extends object>({
                                 {...mergedBottomAxisProps}
                             />
                             {/* Left vertical line for y-axis */}
-                            <line
-                                x1={internalMargin.left}
-                                x2={internalMargin.left}
-                                y1={0}
-                                y2={height - internalMargin.bottom}
-                                stroke={mergedGridProps.stroke}
-                            />
+                            {showLeftAxisLine && (
+                                <line
+                                    x1={internalMargin.left}
+                                    x2={internalMargin.left}
+                                    y1={0}
+                                    y2={height - internalMargin.bottom}
+                                    stroke={mergedGridProps.stroke}
+                                />
+                            )}
+
                             {/* Bottom horizontal line for x-axis */}
-                            <line
-                                x1={internalMargin.left}
-                                x2={width - internalMargin.right}
-                                y1={height - internalMargin.bottom}
-                                y2={height - internalMargin.bottom}
-                                stroke={mergedGridProps.stroke}
-                            />
+                            {showBottomAxisLine && (
+                                <line
+                                    x1={internalMargin.left}
+                                    x2={width - internalMargin.right}
+                                    y1={height - internalMargin.bottom}
+                                    y2={height - internalMargin.bottom}
+                                    stroke={mergedGridProps.stroke}
+                                />
+                            )}
 
                             {showGrid && (
                                 <Grid
@@ -193,16 +148,27 @@ export function LineChart<DatumType extends object>({
                                 />
                             )}
 
-                            <AreaSeries<AxisScale, AxisScale, DatumType>
+                            <AreaSeries<AxisScale, AxisScale, Datum>
                                 dataKey="line-chart-seria-01"
                                 data={data}
                                 fill={!isEmpty ? areaColor : 'transparent'}
                                 curve={curveMonotoneX}
                                 lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
+                                // adjust baseline to show area correctly with negative values in data
+                                y0Accessor={() => Math.min(minDataValue, 0)}
                                 {...accessors}
                             />
 
-                            <Tooltip<DatumType>
+                            {showGlyphOnSingleDataPoint && data.length === 1 && (
+                                <GlyphSeries<AxisScale, AxisScale, Datum>
+                                    dataKey="line-chart-seria-01"
+                                    data={data}
+                                    renderGlyph={renderGlyphOnSingleDataPoint}
+                                    {...accessors}
+                                />
+                            )}
+
+                            <Tooltip<Datum>
                                 snapTooltipToDatumX
                                 snapTooltipToDatumY
                                 showVerticalCrosshair
