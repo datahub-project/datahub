@@ -169,21 +169,59 @@ nodes:
         description: Confidential Data
         custom_properties:
           is_confidential: "true"
+      - name: "Highly Confidential"              # Will generate: Data-Classification.Highly-Confidential
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: "true"
+        domain: Marketing
+
   - name: "Personal Information"
     description: All terms related to personal information
     owners:
       users:
         - mjames
     terms:
-      - name: "Email Address"
-        id: "Email-Contact"                      # Custom ID for this important term
+      - name: "Email"                           # Will generate: Personal-Information.Email
         description: An individual's email address
         inherits:
-          - Data-Classification.Confidential
-      - name: "Physical Address"                 # Will generate: Personal-Information.Physical-Address
+          - Data-Classification.Confidential    # References parent node path
+        owners:
+          groups:
+            - Trust and Safety
+      - name: "Address"                         # Will generate: Personal-Information.Address
         description: A physical address
-      - name: "Response Time"                    # Will generate: Personal-Information.Response-Time
-        description: "Response time metrics"      # Shows path-based ID generation
+      - name: "Gender"                          # Will generate: Personal-Information.Gender
+        description: The gender identity of the individual
+        inherits:
+          - Data-Classification.Sensitive       # References parent node path
+
+  - name: "Clients And Accounts"
+    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
+    owners:
+      groups:
+        - finance
+      type: DATAOWNER
+    terms:
+      - name: "Account"                         # Will generate: Clients-And-Accounts.Account
+        description: Container for records associated with a business arrangement for regular transactions and services
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        inherits:
+          - Data-Classification.Highly-Confidential  # References parent node path
+        contains:
+          - Clients-And-Accounts.Balance            # References term in same node
+      - name: "Balance"                            # Will generate: Clients-And-Accounts.Balance
+        description: Amount of money available or owed
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
+
+  - name: "KPIs"
+    description: Common Business KPIs
+    terms:
+      - name: "CSAT %"                             # Will generate: KPIs.CSAT
+        description: Customer Satisfaction Score
 ```
 
 ## Custom ID Specification
