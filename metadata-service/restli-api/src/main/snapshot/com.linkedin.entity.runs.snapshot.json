@@ -2374,6 +2374,16 @@
       "type" : "string",
       "doc" : "two uppercase letters country code. e.g.  US",
       "optional" : true
+    }, {
+      "name" : "system",
+      "type" : "boolean",
+      "doc" : "Whether the corpUser is a system user.",
+      "default" : false,
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -3660,9 +3670,8 @@
       }, {
         "name" : "lastModified",
         "type" : "com.linkedin.common.TimeStamp",
-        "doc" : "Date when the MLModel was last modified\r",
-        "optional" : true,
-        "deprecated" : true
+        "doc" : "Date when the MLModel was last modified",
+        "optional" : true
       }, {
         "name" : "version",
         "type" : "com.linkedin.common.VersionTag",

@@ -68,6 +68,7 @@ public class AspectGenerationUtils {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
+    corpUserInfo.setSystem(false);
     return corpUserInfo;
   }
 

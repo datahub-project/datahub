@@ -6,3 +6,4 @@
     active: true
     displayName: Admin
     title: DataHub Root User
+    system: true
