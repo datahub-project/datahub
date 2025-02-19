@@ -3,7 +3,7 @@ import styled from 'styled-components';
 export const IconLabelContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 `;
 
 export const ImageContainer = styled.div`

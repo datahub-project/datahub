@@ -48,3 +48,7 @@ export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: TextPr
 export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
     ...propStyles(props as TextProps, true),
 }));
+
+export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
+    ...propStyles(props as TextProps, true),
+}));
