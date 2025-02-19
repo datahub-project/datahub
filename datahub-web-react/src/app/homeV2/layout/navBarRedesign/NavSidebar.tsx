@@ -250,6 +250,7 @@ export const NavSidebar = () => {
                 key: 'signOut',
                 onClick: logout,
                 href: '/logOut',
+                dataTestId: 'nav-sidebar-sign-out',
             },
         ],
     };
