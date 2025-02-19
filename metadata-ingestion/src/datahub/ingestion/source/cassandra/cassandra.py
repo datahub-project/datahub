@@ -4,15 +4,11 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
-    add_dataset_to_container,
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -25,6 +21,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
@@ -51,24 +48,19 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
-    SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
-    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    SchemalessClass,
-    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -202,99 +194,66 @@ class CassandraSource(StatefulIngestionSourceBase):
         self.cassandra_data.keyspaces.append(keyspace_name)
         tables: List[CassandraTable] = self.cassandra_api.get_tables(keyspace_name)
         for table in tables:
-            # define the dataset urn for this table to be used downstream
-            table_name: str = table.table_name
-            dataset_name: str = f"{keyspace_name}.{table_name}"
+            dataset = self._generate_table(keyspace_name, table)
+            if dataset:
+                yield from auto_workunit(dataset._as_mcps())
 
-            if not self.config.table_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
-                continue
+    def _generate_table(
+        self, keyspace_name: str, table: CassandraTable
+    ) -> Optional[Dataset]:
+        table_name: str = table.table_name
+        dataset_name: str = f"{keyspace_name}.{table_name}"
 
-            self.cassandra_data.tables.setdefault(keyspace_name, []).append(table_name)
-            self.report.report_entity_scanned(dataset_name, ent_type="Table")
+        self.report.report_entity_scanned(dataset_name, ent_type="Table")
+        if not self.config.table_pattern.allowed(dataset_name):
+            self.report.report_dropped(dataset_name)
+            return None
 
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=dataset_name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+        self.cassandra_data.tables.setdefault(keyspace_name, []).append(table_name)
+
+        schema_fields = None
+        try:
+            schema_fields = self._extract_columns_from_table(keyspace_name, table_name)
+        except Exception as e:
+            self.report.failure(
+                message="Failed to extract columns from table",
+                context=dataset_name,
+                exc=e,
             )
 
-            # 1. Extract columns from table, then construct and emit the schemaMetadata aspect.
-            try:
-                yield from self._extract_columns_from_table(
-                    keyspace_name, table_name, dataset_urn
-                )
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to extract columns from table",
-                    context=table_name,
-                    exc=e,
-                )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=StatusClass(removed=False),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(
-                    typeNames=[
-                        DatasetSubTypes.TABLE,
-                    ]
-                ),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DatasetPropertiesClass(
-                    name=table_name,
-                    qualifiedName=f"{keyspace_name}.{table_name}",
-                    description=table.comment,
-                    customProperties={
-                        "bloom_filter_fp_chance": str(table.bloom_filter_fp_chance),
-                        "caching": json.dumps(table.caching),
-                        "compaction": json.dumps(table.compaction),
-                        "compression": json.dumps(table.compression),
-                        "crc_check_chance": str(table.crc_check_chance),
-                        "dclocal_read_repair_chance": str(
-                            table.dclocal_read_repair_chance
-                        ),
-                        "default_time_to_live": str(table.default_time_to_live),
-                        "extensions": json.dumps(table.extensions),
-                        "gc_grace_seconds": str(table.gc_grace_seconds),
-                        "max_index_interval": str(table.max_index_interval),
-                        "min_index_interval": str(table.min_index_interval),
-                        "memtable_flush_period_in_ms": str(
-                            table.memtable_flush_period_in_ms
-                        ),
-                        "read_repair_chance": str(table.read_repair_chance),
-                        "speculative_retry": str(table.speculative_retry),
-                    },
-                ),
-            ).as_workunit()
-
-            yield from add_dataset_to_container(
-                container_key=self._generate_keyspace_container_key(keyspace_name),
-                dataset_urn=dataset_urn,
-            )
-
-            if self.config.platform_instance:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
-                        ),
-                    ),
-                ).as_workunit()
+        return Dataset(
+            platform=self.platform,
+            name=dataset_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+            subtype=DatasetSubTypes.TABLE,
+            parent_container=self._generate_keyspace_container_key(keyspace_name),
+            schema=schema_fields,
+            display_name=table_name,
+            qualified_name=dataset_name,
+            description=table.comment,
+            custom_properties={
+                "bloom_filter_fp_chance": str(table.bloom_filter_fp_chance),
+                "caching": json.dumps(table.caching),
+                "compaction": json.dumps(table.compaction),
+                "compression": json.dumps(table.compression),
+                "crc_check_chance": str(table.crc_check_chance),
+                "dclocal_read_repair_chance": str(table.dclocal_read_repair_chance),
+                "default_time_to_live": str(table.default_time_to_live),
+                "extensions": json.dumps(table.extensions),
+                "gc_grace_seconds": str(table.gc_grace_seconds),
+                "max_index_interval": str(table.max_index_interval),
+                "min_index_interval": str(table.min_index_interval),
+                "memtable_flush_period_in_ms": str(table.memtable_flush_period_in_ms),
+                "read_repair_chance": str(table.read_repair_chance),
+                "speculative_retry": str(table.speculative_retry),
+            },
+        )
 
     # get all columns for a given table, iterate over them to extract column metadata
     def _extract_columns_from_table(
-        self, keyspace_name: str, table_name: str, dataset_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
+        self, keyspace_name: str, table_name: str
+    ) -> Optional[List[SchemaField]]:
         column_infos: List[CassandraColumn] = self.cassandra_api.get_columns(
             keyspace_name, table_name
         )
@@ -305,7 +264,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             self.report.report_warning(
                 message="Table has no columns, skipping", context=table_name
             )
-            return
+            return None
 
         # Tricky: we also save the column info to a global store.
         jsonable_column_infos: List[Dict[str, Any]] = []
@@ -313,138 +272,100 @@ class CassandraSource(StatefulIngestionSourceBase):
             self.cassandra_data.columns.setdefault(table_name, []).append(column)
             jsonable_column_infos.append(dataclasses.asdict(column))
 
-        schema_metadata: SchemaMetadata = SchemaMetadata(
-            schemaName=table_name,
-            platform=make_data_platform_urn(self.platform),
-            version=0,
-            hash="",
-            platformSchema=SchemalessClass(),
-            fields=schema_fields,
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=schema_metadata,
-        ).as_workunit()
+        return schema_fields
 
     def _extract_views_from_keyspace(
         self, keyspace_name: str
     ) -> Iterable[MetadataWorkUnit]:
         views: List[CassandraView] = self.cassandra_api.get_views(keyspace_name)
         for view in views:
-            view_name: str = view.view_name
-            dataset_name: str = f"{keyspace_name}.{view_name}"
-            self.report.report_entity_scanned(dataset_name)
-            dataset_urn: str = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=dataset_name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+            dataset = self._generate_view(keyspace_name, view)
+            if dataset:
+                yield from auto_workunit(dataset._as_mcps())
+
+    def _generate_view(
+        self, keyspace_name: str, view: CassandraView
+    ) -> Optional[Dataset]:
+        view_name: str = view.view_name
+        dataset_name: str = f"{keyspace_name}.{view_name}"
+
+        self.report.report_entity_scanned(dataset_name, ent_type="View")
+        if not self.config.table_pattern.allowed(dataset_name):
+            # TODO: Maybe add a view_pattern instead of reusing table_pattern?
+            self.report.report_dropped(dataset_name)
+            return None
+
+        schema_fields = None
+        try:
+            schema_fields = self._extract_columns_from_table(keyspace_name, view_name)
+        except Exception as e:
+            self.report.failure(
+                message="Failed to extract columns from views",
+                context=view_name,
+                exc=e,
             )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=StatusClass(removed=False),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(
-                    typeNames=[
-                        DatasetSubTypes.VIEW,
-                    ]
-                ),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=ViewPropertiesClass(
+        dataset = Dataset(
+            platform=self.platform,
+            name=dataset_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+            subtype=DatasetSubTypes.VIEW,
+            parent_container=self._generate_keyspace_container_key(keyspace_name),
+            schema=schema_fields,
+            display_name=view_name,
+            qualified_name=dataset_name,
+            description=view.comment,
+            custom_properties={
+                "bloom_filter_fp_chance": str(view.bloom_filter_fp_chance),
+                "caching": json.dumps(view.caching),
+                "compaction": json.dumps(view.compaction),
+                "compression": json.dumps(view.compression),
+                "crc_check_chance": str(view.crc_check_chance),
+                "include_all_columns": str(view.include_all_columns),
+                "dclocal_read_repair_chance": str(view.dclocal_read_repair_chance),
+                "default_time_to_live": str(view.default_time_to_live),
+                "extensions": json.dumps(view.extensions),
+                "gc_grace_seconds": str(view.gc_grace_seconds),
+                "max_index_interval": str(view.max_index_interval),
+                "min_index_interval": str(view.min_index_interval),
+                "memtable_flush_period_in_ms": str(view.memtable_flush_period_in_ms),
+                "read_repair_chance": str(view.read_repair_chance),
+                "speculative_retry": str(view.speculative_retry),
+            },
+            extra_aspects=[
+                ViewPropertiesClass(
                     materialized=True,
                     viewLogic=view.where_clause,  # Use the WHERE clause as view logic
                     viewLanguage="CQL",  # Use "CQL" as the language
                 ),
-            ).as_workunit()
+            ],
+        )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DatasetPropertiesClass(
-                    name=view_name,
-                    qualifiedName=f"{keyspace_name}.{view_name}",
-                    description=view.comment,
-                    customProperties={
-                        "bloom_filter_fp_chance": str(view.bloom_filter_fp_chance),
-                        "caching": json.dumps(view.caching),
-                        "compaction": json.dumps(view.compaction),
-                        "compression": json.dumps(view.compression),
-                        "crc_check_chance": str(view.crc_check_chance),
-                        "include_all_columns": str(view.include_all_columns),
-                        "dclocal_read_repair_chance": str(
-                            view.dclocal_read_repair_chance
-                        ),
-                        "default_time_to_live": str(view.default_time_to_live),
-                        "extensions": json.dumps(view.extensions),
-                        "gc_grace_seconds": str(view.gc_grace_seconds),
-                        "max_index_interval": str(view.max_index_interval),
-                        "min_index_interval": str(view.min_index_interval),
-                        "memtable_flush_period_in_ms": str(
-                            view.memtable_flush_period_in_ms
-                        ),
-                        "read_repair_chance": str(view.read_repair_chance),
-                        "speculative_retry": str(view.speculative_retry),
-                    },
-                ),
-            ).as_workunit()
-
-            try:
-                yield from self._extract_columns_from_table(
-                    keyspace_name, view_name, dataset_urn
+        # Construct and emit lineage off of 'base_table_name'
+        # NOTE: we don't need to use 'base_table_id' since table is always in same keyspace, see https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/cqlCreateMaterializedView.html#cqlCreateMaterializedView__keyspace-name
+        upstream_urn: str = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=f"{keyspace_name}.{view.base_table_name}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        fineGrainedLineages = self.get_upstream_fields_of_field_in_datasource(
+            view_name, str(dataset.urn), upstream_urn
+        )
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.VIEW,
                 )
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to extract columns from views",
-                    context=view_name,
-                    exc=e,
-                )
+            ],
+            fineGrainedLineages=fineGrainedLineages,
+        )
 
-            # Construct and emit lineage off of 'base_table_name'
-            # NOTE: we don't need to use 'base_table_id' since table is always in same keyspace, see https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/cqlCreateMaterializedView.html#cqlCreateMaterializedView__keyspace-name
-            upstream_urn: str = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=f"{keyspace_name}.{view.table_name}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-            fineGrainedLineages = self.get_upstream_fields_of_field_in_datasource(
-                view_name, dataset_urn, upstream_urn
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=upstream_urn,
-                            type=DatasetLineageTypeClass.VIEW,
-                        )
-                    ],
-                    fineGrainedLineages=fineGrainedLineages,
-                ),
-            ).as_workunit()
+        dataset.set_upstreams(upstream_lineage)
 
-            yield from add_dataset_to_container(
-                container_key=self._generate_keyspace_container_key(keyspace_name),
-                dataset_urn=dataset_urn,
-            )
-
-            if self.config.platform_instance:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
-                        ),
-                    ),
-                ).as_workunit()
+        return dataset
 
     def get_upstream_fields_of_field_in_datasource(
         self, table_name: str, dataset_urn: str, upstream_urn: str

@@ -44,6 +44,7 @@ from datahub.ingestion.transformer.system_metadata_transformer import (
 )
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities._custom_package_loader import model_version_name
@@ -449,6 +450,8 @@ class Pipeline:
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
+
+            stack.enter_context(change_default_attribution(KnownAttribution.INGESTION))
 
             stack.enter_context(self.sink)
 

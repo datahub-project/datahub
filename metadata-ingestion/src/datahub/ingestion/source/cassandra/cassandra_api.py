@@ -23,9 +23,9 @@ class CassandraKeyspace:
 
 
 @dataclass
-class CassandraTable:
+class _CassandraSharedFields:
     keyspace_name: str
-    table_name: str
+
     bloom_filter_fp_chance: Optional[float]
     caching: Optional[Dict[str, str]]
     comment: Optional[str]
@@ -44,6 +44,11 @@ class CassandraTable:
 
 
 @dataclass
+class CassandraTable(_CassandraSharedFields):
+    table_name: str
+
+
+@dataclass
 class CassandraColumn:
     keyspace_name: str
     table_name: str
@@ -55,7 +60,8 @@ class CassandraColumn:
 
 
 @dataclass
-class CassandraView(CassandraTable):
+class CassandraView(_CassandraSharedFields):
+    base_table_name: str
     view_name: str
     include_all_columns: Optional[bool]
     where_clause: str = ""
@@ -261,7 +267,7 @@ class CassandraAPI:
             views = self.get(CassandraQueries.GET_VIEWS_QUERY, [keyspace_name])
             view_list = [
                 CassandraView(
-                    table_name=row.base_table_name,
+                    base_table_name=row.base_table_name,
                     keyspace_name=row.keyspace_name,
                     view_name=row.view_name,
                     bloom_filter_fp_chance=row.bloom_filter_fp_chance,

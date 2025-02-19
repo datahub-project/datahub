@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -47,7 +47,7 @@ SchemaFieldInputType: TypeAlias = Union[
     models.SchemaFieldClass,
 ]
 SchemaFieldsInputType: TypeAlias = Union[
-    List[SchemaFieldInputType],
+    Sequence[SchemaFieldInputType],
     models.SchemaMetadataClass,
 ]
 
