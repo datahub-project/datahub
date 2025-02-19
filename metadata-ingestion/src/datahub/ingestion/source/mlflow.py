@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Optional, TypeVar, Union
+from typing import Any, Callable, Iterable, List, Optional, TypeVar, Union
 
 from mlflow import MlflowClient
 from mlflow.entities import Run
@@ -8,7 +8,9 @@ from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -18,8 +20,20 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MLHyperParamClass,
@@ -35,18 +49,32 @@ from datahub.metadata.schema_classes import (
 T = TypeVar("T")
 
 
-class MLflowConfig(EnvConfigMixin):
+class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
-        description="Tracking server URI. If not set, an MLflow default tracking_uri is used (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)",
+        description=(
+            "Tracking server URI. If not set, an MLflow default tracking_uri is used"
+            " (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)"
+        ),
     )
     registry_uri: Optional[str] = Field(
         default=None,
-        description="Registry server URI. If not set, an MLflow default registry_uri is used (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)",
+        description=(
+            "Registry server URI. If not set, an MLflow default registry_uri is used"
+            " (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)"
+        ),
     )
     model_name_separator: str = Field(
         default="_",
         description="A string which separates model name from its version (e.g. model_1 or model-1)",
+    )
+    base_external_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base URL to use when constructing external URLs to MLflow."
+            " If not set, tracking_uri is used if it's an HTTP URL."
+            " If neither is set, external URLs are not generated."
+        ),
     )
 
 
@@ -65,7 +93,7 @@ class MLflowRegisteredModelStageInfo:
     "Extract descriptions for MLflow Registered Models and Model Versions",
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
-class MLflowSource(Source):
+class MLflowSource(StatefulIngestionSourceBase):
     platform = "mlflow"
     registered_model_stages_info = (
         MLflowRegisteredModelStageInfo(
@@ -91,9 +119,10 @@ class MLflowSource(Source):
     )
 
     def __init__(self, ctx: PipelineContext, config: MLflowConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
-        self.report = SourceReport()
+        self.report = StaleEntityRemovalSourceReport()
         self.client = MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
@@ -101,6 +130,14 @@ class MLflowSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._get_tags_workunits()
@@ -158,10 +195,10 @@ class MLflowSource(Source):
         """
         Get all Registered Models in MLflow Model Registry.
         """
-        registered_models: Iterable[
-            RegisteredModel
-        ] = self._traverse_mlflow_search_func(
-            search_func=self.client.search_registered_models,
+        registered_models: Iterable[RegisteredModel] = (
+            self._traverse_mlflow_search_func(
+                search_func=self.client.search_registered_models,
+            )
         )
         return registered_models
 
@@ -279,12 +316,23 @@ class MLflowSource(Source):
         )
         return urn
 
-    def _make_external_url(self, model_version: ModelVersion) -> Union[None, str]:
+    def _get_base_external_url_from_tracking_uri(self) -> Optional[str]:
+        if isinstance(
+            self.client.tracking_uri, str
+        ) and self.client.tracking_uri.startswith("http"):
+            return self.client.tracking_uri
+        else:
+            return None
+
+    def _make_external_url(self, model_version: ModelVersion) -> Optional[str]:
         """
         Generate URL for a Model Version to MLflow UI.
         """
-        base_uri = self.client.tracking_uri
-        if base_uri.startswith("http"):
+        base_uri = (
+            self.config.base_external_url
+            or self._get_base_external_url_from_tracking_uri()
+        )
+        if base_uri:
             return f"{base_uri.rstrip('/')}/#/models/{model_version.name}/versions/{model_version.version}"
         else:
             return None
@@ -308,8 +356,3 @@ class MLflowSource(Source):
             aspect=global_tags,
         )
         return wu
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = MLflowConfig.parse_obj(config_dict)
-        return cls(ctx, config)

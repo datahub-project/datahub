@@ -129,7 +129,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
 
@@ -163,7 +163,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
 
     const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
     const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;

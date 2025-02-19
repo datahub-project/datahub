@@ -5,7 +5,6 @@ import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -480,7 +479,6 @@ public class MappingUtil {
       boolean async) {
 
     // TODO: Use the actor present in the IC.
-    Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp()
             .setTime(System.currentTimeMillis())
@@ -491,7 +489,7 @@ public class MappingUtil {
     try {
       AspectsBatch batch =
           AspectsBatchImpl.builder()
-              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext().get())
+              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext())
               .build();
 
       Map<Urn, List<IngestResult>> resultMap =
@@ -519,7 +517,6 @@ public class MappingUtil {
       } else {
         MetricUtils.counter(MetricRegistry.name("postEntity", "success")).inc();
       }
-      context.stop();
     }
   }
 

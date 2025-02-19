@@ -5,11 +5,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.util.Pair;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -50,19 +48,7 @@ public interface AspectRetriever {
   Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(Map<Urn, Set<String>> urnAspectNames);
 
   @Nonnull
-  default Map<Urn, Boolean> entityExists(Set<Urn> urns) {
-    Set<String> keyAspectNames =
-        urns.stream()
-            .map(Urn::getEntityType)
-            .distinct()
-            .map(entityType -> getEntityRegistry().getEntitySpec(entityType).getKeyAspectName())
-            .collect(Collectors.toSet());
-
-    Map<Urn, Map<String, Aspect>> latest = getLatestAspectObjects(urns, keyAspectNames);
-    return urns.stream()
-        .map(urn -> Pair.of(urn, latest.containsKey(urn)))
-        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-  }
+  Map<Urn, Boolean> entityExists(Set<Urn> urns);
 
   @Nonnull
   EntityRegistry getEntityRegistry();

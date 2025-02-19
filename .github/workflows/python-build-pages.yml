@@ -1,0 +1,64 @@
+name: Python Build
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/python-build-pages.yml"
+      - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/python-build-pages.yml"
+      - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
+      - "metadata-models/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-pages:
+    runs-on: ubuntu-latest
+    if: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME != '' }}
+
+    name: Python Wheels
+    permissions:
+      contents: read
+      pull-requests: read
+      deployments: write
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      - name: Build Python wheel site
+        run: |
+          ./gradlew :python-build:buildSite
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Publish
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
+          workingDirectory: python-build
+          directory: site
+          gitHubToken: ${{ github.token }}

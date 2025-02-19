@@ -95,7 +95,6 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "",
             "name": "Weekly Demo Data Backup"
         }
     },
@@ -113,17 +112,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "c2d77890-83ba-435f-879b-1c77fa38dd47",
+                "job_id": "2fc72675-0c68-4260-ab00-c361b96c8c36",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-12-05 16:44:43.910000",
-                "date_modified": "2024-12-05 16:44:44.043000",
+                "date_created": "2025-01-31 08:02:41.167000",
+                "date_modified": "2025-01-31 08:02:41.360000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
                 "command": "ALTER DATABASE DemoData SET READ_ONLY"
             },
-            "externalUrl": "",
             "name": "Weekly Demo Data Backup",
             "type": {
                 "string": "MSSQL_JOB_STEP"
@@ -2103,8 +2101,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "view_definition": "CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;\n",
-                            "is_view": "True"
+                            "is_view": "True",
+                            "view_definition": "CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;\n"
                         },
                         "name": "PersonsView",
                         "tags": []
@@ -2259,7 +2257,6 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "",
             "name": "DemoData.Foo.stored_procedures"
         }
     },
@@ -2282,14 +2279,36 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-12-05 16:44:43.800000",
-                "date_modified": "2024-12-05 16:44:43.800000"
+                "date_created": "2025-01-31 08:02:40.980000",
+                "date_modified": "2025-01-31 08:02:40.980000"
             },
-            "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
+                        "language": "SQL"
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2638,13 +2657,85 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1615443388097,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
-                    "type": "VIEW"
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2CDemoData.Foo.PersonsView%2CPROD%29"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2CDemoData.Foo.PersonsView%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE VIEW Foo.PersonsView AS\nSELECT\n  *\nFROM Foo.Persons",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1738310565884,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2CDemoData.Foo.PersonsView%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.PersonsView,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2CDemoData.Foo.PersonsView%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mssql"
         }
     },
     "systemMetadata": {
@@ -2704,6 +2795,22 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD),Weekly Demo Data Backup)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2CDemoData.Foo.PersonsView%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

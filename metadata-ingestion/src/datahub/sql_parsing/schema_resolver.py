@@ -13,7 +13,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
-from datahub.sql_parsing._models import _TableName as _TableName  # noqa: I250
+from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -33,14 +33,11 @@ class GraphQLSchemaMetadata(TypedDict):
 
 class SchemaResolverInterface(Protocol):
     @property
-    def platform(self) -> str:
-        ...
+    def platform(self) -> str: ...
 
-    def includes_temp_tables(self) -> bool:
-        ...
+    def includes_temp_tables(self) -> bool: ...
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        ...
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
 
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.
@@ -232,8 +229,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return {
             get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
                 # The actual types are more of a "nice to have".
-                field["nativeDataType"]
-                or "str"
+                field["nativeDataType"] or "str"
             )
             for field in schema["fields"]
             # TODO: We can't generate lineage to columns nested within structs yet.
@@ -289,8 +285,7 @@ def _convert_schema_field_list_to_info(
     return {
         get_simple_field_path_from_v2_field_path(col.fieldPath): (
             # The actual types are more of a "nice to have".
-            col.nativeDataType
-            or "str"
+            col.nativeDataType or "str"
         )
         for col in schema_fields
         # TODO: We can't generate lineage to columns nested within structs yet.

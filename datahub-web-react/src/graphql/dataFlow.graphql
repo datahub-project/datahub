@@ -50,6 +50,9 @@ fragment dataFlowFields on DataFlow {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    parentContainers {
+        ...parentContainersFields
+    }
     browsePathV2 {
         ...browsePathV2Fields
     }
@@ -81,6 +84,7 @@ query getDataFlow($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

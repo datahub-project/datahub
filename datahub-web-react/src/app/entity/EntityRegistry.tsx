@@ -151,14 +151,19 @@ export default class EntityRegistry {
         );
     }
 
-    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
+    renderSearchResult(
+        type: EntityType,
+        searchResult: SearchResult,
+        previewType?: PreviewType,
+        onCardClick?: (any: any) => any,
+    ): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
 
         return (
             <SearchResultProvider searchResult={searchResult}>
                 <PreviewContext.Provider value={genericEntityData}>
-                    {entity.renderSearch(searchResult)}
+                    {entity.renderSearch(searchResult, previewType, onCardClick)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
         );
@@ -214,6 +219,7 @@ export default class EntityRegistry {
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages,
                 siblings: genericEntityProperties?.siblings,
+                siblingsSearch: genericEntityProperties?.siblingsSearch,
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
                 inputFields: genericEntityProperties?.inputFields,
                 canEditLineage: genericEntityProperties?.privileges?.canEditLineage,

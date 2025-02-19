@@ -54,6 +54,20 @@ def default_user_urn_builder(email: str) -> str:
     return builder.make_user_urn(email.split("@")[0])
 
 
+def extract_user_email(user: str) -> Optional[str]:
+    """Extracts user email from user input
+
+    >>> extract_user_email('urn:li:corpuser:abc@xyz.com')
+    'abc@xyz.com'
+    >>> extract_user_email('urn:li:corpuser:abc')
+    >>> extract_user_email('abc@xyz.com')
+    'abc@xyz.com'
+    """
+    if user.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
+        user = user.split(":")[-1]
+    return user if "@" in user else None
+
+
 def make_usage_workunit(
     bucket_start_time: datetime,
     resource: ResourceType,
@@ -75,7 +89,7 @@ def make_usage_workunit(
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
         if top_n_queries < len(query_freq):
-            logger.warn(
+            logger.warning(
                 f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
             )
             query_freq = query_freq[0:top_n_queries]
@@ -104,7 +118,7 @@ def make_usage_workunit(
             DatasetUserUsageCountsClass(
                 user=user_urn_builder(user),
                 count=count,
-                userEmail=user if "@" in user else None,
+                userEmail=extract_user_email(user),
             )
             for user, count in user_freq
         ],

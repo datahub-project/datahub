@@ -784,7 +784,9 @@
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term",
-        "hasValuesFieldName" : "hasGlossaryTerms"
+        "hasValuesFieldName" : "hasGlossaryTerms",
+        "includeSystemModifiedAt" : true,
+        "systemModifiedAtFieldName" : "termsModifiedAt"
       }
     }, {
       "name" : "actor",
@@ -1115,6 +1117,10 @@
       "name" : "versionTag",
       "type" : "string",
       "optional" : true
+    }, {
+      "name" : "metadataAttribution",
+      "type" : "MetadataAttribution",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -1222,14 +1228,14 @@
       "default" : [ ],
       "Relationship" : {
         "/*/destinationUrn" : {
-          "createdActor" : "datasetEdges/*/created/actor",
-          "createdOn" : "datasetEdges/*/created/time",
+          "createdActor" : "dashboards/*/created/actor",
+          "createdOn" : "dashboards/*/created/time",
           "entityTypes" : [ "dashboard" ],
           "isLineage" : true,
           "name" : "DashboardContainsDashboard",
-          "properties" : "datasetEdges/*/properties",
-          "updatedActor" : "datasetEdges/*/lastModified/actor",
-          "updatedOn" : "datasetEdges/*/lastModified/time"
+          "properties" : "dashboards/*/properties",
+          "updatedActor" : "dashboards/*/lastModified/actor",
+          "updatedOn" : "dashboards/*/lastModified/time"
         }
       }
     }, {
@@ -2332,6 +2338,16 @@
       "type" : "string",
       "doc" : "two uppercase letters country code. e.g.  US",
       "optional" : true
+    }, {
+      "name" : "system",
+      "type" : "boolean",
+      "doc" : "Whether the corpUser is a system user.",
+      "default" : false,
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -3139,7 +3155,9 @@
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldGlossaryTerms",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "includeSystemModifiedAt" : true,
+                  "systemModifiedAtFieldName" : "schemaFieldTermsModifiedAt"
                 }
               }
             } ]
@@ -3545,8 +3563,55 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model",
-      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
+        "type" : "record",
+        "name" : "MLModelLineageInfo",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
+        "fields" : [ {
+          "name" : "trainingJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "name" : "TrainedBy"
+            }
+          }
+        }, {
+          "name" : "downstreamJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) that use the model or group.",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "isUpstream" : false,
+              "name" : "UsedBy"
+            }
+          }
+        } ]
+      } ],
       "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Display name of the MLModel",
+        "optional" : true,
+        "Searchable" : {
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "WORD_GRAM",
+          "queryByDefault" : true
+        }
+      }, {
         "name" : "description",
         "type" : "string",
         "doc" : "Documentation of the MLModel",
@@ -3559,6 +3624,17 @@
         "name" : "date",
         "type" : "com.linkedin.common.Time",
         "doc" : "Date when the MLModel was developed",
+        "optional" : true,
+        "deprecated" : true
+      }, {
+        "name" : "created",
+        "type" : "com.linkedin.common.TimeStamp",
+        "doc" : "Audit stamp containing who created this and when",
+        "optional" : true
+      }, {
+        "name" : "lastModified",
+        "type" : "com.linkedin.common.TimeStamp",
+        "doc" : "Date when the MLModel was last modified",
         "optional" : true
       }, {
         "name" : "version",
@@ -3699,37 +3775,6 @@
           "/*" : {
             "entityTypes" : [ "mlModelDeployment" ],
             "name" : "DeployedTo"
-          }
-        }
-      }, {
-        "name" : "trainingJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) used to train the model",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "name" : "TrainedBy"
-          }
-        }
-      }, {
-        "name" : "downstreamJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) that use the model",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "isUpstream" : false,
-            "name" : "UsedBy"
           }
         }
       }, {
@@ -3886,7 +3931,7 @@
       "name" : "version",
       "type" : "long"
     } ]
-  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties", {
+  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelLineageInfo", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties", {
     "type" : "record",
     "name" : "TimeseriesIndexSizeResult",
     "namespace" : "com.linkedin.timeseries",

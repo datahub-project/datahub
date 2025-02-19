@@ -16,7 +16,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -56,7 +56,7 @@ import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
   private EntityRegistry testRegistry;
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeTest
@@ -75,12 +75,12 @@ public class AspectsBatchImplTest {
 
   @BeforeMethod
   public void setup() {
-    this.mockAspectRetriever = mock(AspectRetriever.class);
+    this.mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(this.mockAspectRetriever.getEntityRegistry()).thenReturn(testRegistry);
     this.retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
   }
@@ -122,7 +122,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -178,7 +179,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -267,7 +269,8 @@ public class AspectsBatchImplTest {
         AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()),
+        testBatch.toUpsertBatchItems(
+            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -331,7 +334,11 @@ public class AspectsBatchImplTest {
             .build();
 
     assertEquals(
-        testBatch.toUpsertBatchItems(new HashMap<>(), new HashMap<>()).getSecond().size(),
+        testBatch
+            .toUpsertBatchItems(
+                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+            .getSecond()
+            .size(),
         1,
         "Expected 1 valid mcp to be passed through.");
   }

@@ -18,7 +18,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -73,7 +72,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v2/entity")
+@RequestMapping("/openapi/v2/entity")
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
@@ -199,11 +198,11 @@ public class EntityController
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityApiUtils.parseSystemMetadata(
+                  SystemMetadataUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
+            items.add(builder.build(opContext.getAspectRetriever()));
           }
         }
       }
@@ -211,7 +210,7 @@ public class EntityController
 
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 
