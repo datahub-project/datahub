@@ -199,7 +199,7 @@ public class EntityController
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityApiUtils.parseSystemMetadata(
+                  SystemMetadataUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 

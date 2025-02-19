@@ -45,6 +45,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -633,7 +634,7 @@ public class EntityController
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
-                EntityApiUtils.parseSystemMetadata(
+                SystemMetadataUtils.parseSystemMetadata(
                     objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
             ((ObjectNode) aspect.getValue()).remove("systemMetadata");
           }
@@ -719,7 +720,7 @@ public class EntityController
     SystemMetadata systemMetadata = null;
     if (jsonNode.has("systemMetadata")) {
       systemMetadata =
-          EntityApiUtils.parseSystemMetadata(
+          SystemMetadataUtils.parseSystemMetadata(
               objectMapper.writeValueAsString(jsonNode.get("systemMetadata")));
     }
     Map<String, String> headers = null;

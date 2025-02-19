@@ -19,12 +19,14 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -63,7 +65,8 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Override
   public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
       Map<String, Map<String, SystemAspect>> latestAspects,
-      Map<String, Map<String, Long>> nextVersions) {
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert) {
 
     // Process proposals to change items
     Stream<? extends BatchItem> mutatedProposalsStream =
@@ -101,7 +104,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                   }
 
                   return AspectsBatch.incrementBatchVersion(
-                      upsertItem, latestAspects, nextVersions);
+                      upsertItem, latestAspects, nextVersions, databaseUpsert);
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
@@ -239,6 +242,9 @@ public class AspectsBatchImpl implements AspectsBatch {
     }
 
     public AspectsBatchImpl build() {
+      if (this.items == null) {
+        this.items = Collections.emptyList();
+      }
       this.nonRepeatedItems = filterRepeats(this.items);
 
       ValidationExceptionCollection exceptions =

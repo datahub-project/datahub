@@ -281,7 +281,7 @@ elasticsearch:
       withPrefix: ${ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX:true} # include prefix exact matches
       exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:16.0} # boost multiplier when exact with case
       prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.1} # boost multiplier when exact prefix
-      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.0} # stacked boost multiplier when case mismatch
+      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.9} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     wordGram:
       twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
