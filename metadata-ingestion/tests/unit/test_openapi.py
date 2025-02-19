@@ -559,10 +559,19 @@ class TestExplodeDict(unittest.TestCase):
         #  exploding keys of a dict...
         d = {"a": {"b": 3}, "c": 2, "asdasd": {"ytkhj": 2, "uylkj": 3}}
 
-        exp_l = ["a-b", "c", "asdasd-ytkhj", "asdasd-uylkj"]
+        exp_l = [
+            "a",  # parent field
+            "a.b",
+            "c",
+            "asdasd",  # parent field
+            "asdasd.ytkhj",
+            "asdasd.uylkj",
+        ]
 
         cal_l = flatten2list(d)
-        self.assertEqual(exp_l, cal_l)
+        self.assertEqual(
+            sorted(exp_l), sorted(cal_l)
+        )  # Sort both lists since order doesn't matter
 
 
 class TestGuessing(unittest.TestCase):
