@@ -117,7 +117,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808220000
+            "lastUpdatedTimestamp": 1586840620000
         }
     },
     "systemMetadata": {
@@ -218,6 +218,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -290,10 +306,15 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -304,17 +325,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
-                }
-            ]
+            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
         }
     },
     "systemMetadata": {
@@ -399,22 +415,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -428,6 +428,22 @@
                     "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
         }
     },
     "systemMetadata": {
@@ -512,22 +528,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -545,6 +545,22 @@
                     "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
         }
     },
     "systemMetadata": {
@@ -629,22 +645,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -666,6 +666,22 @@
                     "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
         }
     },
     "systemMetadata": {
@@ -750,22 +766,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -791,6 +791,22 @@
                     "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
         }
     },
     "systemMetadata": {
@@ -875,22 +891,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -920,6 +920,22 @@
                     "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:98a716614da5246426edd48260406364"
         }
     },
     "systemMetadata": {
@@ -1004,22 +1020,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:98a716614da5246426edd48260406364"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1069,138 +1069,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 4,
-            "columnCount": 4,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "name",
-                    "uniqueCount": 4,
-                    "uniqueProportion": 1.0,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "apple",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "cookie",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "lasagna",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "pasta",
-                            "frequency": 1
-                        }
-                    ],
-                    "sampleValues": [
-                        "apple",
-                        "cookie",
-                        "lasagna",
-                        "pasta"
-                    ]
-                },
-                {
-                    "fieldPath": "weight",
-                    "uniqueCount": 4,
-                    "uniqueProportion": 1.0,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "23",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "49",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "50",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "72",
-                            "frequency": 1
-                        }
-                    ],
-                    "sampleValues": [
-                        "23",
-                        "49",
-                        "50",
-                        "72"
-                    ]
-                },
-                {
-                    "fieldPath": "height",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.25,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "4",
-                            "frequency": 4
-                        }
-                    ],
-                    "sampleValues": [
-                        "4",
-                        "4",
-                        "4",
-                        "4"
-                    ]
-                },
-                {
-                    "fieldPath": "color",
-                    "uniqueCount": 3,
-                    "uniqueProportion": 0.75,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "brown",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "red",
-                            "frequency": 2
-                        },
-                        {
-                            "value": "yellow",
-                            "frequency": 1
-                        }
-                    ],
-                    "sampleValues": [
-                        "brown",
-                        "red",
-                        "red",
-                        "yellow"
-                    ]
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1388,7 +1256,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808240000
+            "lastUpdatedTimestamp": 1586840640000
         }
     },
     "systemMetadata": {
@@ -1405,311 +1273,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 70,
-            "columnCount": 5,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "name",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.13043478260869565,
-                    "nullCount": 1,
-                    "nullProportion": 0.014285714285714285,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "NullValue",
-                            "frequency": 1
-                        },
-                        {
-                            "value": "apple",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "chicken",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "cookie",
-                            "frequency": 6
-                        },
-                        {
-                            "value": "hamburger",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "lasagna",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "orange",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "pasta",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "spinach",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "sushi",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "water",
-                            "frequency": 7
-                        }
-                    ],
-                    "sampleValues": [
-                        "apple",
-                        "apple",
-                        "apple",
-                        "chicken",
-                        "cookie",
-                        "cookie",
-                        "cookie",
-                        "lasagna",
-                        "lasagna",
-                        "orange",
-                        "orange",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "spinach",
-                        "spinach",
-                        "spinach",
-                        "water",
-                        "water"
-                    ]
-                },
-                {
-                    "fieldPath": "weight",
-                    "uniqueCount": 10,
-                    "uniqueProportion": 0.14285714285714285,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "10",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "2",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "23",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "32",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "36",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "43",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "49",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "50",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "53",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "72",
-                            "frequency": 7
-                        }
-                    ],
-                    "sampleValues": [
-                        "10",
-                        "10",
-                        "10",
-                        "23",
-                        "23",
-                        "23",
-                        "32",
-                        "32",
-                        "36",
-                        "43",
-                        "43",
-                        "49",
-                        "49",
-                        "50",
-                        "50",
-                        "50",
-                        "72",
-                        "72",
-                        "72",
-                        "72"
-                    ]
-                },
-                {
-                    "fieldPath": "height",
-                    "uniqueCount": 4,
-                    "uniqueProportion": 0.05714285714285714,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "4",
-                            "frequency": 24
-                        },
-                        {
-                            "value": "5",
-                            "frequency": 15
-                        },
-                        {
-                            "value": "6",
-                            "frequency": 23
-                        },
-                        {
-                            "value": "7",
-                            "frequency": 8
-                        }
-                    ],
-                    "sampleValues": [
-                        "4",
-                        "4",
-                        "4",
-                        "4",
-                        "4",
-                        "4",
-                        "4",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "7",
-                        "7"
-                    ]
-                },
-                {
-                    "fieldPath": "color",
-                    "uniqueCount": 7,
-                    "uniqueProportion": 0.1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "blue",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "brown",
-                            "frequency": 14
-                        },
-                        {
-                            "value": "green",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "orange",
-                            "frequency": 14
-                        },
-                        {
-                            "value": "red",
-                            "frequency": 14
-                        },
-                        {
-                            "value": "white",
-                            "frequency": 7
-                        },
-                        {
-                            "value": "yellow",
-                            "frequency": 7
-                        }
-                    ],
-                    "sampleValues": [
-                        "blue",
-                        "blue",
-                        "brown",
-                        "brown",
-                        "brown",
-                        "green",
-                        "green",
-                        "green",
-                        "orange",
-                        "orange",
-                        "red",
-                        "red",
-                        "red",
-                        "red",
-                        "red",
-                        "white",
-                        "yellow",
-                        "yellow",
-                        "yellow",
-                        "yellow"
-                    ]
-                },
-                {
-                    "fieldPath": "healthy",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 0.028985507246376812,
-                    "nullCount": 1,
-                    "nullProportion": 0.014285714285714285,
-                    "sampleValues": [
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "None",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True",
-                        "True"
-                    ]
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1810,7 +1373,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808220000
+                    "time": 1586840620000
                 }
             }
         ]
@@ -1832,7 +1395,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808240000
+                    "time": 1586840640000
                 }
             }
         ]
