@@ -337,9 +337,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         database_name = self.config.database_alias.get(database_name, database_name)
 
+        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
+        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
+        # redundant to systemically store them both in the URN.
+        if platform_instance in platform_without_databases:
+            database_name = None
+
+        if platform_instance == "druid" and schema_name == "druid":
+            # Follow DataHub's druid source convention.
+            schema_name = None
+
         # If the information about the datasource is already contained in the dataset response,
         # can just return the urn directly
-        if schema_name and table_name and database_id:
+        if table_name and database_id:
             return make_dataset_urn(
                 platform=platform_instance,
                 name=".".join(
@@ -348,26 +358,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
 
-        platform = self.get_platform_from_database_id(database_id)
-
-        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
-        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
-        # redundant to systemically store them both in the URN.
-        if platform in platform_without_databases:
-            database_name = None
-
-        if platform == "druid" and schema_name == "druid":
-            # Follow DataHub's druid source convention.
-            schema_name = None
-
-        if database_id and table_name:
-            return make_dataset_urn(
-                platform=platform,
-                name=".".join(
-                    name for name in [database_name, schema_name, table_name] if name
-                ),
-                env=self.config.env,
-            )
         raise ValueError("Could not construct dataset URN")
 
     def construct_dashboard_from_api_data(
