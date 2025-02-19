@@ -123,17 +123,19 @@ def clean_url(text: str) -> str:
     """
     Clean text for use in URLs by:
     1. Replacing spaces with hyphens
-    2. Removing special characters
-    3. Collapsing multiple hyphens
+    2. Removing special characters (preserving hyphens and periods)
+    3. Collapsing multiple hyphens and periods into single ones
     """
     # Replace spaces with hyphens
     text = text.replace(" ", "-")
-    # Remove special characters except hyphens
-    text = re.sub(r"[^a-zA-Z0-9-]", "", text)
+    # Remove special characters except hyphens and periods
+    text = re.sub(r"[^a-zA-Z0-9\-.]", "", text)
     # Collapse multiple hyphens into one
     text = re.sub(r"-+", "-", text)
-    # Remove leading/trailing hyphens
-    text = text.strip("-")
+    # Collapse multiple periods into one
+    text = re.sub(r"\.+", ".", text)
+    # Remove leading/trailing hyphens and periods
+    text = text.strip("-.")
     return text
 
 
@@ -150,6 +152,10 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
         return default_id  # Use explicitly provided ID
 
     id_: str = ".".join(path)
+
+    # Check for non-ASCII characters before cleaning
+    if any(ord(c) > 127 for c in id_):
+        return datahub_guid({"path": id_})
 
     if enable_auto_id:
         # Generate GUID for auto_id mode

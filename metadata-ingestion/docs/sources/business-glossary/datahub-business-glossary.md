@@ -76,34 +76,75 @@ The business glossary provides two primary ways to manage term and node identifi
 1. **Custom IDs**: You can explicitly specify an ID for any term or node using the `id` field. This is recommended for terms that need stable, predictable identifiers:
    ```yaml
    terms:
-     - name: "Customer Lifetime Value"
-       id: "Customer-Lifetime-Value"
-       description: "The total revenue expected from a customer"
+     - name: "Response Time"
+       id: "support-response-time"  # Explicit ID
+       description: "Target time to respond to customer inquiries"
    ```
 
 2. **Automatic ID Generation**: When no ID is specified, the system will generate one based on the `enable_auto_id` setting:
    - With `enable_auto_id: false` (default):
-     - Converts term names to URL-friendly format
-     - Replaces spaces with hyphens
-     - Removes special characters
-     - Preserves case
-     - Example: "Customer Lifetime Value" → "Customer-Lifetime-Value"
+     - Node and term names are converted to URL-friendly format
+     - Spaces within names are replaced with hyphens
+     - Special characters are removed (except hyphens)
+     - Case is preserved
+     - Multiple hyphens are collapsed to single ones
+     - Path components (node/term hierarchy) are joined with periods
+     - Example: Node "Customer Support" with term "Response Time" → "Customer-Support.Response-Time"
+
    - With `enable_auto_id: true`:
      - Generates GUID-based IDs
      - Recommended for guaranteed uniqueness
-     - Required for terms with problematic characters that persist after URL cleaning
+     - Required for terms with non-ASCII characters
+
+Here's how path-based ID generation works:
+```yaml
+nodes:
+  - name: "Customer Support"          # Node ID: Customer-Support
+    terms:
+      - name: "Response Time"         # Term ID: Customer-Support.Response-Time
+        description: "Response SLA"
+      
+      - name: "First Reply"          # Term ID: Customer-Support.First-Reply
+        description: "Initial response"
+
+  - name: "Product Feedback"         # Node ID: Product-Feedback
+    terms:
+      - name: "Response Time"        # Term ID: Product-Feedback.Response-Time
+        description: "Feedback response"
+```
 
 **Important Notes**:
+- Periods (.) are used exclusively as path separators between nodes and terms
+- Periods in term or node names themselves will be removed
+- Each component of the path (node names, term names) is cleaned independently:
+  - Spaces to hyphens
+  - Special characters removed
+  - Case preserved
+- The cleaned components are then joined with periods to form the full path
+- Non-ASCII characters in any component trigger automatic GUID generation
 - Once an ID is created (either manually or automatically), it cannot be easily changed
 - All references to a term (in `inherits`, `contains`, etc.) must use its correct ID
 - For terms that other terms will reference, consider using explicit IDs
-- Using terms with spaces without specifying an ID may affect URL sharing and linking
-- The system will automatically handle special characters to create valid URLs
+
+Example of how different names are handled:
+```yaml
+nodes:
+  - name: "Data Services"           # Node ID: Data-Services
+    terms:
+      # Basic term name
+      - name: "Response Time"       # Term ID: Data-Services.Response-Time
+        description: "SLA metrics"
+      
+      # Term name with special characters
+      - name: "API @ Response"      # Term ID: Data-Services.API-Response
+        description: "API metrics"
+      
+      # Term with non-ASCII (triggers GUID)
+      - name: "パフォーマンス"      # Term ID will be a 32-character GUID
+        description: "Performance"
+```
 
 To see how these all work together, check out this comprehensive example business glossary file below:
-
-<details>
-<summary>Example business glossary file</summary>
 
 ```yaml
 version: "1"
@@ -120,11 +161,11 @@ nodes:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
     terms:
-      - name: "Sensitive Data"                   # Will generate: Sensitive-Data
+      - name: "Sensitive Data"                   # Will generate: Data-Classification.Sensitive-Data
         description: Sensitive Data
         custom_properties:
           is_confidential: "false"
-      - name: "Confidential Information"         # Will generate: Confidential-Information
+      - name: "Confidential Information"         # Will generate: Data-Classification.Confidential-Information
         description: Confidential Data
         custom_properties:
           is_confidential: "true"
@@ -138,20 +179,14 @@ nodes:
         id: "Email-Contact"                      # Custom ID for this important term
         description: An individual's email address
         inherits:
-          - Classification.Confidential
-      - name: "Physical Address"                 # Will generate: Physical-Address
+          - Data-Classification.Confidential
+      - name: "Physical Address"                 # Will generate: Personal-Information.Physical-Address
         description: A physical address
+      - name: "Response Time"                    # Will generate: Personal-Information.Response-Time
+        description: "Response time metrics"      # Shows path-based ID generation
 ```
-</details>
 
-## Compatibility
-
-Compatible with version 1 of business glossary format.
-The source will be evolved as we publish newer versions of this format.
-
-## Generating custom IDs for your terms
-
-While IDs are normally generated automatically based on the configuration, you can provide custom IDs for terms and nodes that need stable identifiers. The ID should be unique across the entire Glossary.
+## Custom ID Specification
 
 Custom IDs can be specified in two ways, both of which are fully supported and acceptable:
 
@@ -182,3 +217,7 @@ nodes:
 ```
 
 Note: Once you select a custom ID, it cannot be easily changed.
+
+## Compatibility
+
+Compatible with version 1 of business glossary format. The source will be evolved as newer versions of this format are published.
