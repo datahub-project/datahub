@@ -84,10 +84,10 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
 
     const { entityPlatform, siblingPlatform } = useGetSiblingPlatforms();
     const transactionEntries: ChangeTransactionEntry[] = [
-        ...(entityTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+        ...(entityTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
             makeTransactionEntry(transaction, hideSemanticVersions ? [] : versionList, entityPlatform ?? undefined),
         ) || []),
-        ...(siblingTimelineData?.getTimeline?.changeTransactions.map((transaction) =>
+        ...(siblingTimelineData?.getTimeline?.changeTransactions?.map((transaction) =>
             makeTransactionEntry(transaction, [], siblingPlatform ?? undefined),
         ) || []),
     ].sort((a, b) => a.transaction.timestampMillis - b.transaction.timestampMillis);

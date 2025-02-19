@@ -21,6 +21,7 @@ type Props = {
     placement?: TooltipPlacement;
     isExpandedView?: boolean;
     actionName?: string;
+    dataTestId?: string;
 };
 
 export const ActionItem = ({
@@ -33,6 +34,7 @@ export const ActionItem = ({
     placement = 'top',
     isExpandedView = false,
     actionName,
+    dataTestId,
 }: Props) => {
     return (
         <Tooltip placement={placement} title={isExpandedView ? '' : tip}>
@@ -50,6 +52,7 @@ export const ActionItem = ({
                     disabled={disabled}
                     title={!isExpandedView ? tip : undefined}
                     isExpandedView={isExpandedView}
+                    data-testid={dataTestId}
                 >
                     {icon}
                 </ActionItemButton>
