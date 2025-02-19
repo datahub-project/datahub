@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -84,7 +85,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
           Filter finalFilter =
               maybeResolvedView != null
-                  ? SearchUtils.combineFilters(
+                  ? FilterUtils.combineFilters(
                       baseFilter, maybeResolvedView.getDefinition().getFilter())
                   : baseFilter;
 

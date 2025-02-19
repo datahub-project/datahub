@@ -29,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -188,7 +189,7 @@ public class ListDataProductAssetsResolver
 
           Filter finalFilter =
               maybeResolvedView != null
-                  ? SearchUtils.combineFilters(
+                  ? FilterUtils.combineFilters(
                       baseFilter, maybeResolvedView.getDefinition().getFilter())
                   : baseFilter;
 

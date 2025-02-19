@@ -1,10 +1,15 @@
 package com.linkedin.metadata.utils;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -12,6 +17,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class FormUtils {
+
+  private static final String COMPLETED_FORMS = "completedForms";
+  private static final String INCOMPLETE_FORMS = "incompleteForms";
 
   private FormUtils() {}
 
@@ -58,5 +66,21 @@ public class FormUtils {
 
     // create filter for entities owned by this user or one of their groups
     return CriterionUtils.buildCriterion("owners", Condition.EQUAL, ownershipUrns);
+  }
+
+  // Filter for assets where a given form is not on the asset yet
+  public static Filter buildAssetsMissingFormFilter(@Nonnull final String formUrn) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    CriterionUtils.buildCriterion(
+                                        INCOMPLETE_FORMS, Condition.EQUAL, true, formUrn),
+                                    CriterionUtils.buildCriterion(
+                                        COMPLETED_FORMS, Condition.EQUAL, true, formUrn)))))));
   }
 }

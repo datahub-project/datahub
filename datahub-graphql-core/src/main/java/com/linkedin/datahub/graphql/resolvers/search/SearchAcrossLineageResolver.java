@@ -29,6 +29,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.VisibleForTesting;
@@ -158,7 +159,7 @@ public class SearchAcrossLineageResolver
                 ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             Filter filter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
             final SearchFlags searchFlags;

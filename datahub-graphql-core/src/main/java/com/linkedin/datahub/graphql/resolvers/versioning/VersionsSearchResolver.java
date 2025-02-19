@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -76,7 +77,7 @@ public class VersionsSearchResolver implements DataFetcher<CompletableFuture<Sea
         _viewService,
         input.getTypes(),
         input.getQuery(),
-        SearchUtils.combineFilters(inputFilter, baseFilter),
+        FilterUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),
         sortCriteria,
         searchFlags,

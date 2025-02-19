@@ -1963,6 +1963,146 @@ public class FormServiceTest {
         .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
+  @Test
+  private void testRefreshFormAssignmentSimple() throws Exception {
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+
+    // Verify that a test of the expected format is created.
+    DynamicFormAssignment formAssignment =
+        new DynamicFormAssignment()
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            ImmutableList.of(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                new Criterion()
+                                                    .setField("platform")
+                                                    .setCondition(Condition.EQUAL)
+                                                    .setValue("urn:li:dataPlatform:hive")
+                                                    .setValues(
+                                                        new StringArray(
+                                                            ImmutableList.of(
+                                                                "urn:li:dataPlatform:hive")))
+                                                    .setNegated(false))))))));
+
+    EntityResponse entityResponse =
+        new EntityResponse()
+            .setUrn(TEST_FORM_URN)
+            .setEntityName(FORM_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(formAssignment.data())))));
+
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(FORM_ENTITY_NAME),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
+
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    Thread assignThread = formService.refreshFormAssignment(opContext, TEST_FORM_URN);
+    assignThread.join();
+    // Verify that we call ingest for assigning this form to the 1 entity
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
+  }
+
+  @Test
+  private void testRefreshFormAssignmentComplex() throws Exception {
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+
+    DynamicFormAssignment formAssignment =
+        new DynamicFormAssignment()
+            .setFilter(
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            ImmutableList.of(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                buildCriterion(
+                                                    "platform", "urn:li:dataPlatform:hive"),
+                                                buildCriterion(
+                                                    "container", "urn:li:container:test"),
+                                                buildCriterion("_entityType", "dataset"),
+                                                buildCriterion("domains", "urn:li:domain:test")))),
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(
+                                            ImmutableList.of(
+                                                buildCriterion(
+                                                    "platform", "urn:li:dataPlatform:snowflake"),
+                                                buildCriterion(
+                                                    "container", "urn:li:container:test-2"),
+                                                buildCriterion("_entityType", "dashboard"),
+                                                buildCriterion(
+                                                    "domains", "urn:li:domain:test-2"))))))));
+    EntityResponse entityResponse =
+        new EntityResponse()
+            .setUrn(TEST_FORM_URN)
+            .setEntityName(FORM_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(formAssignment.data())))));
+
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq(FORM_ENTITY_NAME),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(TEST_ENTITY_URN);
+    searchEntities.add(searchEntity);
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            eq(
+                "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dataset\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:snowflake\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"container\",\"queryParts\":[\"container\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:container:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"_entityType\",\"queryParts\":[\"_entityType\"]}}},{\"index\":1,\"expression\":{\"values\":[\"dashboard\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":3,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"domains\",\"queryParts\":[\"domains\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:domain:test-2\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    Thread assignThread = formService.refreshFormAssignment(opContext, TEST_FORM_URN);
+    assignThread.join();
+    // Verify runner performs assignment
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));
+  }
+
   private SystemEntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 

@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -82,7 +83,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     context.getOperationContext(), input.getFormFilter(), _formService);
             final Filter baseFilter =
                 formFilter != null
-                    ? SearchUtils.combineFilters(inputFilter, formFilter)
+                    ? FilterUtils.combineFilters(inputFilter, formFilter)
                     : inputFilter;
 
             BrowseResultV2 browseResults =
@@ -91,7 +92,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     entityNames,
                     pathStr,
                     maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
+                        ? FilterUtils.combineFilters(
                             baseFilter, maybeResolvedView.getDefinition().getFilter())
                         : baseFilter,
                     sanitizedQuery,
