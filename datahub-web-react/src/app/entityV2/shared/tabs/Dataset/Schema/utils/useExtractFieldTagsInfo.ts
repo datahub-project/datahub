@@ -3,7 +3,7 @@ import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.gene
 
 export default function useExtractFieldTagsInfo(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
-        const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+        const editableTags = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         )?.globalTags;
 

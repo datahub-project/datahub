@@ -43,7 +43,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
     if (!badgeStructuredProperty) return null;
 
     const propertyValue = propRow?.values[0]?.value;
-    const relatedDescription = propRow?.structuredProperty.definition.allowedValues?.find(
+    const relatedDescription = propRow?.structuredProperty?.definition?.allowedValues?.find(
         (v) => getStructuredPropertyValue(v.value) === propertyValue,
     )?.description;
 

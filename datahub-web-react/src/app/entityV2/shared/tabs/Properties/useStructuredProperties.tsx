@@ -59,7 +59,7 @@ function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) 
 function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    const schemaFieldEntity = entityData?.schemaMetadata?.fields.find(
+    const schemaFieldEntity = entityData?.schemaMetadata?.fields?.find(
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
