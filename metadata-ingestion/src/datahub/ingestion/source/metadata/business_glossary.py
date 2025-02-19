@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
@@ -118,17 +119,49 @@ class BusinessGlossaryConfig(DefaultConfig):
         return v
 
 
+def clean_url(text: str) -> str:
+    """
+    Clean text for use in URLs by:
+    1. Replacing spaces with hyphens
+    2. Removing special characters
+    3. Collapsing multiple hyphens
+    """
+    # Replace spaces with hyphens
+    text = text.replace(" ", "-")
+    # Remove special characters except hyphens
+    text = re.sub(r"[^a-zA-Z0-9-]", "", text)
+    # Collapse multiple hyphens into one
+    text = re.sub(r"-+", "-", text)
+    # Remove leading/trailing hyphens
+    text = text.strip("-")
+    return text
+
+
 def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) -> str:
+    """
+    Create an ID for a glossary node or term.
+
+    Args:
+        path: List of path components leading to this node/term
+        default_id: Optional manually specified ID
+        enable_auto_id: Whether to generate GUIDs
+    """
     if default_id is not None:
-        return default_id  # No need to create id from path as default_id is provided
+        return default_id  # Use explicitly provided ID
 
     id_: str = ".".join(path)
 
-    if UrnEncoder.contains_extended_reserved_char(id_):
-        enable_auto_id = True
-
     if enable_auto_id:
+        # Generate GUID for auto_id mode
         id_ = datahub_guid({"path": id_})
+    else:
+        # Clean the URL for better readability when not using auto_id
+        id_ = clean_url(id_)
+
+        # Force auto_id if the cleaned URL still contains problematic characters
+        if UrnEncoder.contains_extended_reserved_char(id_):
+            id_ = datahub_guid({"path": id_})
+
     return id_
 
 

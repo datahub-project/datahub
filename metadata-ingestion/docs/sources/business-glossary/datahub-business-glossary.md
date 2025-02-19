@@ -24,7 +24,8 @@ nodes:                                                  # list of child **Glossa
 Example **GlossaryNode**:
 
 ```yaml
-- name: Shipping                                                # name of the node
+- name: "Shipping"                                              # name of the node
+  id: "Shipping-Logistics"                                      # (optional) custom identifier for the node
   description: Provides terms related to the shipping domain    # description of the node
   owners:                                                       # (optional) owners contains 2 nested fields
     users:                                                      # (optional) a list of user IDs
@@ -43,7 +44,8 @@ Example **GlossaryNode**:
 Example **GlossaryTerm**:
 
 ```yaml
-- name: FullAddress                                                          # name of the term
+- name: "Full Address"                                                         # name of the term
+  id: "Full-Address-Details"                                                  # (optional) custom identifier for the term
   description: A collection of information to give the location of a building or plot of land.    # description of the term
   owners:                                                                   # (optional) owners contains 2 nested fields
     users:                                                                  # (optional) a list of user IDs
@@ -67,6 +69,37 @@ Example **GlossaryTerm**:
   domain: "urn:li:domain:Logistics"                                            # (optional) domain name or domain urn
 ```
 
+## ID Management and URL Generation
+
+The business glossary provides two primary ways to manage term and node identifiers:
+
+1. **Custom IDs**: You can explicitly specify an ID for any term or node using the `id` field. This is recommended for terms that need stable, predictable identifiers:
+   ```yaml
+   terms:
+     - name: "Customer Lifetime Value"
+       id: "Customer-Lifetime-Value"
+       description: "The total revenue expected from a customer"
+   ```
+
+2. **Automatic ID Generation**: When no ID is specified, the system will generate one based on the `enable_auto_id` setting:
+   - With `enable_auto_id: false` (default):
+     - Converts term names to URL-friendly format
+     - Replaces spaces with hyphens
+     - Removes special characters
+     - Preserves case
+     - Example: "Customer Lifetime Value" → "Customer-Lifetime-Value"
+   - With `enable_auto_id: true`:
+     - Generates GUID-based IDs
+     - Recommended for guaranteed uniqueness
+     - Required for terms with problematic characters that persist after URL cleaning
+
+**Important Notes**:
+- Once an ID is created (either manually or automatically), it cannot be easily changed
+- All references to a term (in `inherits`, `contains`, etc.) must use its correct ID
+- For terms that other terms will reference, consider using explicit IDs
+- Using terms with spaces without specifying an ID may affect URL sharing and linking
+- The system will automatically handle special characters to create valid URLs
+
 To see how these all work together, check out this comprehensive example business glossary file below:
 
 <details>
@@ -80,172 +113,72 @@ owners:
     - mjames
 url: "https://github.com/datahub-project/datahub/"
 nodes:
-  - name: Classification
+  - name: "Data Classification"
+    id: "Data-Classification"                    # Custom ID for stable references
     description: A set of terms related to Data Classification
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
     terms:
-      - name: Sensitive
+      - name: "Sensitive Data"                   # Will generate: Sensitive-Data
         description: Sensitive Data
         custom_properties:
           is_confidential: "false"
-      - name: Confidential
+      - name: "Confidential Information"         # Will generate: Confidential-Information
         description: Confidential Data
         custom_properties:
           is_confidential: "true"
-      - name: HighlyConfidential
-        description: Highly Confidential Data
-        custom_properties:
-          is_confidential: "true"
-        domain: Marketing
-  - name: PersonalInformation
+  - name: "Personal Information"
     description: All terms related to personal information
     owners:
       users:
         - mjames
     terms:
-      - name: Email
-        ## An example of using an id to pin a term to a specific guid
-        ## See "how to generate custom IDs for your terms" section below
-        # id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
+      - name: "Email Address"
+        id: "Email-Contact"                      # Custom ID for this important term
         description: An individual's email address
         inherits:
           - Classification.Confidential
-        owners:
-          groups:
-            - Trust and Safety
-      - name: Address
+      - name: "Physical Address"                 # Will generate: Physical-Address
         description: A physical address
-      - name: Gender
-        description: The gender identity of the individual
-        inherits:
-          - Classification.Sensitive
-  - name: Shipping
-    description: Provides terms related to the shipping domain
-    owners:
-      users:
-        - njones
-      groups:
-        - logistics
-    terms:
-      - name: FullAddress
-        description: A collection of information to give the location of a building or plot of land.
-        owners:
-          users:
-            - njones
-          groups:
-            - logistics
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://www.google.com"
-        inherits:
-          - Privacy.PII
-        contains:
-          - Shipping.ZipCode
-          - Shipping.CountryCode
-          - Shipping.StreetAddress
-        related_terms:
-          - Housing.Kitchen.Cutlery
-        custom_properties:
-          - is_used_for_compliance_tracking: "true"
-        knowledge_links:
-          - url: "https://en.wikipedia.org/wiki/Address"
-            label: Wiki link
-        domain: "urn:li:domain:Logistics"
-    knowledge_links:
-      - label: Wiki link for shipping
-        url: "https://en.wikipedia.org/wiki/Freight_transport"
-  - name: ClientsAndAccounts
-    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
-    owners:
-      groups:
-        - finance
-    terms:
-      - name: Account
-        description: Container for records associated with a business arrangement for regular transactions and services
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        inherits:
-          - Classification.HighlyConfidential
-        contains:
-          - ClientsAndAccounts.Balance
-      - name: Balance
-        description: Amount of money available or owed
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
-  - name: Housing
-    description: Provides terms related to the housing domain
-    owners:
-      users:
-        - mjames
-      groups:
-        - interior
-    nodes:
-      - name: Colors
-        description: "Colors that are used in Housing construction"
-        terms:
-          - name: Red
-            description: "red color"
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-
-          - name: Green
-            description: "green color"
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-
-          - name: Pink
-            description: pink color
-            term_source: "EXTERNAL"
-            source_ref: FIBO
-            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-    terms:
-      - name: WindowColor
-        description: Supported window colors
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        values:
-          - Housing.Colors.Red
-          - Housing.Colors.Pink
-
-      - name: Kitchen
-        description: a room or area where food is prepared and cooked.
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-
-      - name: Spoon
-        description: an implement consisting of a small, shallow oval or round bowl on a long handle, used for eating, stirring, and serving food.
-        term_source: "EXTERNAL"
-        source_ref: FIBO
-        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        related_terms:
-          - Housing.Kitchen
-        knowledge_links:
-          - url: "https://en.wikipedia.org/wiki/Spoon"
-            label: Wiki link
 ```
 </details>
-
-Source file linked [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
-
-## Generating custom IDs for your terms
-
-IDs are normally inferred from the glossary term/node's name, see the `enable_auto_id` config. But, if you need a stable
-identifier, you can generate a custom ID for your term. It should be unique across the entire Glossary.
-
-Here's an example ID:
-`id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"`
-
-A note of caution: once you select a custom ID, it cannot be easily changed.
 
 ## Compatibility
 
 Compatible with version 1 of business glossary format.
 The source will be evolved as we publish newer versions of this format.
+
+## Generating custom IDs for your terms
+
+While IDs are normally generated automatically based on the configuration, you can provide custom IDs for terms and nodes that need stable identifiers. The ID should be unique across the entire Glossary.
+
+Custom IDs can be specified in two ways, both of which are fully supported and acceptable:
+
+1. Just the ID portion (simpler approach):
+```yaml
+terms:
+  - name: "Email"
+    id: "company-email"  # Will become urn:li:glossaryTerm:company-email
+    description: "Company email address"
+```
+
+2. Full URN format:
+```yaml
+terms:
+  - name: "Email"
+    id: "urn:li:glossaryTerm:company-email"
+    description: "Company email address"
+```
+
+Both methods are valid and will work correctly. The system will automatically handle the URN prefix if you specify just the ID portion.
+
+The same applies for nodes:
+```yaml
+nodes:
+  - name: "Communications"
+    id: "internal-comms"  # Will become urn:li:glossaryNode:internal-comms
+    description: "Internal communication methods"
+```
+
+Note: Once you select a custom ID, it cannot be easily changed.
