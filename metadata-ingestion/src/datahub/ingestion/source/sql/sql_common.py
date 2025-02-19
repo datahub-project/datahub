@@ -635,7 +635,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
-    def loop_tables(  # noqa: C901
+    def loop_tables(
         self,
         inspector: Inspector,
         schema: str,

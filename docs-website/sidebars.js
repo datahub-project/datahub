@@ -943,6 +943,7 @@ module.exports = {
     {
       "Advanced Guides": [
         "docs/advanced/mcp-mcl",
+        "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",

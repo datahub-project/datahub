@@ -170,7 +170,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -203,7 +205,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -235,7 +239,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -252,7 +258,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -462,7 +470,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -479,7 +489,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -532,7 +544,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -549,7 +563,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
@@ -606,7 +622,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            true);
+            true,
+            false,
+            Optional.empty());
 
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);

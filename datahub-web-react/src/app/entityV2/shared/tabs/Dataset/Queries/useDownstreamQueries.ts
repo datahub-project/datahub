@@ -52,7 +52,7 @@ export default function useDownstreamQueries(filterText: string) {
     const [downstreamQueryEntities, setDownstreamQueryEntities] = useState<[QueryEntity, Entity][]>([]);
 
     useEffect(() => {
-        lineageData?.searchAcrossLineage?.searchResults.forEach((result) => {
+        lineageData?.searchAcrossLineage?.searchResults?.forEach((result) => {
             result.paths?.forEach((path) => {
                 if (!path) return;
                 const parent = path.path[path.path.length - 2];

@@ -123,7 +123,7 @@ export default function UpstreamHealth() {
     );
 
     useEffect(() => {
-        if (directUpstreamData?.searchAcrossLineage?.searchResults.length && !directUpstreamEntities.length) {
+        if (directUpstreamData?.searchAcrossLineage?.searchResults?.length && !directUpstreamEntities.length) {
             setDirectUpstreamEntities(
                 directUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );
@@ -136,7 +136,7 @@ export default function UpstreamHealth() {
     ]);
 
     useEffect(() => {
-        if (indirectUpstreamData?.searchAcrossLineage?.searchResults.length && !indirectUpstreamEntities.length) {
+        if (indirectUpstreamData?.searchAcrossLineage?.searchResults?.length && !indirectUpstreamEntities.length) {
             setIndirectUpstreamEntities(
                 indirectUpstreamData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );
