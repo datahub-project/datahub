@@ -104,7 +104,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         <>
             {entityTypeProperties?.map((property) => {
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-                const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
+                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
 

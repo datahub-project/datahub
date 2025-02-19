@@ -293,9 +293,9 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
         return server.version.micro - client.version.micro
 
 
-def _maybe_print_upgrade_message(  # noqa: C901
+def _maybe_print_upgrade_message(
     version_stats: Optional[DataHubVersionStats],
-) -> None:  # noqa: C901
+) -> None:
     days_before_cli_stale = 7
     days_before_quickstart_stale = 7
 

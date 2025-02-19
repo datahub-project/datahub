@@ -56,7 +56,7 @@ export const AssertionResultsTimelineViz = ({
 }: Props) => {
     // Run event data
     const completedRuns =
-        results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
+        results?.runEvents?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
     const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(assertion, completedRuns);
 
