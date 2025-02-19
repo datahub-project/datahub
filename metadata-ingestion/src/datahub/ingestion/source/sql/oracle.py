@@ -312,12 +312,8 @@ class OracleInspectorObjectWrapper:
                 try:
                     coltype = ischema_names[coltype]()
                 except KeyError:
-                    logger.warning(
-                        f"Did not recognize type {coltype} of column {colname}"
-                    )
-                    self.report.warning(
-                        message=f"Unrecognized column datatype {coltype}",
-                        context=colname,
+                    logger.info(
+                        f"Unrecognized column datatype {coltype} of column {colname}"
                     )
                     coltype = sqltypes.NULLTYPE
 
