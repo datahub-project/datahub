@@ -944,6 +944,7 @@ module.exports = {
       "Advanced Guides": [
         "docs/advanced/mcp-mcl",
         "docs/modeling/extending-the-metadata-model",
+        "docs/advanced/writing-test",
         "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
