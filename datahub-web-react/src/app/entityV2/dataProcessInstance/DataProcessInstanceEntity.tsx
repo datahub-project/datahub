@@ -1,7 +1,7 @@
 import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity as GraphQLEntity } from '@types';
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
@@ -79,7 +79,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             useEntityQuery={this.useEntityQuery}
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.SHARE])}
+            headerDropdownItems={
+                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
+            }
             tabs={[
                 {
                     name: 'Summary',
