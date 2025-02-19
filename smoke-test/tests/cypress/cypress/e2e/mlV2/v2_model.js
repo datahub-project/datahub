@@ -3,9 +3,7 @@ describe("models", () => {
     cy.setIsThemeV2Enabled(true);
   });
   it("can visit models and groups", () => {
-    cy.visit("/");
-    cy.login();
-    cy.visit(
+    cy.visitWithLogin(
       "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Summary?is_lineage_mode=false",
     );
 
@@ -27,9 +25,7 @@ describe("models", () => {
   });
 
   it("can visit models and groups", () => {
-    cy.visit("/");
-    cy.login();
-    cy.visit(
+    cy.visitWithLogin(
       "/mlModelGroup/urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,cypress-model-package-group,PROD)",
     );
     // the model group has its model

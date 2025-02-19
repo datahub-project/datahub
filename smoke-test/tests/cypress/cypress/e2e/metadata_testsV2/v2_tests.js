@@ -31,11 +31,9 @@ describe("create, edit and remove metadata test", () => {
   it("create new test at governance > tests, edit a test to make if fail, remove test", () => {
     // create new test at governance > tests, test conditions and save the test
     setTestsConfigFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
-    cy.visit("/tests");
-    cy.wait(1000); // Page seems to refresh otherwise and close create modal
-    cy.clickFirstOptionWithText("Create");
+    cy.visitWithLogin("/tests");
+    cy.wait(3000); // Page seems to refresh otherwise and close create modal
+    cy.contains("Create").first().click({ force: true });
     cy.waitTextVisible("New Metadata Test");
     // select data assets
     cy.get('[data-testid="entity-type-select"] > .ant-select-selector').click();

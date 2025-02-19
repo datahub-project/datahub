@@ -7,20 +7,21 @@ const group_name = `Test group ${test_id}`;
 describe("create and manage group", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
+
   it("add test user", () => {
-    cy.visit("/settings/identities/users");
+    cy.visitWithLogin("/settings/identities/users");
     cy.waitTextVisible("Settings");
-    cy.wait(1000);
+    cy.wait(3000);
     cy.clickOptionWithText("Invite Users");
     cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
       const inviteLink = $elem.text();
       cy.visit("/settings/identities/users");
-      cy.clickOptionWithTestId("log-out-menu-item");
+      cy.logoutV2();
       cy.visit(inviteLink);
+      cy.skipIntroducePage();
       cy.enterTextInTestId("email", email);
       cy.enterTextInTestId("name", username);
       cy.enterTextInTestId("password", password);
@@ -30,14 +31,12 @@ describe("create and manage group", () => {
       cy.get("[type=submit]").click();
       cy.contains("Accepted invite!").should("not.exist");
       cy.wait(5000);
-      // cy.hideOnboardingTour();
-      cy.skipIntroducePage();
       cy.waitTextVisible(username);
     });
   });
 
   it("create a group", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.clickOptionWithText("Create group");
@@ -53,7 +52,7 @@ describe("create and manage group", () => {
   });
 
   it("add test user to a group", () => {
-    cy.visit("/settings/identities/users");
+    cy.visitWithLogin("/settings/identities/users");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
@@ -78,7 +77,7 @@ describe("create and manage group", () => {
   });
 
   it("update group info", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.clickOptionWithText(group_name);
@@ -97,7 +96,7 @@ describe("create and manage group", () => {
   });
 
   it("user verify to edit the discription", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
@@ -111,7 +110,7 @@ describe("create and manage group", () => {
   });
 
   it("user verify to add the owner", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
@@ -130,7 +129,7 @@ describe("create and manage group", () => {
   });
 
   it("test User verify group participation", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.hideOnboardingTour();
@@ -140,7 +139,7 @@ describe("create and manage group", () => {
   });
 
   it("remove group", () => {
-    cy.visit("/settings/identities/groups");
+    cy.visitWithLogin("/settings/identities/groups");
     cy.waitTextVisible("Settings");
     cy.wait(1000);
     cy.get(

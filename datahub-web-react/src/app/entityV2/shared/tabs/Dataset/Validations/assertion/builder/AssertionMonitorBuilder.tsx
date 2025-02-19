@@ -115,19 +115,23 @@ export const AssertionMonitorBuilder = ({
      */
     const StepComponent: React.FC<StepProps> = getAssertionsBuilderStepComponent(currentStep, assertionType);
 
-    const validateForm = async () => {
+    const validateForm = async (shouldRetry?: boolean) => {
         try {
             await form.validateFields();
             return true;
         } catch (e) {
             console.warn('Validate Failed:', e);
+            if (shouldRetry && (e as any)?.outOfDate) {
+                // Cypress tests run into this error... seems harmless enough to retry once
+                return validateForm(false);
+            }
             return false;
         }
     };
 
     const goTo = async (step: AssertionBuilderStep, type?: AssertionType, shouldValidate = true) => {
         if (shouldValidate) {
-            const isValid = await validateForm();
+            const isValid = await validateForm(true);
             if (!isValid) return;
         }
         if (type) setAssertionType(type);

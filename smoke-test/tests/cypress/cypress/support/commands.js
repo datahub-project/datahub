@@ -50,6 +50,14 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
   localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
 });
 
+Cypress.Commands.add("visitWithLogin", (url) => {
+  cy.visit(url);
+  cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
+  cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+  cy.contains("Sign In").click();
+});
+
 Cypress.Commands.add("deleteUrn", (urn) => {
   cy.request({
     method: "POST",
@@ -67,6 +75,12 @@ Cypress.Commands.add("deleteUrn", (urn) => {
 Cypress.Commands.add("logout", () => {
   cy.get(selectorWithtestId("manage-account-menu")).click();
   cy.get(selectorWithtestId("log-out-menu-item")).click({ force: true });
+  cy.waitTextVisible("Username");
+  cy.waitTextVisible("Password");
+});
+
+Cypress.Commands.add("logoutV2", () => {
+  cy.get(selectorWithtestId("nav-sidebar-sign-out")).click({ force: true });
   cy.waitTextVisible("Username");
   cy.waitTextVisible("Password");
 });
@@ -134,8 +148,12 @@ Cypress.Commands.add("goToIngestionPage", () => {
   cy.waitTextVisible("Sources");
 });
 
-Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${urn}/`);
+Cypress.Commands.add("goToDataset", (urn, dataset_name, login) => {
+  if (login) {
+    cy.visitWithLogin(`/dataset/${urn}/`);
+  } else {
+    cy.visit(`/dataset/${urn}/`);
+  }
   cy.wait(3000);
   cy.waitTextVisible(dataset_name);
 });
@@ -429,16 +447,7 @@ Cypress.Commands.add(
 
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = `div[id$="${tab}"]:nth-child(1)`;
-  cy.highlighElement(selector);
   cy.get(selector).click();
-});
-
-Cypress.Commands.add("highlighElement", (selector) => {
-  cy.wait(3000);
-  cy.get(selector).then(($button) => {
-    $button.css("border", "1px solid magenta");
-  });
-  cy.wait(3000);
 });
 
 Cypress.Commands.add("mouseover", (selector) =>
@@ -601,6 +610,7 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
       req.on("response", (res) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
+        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
       });
     }
   });

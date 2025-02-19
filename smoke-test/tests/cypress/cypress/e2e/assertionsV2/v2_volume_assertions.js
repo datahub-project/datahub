@@ -35,9 +35,7 @@ describe("create and manage volume assertion", () => {
   it("create volume assertion, stop and restart monitor, manage and remove assertion", () => {
     // create volume assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
-    cy.goToDataset(datasetUrn, datasetName);
+    cy.goToDataset(datasetUrn, datasetName, true);
     cy.openEntityTab("Quality");
     clickElement("#acryl-validation-tab-assertions-sub-tab");
     cy.waitTextVisible("No assertions have run");
@@ -91,18 +89,18 @@ describe("create and manage volume assertion", () => {
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Row count over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
-    clickElement('[aria-label="edit"]');
+    clickElement('[data-testid="edit-assertion-button"]');
     cy.contains("Auto-raise incident").click();
-    clickElement(".anticon-save");
+    clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
     clickElement("body");
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Row count over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
-    clickElement('[aria-label="edit"]');
+    clickElement('[data-testid="edit-assertion-button"]');
     cy.contains("Auto-raise incident").click();
-    clickElement(".anticon-save");
+    clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
 

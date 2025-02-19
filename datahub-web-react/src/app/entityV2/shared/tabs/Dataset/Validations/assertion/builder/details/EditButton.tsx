@@ -10,5 +10,13 @@ type Props = {
 };
 
 export const EditButton = ({ title = 'Edit', disabled, tooltip, onClick }: Props) => {
-    return <PrimaryButton title={title} disabled={disabled} tooltip={tooltip} onClick={onClick} />;
+    return (
+        <PrimaryButton
+            title={title}
+            disabled={disabled}
+            tooltip={tooltip}
+            onClick={onClick}
+            data-testid="edit-assertion-button"
+        />
+    );
 };

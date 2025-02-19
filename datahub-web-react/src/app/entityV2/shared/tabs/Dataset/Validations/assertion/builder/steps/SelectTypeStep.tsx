@@ -54,12 +54,6 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
         );
         updateState({ ...newState });
 
-        console.log(newState);
-
-        updateState({
-            ...newState,
-        });
-
         switch (type) {
             case AssertionType.Freshness:
                 goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Freshness);

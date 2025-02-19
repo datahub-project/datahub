@@ -31,9 +31,7 @@ describe("create and manage freshness assertion", () => {
   it("create freshness assertion, stop and restart monitor,manage and remove assertion", () => {
     // create freshness assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
-    cy.goToDataset(datasetUrn, datasetName);
+    cy.goToDataset(datasetUrn, datasetName, true);
     cy.openEntityTab("Quality");
     clickElement("#acryl-validation-tab-assertions-sub-tab");
     cy.waitTextVisible("No assertions have run");
@@ -43,7 +41,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Pass if this table has updated...");
     cy.waitTextVisible("If this assertion fails...");
     cy.waitTextVisible("If this assertion passes...");
-    cy.get("button").contains("Next").click();
+    cy.get("button").contains("Next").click({ waitForAnimations: true });
     cy.waitTextVisible(
       "If not specified, a name will be generated from the assertion settings.",
     );
@@ -77,18 +75,18 @@ describe("create and manage freshness assertion", () => {
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
-    cy.get('[aria-label="edit"]').last().click();
+    clickElement('[data-testid="edit-assertion-button"]');
     cy.contains("Auto-raise incident").click();
-    clickElement(".anticon-save");
+    clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
     clickElement("body");
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
-    cy.get('[aria-label="edit"]').last().click();
+    clickElement('[data-testid="edit-assertion-button"]');
     cy.contains("Auto-raise incident").click();
-    clickElement(".anticon-save");
+    clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
 

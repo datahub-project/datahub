@@ -10,5 +10,13 @@ type Props = {
 };
 
 export const SaveButton = ({ title = 'Save', disabled, tooltip, onClick }: Props) => {
-    return <PrimaryButton title={title} disabled={disabled} tooltip={tooltip} onClick={onClick} />;
+    return (
+        <PrimaryButton
+            title={title}
+            disabled={disabled}
+            tooltip={tooltip}
+            onClick={onClick}
+            data-testid="save-assertion-button"
+        />
+    );
 };
