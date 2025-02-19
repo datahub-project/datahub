@@ -296,6 +296,7 @@ class BigQuerySchemaGenerator:
         self,
         dataset: str,
         project_id: str,
+        description: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
@@ -336,6 +337,7 @@ class BigQuerySchemaGenerator:
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
+            description=description,
             external_url=(
                 BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
                     project=project_id, dataset=dataset
@@ -471,14 +473,15 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
-                dataset_name,
-                project_id,
-                bigquery_dataset.labels,
-                (
+                dataset=dataset_name,
+                project_id=project_id,
+                tags=bigquery_dataset.labels,
+                extra_properties=(
                     {"location": bigquery_dataset.location}
                     if bigquery_dataset.location
                     else None
                 ),
+                description=bigquery_dataset.comment,
             )
 
         columns = None
