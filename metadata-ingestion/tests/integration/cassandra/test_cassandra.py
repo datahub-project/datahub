@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 _resources_dir = pathlib.Path(__file__).parent
 
 
-@pytest.fixture
-def cassandra_runner(docker_compose_runner, tmp_path, monkeypatch):
+@pytest.mark.integration
+def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeypatch):
     # Tricky: The cassandra container makes modifications directly to the cassandra.yaml
     # config file.
     # See https://github.com/docker-library/cassandra/issues/165
@@ -33,42 +33,35 @@ def cassandra_runner(docker_compose_runner, tmp_path, monkeypatch):
 
         time.sleep(5)
 
-        yield
-
-
-@pytest.mark.integration
-def test_cassandra_ingest(cassandra_runner, pytestconfig, tmp_path):
-    pathlib.Path(tmp_path).mkdir(parents=True, exist_ok=True)
-
-    # Run the metadata ingestion pipeline.
-    logger.info("Starting the ingestion test...")
-    pipeline = Pipeline.create(
-        {
-            "run_id": "cassandra-test",
-            "source": {
-                "type": "cassandra",
-                "config": {
-                    "platform_instance": "dev_instance",
-                    "contact_point": "localhost",
-                    "port": 9042,
-                    "profiling": {"enabled": True},
+        # Run the metadata ingestion pipeline.
+        logger.info("Starting the ingestion test...")
+        pipeline = Pipeline.create(
+            {
+                "run_id": "cassandra-test",
+                "source": {
+                    "type": "cassandra",
+                    "config": {
+                        "platform_instance": "dev_instance",
+                        "contact_point": "localhost",
+                        "port": 9042,
+                        "profiling": {"enabled": True},
+                    },
                 },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/cassandra_mcps.json",
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/cassandra_mcps.json",
+                    },
                 },
-            },
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
 
-    # Verify the output.
-    logger.info("Verifying output.")
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=f"{tmp_path}/cassandra_mcps.json",
-        golden_path=_resources_dir / "cassandra_mcps_golden.json",
-    )
+        # Verify the output.
+        logger.info("Verifying output.")
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/cassandra_mcps.json",
+            golden_path=_resources_dir / "cassandra_mcps_golden.json",
+        )

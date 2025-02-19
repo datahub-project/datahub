@@ -63,7 +63,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    OtherSchemaClass,
+    SchemalessClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -307,6 +307,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             )
             return
 
+        # Tricky: we also save the column info to a global store.
         jsonable_column_infos: List[Dict[str, Any]] = []
         for column in column_infos:
             self.cassandra_data.columns.setdefault(table_name, []).append(column)
@@ -317,9 +318,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
-            platformSchema=OtherSchemaClass(
-                rawSchema=json.dumps(jsonable_column_infos)
-            ),
+            platformSchema=SchemalessClass(),
             fields=schema_fields,
         )
 

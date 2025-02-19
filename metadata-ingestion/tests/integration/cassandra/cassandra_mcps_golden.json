@@ -117,9 +117,7 @@
             },
             "hash": "",
             "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"ascii_column\", \"type\": \"ascii\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"bigint_column\", \"type\": \"bigint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"blob_column\", \"type\": \"blob\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"boolean_column\", \"type\": \"boolean\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"date_column\", \"type\": \"date\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"decimal_column\", \"type\": \"decimal\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"double_column\", \"type\": \"double\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"float_column\", \"type\": \"float\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_list_column\", \"type\": \"frozen<list<text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_map_column\", \"type\": \"frozen<map<text, text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_set_column\", \"type\": \"frozen<set<text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"inet_column\", \"type\": \"inet\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"int_column\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"list_column\", \"type\": \"list<text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"map_column\", \"type\": \"map<text, text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"set_column\", \"type\": \"set<text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"smallint_column\", \"type\": \"smallint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"text_column\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"time_column\", \"type\": \"time\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timestamp_column\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timeuuid_column\", \"type\": \"timeuuid\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tinyint_column\", \"type\": \"tinyint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tuple_column\", \"type\": \"frozen<tuple<int, text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"uuid_column\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varchar_column\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varint_column\", \"type\": \"varint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}]"
-                }
+                "com.linkedin.schema.Schemaless": {}
             },
             "fields": [
                 {
@@ -602,9 +600,7 @@
             },
             "hash": "",
             "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"counter_column\", \"type\": \"counter\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
-                }
+                "com.linkedin.schema.Schemaless": {}
             },
             "fields": [
                 {
@@ -787,9 +783,7 @@
             },
             "hash": "",
             "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"item_count\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"last_update_timestamp\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"userid\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
-                }
+                "com.linkedin.schema.Schemaless": {}
             },
             "fields": [
                 {
@@ -1072,9 +1066,7 @@
             },
             "hash": "",
             "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"ascii_column\", \"type\": \"ascii\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"bigint_column\", \"type\": \"bigint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
-                }
+                "com.linkedin.schema.Schemaless": {}
             },
             "fields": [
                 {
