@@ -149,7 +149,7 @@ class BigQuerySource(Source):
                         {operation_types_filter}
                     )
             )
-            {f'AND protoPayload.authenticationInfo.principalEmail="{user_name_filter}"' if user_name_filter is not None else ''}
+            {f'AND protoPayload.authenticationInfo.principalEmail="{user_name_filter}"' if user_name_filter is not None else ""}
             AND timestamp >= "{start_time_utc}"
             AND timestamp < "{end_time_utc}"
             """
@@ -304,7 +304,7 @@ class BigQuerySource(Source):
                 FROM {self._get_database_string(operation_params)}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
-                {f"AND {filter_sql}" if filter_sql else ''}
+                {f"AND {filter_sql}" if filter_sql else ""}
                 ORDER BY {date_column} DESC
                 LIMIT {self.row_limit}
             ;"""
@@ -609,8 +609,6 @@ class BigQuerySource(Source):
             NotFound,
             Forbidden,
             BadRequest,
-            InternalServerError,
-            ServiceUnavailable,
             InternalServerError,
             ServiceUnavailable,
         ) as e:

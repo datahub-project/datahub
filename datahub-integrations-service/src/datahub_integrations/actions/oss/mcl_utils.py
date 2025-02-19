@@ -25,7 +25,6 @@ class MCLProcessor:
         self.entity_aspect_processors[entity_type][aspect] = processor
 
     def process(self, event: EventEnvelope) -> Any:
-
         if isinstance(event.event, MetadataChangeLogClass):
             entity_type = event.event.entityType
             aspect = event.event.aspectName

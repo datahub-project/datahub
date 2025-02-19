@@ -104,7 +104,6 @@ class IdentityProvider:
             "corpUserEditableInfo"
         )
         if corp_user_editable_info:
-
             user.displayName = (
                 corp_user_editable_info.get("displayName") or user.displayName
             )

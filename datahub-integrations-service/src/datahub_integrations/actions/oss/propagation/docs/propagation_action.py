@@ -25,9 +25,7 @@ from datahub.metadata.schema_classes import (
     DocumentationAssociationClass,
     DocumentationClass,
     EditableSchemaMetadataClass,
-)
-from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
-from datahub.metadata.schema_classes import (
+    EntityChangeEventClass as EntityChangeEvent,
     GenericAspectClass,
     MetadataAttributionClass,
     MetadataChangeLogClass,
@@ -249,7 +247,6 @@ class DocPropagationAction(Action):
     def should_propagate(
         self, event: EventEnvelope
     ) -> Optional[DocPropagationDirective]:
-
         if self.mcl_processor.is_mcl(event):
             return self.mcl_processor.process(event)
         if event.event_type == "EntityChangeEvent_v1":

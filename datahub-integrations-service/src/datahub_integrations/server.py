@@ -30,10 +30,13 @@ from datahub_integrations.gen_ai.description_v2 import (
 from datahub_integrations.gen_ai.router import router as gen_ai_router
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
-from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_preview
-from datahub_integrations.slack.slack import private_router as slack_private_router
-from datahub_integrations.slack.slack import public_router as slack_public_router
-from datahub_integrations.slack.slack import reload_slack_credentials
+from datahub_integrations.slack.slack import (
+    SlackLinkPreview,
+    get_slack_link_preview,
+    private_router as slack_private_router,
+    public_router as slack_public_router,
+    reload_slack_credentials,
+)
 from datahub_integrations.sql import router as sql_router
 from datahub_integrations.util.access_log import access_log
 

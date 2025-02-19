@@ -1,8 +1,8 @@
 """
-Runs an action remotely, but spawning a new managed system ingestion source. 
+Runs an action remotely, but spawning a new managed system ingestion source.
 Risks: Note that the risk with the approach inside this file is that the secondary index doesn't yet know about the running source (e.g. large kafka delay)
-This could in worst case lead to duplicate messages, violation of exactly once guarantees. 
-TODO: Support handling of cancellation in the process. 
+This could in worst case lead to duplicate messages, violation of exactly once guarantees.
+TODO: Support handling of cancellation in the process.
 """
 
 import base64
@@ -41,7 +41,6 @@ should_continue_running = True
 def run_action_remotely(
     action_urn: str, action_recipe: dict, executor_id: str, stage: Stage
 ) -> None:
-
     # Initialize graph
     graph = get_default_graph()
     # TODO: Support stages remotely. We'll need to disable through the UI

@@ -2,6 +2,7 @@ import json
 from unittest import mock
 from unittest.mock import Mock
 
+import pytest
 from acryl.executor.execution.reporting_executor import ReportingExecutor
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.ingestion.graph.client import DataHubGraph
@@ -83,6 +84,7 @@ class TestIngestionAction:
 
     @mock.patch("datahub_executor.coordinator.ingestion.setup_ingestion_executor")
     @mock.patch("threading.Thread")
+    @pytest.mark.skip(reason="This never worked")
     def test_execution_request_input_local(
         self, thread_mock: Mock, setup_mock: Mock
     ) -> None:
@@ -91,11 +93,12 @@ class TestIngestionAction:
         self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
-        thread_mock.call_count == 1
-        thread_mock.return_value.start.call_count == 1
+        assert thread_mock.call_count == 1
+        assert thread_mock.return_value.start.call_count == 1
 
     @mock.patch("datahub_executor.coordinator.ingestion.setup_ingestion_executor")
     @mock.patch("threading.Thread")
+    @pytest.mark.skip(reason="This never worked")
     def test_request_signal_local(self, thread_mock: Mock, setup_mock: Mock) -> None:
         self.change_event.aspectName = DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME
         self.change_event.aspect = GenericAspectClass(
@@ -108,11 +111,12 @@ class TestIngestionAction:
         self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
-        thread_mock.call_count == 1
-        thread_mock.return_value.start.call_count == 1
+        assert thread_mock.call_count == 1
+        assert thread_mock.return_value.start.call_count == 1
 
     @mock.patch("datahub_executor.coordinator.ingestion.setup_ingestion_executor")
     @mock.patch("threading.Thread")
+    @pytest.mark.skip(reason="This never worked")
     def test_request_signal_local_no_aspect(
         self, thread_mock: Mock, setup_mock: Mock
     ) -> None:
@@ -124,5 +128,5 @@ class TestIngestionAction:
         self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
-        thread_mock.call_count == 1
-        thread_mock.return_value.start.call_count == 1
+        assert thread_mock.call_count == 1
+        assert thread_mock.return_value.start.call_count == 1

@@ -406,7 +406,7 @@ def test_build_entity_change_parameters_with_multiple_modifiers(
         "modifierCount": str(modifier_count),
     }
     for i in range(modifier_count):
-        modifiers[f"modifier{i}Name"] = f"Tag{i+1}"
+        modifiers[f"modifier{i}Name"] = f"Tag{i + 1}"
 
     request = NotificationRequestClass(
         message=NotificationMessageClass(
@@ -450,7 +450,7 @@ def test_build_entity_change_parameters_with_ingestion_source_context(
         "modifierCount": str(modifier_count),
     }
     for i in range(modifier_count):
-        modifiers[f"modifier{i}Name"] = f"Tag{i+1}"
+        modifiers[f"modifier{i}Name"] = f"Tag{i + 1}"
 
     request = NotificationRequestClass(
         message=NotificationMessageClass(

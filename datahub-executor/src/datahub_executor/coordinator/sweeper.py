@@ -344,7 +344,9 @@ class SweeperJob:
                 )
                 actions.pop(ingestion.execution_request_id, None)
 
-        return self._repopulate_cancel_action_reports(actions, oldest_running, latest_pending)  # type: ignore
+        return self._repopulate_cancel_action_reports(
+            actions, oldest_running, latest_pending
+        )  # type: ignore
 
     def _get_remote_executor_actions(
         self, executors: Dict[str, RemoteExecutorStatusClass]

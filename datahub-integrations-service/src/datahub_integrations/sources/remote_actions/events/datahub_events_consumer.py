@@ -149,7 +149,6 @@ if __name__ == "__main__":
             print(f"Starting offset id: {client.offset_id}")
 
         while True:
-
             # Example: Poll events for the PlatformEvent_v1 topic
             response = client.poll_events(
                 topic="PlatformEvent_v1", limit=10, poll_timeout_seconds=5

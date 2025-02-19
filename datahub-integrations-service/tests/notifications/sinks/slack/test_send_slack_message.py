@@ -156,7 +156,6 @@ def test_send_notification_slack_message(
 def test_send_notification_to_recipients(
     mock_send_message: MagicMock, mock_client: WebClient
 ) -> None:
-
     # message details
     message_details = [
         {
@@ -245,7 +244,6 @@ def test_update_slack_message_error(mock_client: WebClient) -> None:
 def test_update_messages(
     mock_update_slack_message: MagicMock, mock_client: WebClient
 ) -> None:
-
     # Creating a list of SlackMessageDetails
     message_details = [
         SlackMessageDetails(

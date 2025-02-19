@@ -79,18 +79,15 @@ task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black --check --diff src/ tests/ && " +
-        "isort --check --diff src/ tests/ && " +
         "ruff check src/ tests/ && " +
+        "ruff format --check src/ tests/ && " +
         "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "black src/ tests/ && " +
-        "isort src/ tests/ && " +
         "ruff check --fix src/ tests/ && " +
-        "mypy src/ tests/"
+        "ruff format src/ tests/ "
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {

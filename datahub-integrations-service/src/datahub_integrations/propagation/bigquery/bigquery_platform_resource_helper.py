@@ -91,7 +91,11 @@ class ExtendedBigQueryPlatformResourceHelper(BigQueryPlatformResourceHelper):
                 and platform_resource.resource_info.value
             ):
                 try:
-                    existing_info: Optional[BigQueryPolicyTagInfo] = platform_resource.resource_info.value.as_pydantic_object(BigQueryPolicyTagInfo)  # type: ignore
+                    existing_info: Optional[BigQueryPolicyTagInfo] = (  # type: ignore
+                        platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                            BigQueryPolicyTagInfo
+                        )
+                    )
                 except ValidationError as e:
                     logger.error(
                         f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."
@@ -158,12 +162,13 @@ class ExtendedBigQueryPlatformResourceHelper(BigQueryPlatformResourceHelper):
     def get_policy_tag_id_by_glossary_term_urn(
         self, glossary_term_urn: GlossaryTermUrn, taxonomy_path: str
     ) -> Optional[str]:
-
         # Check if the policy tag is already in the cache
         for pr in self.platform_resource_cache.values():
             if pr.resource_info and pr.resource_info.value:
                 try:
-                    policy_tag_info: Optional[BigQueryPolicyTagInfo] = pr.resource_info.value.as_pydantic_object(BigQueryPolicyTagInfo)  # type: ignore
+                    policy_tag_info: Optional[BigQueryPolicyTagInfo] = (
+                        pr.resource_info.value.as_pydantic_object(BigQueryPolicyTagInfo)
+                    )  # type: ignore
                 except ValidationError as e:
                     logger.error(
                         f"Error converting existing value to BigQueryLabelInfo: {e}. Creating new one. Maybe this is because of a non backward compatible schema change."

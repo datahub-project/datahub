@@ -164,12 +164,12 @@ def oauth_callback(
 ) -> RedirectResponse:
     config = slack_config.get_config()
     assert config.app_details, "App details should be present after provisioning."
-    assert (
-        config.app_details.client_id
-    ), "Client id should be present after provisioning"
-    assert (
-        config.app_details.client_secret
-    ), "Client secret should be present after provisioning"
+    assert config.app_details.client_id, (
+        "Client id should be present after provisioning"
+    )
+    assert config.app_details.client_secret, (
+        "Client secret should be present after provisioning"
+    )
 
     if not _state_store.consume(state):
         raise fastapi.HTTPException(
@@ -197,7 +197,7 @@ def oauth_callback(
 
     authed_user = oauth_response["authed_user"]
     logger.info(
-        f'Completed app install for team {oauth_response.get("team")}, approved by {authed_user}'
+        f"Completed app install for team {oauth_response.get('team')}, approved by {authed_user}"
     )
 
     # Save the new bot token.
@@ -297,7 +297,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_test_message(message: dict, say: Say) -> None:
         logger.info(message)
         say(
-            f'Hey <@{message["user"]}>, DataHub is available in this channel!',
+            f"Hey <@{message['user']}>, DataHub is available in this channel!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
@@ -310,7 +310,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
         say(
-            f'Hey <@{event["user"]}>! DataHub commands are coming soon!',
+            f"Hey <@{event['user']}>! DataHub commands are coming soon!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
@@ -678,7 +678,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_shortcuts(ack: Ack, event: dict, say: Say) -> None:
         ack()
         say(
-            f'Hey <@{event["user"]}>! DataHub shortcut commands are coming soon!',
+            f"Hey <@{event['user']}>! DataHub shortcut commands are coming soon!",
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 

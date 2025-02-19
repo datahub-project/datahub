@@ -60,7 +60,6 @@ def send_notification_slack_message(
     blocks: Optional[Any],
     attachments: Optional[Any],
 ) -> Optional[SlackMessageDetails]:
-
     # Extract Recipient ID
     recipient_handle = recipient.id
 
@@ -81,7 +80,6 @@ def update_slack_message(
     blocks: Optional[Any],
     attachments: Optional[Any],
 ) -> None:
-
     logger.debug(
         f"Attempting to update slack message {message_id} in channel with id {channel}"
     )
@@ -129,7 +127,6 @@ def send_slack_message(
         )
 
         if response.status_code == 200:
-
             message_id = response["message"]["ts"]
             channel_name = try_resolve_channel_name(client, channel)
 
@@ -157,7 +154,6 @@ def send_slack_message(
 
 def resolve_channel_name(client: WebClient, channel: str) -> Optional[str]:
     if STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED:
-
         # If channel is cached, return cached value.
         if channel in channel_name_cache:
             return channel_name_cache[channel]

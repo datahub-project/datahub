@@ -6,7 +6,6 @@ from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 
 
 class TestDatahubExecutorDiscovery:
-
     def setup_method(self) -> None:
         pass
 

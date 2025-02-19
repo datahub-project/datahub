@@ -78,7 +78,7 @@ def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescriptio
     table_description, column_descriptions = parse_llm_output(raw_llm_output)
     if column_descriptions is None:
         raise DescriptionV2ParsingError(
-            "Failed to parse structured output from raw output: " f"{raw_llm_output}"
+            f"Failed to parse structured output from raw output: {raw_llm_output}"
         )
 
     return SuggestedDescription(

@@ -108,7 +108,9 @@ class BigqueryTagHelper(Closeable):
         self.bq_project = (
             self.config.project_on_behalf
             if self.config.project_on_behalf
-            else self.config.credential.project_id if self.config.credential else None
+            else self.config.credential.project_id
+            if self.config.credential
+            else None
         )
         self.error_timestamps: Deque[datetime] = (
             deque()
@@ -124,9 +126,9 @@ class BigqueryTagHelper(Closeable):
         logger.info("BigqueryTagHelper initialized.")
 
     def warm_policy_tag_cache(self) -> None:
-        assert (
-            self.taxonomy_path is not None
-        ), "Taxonomy is not available. Maybe Taxonomy was not initialized?"
+        assert self.taxonomy_path is not None, (
+            "Taxonomy is not available. Maybe Taxonomy was not initialized?"
+        )
         self.policy_tags = {
             tag.name: tag for tag in self.list_policy_tags(self.taxonomy_path)
         }
@@ -592,7 +594,7 @@ class BigqueryTagHelper(Closeable):
         ):
             truncated_parts.insert(0, parts.pop())
         truncated_tag = "__".join(truncated_parts)
-        return f"{truncated_tag[:max_length-12]}__{BigqueryTagHelper.generate_hash(truncated_tag)}"
+        return f"{truncated_tag[: max_length - 12]}__{BigqueryTagHelper.generate_hash(truncated_tag)}"
 
     def generate_policy_tag_display_name(
         self, glossary_entity: DataHubGlossaryTerm, parents: List[DataHubGlossaryNode]
@@ -650,9 +652,9 @@ class BigqueryTagHelper(Closeable):
         glossaryTerm: DataHubGlossaryTerm,
         parents: List[DataHubGlossaryNode],
     ) -> PolicyTag:
-        assert (
-            self.taxonomy_path is not None
-        ), "Taxonomy is not available. Maybe Taxonomy was not initialized?"
+        assert self.taxonomy_path is not None, (
+            "Taxonomy is not available. Maybe Taxonomy was not initialized?"
+        )
         # Parents tags in the order of left to right
         created_tag: PolicyTag
         logger.info(f"Creating tag {glossaryTerm.term.name} with parents {parents}")

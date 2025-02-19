@@ -40,7 +40,6 @@ def fetch_glossary_info(
     graph_client: DataHubGraph,
     universe: GlossaryUniverseConfig,
 ) -> GlossaryInfo:
-
     assert not all(
         [
             universe.glossary_terms is None,

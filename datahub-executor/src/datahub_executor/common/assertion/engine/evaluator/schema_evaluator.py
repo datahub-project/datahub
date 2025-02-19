@@ -189,7 +189,7 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
             else:
                 extra_fields_in_actual.append(path)
 
-        for path, field in expected_field_path_to_field.items():
+        for path in expected_field_path_to_field.keys():
             if path not in actual_field_path_to_field:
                 extra_fields_in_expected.append(path)
 

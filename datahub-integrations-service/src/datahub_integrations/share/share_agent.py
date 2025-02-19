@@ -556,7 +556,6 @@ class ShareAgent:
         lineage_direction: Optional[LineageDirection] = None,
         share_request_id: Optional[str] = None,
     ) -> ExecuteShareResult:
-
         # Record the start time of this operation
         last_report_time = time.time()
 
@@ -708,7 +707,6 @@ class ShareAgent:
     def unshare_status_update(
         self, entity_urn: str, status: Union[str, ShareResultStateClass]
     ) -> None:
-
         existing_share_aspect = self.source_graph.get_aspect(
             entity_urn, models.ShareClass
         )
@@ -737,7 +735,6 @@ class ShareAgent:
     def unshare(
         self, entity_urn: str, lineage_direction: Optional[LineageDirection] = None
     ) -> ExecuteUnshareResult:
-
         if not lineage_direction:
             # If lineage direction is not provided, we need to determine the lineage direction from the share aspect.
             lineage_direction = self.get_lineage_direction_from_share_aspect(entity_urn)

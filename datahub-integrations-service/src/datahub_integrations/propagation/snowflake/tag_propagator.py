@@ -121,7 +121,6 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
     def process_directive(
         self, directive: Union[TermPropagationDirective, TagPropagationDirective]
     ) -> None:
-
         entity_to_apply = directive.entity
         tag_to_apply = (
             directive.tag
@@ -195,7 +194,6 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
         return None
 
     def bootstrappable_assets(self) -> Iterable[SelectedAsset]:
-
         asset_filters = {}
         if self.term_propagator is not None:
             asset_filters = self.term_propagator.asset_filters()

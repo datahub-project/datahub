@@ -9,7 +9,7 @@ description = ""
 authors = [
 	{ name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = ">=3.10"
+requires-python = "==3.10.*"
 
 dependencies = [
 	"acryl-datahub[base,snowflake,bigquery]",
@@ -48,7 +48,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-	"black",
 	"ruff",
 	"pytest",
 	"mypy",
@@ -58,7 +57,6 @@ dev = [
 	"types-cachetools",
 	"types-PyYAML",
 	"mypy-boto3-bedrock-runtime",
-	"isort",
 	"faker",
 	"anyio",
 	"freezegun",
@@ -76,25 +74,41 @@ record = "datahub_integrations.actions.recording_action.RecordingAction"
 dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
 ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
 
-[tool.black]
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-^/tmp
-'''
-include = '\.pyi?$'
-target-version = ['py310']
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = [
+	".git",
+	"venv",
+	"__pycache__",
+]
 
-[tool.isort]
-profile = 'black'
+[tool.ruff.lint.isort]
+section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+combine-as-imports = true
 
 [tool.ruff.lint]
-extend-select = ["E", "F", "B", "ASYNC", "INP001"]
-ignore = [
+extend-select = [
+	"ASYNC",
+	"B",      # flake8-bugbear
+	"E",      # pycodestyle errors
+	"F",      # pyflakes
+	"G010",   # logging.warn -> logging.warning
+	"I",      # isort
+	"INP001",
+	"TID",    # flake8-tidy-imports
+	"RUF100", # unused-noqa
+]
+extend-ignore = [
 	'E501', # Ignore line length, since black handles that.
 	'D203', # Ignore 1 blank line required before class docstring.
 ]
-exclude = ['scripts/forms/*.py', 'experiments/**.py', 'experiments/**.ipynb']
+exclude = [
+	'scripts/forms/*.py', 
+	'experiments/**.py', 
+	'experiments/**.ipynb'
+]
 
 [tool.pyright]
 extraPaths = ['tests']

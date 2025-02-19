@@ -271,7 +271,6 @@ def test_build_new_incident_message_success_user_has_email_lookup(
     identity_provider: IdentityProvider,
     notification_request_all_args: NotificationRequestClass,
 ) -> None:
-
     batch_get_actors = cast(Any, identity_provider.batch_get_actors)
 
     # Assuming user with email has already been looked up and cached
@@ -333,7 +332,6 @@ def test_build_new_incident_message_success_required_args_only(
     identity_provider: IdentityProvider,
     notification_request_required_args: NotificationRequestClass,
 ) -> None:
-
     # Call the function
     text, blocks, attachments = build_incident_message(
         notification_request_required_args,
@@ -364,7 +362,6 @@ def test_incident_resolved_success(
     identity_provider: IdentityProvider,
     notification_request_resolved_all_args: NotificationRequestClass,
 ) -> None:
-
     identity_provider.batch_get_actors.return_value = {  # type: ignore
         "owner1": User(urn="owner1", email="owner1@example.com", slack="U12345"),
         "owner2": User(urn="owner2", email="owner2@example.com", slack="U12346"),
@@ -445,7 +442,6 @@ def test_incident_reopened_success(
     identity_provider: IdentityProvider,
     notification_request_reopened_all_args: NotificationRequestClass,
 ) -> None:
-
     identity_provider.batch_get_actors.return_value = {  # type: ignore
         "owner1": User(urn="owner1", email="owner1@example.com", slack="U12345"),
         "owner2": User(urn="owner2", email="owner2@example.com", slack="U12346"),

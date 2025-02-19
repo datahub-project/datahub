@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.secret.datahub_secret_store import DataHubSecretStore
@@ -66,8 +66,10 @@ def paginate_datahub_query_results(
     query_key: str,
     result_key: str,
     page_size: int,
-    user_params: Dict = {},
+    user_params: Optional[Dict],
 ) -> List[Any]:
+    if user_params is None:
+        user_params = {}
     results = []
     position = 0
 

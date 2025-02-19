@@ -170,7 +170,7 @@ class SnowflakeSource(Source):
                 LATERAL FLATTEN(input => access_history.objects_modified) updated_objects
             WHERE access_history.query_start_time >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
                 AND access_history.query_start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3)
-                {f"AND LOWER(access_history.user_name) = '{user_name_filter}'" if user_name_filter is not None else ''}
+                {f"AND LOWER(access_history.user_name) = '{user_name_filter}'" if user_name_filter is not None else ""}
             )
 
             SELECT
@@ -279,7 +279,7 @@ class SnowflakeSource(Source):
                 FROM {self._get_database_string(operation_params)}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
-                {f"AND {filter_sql}" if filter_sql else ''}
+                {f"AND {filter_sql}" if filter_sql else ""}
                 ORDER BY {date_column} DESC
                 LIMIT {self.row_limit}
                 ;

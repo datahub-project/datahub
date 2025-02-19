@@ -7,7 +7,6 @@ from datahub_executor.common.monitoring.base import METRIC
 
 class ThreadPoolExecutorWithQueueSizeLimit:
     def __init__(self, max_workers: int, name: str):
-
         self.shutdown_flag = False
         self.name = name
 
@@ -34,8 +33,13 @@ class ThreadPoolExecutorWithQueueSizeLimit:
     def submit(self, fn: Callable, *args, **kwargs) -> None:  # type: ignore
         self.submit_weighted(None, fn, *args, **kwargs)
 
-    def submit_weighted(self, weight: Optional[float], fn: Callable, *args, **kwargs) -> None:  # type: ignore
-
+    def submit_weighted(  # type: ignore
+        self,
+        weight: Optional[float],
+        fn: Callable,
+        *args,
+        **kwargs,
+    ) -> None:
         if self.shutdown_flag:
             return None
 

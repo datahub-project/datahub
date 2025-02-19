@@ -22,7 +22,7 @@ def setup_high_watermark_field_value_query(
     get_value_query = f"""
         SELECT {column_name}
         FROM {database_string}
-        {f"WHERE {column_name} >= {previous_value}" if previous_value else ''}
+        {f"WHERE {column_name} >= {previous_value}" if previous_value else ""}
         {filter_sql_part}
         ORDER by {column_name} DESC
         LIMIT 1;
@@ -42,7 +42,7 @@ def setup_high_watermark_row_count_query(
         SELECT COUNT(*)
         FROM {database_string}
         WHERE {column_name} = {current_field_value}
-        {f"AND {filter_sql}" if filter_sql else ''}
+        {f"AND {filter_sql}" if filter_sql else ""}
     """
     logger.debug(get_count_query)
     return get_count_query
@@ -55,7 +55,7 @@ def setup_row_count_query(
     get_count_query = f"""
         SELECT COUNT(*)
         FROM {database_string}
-        {f"WHERE {filter_sql}" if filter_sql else ''}
+        {f"WHERE {filter_sql}" if filter_sql else ""}
     """
     logger.debug(get_count_query)
     return get_count_query

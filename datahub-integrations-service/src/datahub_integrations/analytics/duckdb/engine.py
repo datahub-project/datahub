@@ -99,9 +99,7 @@ class DuckDBAnalyticsEngine(AnalyticsEngine):
         query = f"{credentials_fragment} SELECT * from '{location}' LIMIT 0"
         logger.info(f"Executing query: {query}")
         result = self.duckdb_client.execute(query)
-        return (
-            {x[0]: x[1] for x in result.description} if result.description else {}
-        )  # type: ignore
+        return {x[0]: x[1] for x in result.description} if result.description else {}  # type: ignore
 
     def _get_rows_from_result(self, result: duckdb.DuckDBPyConnection) -> Iterator[Row]:
         schema = [str(x[0]) for x in result.description] if result.description else []

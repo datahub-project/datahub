@@ -10,7 +10,6 @@ from pydantic import Field
 class BigqueryConnectionConfigPermissive(
     BigQueryConnectionConfig, PermissiveConfigModel
 ):
-
     taxonomy: str = Field(
         default="DataHub", description="DataHub Synced Glossary Terms' Taxonomy"
     )

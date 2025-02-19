@@ -45,6 +45,7 @@ class IngestionFetcher(Fetcher):
             query_key="listIngestionSources",
             result_key="ingestionSources",
             page_size=LIST_INGESTION_SOURCES_BATCH_SIZE,
+            user_params={},
         )
         return graphql_to_ingestion_sources(result)
 

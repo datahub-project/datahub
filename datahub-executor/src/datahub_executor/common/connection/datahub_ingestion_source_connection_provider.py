@@ -126,7 +126,9 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
 
         if PLATFORM_TO_CONNECTION_SUPPLIER.get(source_type) is not None:
             supplier = PLATFORM_TO_CONNECTION_SUPPLIER.get(source_type)
-            return supplier(f"urn:li:dataPlatform:{source_type}", final_recipe_dict, self.graph)  # type: ignore
+            return supplier(
+                f"urn:li:dataPlatform:{source_type}", final_recipe_dict, self.graph
+            )  # type: ignore
         raise NotImplementedError(
             f"Platform {source_type} is not yet supported. Please use profiling as source."
         )

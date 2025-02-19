@@ -4,7 +4,6 @@ from datahub_integrations.propagation.bigquery.util import BigqueryTagHelper
 
 
 class TestBigqueryTagHelper:
-
     def test_truncate_policy_tag_name_no_truncation(self) -> None:
         input_str = "a__b__c"
         result = BigqueryTagHelper.truncate_policy_tag_name(input_str)

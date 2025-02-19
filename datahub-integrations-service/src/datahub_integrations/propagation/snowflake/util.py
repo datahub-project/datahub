@@ -400,13 +400,12 @@ class SnowflakeTagHelper(Closeable):
 
         except Exception as e:
             logger.exception(
-                f"Failed to execute snowflake query: {query}. Error: {str(e)}. Total errors: {len(self.error_timestamps)}"
+                f"Failed to execute snowflake query: {query}. Error: {e!s}. Total errors: {len(self.error_timestamps)}"
             )
             self._log_error()
             return {}
 
     def _run_query(self, database: str, schema: str, query: str) -> None:
-
         # If we hit too many errors in the past 1 hour, then we simply start to drop.
         if self._too_many_errors():
             logger.warning(

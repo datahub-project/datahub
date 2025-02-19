@@ -228,7 +228,6 @@ class SlackNotificationSink(NotificationSink):
             )
 
     def _try_reload_web_client(self) -> None:
-
         # Assuming slack_config has a reload method to refresh its data
         config = slack_config.reload()
 
@@ -302,7 +301,6 @@ class SlackNotificationSink(NotificationSink):
         self,
         request: NotificationRequestClass,
     ) -> List[SlackMessageDetails]:
-
         message_details = []
 
         # Step 1: Extract the incident urn

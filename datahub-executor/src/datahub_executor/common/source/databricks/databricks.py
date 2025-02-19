@@ -150,8 +150,8 @@ class DatabricksSource(Source):
             WHERE 
                 TO_TIMESTAMP(FROM_UNIXTIME({operation_params.start_time_millis}/1000)) <= timestamp 
                 AND timestamp <= TO_TIMESTAMP(FROM_UNIXTIME({operation_params.end_time_millis}/1000))
-                {"AND "+operation_filter if operation_filter else ""}
-                {"AND "+username_filter if username_filter else ""}
+                {"AND " + operation_filter if operation_filter else ""}
+                {"AND " + username_filter if username_filter else ""}
                 LIMIT {self.row_limit};
         """
         logger.debug(query)
@@ -231,7 +231,7 @@ class DatabricksSource(Source):
                 FROM {self._get_database_string(operation_params)}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
-                {f"AND {filter_sql}" if filter_sql else ''}
+                {f"AND {filter_sql}" if filter_sql else ""}
                 ORDER BY {date_column} DESC
                 LIMIT {self.row_limit}
                 ;

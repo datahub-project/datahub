@@ -9,7 +9,7 @@ description = ""
 authors = [
   { name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = ">=3.9"
+requires-python = "==3.10.*"
 
 dependencies = [
   "acryl-datahub[base,snowflake,bigquery,redshift,s3,unity-catalog]",
@@ -36,7 +36,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "black",
   "ruff",
   "pytest",
   "mypy",
@@ -46,30 +45,42 @@ dev = [
   "types-cachetools",
   "types-requests",
   "types-PyYAML",
-  "isort",
   "faker",
   "types-pytz",
 ]
 
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = [
+	".git",
+	"venv",
+	"__pycache__",
+]
 
-[tool.black]
-extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
-^/tmp
-'''
-include = '\.pyi?$'
-target-version = ['py310']
-
-[tool.isort]
-profile = 'black'
+[tool.ruff.lint.isort]
+section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+combine-as-imports = true
 
 [tool.ruff.lint]
-ignore = [
-  'E501', # Ignore line length, since black handles that.
-  'D203', # Ignore 1 blank line required before class docstring.
+extend-select = [
+	"ASYNC",
+	"B",      # flake8-bugbear
+	"E",      # pycodestyle errors
+	"F",      # pyflakes
+	"G010",   # logging.warn -> logging.warning
+	"I",      # isort
+	"INP001",
+	"TID",    # flake8-tidy-imports
+	"RUF100", # unused-noqa
 ]
-extend-select = ["INP001"]
+extend-ignore = [
+	'E501', # Ignore line length, since black handles that.
+	'D203', # Ignore 1 blank line required before class docstring.
+  'B017', # TODO There are warnings in executor code. These need cleanup. Then this can be removed
+  'B904', # TODO There are warnings in executor code. These need cleanup. Then this can be removed
+]
 
 [tool.pyright]
 extraPaths = ['tests']

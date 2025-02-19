@@ -312,11 +312,11 @@ def build_entity_change_parameters(
         )
     else:
         subject = (
-            f"{modifier_type} {modifier_string} {'have' if modifier_count > 1 else 'has' } been {operation} for {entity_title}"
+            f"{modifier_type} {modifier_string} {'have' if modifier_count > 1 else 'has'} been {operation} for {entity_title}"
             f"{actor_context}"
         )
     message = (
-        f"{modifier_type} <b>{modifier_string}</b> {'have' if modifier_count > 1 else 'has' } been {operation} for <b>{entity_title}</b>"
+        f"{modifier_type} <b>{modifier_string}</b> {'have' if modifier_count > 1 else 'has'} been {operation} for <b>{entity_title}</b>"
         f"{actor_context}."
     )
 
@@ -352,8 +352,8 @@ def build_entity_deprecation_parameters(
     entity_title = build_entity_title(entity_platform, entity_type, entity_name)
     actor_context = get_actor_suffix(actor_name, is_ingestion_notif, entity_platform)
 
-    subject = f"{entity_title} has been {operation}" f"{actor_context}"
-    message = f"<b>{entity_title}</b> has been <b>{operation}</b>" f"{actor_context}."
+    subject = f"{entity_title} has been {operation}{actor_context}"
+    message = f"<b>{entity_title}</b> has been <b>{operation}</b>{actor_context}."
 
     message_with_context = add_context_to_entity_change_message(
         message, request.message.template, request.message.parameters

@@ -1,5 +1,5 @@
 """
-This is a small utility script that runs a single datahub action pipeline locally or remotely. 
+This is a small utility script that runs a single datahub action pipeline locally or remotely.
 """
 
 import argparse

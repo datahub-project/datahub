@@ -17,7 +17,6 @@ def render_resolve_incident(
     current_stage: Optional[str],
     context: IncidentContext,
 ) -> dict:
-
     blocks: List[Dict[str, Any]] = [
         {
             "type": "input",

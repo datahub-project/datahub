@@ -24,9 +24,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
-)
-from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
-from datahub.metadata.schema_classes import (
+    EntityChangeEventClass as EntityChangeEvent,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     InputFieldsClass,
@@ -690,9 +688,7 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                                                     attribution=attribution,
                                                 )
                                             )
-                                            fieldInfo.schemaField.glossaryTerms.auditStamp = (
-                                                auditStamp
-                                            )
+                                            fieldInfo.schemaField.glossaryTerms.auditStamp = auditStamp
                                             mutation_needed = True
                                     else:
                                         if operation == "REMOVE":
@@ -701,9 +697,7 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                                                 for x in fieldInfo.schemaField.glossaryTerms.terms
                                                 if x.urn != term
                                             ]
-                                            fieldInfo.schemaField.glossaryTerms.auditStamp = (
-                                                auditStamp
-                                            )
+                                            fieldInfo.schemaField.glossaryTerms.auditStamp = auditStamp
                                             mutation_needed = True
         if mutation_needed:
             assert input_schema_fields.validate()

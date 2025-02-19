@@ -1,3 +1,5 @@
+import pytest
+
 from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
     extract_assertion_evaluation_result_error,
 )
@@ -86,8 +88,5 @@ def test_extract_assertion_evaluation_result_error_with_unsupported_platform_exc
 
 def test_extract_assertion_evaluation_result_error_with_unknown_exception() -> None:
     error = AssertionResultException("foo")
-    try:
+    with pytest.raises(Exception, match="Unknown error type foo"):
         extract_assertion_evaluation_result_error(error)
-        assert False
-    except Exception as e:
-        assert str(e) == "Unknown error type foo"

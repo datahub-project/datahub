@@ -38,7 +38,6 @@ def create_rate_limited_function(
 
 
 class ExtendedActionStats(BaseModel):
-
     stage_processing_stats: Optional[Dict[Stage, ActionStageReport]] = Field(
         {},
         description="Stage specific processing stats for the action.",
@@ -46,7 +45,6 @@ class ExtendedActionStats(BaseModel):
 
 
 class AutomationActionConfig(ConfigModel):
-
     event_processing_rate_limit: int = Field(
         10,
         description="Rate limit for processing events. Default is 10 event per rate period.",

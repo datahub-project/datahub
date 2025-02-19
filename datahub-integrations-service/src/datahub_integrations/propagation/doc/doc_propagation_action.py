@@ -22,17 +22,16 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     DocumentationClass,
     EditableSchemaMetadataClass,
+    EntityChangeEventClass as EntityChangeEvent,
+    ParametersClass,
+    SchemaMetadataClass,
 )
-from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
-from datahub.metadata.schema_classes import ParametersClass, SchemaMetadataClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.action.propagation.docs.propagation_action import (
     DocPropagationAction as BaseDocPropagationAction,
-)
-from datahub_actions.plugin.action.propagation.docs.propagation_action import (
     DocPropagationConfig as BaseDocPropagationConfig,
 )
 from datahub_actions.plugin.action.stats_util import EventProcessingStats

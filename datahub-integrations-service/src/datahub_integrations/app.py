@@ -10,10 +10,10 @@ assert LOGGING_SETUP_COMPLETE
 
 # A global config and graph object that can be used by all routers.
 if os.environ.get("DATAHUB_GMS_PORT") != "":
-    port_fragment = f":{os.environ.get('DATAHUB_GMS_PORT',8080)}"
+    port_fragment = f":{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
 else:
     port_fragment = ""
-DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST','localhost')}{port_fragment}"
+DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}{port_fragment}"
 graph = DataHubGraph(
     DatahubClientConfig(
         server=DATAHUB_SERVER,

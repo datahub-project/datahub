@@ -41,14 +41,12 @@ def sink() -> SlackNotificationSink:
 
 # Test function to ensure the correct template builder method is called
 def test_send_new_incident_notification(sink: SlackNotificationSink) -> None:
-
     with (
         patch.object(sink, "_maybe_reload_web_client") as mock_reload_web_client,
         patch.object(
             sink, "_send_change_notification"
         ) as mock_send_change_notification,
     ):
-
         # Call send method with a specific template
         sink.send(
             NotificationRequestClass(
@@ -75,7 +73,6 @@ def test_send_new_incident_notification(sink: SlackNotificationSink) -> None:
 
 # Test function to ensure the correct template builder method is called
 def test_update_new_incident_notification(sink: SlackNotificationSink) -> None:
-
     # Prepare the list of SlackMessageDetails
     message_details = [
         SlackMessageDetails(
@@ -93,7 +90,6 @@ def test_update_new_incident_notification(sink: SlackNotificationSink) -> None:
             sink, "_get_saved_message_details", return_value=message_details
         ) as mock_get_saved_message_details,
     ):
-
         # Call send method with a specific template
         sink.send(
             NotificationRequestClass(
@@ -127,7 +123,6 @@ def test_update_new_incident_notification(sink: SlackNotificationSink) -> None:
 
 # Test function to ensure the correct template builder method is called
 def test_send_updated_incident_notification(sink: SlackNotificationSink) -> None:
-
     with (
         patch.object(sink, "_maybe_reload_web_client") as mock_reload_web_client,
         patch.object(
@@ -161,7 +156,6 @@ def test_send_updated_incident_notification(sink: SlackNotificationSink) -> None
 def test_send_unsupported_template_type(
     sink: SlackNotificationSink,
 ) -> None:
-
     with (
         patch.object(sink, "_maybe_reload_web_client") as mock_reload_web_client,
         patch.object(

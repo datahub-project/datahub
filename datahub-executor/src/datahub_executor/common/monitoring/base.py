@@ -53,7 +53,6 @@ class DatahubExecutorMetrics:
         common_labels: Optional[Dict[str, str]] = None,
         collectors: Optional[List[Callable]] = None,
     ) -> None:
-
         self.stop_event = Event()
         self.stop_flag = False
 

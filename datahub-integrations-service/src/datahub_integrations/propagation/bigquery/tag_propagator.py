@@ -143,7 +143,6 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
             TermPropagationDirective, TagPropagationDirective, DescriptionSyncDirective
         ],
     ) -> None:
-
         entity_to_apply = directive.entity
 
         if isinstance(directive, DescriptionSyncDirective):
@@ -237,7 +236,6 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
         return None
 
     def bootstrappable_assets(self) -> Iterable[SelectedAsset]:
-
         asset_filters = {}
         if self.term_propagator is not None:
             asset_filters = self.term_propagator.asset_filters()

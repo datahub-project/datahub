@@ -1,5 +1,5 @@
 """
-Runs an action locally. 
+Runs an action locally.
 """
 
 import json

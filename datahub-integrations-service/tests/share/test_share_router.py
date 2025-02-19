@@ -390,7 +390,6 @@ def test_share_implict_share_should_add_to_implicit_shares() -> None:
 def test_share_implict_share_should_be_added_if_earlier_it_was_explicitly_shared() -> (
     None
 ):
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -543,7 +542,6 @@ def test_restricted_share_should_only_share_certain_aspects() -> None:
 
 
 def test_unshare() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -696,7 +694,6 @@ def test_execute_share_when_owner_matches_and_share_is_non_restricted() -> None:
             return_value={urn_to_unshare},
         ),
     ):
-
         share_agent.share(urn_to_unshare, sharer_urn, lineage)
 
     assert share_mock.call_count == 2
@@ -743,7 +740,6 @@ def test_execute_share_when_owner_does_not_matches_and_share_is_restricted() -> 
             return_value={urn_to_unshare},
         ),
     ):
-
         share_agent.share(urn_to_unshare, sharer_urn, lineage)
 
     assert share_mock.call_count == 2
@@ -812,7 +808,6 @@ def test_execute_share_should_ingest_structured_properties_first() -> None:
 def test_unshare_implicit_unshare_should_not_remove_entity_if_there_is_another_reference() -> (
     None
 ):
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -876,9 +871,9 @@ def test_unshare_implicit_unshare_should_not_remove_entity_if_there_is_another_r
         referenced_entity,
     )
 
-    assert (
-        not destination_graph_mock.emit.called
-    ), "method should not have been called as it should not do soft-delete if there are still references"
+    assert not destination_graph_mock.emit.called, (
+        "method should not have been called as it should not do soft-delete if there are still references"
+    )
 
     assert source_graph.get_aspect.call_count == 1
 
@@ -894,7 +889,6 @@ def test_unshare_implicit_unshare_should_not_remove_entity_if_there_is_another_r
 
 
 def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -987,7 +981,6 @@ def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> Non
 def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_unshare() -> (
     None
 ):
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -1489,7 +1482,6 @@ def test_update_share_aspect(
 
 
 def test_failures_in_emission() -> None:
-
     destination_graph = Mock()
     source_graph = Mock()
     destination_graph.emit.side_effect = Exception("Failed to emit")
@@ -2064,7 +2056,6 @@ def test_update_unshare_aspect(
 
 
 def test_update_share_status() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
 

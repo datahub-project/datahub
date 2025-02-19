@@ -92,7 +92,7 @@ def handle_evaluate_assertion_urns_sync(
     prod.start()
 
     # Consume results
-    for urn in input.urns:
+    for _ in input.urns:
         result = q.get()
         results.append(result)
 
