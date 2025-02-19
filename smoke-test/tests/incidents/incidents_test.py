@@ -121,7 +121,7 @@ def test_raise_resolve_incident(auth_session):
                 "title": "test title 2",
                 "description": "test description 2",
                 "resourceUrn": TEST_DATASET_URN,
-                "priority": 0,
+                "priority": "CRITICAL",
             }
         },
     }
@@ -226,7 +226,7 @@ def test_raise_resolve_incident(auth_session):
     assert new_incident["title"] == "test title 2"
     assert new_incident["description"] == "test description 2"
     assert new_incident["status"]["state"] == "RESOLVED"
-    assert new_incident["priority"] == 0
+    assert new_incident["priority"] == "CRITICAL"
 
     delete_json = {"urn": new_incident_urn}
 
