@@ -39,6 +39,7 @@ import sacLogo from '../../../../images/saclogo.svg';
 import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
 import neo4j from '../../../../images/neo4j.png';
+import msfabricLogo from '../../../../images/msfabric.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -140,6 +141,8 @@ export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
 export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
+export const MSFABRIC = 'msfabric';
+export const MSFABRIC_URN = `urn:li:dataPlatform:${MSFABRIC}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -184,6 +187,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
+    [MSFABRIC_URN]: msfabricLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
