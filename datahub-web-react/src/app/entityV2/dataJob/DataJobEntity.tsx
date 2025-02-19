@@ -161,15 +161,16 @@ export class DataJobEntity implements Entity<DataJob> {
         { component: SidebarAboutSection },
         { component: SidebarNotesSection },
         { component: SidebarLineageSection },
+        { component: SidebarDataJobTransformationLogicSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
         { component: DataProductSection },
         { component: SidebarGlossaryTermsSection },
         { component: SidebarTagsSection },
-        { component: StatusSection },
         {
             component: SidebarStructuredProperties,
         },
+        { component: StatusSection },
     ];
 
     getSidebarTabs = () => [

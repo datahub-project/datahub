@@ -1,4 +1,6 @@
-import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
@@ -123,6 +125,15 @@ export class MLModelEntity implements Entity<MlModel> {
                     name: 'Features',
                     component: MlModelFeaturesTab,
                 },
+                {
+                    name: 'Incidents',
+                    icon: WarningOutlined,
+                    component: IncidentTab,
+                    getDynamicName: (_, mlModel, loading) => {
+                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents?.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -155,10 +166,10 @@ export class MLModelEntity implements Entity<MlModel> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
