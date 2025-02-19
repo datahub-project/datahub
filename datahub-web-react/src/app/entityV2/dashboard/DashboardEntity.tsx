@@ -230,10 +230,10 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: SidebarTagsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
