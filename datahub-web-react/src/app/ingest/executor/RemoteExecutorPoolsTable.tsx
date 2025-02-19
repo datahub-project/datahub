@@ -12,7 +12,7 @@ const ExecutorsTable = styled(StyledTable)`
     overflow: hidden;
 
     &&& .datahub-cloud-pool .ant-table-cell {
-        background-color: #f4f4f4;
+        background-color: #f9f9f9;
     }
 
     &&& .ant-table-body {
@@ -32,6 +32,9 @@ const DefaultButton = styled(Button)`
     cursor: pointer;
     box-shadow: none;
     display: inline-block;
+    &:hover {
+        background: none;
+    }
 `;
 
 type Props = {
@@ -113,10 +116,10 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool }
                         <Typography.Text type={isDefault ? undefined : 'secondary'} strong={isDefault}>
                             {isDefault ? (
                                 <>
-                                    <Check size={12} /> Default
+                                    <Check size={12} /> Recommended pool
                                 </>
                             ) : (
-                                'Make Default'
+                                'Recommend by default'
                             )}
                         </Typography.Text>
                     </DefaultButton>

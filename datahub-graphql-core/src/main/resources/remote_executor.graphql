@@ -30,6 +30,7 @@ input CreateRemoteExecutorPoolInput {
 input ListRemoteExecutorPoolsInput {
     start: Int!
     count: Int!
+    query: String
 }
 
 type DefaultRemoteExecutorPoolResult {

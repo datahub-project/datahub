@@ -153,6 +153,7 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
             ) : null}
             <StepComponent
                 state={ingestionBuilderState}
+                isEditing={isEditing}
                 updateState={setIngestionBuilderState}
                 goTo={goTo}
                 prev={stepStack.length > 1 ? prev : undefined}
