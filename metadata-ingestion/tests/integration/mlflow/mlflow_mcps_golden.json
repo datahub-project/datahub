@@ -549,9 +549,9 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "id": "380b79d9e0ef446ab28e17ad83ae4e7a",
+            "id": "7aea42adb1eb4e08985b12cf861b2646",
             "outputUrls": [
-                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-10/test_ingestion0/mlruns/584402759957605357/380b79d9e0ef446ab28e17ad83ae4e7a/artifacts"
+                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-10/test_ingestion0/mlruns/584402759957605357/380b79d9e0ef446ab28e17ad83ae4e7a/artifacts\" to \"/tmp/pytest-of-runner/pytest-0/test_ingestion0/mlruns/278366188861570188/7aea42adb1eb4e08985b12cf861b2646/artifacts"
             ],
             "hyperParams": [
                 {
