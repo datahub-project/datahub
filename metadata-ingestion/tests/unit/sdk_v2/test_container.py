@@ -20,7 +20,7 @@ from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "container_golden"
 
 
-def test_container_basic(pytestconfig: pytest.Config) -> None:
+def test_container_basic() -> None:
     db_key = DatabaseKey(
         platform="bigquery",
         database="my_bq_project",
@@ -39,7 +39,10 @@ def test_container_basic(pytestconfig: pytest.Config) -> None:
     assert str(c.urn) in repr(c)
 
     # Check most attributes.
+    assert c.platform is not None
+    assert c.platform.platform_name == "bigquery"
     assert c.platform_instance is None
+    assert c.browse_path == []
     assert c.tags is None
     assert c.terms is None
     assert c.created is None
@@ -60,22 +63,23 @@ def test_container_basic(pytestconfig: pytest.Config) -> None:
         # This should fail. Eventually we should make it suggest calling set_owners instead.
         c.owners = []  # type: ignore
 
-    assert_entity_golden(
-        pytestconfig, c, _GOLDEN_DIR / "test_container_basic_golden.json"
-    )
+    assert_entity_golden(c, _GOLDEN_DIR / "test_container_basic_golden.json")
 
 
-def test_container_complex(pytestconfig: pytest.Config) -> None:
+def test_container_complex() -> None:
     schema_key = SchemaKey(
         platform="snowflake",
         instance="my_instance",
         database="MY_DB",
         schema="MY_SCHEMA",
     )
+    db_key = schema_key.parent_key()
+    assert db_key is not None
+
     created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
-    d = Container(
+    c = Container(
         schema_key,
         display_name="MY_SCHEMA",
         qualified_name="MY_DB.MY_SCHEMA",
@@ -100,19 +104,26 @@ def test_container_complex(pytestconfig: pytest.Config) -> None:
         ],
         domain=DomainUrn("Marketing"),
     )
-    assert d.platform_instance is not None
+    assert c.platform is not None
+    assert c.platform.platform_name == "snowflake"
+    assert c.platform_instance is not None
     assert (
-        str(d.platform_instance)
+        str(c.platform_instance)
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,my_instance)"
     )
-    assert d.subtype == "Schema"
-    assert d.description == "test"
-    assert d.display_name == "MY_SCHEMA"
-    assert d.qualified_name == "MY_DB.MY_SCHEMA"
-    assert d.external_url == "https://example.com"
-    assert d.created == created
-    assert d.last_modified == updated
-    assert d.custom_properties == {
+    assert c.browse_path == [
+        c.platform_instance,
+        db_key.as_urn_typed(),
+    ]
+
+    # Properties.
+    assert c.description == "test"
+    assert c.display_name == "MY_SCHEMA"
+    assert c.qualified_name == "MY_DB.MY_SCHEMA"
+    assert c.external_url == "https://example.com"
+    assert c.created == created
+    assert c.last_modified == updated
+    assert c.custom_properties == {
         "platform": "snowflake",
         "instance": "my_instance",
         "database": "MY_DB",
@@ -122,14 +133,13 @@ def test_container_complex(pytestconfig: pytest.Config) -> None:
     }
 
     # Check standard aspects.
-    assert d.domain == DomainUrn("Marketing")
-    assert d.tags is not None
-    assert len(d.tags) == 2
-    assert d.terms is not None
-    assert len(d.terms) == 1
-    assert d.owners is not None
-    assert len(d.owners) == 1
+    assert c.subtype == "Schema"
+    assert c.domain == DomainUrn("Marketing")
+    assert c.tags is not None
+    assert len(c.tags) == 2
+    assert c.terms is not None
+    assert len(c.terms) == 1
+    assert c.owners is not None
+    assert len(c.owners) == 1
 
-    assert_entity_golden(
-        pytestconfig, d, _GOLDEN_DIR / "test_container_complex_golden.json"
-    )
+    assert_entity_golden(c, _GOLDEN_DIR / "test_container_complex_golden.json")
