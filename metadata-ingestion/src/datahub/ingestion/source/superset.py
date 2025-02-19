@@ -36,9 +36,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -291,26 +288,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 yield item
 
             current_page += 1
-
-    @lru_cache(maxsize=None)
-    def get_platform_from_database_id(self, database_id):
-        database_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/database/{database_id}"
-        ).json()
-        sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
-        if sqlalchemy_uri is None:
-            platform_name = database_response.get("result", {}).get(
-                "backend", "external"
-            )
-        else:
-            platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
-        if platform_name == "awsathena":
-            return "athena"
-        if platform_name == "clickhousedb":
-            return "clickhouse"
-        if platform_name == "postgresql":
-            return "postgres"
-        return platform_name
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
