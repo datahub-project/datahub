@@ -14,7 +14,6 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -56,7 +55,7 @@ logger = logging.getLogger(__name__)
 nest_asyncio.apply()
 
 
-class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
+class OktaConfig(StatefulIngestionConfigBase):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
