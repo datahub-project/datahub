@@ -19,6 +19,7 @@ export * from './components/LineChart';
 export * from './components/Loader';
 export * from './components/Modal';
 export * from './components/PageTitle';
+export * from './components/Pagination';
 export * from './components/Pills';
 export * from './components/Popover';
 export * from './components/SearchBar';

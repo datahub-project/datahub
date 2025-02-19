@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Checkbox, message, Modal, Pagination, Typography } from 'antd';
+import { Button, Checkbox, message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Pagination } from '@src/alchemy-components';
 import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import {
@@ -30,11 +31,6 @@ const ActionRequestsTitle = styled(Typography.Title)`
     && {
         margin-bottom: 24px;
     }
-`;
-
-const ActionRequestsPaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
 `;
 
 const CheckboxContainer = styled.div`
@@ -208,18 +204,17 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                     onActionRequestUpdate={onActionRequestUpdate}
                 />
 
-                <ActionRequestsPaginationContainer>
-                    <Pagination
-                        style={{ margin: 40 }}
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalActionRequests}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger
-                        onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
-                    />
-                </ActionRequestsPaginationContainer>
+                <Pagination
+                    currentPage={page}
+                    itemsPerPage={pageSize}
+                    totalPages={totalActionRequests}
+                    onPageChange={onChangePage}
+                    showSizeChanger
+                    onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
+                    loading={loading}
+                    hideOnSinglePage
+                    showLessItems
+                />
             </ActionRequestsContainer>
         </FinalContainer>
     );
