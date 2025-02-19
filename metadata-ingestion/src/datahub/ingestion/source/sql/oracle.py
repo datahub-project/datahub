@@ -111,6 +111,18 @@ class OracleConfig(BasicSQLAlchemyConfig):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return values
 
+    @pydantic.validator("thick_mode_lib_dir", always=True)
+    def check_thick_mode_lib_dir(cls, v, values):
+        if (
+            v is None
+            and values.get("enable_thick_mode")
+            and (platform.system() == "Darwin" or platform.system() == "Windows")
+        ):
+            raise ValueError(
+                "Specify 'thick_mode_lib_dir' on Mac/Windows when enable_thick_mode is true"
+            )
+        return v
+
     def get_sql_alchemy_url(self):
         url = super().get_sql_alchemy_url()
         if self.service_name:
