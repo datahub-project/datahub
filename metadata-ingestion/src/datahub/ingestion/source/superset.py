@@ -606,8 +606,6 @@ class SupersetSource(StatefulIngestionSourceBase):
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
-        logger.info(f"processing dataset id: {dataset_data.get('id', -1)}")
-
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         dataset = SupersetDataset(**dataset_response["result"])
 
@@ -616,12 +614,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
-        logger.info(f"dataset url is: {dataset_url}")
-
         upstream_warehouse_platform = (
             dataset_response.get("result", {}).get("database", {}).get("backend")
         )
 
+        # TODO: Categorize physical vs virtual upstream dataset
         # mark all upstream dataset as physical for now, in the future we would ideally like
         # to differentiate physical vs virtual upstream datasets
         tag_urn = f"urn:li:tag:{self.platform}:physical"
@@ -658,12 +655,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             ]
         )
 
-        logger.info(f"finished processing: {datasource_urn}")
-
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=aspects_items,
         )
+
+        logger.info(f"Constructed dataset {datasource_urn}")
+
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
