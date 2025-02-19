@@ -1,4 +1,6 @@
 import logging
+import pathlib
+import shutil
 import time
 
 import pytest
@@ -9,45 +11,64 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
+_resources_dir = pathlib.Path(__file__).parent
 
-@pytest.mark.integration
-def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/cassandra"
+
+@pytest.fixture
+def cassandra_runner(docker_compose_runner, tmp_path, monkeypatch):
+    # Tricky: The cassandra container makes modifications directly to the cassandra.yaml
+    # config file.
+    # See https://github.com/docker-library/cassandra/issues/165
+    # To avoid spurious diffs, we copy the config file to a temporary location
+    # and depend on that instead. The docker-compose file has the corresponding
+    # env variable usage to pick up the config file.
+    cassandra_config_file = _resources_dir / "setup/cassandra.yaml"
+    shutil.copy(cassandra_config_file, tmp_path / "cassandra.yaml")
+    monkeypatch.setenv("CASSANDRA_CONFIG_DIR", str(tmp_path))
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "cassandra"
+        _resources_dir / "docker-compose.yml", "cassandra"
     ) as docker_services:
         wait_for_port(docker_services, "test-cassandra", 9042)
 
         time.sleep(5)
-        # Run the metadata ingestion pipeline.
-        logger.info("Starting the ingestion test...")
-        pipeline_default_platform_instance = Pipeline.create(
-            {
-                "run_id": "cassandra-test",
-                "source": {
-                    "type": "cassandra",
-                    "config": {
-                        "contact_point": "localhost",
-                        "port": 9042,
-                        "profiling": {"enabled": True},
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/cassandra_mcps.json",
-                    },
-                },
-            }
-        )
-        pipeline_default_platform_instance.run()
-        pipeline_default_platform_instance.raise_from_status()
 
-        # Verify the output.
-        logger.info("Verifying output.")
-        mce_helpers.check_golden_file(
-            pytestconfig,
-            output_path=f"{tmp_path}/cassandra_mcps.json",
-            golden_path=test_resources_dir / "cassandra_mcps_golden.json",
-        )
+        yield
+
+
+@pytest.mark.integration
+def test_cassandra_ingest(cassandra_runner, pytestconfig, tmp_path):
+    pathlib.Path(tmp_path).mkdir(parents=True, exist_ok=True)
+
+    # Run the metadata ingestion pipeline.
+    logger.info("Starting the ingestion test...")
+    pipeline = Pipeline.create(
+        {
+            "run_id": "cassandra-test",
+            "source": {
+                "type": "cassandra",
+                "config": {
+                    "platform_instance": "dev_instance",
+                    "contact_point": "localhost",
+                    "port": 9042,
+                    "profiling": {"enabled": True},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/cassandra_mcps.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output.
+    logger.info("Verifying output.")
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/cassandra_mcps.json",
+        golden_path=_resources_dir / "cassandra_mcps_golden.json",
+    )
