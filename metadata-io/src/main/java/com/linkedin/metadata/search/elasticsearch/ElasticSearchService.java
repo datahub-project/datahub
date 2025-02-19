@@ -125,6 +125,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         opContext,
         urn.getEntityType(),
         docId,
+        /*
+          Script used to apply updates to the runId field of the index.
+          This script saves the past N run ids which touched a particular URN in the search index.
+          It only adds a new run id if it is not already stored inside the list. (List is unique AND ordered)
+        */
         String.format(
             "if (ctx._source.containsKey('runId')) { "
                 + "if (!ctx._source.runId.contains('%s')) { "
