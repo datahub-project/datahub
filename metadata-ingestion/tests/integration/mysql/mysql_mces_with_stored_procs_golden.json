@@ -619,8 +619,8 @@
             "customProperties": {
                 "security_type": "DEFINER",
                 "sql_data_access": "CONTAINS SQL",
-                "created": "2025-01-24 21:54:05",
-                "last_altered": "2025-01-24 21:54:05",
+                "created": "2025-02-19 14:12:13",
+                "last_altered": "2025-02-19 14:12:13",
                 "definer": "root@localhost",
                 "parameters": "IN min_priority float",
                 "code": "BEGIN\n    CREATE TEMPORARY TABLE IF NOT EXISTS temp_priority_customers\n    SELECT\n        c.company,\n        c.priority\n    FROM customers c\n    WHERE c.priority >= min_priority;\n\n    INSERT INTO customer_stats (company, total_orders)\n    SELECT\n        t.company,\n        COUNT(o.id) as total_orders\n    FROM temp_priority_customers t\n    LEFT JOIN customers c ON c.company = t.company\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY t.company;\n\n    DROP TEMPORARY TABLE IF EXISTS temp_priority_customers;\nEND"
@@ -648,8 +648,8 @@
             "customProperties": {
                 "security_type": "DEFINER",
                 "sql_data_access": "CONTAINS SQL",
-                "created": "2025-01-24 21:54:05",
-                "last_altered": "2025-01-24 21:54:05",
+                "created": "2025-02-19 14:12:13",
+                "last_altered": "2025-02-19 14:12:13",
                 "definer": "root@localhost",
                 "code": "BEGIN\n    TRUNCATE TABLE customer_stats;\n\n    INSERT INTO customer_stats (company, total_orders, last_order_date)\n    SELECT\n        c.company,\n        COUNT(o.id) as total_orders,\n        MAX(o.order_date) as last_order_date\n    FROM customers c\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY c.company;\nEND"
             },
@@ -902,7 +902,8 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
@@ -911,13 +912,13 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD),company)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
                     ],
-                    "confidenceScore": 0.35
+                    "confidenceScore": 0.425
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -928,7 +929,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
                     ],
-                    "confidenceScore": 0.35
+                    "confidenceScore": 0.425
                 }
             ]
         }
