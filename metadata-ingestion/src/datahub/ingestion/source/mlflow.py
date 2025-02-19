@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
@@ -180,7 +179,6 @@ class MLflowSource(Source):
             registry_uri=self.config.registry_uri,
         )
         self.entity_map = MLflowEntityMap()
-        self.graph = get_default_graph()
 
     def get_report(self) -> SourceReport:
         return self.report
