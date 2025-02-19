@@ -551,7 +551,7 @@
             "customProperties": {},
             "id": "02660a3bee9941ed983667f678ce5611",
             "outputUrls": [
-                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-28/test_ingestion0/mlruns/733453213330887482/02660a3bee9941ed983667f678ce5611/artifacts"
+                "/tmp/pytest-of-runner/pytest-0/test_ingestion0/mlruns/733453213330887482/02660a3bee9941ed983667f678ce5611/artifacts"
             ],
             "hyperParams": [
                 {
