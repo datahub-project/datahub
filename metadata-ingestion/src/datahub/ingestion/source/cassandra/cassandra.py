@@ -28,6 +28,7 @@ from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraColumn,
     CassandraEntities,
     CassandraKeyspace,
+    CassandraSharedDatasetFields,
     CassandraTable,
     CassandraView,
 )
@@ -232,22 +233,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             display_name=table_name,
             qualified_name=dataset_name,
             description=table.comment,
-            custom_properties={
-                "bloom_filter_fp_chance": str(table.bloom_filter_fp_chance),
-                "caching": json.dumps(table.caching),
-                "compaction": json.dumps(table.compaction),
-                "compression": json.dumps(table.compression),
-                "crc_check_chance": str(table.crc_check_chance),
-                "dclocal_read_repair_chance": str(table.dclocal_read_repair_chance),
-                "default_time_to_live": str(table.default_time_to_live),
-                "extensions": json.dumps(table.extensions),
-                "gc_grace_seconds": str(table.gc_grace_seconds),
-                "max_index_interval": str(table.max_index_interval),
-                "min_index_interval": str(table.min_index_interval),
-                "memtable_flush_period_in_ms": str(table.memtable_flush_period_in_ms),
-                "read_repair_chance": str(table.read_repair_chance),
-                "speculative_retry": str(table.speculative_retry),
-            },
+            custom_properties=self._get_dataset_custom_props(table),
         )
 
     # get all columns for a given table, iterate over them to extract column metadata
@@ -316,23 +302,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             display_name=view_name,
             qualified_name=dataset_name,
             description=view.comment,
-            custom_properties={
-                "bloom_filter_fp_chance": str(view.bloom_filter_fp_chance),
-                "caching": json.dumps(view.caching),
-                "compaction": json.dumps(view.compaction),
-                "compression": json.dumps(view.compression),
-                "crc_check_chance": str(view.crc_check_chance),
-                "include_all_columns": str(view.include_all_columns),
-                "dclocal_read_repair_chance": str(view.dclocal_read_repair_chance),
-                "default_time_to_live": str(view.default_time_to_live),
-                "extensions": json.dumps(view.extensions),
-                "gc_grace_seconds": str(view.gc_grace_seconds),
-                "max_index_interval": str(view.max_index_interval),
-                "min_index_interval": str(view.min_index_interval),
-                "memtable_flush_period_in_ms": str(view.memtable_flush_period_in_ms),
-                "read_repair_chance": str(view.read_repair_chance),
-                "speculative_retry": str(view.speculative_retry),
-            },
+            custom_properties=self._get_dataset_custom_props(view),
             extra_aspects=[
                 ViewPropertiesClass(
                     materialized=True,
@@ -366,6 +336,33 @@ class CassandraSource(StatefulIngestionSourceBase):
         dataset.set_upstreams(upstream_lineage)
 
         return dataset
+
+    def _get_dataset_custom_props(
+        self, dataset: CassandraSharedDatasetFields
+    ) -> Dict[str, str]:
+        props = {
+            "bloom_filter_fp_chance": str(dataset.bloom_filter_fp_chance),
+            "caching": json.dumps(dataset.caching),
+            "compaction": json.dumps(dataset.compaction),
+            "compression": json.dumps(dataset.compression),
+            "crc_check_chance": str(dataset.crc_check_chance),
+            "dclocal_read_repair_chance": str(dataset.dclocal_read_repair_chance),
+            "default_time_to_live": str(dataset.default_time_to_live),
+            "extensions": json.dumps(dataset.extensions),
+            "gc_grace_seconds": str(dataset.gc_grace_seconds),
+            "max_index_interval": str(dataset.max_index_interval),
+            "min_index_interval": str(dataset.min_index_interval),
+            "memtable_flush_period_in_ms": str(dataset.memtable_flush_period_in_ms),
+            "read_repair_chance": str(dataset.read_repair_chance),
+            "speculative_retry": str(dataset.speculative_retry),
+        }
+        if isinstance(dataset, CassandraView):
+            props.update(
+                {
+                    "include_all_columns": str(dataset.include_all_columns),
+                }
+            )
+        return props
 
     def get_upstream_fields_of_field_in_datasource(
         self, table_name: str, dataset_urn: str, upstream_urn: str

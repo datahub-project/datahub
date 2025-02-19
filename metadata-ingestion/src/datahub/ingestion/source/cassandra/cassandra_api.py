@@ -23,7 +23,7 @@ class CassandraKeyspace:
 
 
 @dataclass
-class _CassandraSharedFields:
+class CassandraSharedDatasetFields:
     keyspace_name: str
 
     bloom_filter_fp_chance: Optional[float]
@@ -44,7 +44,7 @@ class _CassandraSharedFields:
 
 
 @dataclass
-class CassandraTable(_CassandraSharedFields):
+class CassandraTable(CassandraSharedDatasetFields):
     table_name: str
 
 
@@ -60,9 +60,10 @@ class CassandraColumn:
 
 
 @dataclass
-class CassandraView(_CassandraSharedFields):
-    base_table_name: str
+class CassandraView(CassandraSharedDatasetFields):
     view_name: str
+
+    base_table_name: str
     include_all_columns: Optional[bool]
     where_clause: str = ""
 
