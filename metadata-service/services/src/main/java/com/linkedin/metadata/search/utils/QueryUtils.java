@@ -33,8 +33,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.collections.CollectionUtils;
 import javax.validation.constraints.Null;
+import org.apache.commons.collections.CollectionUtils;
 
 public class QueryUtils {
 
