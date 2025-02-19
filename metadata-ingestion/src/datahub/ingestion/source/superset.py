@@ -291,10 +291,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
-        if not dataset_id:
-            logger.warning("Dataset id cannot be empty")
-            return {}
-
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
         )
