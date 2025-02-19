@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { Badge as BadgeAntd, Tabs } from 'antd';
-import styled from 'styled-components';
 import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
+import { Badge as BadgeAntd, Tabs } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import styled from 'styled-components';
 import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2 } from '../useIsThemeV2';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { Requests } from '../taskCenter/requests/Requests';
+import { useIsThemeV2 } from '../useIsThemeV2';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 import { Proposals } from './proposalsV2/Proposals';
-import { Requests } from '../taskCenter/requests/Requests';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -130,9 +131,22 @@ export const TaskCenter = () => {
     const {
         state: { notificationsCount, proposalCount },
     } = useUserContext();
-    const [activeTab, setActiveTab] = useState('requests');
     const isV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const location = useLocation();
+    const history = useHistory();
+
+    const searchParams = new URLSearchParams(location.search);
+
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'requests');
+
+    useEffect(() => {
+        const newSearchParams = new URLSearchParams(location.search);
+        newSearchParams.set('tab', activeTab);
+
+        // Update the URL without reloading the page
+        history.replace({ pathname: location.pathname, search: newSearchParams.toString() });
+    }, [activeTab, history, location.pathname, location.search]);
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
