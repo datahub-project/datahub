@@ -111,7 +111,6 @@ class SupersetDataset(BaseModel):
     table_name: str
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
-    dataset_url: Optional[str] = ""
 
     @property
     def modified_dt(self) -> Optional[datetime]:
@@ -634,20 +633,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 UpstreamClass(
                     type=DatasetLineageTypeClass.TRANSFORMED,
                     dataset=upstream_dataset,
+                    properties={"externalUrl": dataset_url},
                 )
             ]
         )
-
-        metrics = {
-            "Metrics": ", ".join(
-                [
-                    metric.get("metric_name")
-                    for metric in (
-                        dataset_response.get("result", {}).get("metrics", [])
-                    )
-                ]
-            )
-        }
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
@@ -656,7 +645,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             if dataset.modified_ts
             else None,
             externalUrl=dataset_url,
-            customProperties=metrics,
         )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
