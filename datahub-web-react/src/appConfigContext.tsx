@@ -67,7 +67,6 @@ export const DEFAULT_APP_CONFIG = {
         showNavBarRedesign: false,
         showAutoCompleteResults: false,
         entityVersioningEnabled: false,
-        showTaskCenterRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,
