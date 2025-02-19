@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.TransactionResult;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.util.EbeanTestUtils;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
@@ -61,7 +62,9 @@ public class EbeanAspectDaoTest {
     testDao.runInTransactionWithRetryUnlocked(
         (txContext) -> {
           testDao.getLatestAspects(
-              Map.of("urn:li:corpuser:testGetLatestAspectsForUpdate", Set.of("status")), true);
+              mock(OperationContext.class),
+              Map.of("urn:li:corpuser:testGetLatestAspectsForUpdate", Set.of("status")),
+              true);
           return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),

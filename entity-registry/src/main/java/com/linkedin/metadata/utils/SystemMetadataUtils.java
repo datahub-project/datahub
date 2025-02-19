@@ -2,10 +2,14 @@ package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -16,30 +20,32 @@ import lombok.extern.slf4j.Slf4j;
 public class SystemMetadataUtils {
 
   private static final Set<String> LAST_INGESTED_ALLOWED_ASPECTS =
-      Set.of(
-          DATASET_PROPERTIES_ASPECT_NAME,
-          SCHEMA_METADATA_ASPECT_NAME,
-          CONTAINER_PROPERTIES_ASPECT_NAME,
-          NOTEBOOK_INFO_ASPECT_NAME,
-          DASHBOARD_INFO_ASPECT_NAME,
-          CHART_INFO_ASPECT_NAME,
-          DATA_FLOW_INFO_ASPECT_NAME,
-          DATA_JOB_INFO_ASPECT_NAME,
-          DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-          DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
-          ML_MODEL_PROPERTIES_ASPECT_NAME,
-          ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
-          ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
-          ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
-          ML_FEATURE_PROPERTIES_ASPECT_NAME,
-          SCHEMA_FIELD_INFO_ASPECT_NAME,
-          QUERY_PROPERTIES_ASPECT_NAME,
-          PLATFORM_RESOURCE_INFO_ASPECT_NAME,
-          SIBLINGS_ASPECT_NAME,
-          GLOSSARY_TERM_INFO_ASPECT_NAME,
-          STATUS_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME,
-          DATASET_PROFILE_ASPECT_NAME);
+      Collections.unmodifiableSet(
+          new HashSet<>(
+              Arrays.asList(
+                  DATASET_PROPERTIES_ASPECT_NAME,
+                  SCHEMA_METADATA_ASPECT_NAME,
+                  CONTAINER_PROPERTIES_ASPECT_NAME,
+                  NOTEBOOK_INFO_ASPECT_NAME,
+                  DASHBOARD_INFO_ASPECT_NAME,
+                  CHART_INFO_ASPECT_NAME,
+                  DATA_FLOW_INFO_ASPECT_NAME,
+                  DATA_JOB_INFO_ASPECT_NAME,
+                  DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                  DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
+                  ML_MODEL_PROPERTIES_ASPECT_NAME,
+                  ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+                  ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
+                  ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
+                  ML_FEATURE_PROPERTIES_ASPECT_NAME,
+                  SCHEMA_FIELD_INFO_ASPECT_NAME,
+                  QUERY_PROPERTIES_ASPECT_NAME,
+                  PLATFORM_RESOURCE_INFO_ASPECT_NAME,
+                  SIBLINGS_ASPECT_NAME,
+                  GLOSSARY_TERM_INFO_ASPECT_NAME,
+                  STATUS_ASPECT_NAME,
+                  BROWSE_PATHS_V2_ASPECT_NAME,
+                  DATASET_PROFILE_ASPECT_NAME)));
 
   private SystemMetadataUtils() {}
 
@@ -119,5 +125,12 @@ public class SystemMetadataUtils {
   private static RunInfo getLastIngestionRun(@Nonnull EnvelopedAspectMap aspectMap) {
     List<RunInfo> runs = getLastIngestionRuns(aspectMap);
     return !runs.isEmpty() ? runs.get(0) : null; // Just take the first, to get the most recent run.
+  }
+
+  public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
+    if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
+      return createDefaultSystemMetadata();
+    }
+    return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 }
