@@ -49,7 +49,11 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
           final IncidentInfo info =
               (IncidentInfo)
                   EntityUtils.getAspectFromEntity(
-                      incidentUrn.toString(), INCIDENT_INFO_ASPECT_NAME, _entityService, null);
+                      context.getOperationContext(),
+                      incidentUrn.toString(),
+                      INCIDENT_INFO_ASPECT_NAME,
+                      _entityService,
+                      null);
 
           if (info != null) {
             // Check whether the actor has permission to edit the incident.
@@ -66,7 +70,7 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
                 final MetadataChangeProposal proposal =
                     buildMetadataChangeProposalWithUrn(
                         incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
                 return true;
               } catch (Exception e) {
                 throw new RuntimeException("Failed to update incident status!", e);
@@ -108,10 +112,6 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }
