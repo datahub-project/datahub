@@ -74,9 +74,9 @@ class BigqueryProfiler(GenericProfiler):
         schema: str,
     ) -> Optional[List[str]]:
         """Handle range partition type, maintaining exact logic from original."""
-        assert (
-            table.partition_info is not None
-        ), "partition_info should not be None here"
+        assert table.partition_info is not None, (
+            "partition_info should not be None here"
+        )
 
         if table.partition_info.partition_column:
             return [f"{table.partition_info.partition_column.name} >= {partition}"]
@@ -96,9 +96,9 @@ class BigqueryProfiler(GenericProfiler):
         schema: str,
     ) -> Optional[List[str]]:
         """Handle time-based partition, maintaining exact logic from original."""
-        assert (
-            table.partition_info is not None
-        ), "partition_info should not be None here"
+        assert table.partition_info is not None, (
+            "partition_info should not be None here"
+        )
 
         logger.debug(f"{table.name} is partitioned and partition column is {partition}")
         try:
@@ -242,9 +242,9 @@ class BigqueryProfiler(GenericProfiler):
         schema: str,
     ) -> Optional[List[str]]:
         """Handle multi-column partitioning, maintaining exact logic from original."""
-        assert (
-            table.partition_info is not None
-        ), "partition_info should not be None here"
+        assert table.partition_info is not None, (
+            "partition_info should not be None here"
+        )
 
         partition_where_clauses = []
         for field, column in zip(
@@ -268,12 +268,11 @@ class BigqueryProfiler(GenericProfiler):
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
         partitioned table.
-        Supports both legacy single-column partitioning and multi-column partitioning schemes.
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
         logger.debug(
-            f"generate partition profiler query for project: {project} schema: {schema} "
-            f"and table {table.name}, partition_datetime: {partition_datetime}"
+            f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, "
+            f"partition_datetime: {partition_datetime}"
         )
 
         partition = table.max_partition_id
@@ -311,17 +310,25 @@ class BigqueryProfiler(GenericProfiler):
 
             if partition_where_clauses:
                 where_clause = " AND ".join(partition_where_clauses)
-                custom_sql = f"""
-SELECT
-    *
-FROM
-    `{project}.{schema}.{table.name}`
-WHERE
-    {where_clause}
-                """
-                return (partition, custom_sql)
+                # For external tables, wrap in CTE to optimize partition access
+                if table.external:
+                    custom_sql = f"""
+    WITH partitioned_data AS (
+        SELECT * 
+        FROM `{project}.{schema}.{table.name}`
+        WHERE {where_clause}
+    )
+    SELECT * FROM partitioned_data"""
+                else:
+                    custom_sql = f"""
+    SELECT *
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {where_clause}"""
+
+                return (partition, custom_sql.strip())
 
         elif table.max_shard_id:
+            # For sharded table we want to get the partition id but not needed to generate custom query
             return table.max_shard_id, None
 
         return None, None
@@ -392,6 +399,15 @@ WHERE
         # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
 
         bq_table = cast(BigqueryTable, table)
+
+        # Handle external table checks first
+        if bq_table.external and not self.config.profiling.profile_external_tables:
+            self.report.profiling_skipped_other[f"{db_name}.{schema_name}"] += 1
+            logger.info(
+                f"Skipping profiling of external table {db_name}.{schema_name}.{table.name}"
+            )
+            return None
+
         (partition, custom_sql) = self.generate_partition_profiler_query(
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
@@ -403,6 +419,7 @@ WHERE
                 context=profile_request.pretty_name,
             )
             return None
+
         if (
             partition is not None
             and not self.config.profiling.partition_profiling_enabled
@@ -417,11 +434,20 @@ WHERE
 
         if partition:
             logger.debug("Updating profiling request for partitioned/sharded tables")
-            profile_request.batch_kwargs.update(
-                dict(
-                    custom_sql=custom_sql,
-                    partition=partition,
+            kwargs_update = {
+                "custom_sql": custom_sql,
+                "partition": partition,
+            }
+
+            # Add external table metadata if needed
+            if bq_table.external:
+                kwargs_update.update(
+                    {
+                        "external_table": "true",  # Use string instead of bool
+                        "external_partition": "true",  # Use string instead of bool
+                    }
                 )
-            )
+
+            profile_request.batch_kwargs.update(kwargs_update)
 
         return profile_request
