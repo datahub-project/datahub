@@ -1,11 +1,14 @@
+import logging
 import threading
 from typing import Optional
 
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import WriteCallback
-from datahub.ingestion.run.pipeline import logger
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
+
+logger = logging.getLogger(__name__)
 
 
 class LoggingCallback(WriteCallback):
@@ -33,7 +36,7 @@ class LoggingCallback(WriteCallback):
         )
 
 
-class DeadLetterQueueCallback(WriteCallback):
+class DeadLetterQueueCallback(WriteCallback, Closeable):
     def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
         if not config:
             config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
