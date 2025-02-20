@@ -51,8 +51,6 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
-    "jsonref",
-    "jsonschema",
     "ruamel.yaml",
 }
 
@@ -264,6 +262,11 @@ postgres_common = {
     "GeoAlchemy2",
 }
 
+json_schema_common = {
+    "jsonref",
+    "jsonschema",
+}
+
 s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
@@ -451,8 +454,8 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
-    "json-schema": set(),
-    "kafka": kafka_common | kafka_protobuf,
+    "json-schema": json_schema_common,
+    "kafka": kafka_common | kafka_protobuf | json_schema_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
