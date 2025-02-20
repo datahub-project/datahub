@@ -227,11 +227,6 @@ const datasetPrimaryWithSiblings = {
         total: 1,
         searchResults: [{ entity: datasetUnprimary, matchedFields: [] }],
     },
-    siblingsSearch: {
-        count: 1,
-        total: 1,
-        searchResults: [{ entity: datasetUnprimary, matchedFields: [] }],
-    },
 };
 
 const datasetUnprimaryWithPrimarySiblings = {
@@ -245,11 +240,6 @@ const datasetUnprimaryWithPrimarySiblings = {
         total: 1,
         searchResults: [{ entity: datasetPrimary, matchedFields: [] }],
     },
-    siblingsSearch: {
-        count: 1,
-        total: 1,
-        searchResults: [{ entity: datasetPrimary, matchedFields: [] }],
-    },
 };
 
 const datasetUnprimaryWithNoPrimarySiblings = {
@@ -257,11 +247,6 @@ const datasetUnprimaryWithNoPrimarySiblings = {
     siblings: {
         isPrimary: false,
         siblings: [{ urn: datasetUnprimary.urn, type: datasetUnprimary.type }],
-    },
-    siblingsSearch: {
-        count: 1,
-        total: 1,
-        searchResults: [{ entity: datasetUnprimary, matchedFields: [] }],
     },
     siblingsSearch: {
         count: 1,
