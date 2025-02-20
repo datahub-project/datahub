@@ -1,3 +1,5 @@
+import { EntityType } from '@types';
+
 export const FILTER_URL_PREFIX = 'filter_';
 export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
 export const EXACT_SEARCH_PREFIX = 'EXACT__';
@@ -140,3 +142,28 @@ export const FilterModes = {
 export type FilterMode = (typeof FilterModes)[keyof typeof FilterModes];
 
 export const MAX_COUNT_VAL = 10000;
+
+export const EMBEDDED_LIST_SEARCH_ENTITY_TYPES = [
+    EntityType.Dataset,
+    EntityType.Dashboard,
+    EntityType.Chart,
+    EntityType.Mlmodel,
+    EntityType.MlmodelGroup,
+    EntityType.MlfeatureTable,
+    EntityType.Mlfeature,
+    EntityType.MlprimaryKey,
+    EntityType.DataFlow,
+    EntityType.DataJob,
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.Tag,
+    EntityType.Role,
+    EntityType.CorpUser,
+    EntityType.CorpGroup,
+    EntityType.Container,
+    EntityType.Domain,
+    EntityType.DataProduct,
+    EntityType.Notebook,
+    EntityType.BusinessAttribute,
+    EntityType.DataProcessInstance,
+];

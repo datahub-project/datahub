@@ -14,6 +14,9 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =

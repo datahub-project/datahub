@@ -61,11 +61,6 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         (entity, dataMap) ->
             entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
     mappingHelper.mapToResult(
-        LINEAGE_FEATURES_ASPECT_NAME,
-        (entity, dataMap) ->
-            entity.setLineageFeatures(
-                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
-    mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
         (entity, dataMap) -> entity.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
@@ -73,6 +68,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setDeprecation(
                 DeprecationMapper.map(context, new Deprecation((dataMap))))));
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
 
     return result;
   }
@@ -84,7 +84,6 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
       result.setType(EntityType.SCHEMA_FIELD);
       result.setFieldPath(urn.getEntityKey().get(1));
       Urn parentUrn = Urn.createFromString(urn.getEntityKey().get(0));
-
       result.setParent(UrnToEntityMapper.map(context, parentUrn));
       return result;
     } catch (Exception e) {

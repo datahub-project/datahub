@@ -1,0 +1,50 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.MY_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.MY_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:64b0c379202fccb5aa45b25c56a81dab"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.MY_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Folders"
+                },
+                {
+                    "id": "urn:li:container:bdeef79e1e511095dbdb7563b5f4b3f4",
+                    "urn": "urn:li:container:bdeef79e1e511095dbdb7563b5f4b3f4"
+                },
+                {
+                    "id": "Subfolder"
+                },
+                {
+                    "id": "urn:li:container:64b0c379202fccb5aa45b25c56a81dab",
+                    "urn": "urn:li:container:64b0c379202fccb5aa45b25c56a81dab"
+                }
+            ]
+        }
+    }
+}
+]

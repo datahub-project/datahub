@@ -1,0 +1,69 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "database": "test_db",
+                "schema": "test_schema"
+            },
+            "name": "test_schema"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+                    "urn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:07540cbc78ed6aff6882a43442d7e8c6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    }
+}
+]

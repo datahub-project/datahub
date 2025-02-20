@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -243,7 +244,7 @@ public class AspectsBatchImpl implements AspectsBatch {
       ValidationExceptionCollection exceptions =
           AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext);
       if (!exceptions.isEmpty()) {
-        throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
+        throw new ValidationException("Failed to validate MCP due to: " + exceptions);
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);

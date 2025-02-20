@@ -33,7 +33,11 @@ describe("add_user", () => {
         cy.visit(inviteLink);
         const { name, email } = tryToSignUp();
         registeredEmail = email;
+<<<<<<< HEAD
         cy.waitTextVisible("Welcome");
+=======
+        cy.waitTextVisible("Welcome back");
+>>>>>>> master
         cy.hideOnboardingTour();
         cy.waitTextVisible(name);
       })

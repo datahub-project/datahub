@@ -89,7 +89,7 @@ export default function EmptySearchResults({ suggestions, onClickExploreAll, onC
             )}
             {!refineSearchText && !suggestText && (
                 <Button onClick={handleClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                    <RocketOutlined /> View all
                 </Button>
             )}
         </NoDataContainer>

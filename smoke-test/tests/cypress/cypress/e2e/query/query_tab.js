@@ -49,8 +49,14 @@ describe("manage queries", () => {
     cy.openEntityTab("Queries");
   });
 
+<<<<<<< HEAD
   it.skip("go to queries tab on dataset page then create query and verify & view the card", () => {
     cy.waitTextVisible("Highlighted Queries");
+=======
+  it("go to queries tab on dataset page then create query and verify & view the card", () => {
+    cy.wait(1000);
+    cy.url().should("include", "Queries");
+>>>>>>> master
     cy.ensureTextNotPresent("Recent Queries");
     addNewQuery();
     cy.waitTextVisible(`+ Test Query-${runId}`);

@@ -198,7 +198,7 @@ export const SearchBar = ({
             type: '',
             label: (
                 <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
+                    View all →
                 </Button>
             ),
             style: { marginLeft: 'auto', cursor: 'auto' },

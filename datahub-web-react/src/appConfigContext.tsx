@@ -105,11 +105,6 @@ export const DEFAULT_APP_CONFIG = {
     chromeExtensionConfig: {
         enabled: false,
         lineageEnabled: false,
-        dataContractsEnabled: false,
-        editableDatasetNameEnabled: false,
-        showSeparateSiblings: false,
-        showManageStructuredProperties: false,
-        entityVersioningEnabled: false,
     },
 };
 

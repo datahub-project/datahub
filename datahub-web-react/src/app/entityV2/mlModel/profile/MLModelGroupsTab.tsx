@@ -24,7 +24,11 @@ export default function MLModelGroupsTab() {
             title: 'Group',
             dataIndex: 'name',
             render: (name, record) => {
-                return <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>{name}</Link>;
+                return (
+                    <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
+                        {record.properties?.name || name}
+                    </Link>
+                );
             },
         },
         {

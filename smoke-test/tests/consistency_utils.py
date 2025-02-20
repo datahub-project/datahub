@@ -27,15 +27,13 @@ def infer_kafka_broker_container() -> str:
     return lines[0]
 
 
-KAFKA_BROKER_CONTAINER: str = str(
-    os.getenv("KAFKA_BROKER_CONTAINER", infer_kafka_broker_container())
-)
-
-
 def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     if USE_STATIC_SLEEP:
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
+    KAFKA_BROKER_CONTAINER: str = str(
+        os.getenv("KAFKA_BROKER_CONTAINER", infer_kafka_broker_container())
+    )
     start_time = time.time()
     # get offsets
     lag_zero = False

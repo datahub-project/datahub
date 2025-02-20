@@ -2003,40 +2003,40 @@ type DisplayProperties {
 Input for Properties describing an icon associated with an entity
 """
 input IconPropertiesInput {
-  """
-  The source of the icon: e.g. Antd, Material, etc
-  """
-  iconLibrary: IconLibrary
+    """
+    The source of the icon: e.g. Antd, Material, etc
+    """
+    iconLibrary: IconLibrary
 
-  """
-  The name of the icon
-  """
-  name: String
+    """
+    The name of the icon
+    """
+    name: String
 
-  """
-  Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
-  """
-  style: String
+    """
+    Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
+    """
+    style: String
 }
 
 """
 Properties describing an icon associated with an entity
 """
 type IconProperties {
-  """
-  The source of the icon: e.g. Antd, Material, etc
-  """
-  iconLibrary: IconLibrary
+    """
+    The source of the icon: e.g. Antd, Material, etc
+    """
+    iconLibrary: IconLibrary
 
-  """
-  The name of the icon
-  """
-  name: String
+    """
+    The name of the icon
+    """
+    name: String
 
-  """
-  Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
-  """
-  style: String
+    """
+    Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
+    """
+    style: String
 }
 
 enum IconLibrary {
@@ -2630,7 +2630,7 @@ type GlossaryNode implements Entity {
     forms: Forms
 
     """
-    Display properties for the domain
+    Display properties for the glossary node
     """
     displayProperties: DisplayProperties
 
@@ -3103,14 +3103,14 @@ type Container implements Entity {
     privileges: EntityPrivileges
 
     """
-    Info about the results from sharing metadata for this entity
-    """
-    share: Share
-
-    """
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
     browsePathV2: BrowsePathV2
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 
     """
     Carries information about where an entity originated from.
@@ -7117,6 +7117,16 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
+    Status metadata of the data process instance
+    """
+    status: Status
+
+    """
     The history of state changes for the run
     """
     state(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DataProcessRunEvent]
@@ -7124,12 +7134,12 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     """
     When the run was kicked off
     """
-    created: AuditStamp
+    created: AuditStamp @deprecated(reason: "Use `properties.created`")
 
     """
     The name of the data process
     """
-    name: String
+    name: String @deprecated(reason: "Use `properties.name`")
 
     """
     Edges extending from this entity.
@@ -7708,6 +7718,7 @@ type DashboardStatsSummary {
     The view count in the last 30 days
     """
     viewCountLast30Days: Int
+
     """
     The relative percentile for view count in the past 30 days
     """
@@ -7717,6 +7728,7 @@ type DashboardStatsSummary {
     The unique user count in the past 30 days
     """
     uniqueUserCountLast30Days: Int
+
     """
     The relative percentile for number of unique users in the last 30 days
     """
@@ -7747,6 +7759,7 @@ type ChartStatsSummary {
     The view count in the last 30 days
     """
     viewCountLast30Days: Int
+
     """
     The relative percentile for view count in the past 30 days
     """
@@ -11694,6 +11707,11 @@ type Domain implements Entity {
     forms: Forms
 
     """
+    Display properties for the domain
+    """
+    displayProperties: DisplayProperties
+
+    """
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
@@ -12387,6 +12405,7 @@ enum PostType {
     Posts on the home page
     """
     HOME_PAGE_ANNOUNCEMENT,
+
     """
     Posts on an entity page
     """
@@ -13994,7 +14013,7 @@ type DataProcessInstanceProperties {
     """
     When this process instance was created
     """
-    created: AuditStamp
+    created: AuditStamp!
 
     """
     Additional custom properties specific to this process instance
@@ -14028,9 +14047,8 @@ type MLTrainingRunProperties {
 }
 
 extend type DataProcessInstance {
-
     """
-    Additional read only properties associated with the Data Job
+    Additional read only properties associated with the Data Process Instance
     """
     properties: DataProcessInstanceProperties
 
@@ -14052,7 +14070,7 @@ extend type DataProcessInstance {
     """
     Standardized platform urn where the data process instance is defined
     """
-    platform: DataPlatform!
+    platform: DataPlatform
 
     """
     Recursively get the lineage of containers for this entity
@@ -14063,4 +14081,9 @@ extend type DataProcessInstance {
     Additional properties when subtype is Training Run
     """
     mlTrainingRunProperties: MLTrainingRunProperties
+
+    """
+    The parent entity whose run instance it is
+    """
+    parentTemplate: Entity
 }

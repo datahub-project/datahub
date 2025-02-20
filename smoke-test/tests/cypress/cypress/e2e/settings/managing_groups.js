@@ -22,7 +22,11 @@ describe("create and manage group", () => {
       cy.mouseover("#title").click();
       cy.waitTextVisible("Other").click();
       cy.get("[type=submit]").click();
+<<<<<<< HEAD
       cy.waitTextVisible("Welcome");
+=======
+      cy.waitTextVisible("Welcome back");
+>>>>>>> master
       cy.hideOnboardingTour();
       cy.waitTextVisible(username);
     });

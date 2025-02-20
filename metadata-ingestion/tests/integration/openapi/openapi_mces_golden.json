@@ -20,7 +20,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/tests/",
+                                "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
@@ -96,7 +96,7 @@
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
                         "elements": [
                             {
-                                "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/tests/v2",
+                                "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/v2",
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,

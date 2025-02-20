@@ -97,7 +97,7 @@ task yarnBuildStoryBook(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) 
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', 'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
 
   outputs.cacheIf { true }
   inputs.files(

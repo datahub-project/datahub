@@ -254,7 +254,7 @@ function getTransformationalNodes(
             }
             if (nodesInBetween.has(child) || leafUrns.has(child)) {
                 const edge = edges.get(getEdgeId(urn, child, direction));
-                if (edge?.isDisplayed && edge?.via) {
+                if (edge?.via) {
                     const queryNode = nodes.get(edge.via);
                     if (queryNode) {
                         result.push(queryNode);

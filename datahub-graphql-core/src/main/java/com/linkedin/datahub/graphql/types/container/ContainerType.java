@@ -54,8 +54,8 @@ public class ContainerType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
           Constants.ACCESS_ASPECT_NAME,
-          Constants.SHARE_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
+          Constants.SHARE_ASPECT_NAME,
           Constants.ORIGIN_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");

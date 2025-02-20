@@ -71,6 +71,7 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -970,7 +971,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         MetricUtils.counter(
                                 EntityServiceImpl.class, "batch_request_validation_exception")
                             .inc();
-                        throw new ValidationException(collectMetrics(exceptions).toString());
+                        collectMetrics(exceptions);
+                        throw new ValidationException(exceptions);
                       }
 
                       MetricUtils.counter(
@@ -1536,13 +1538,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
     // for all other types of events should use system metadata rather than the boolean param.
-    if (updateIndicesService != null
-        && (preProcessHooks.isUiEnabled()
-                && metadataChangeLog.getSystemMetadata() != null
-                && metadataChangeLog.getSystemMetadata().getProperties() != null
-                && UI_SOURCE.equals(
-                    metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE))
-            || forcePreProcessIndices)) {
+    boolean isUISource =
+        preProcessHooks.isUiEnabled()
+            && metadataChangeLog.getSystemMetadata() != null
+            && metadataChangeLog.getSystemMetadata().getProperties() != null
+            && UI_SOURCE.equals(
+                metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE));
+    boolean syncIndexUpdate =
+        metadataChangeLog.getHeaders() != null
+            && metadataChangeLog
+                .getHeaders()
+                .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
+                .equalsIgnoreCase(Boolean.toString(true));
+
+    if (updateIndicesService != null && (isUISource || syncIndexUpdate || forcePreProcessIndices)) {
       updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
       return true;
     }

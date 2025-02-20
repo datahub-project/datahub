@@ -147,7 +147,11 @@ describe("Manage Ingestion and Secret Privileges", () => {
       cy.visit(inviteLink);
       const { name, email } = tryToSignUp();
       registeredEmail = email;
+<<<<<<< HEAD
       cy.waitTextVisible("Welcome");
+=======
+      cy.waitTextVisible("Welcome back");
+>>>>>>> master
       cy.hideOnboardingTour();
       cy.waitTextVisible(name);
     });
@@ -164,7 +168,11 @@ describe("Manage Ingestion and Secret Privileges", () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     signIn();
+<<<<<<< HEAD
     cy.waitTextVisible("Welcome");
+=======
+    cy.waitTextVisible("Welcome back");
+>>>>>>> master
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.clickOptionWithText("Ingestion");
@@ -186,7 +194,11 @@ describe("Manage Ingestion and Secret Privileges", () => {
     editPolicy(platform_policy_name, "Secret", "Manage Secrets");
     cy.logout();
     signIn();
+<<<<<<< HEAD
     cy.waitTextVisible("Welcome");
+=======
+    cy.waitTextVisible("Welcome back");
+>>>>>>> master
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
     cy.clickOptionWithText("Ingestion");

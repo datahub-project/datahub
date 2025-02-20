@@ -20,7 +20,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #12580: The OpenAPI source handled nesting incorrectly. 12580 fixes it to create proper nested field paths, however, this will re-write the incorrect schemas of existing OpenAPI runs.
+
 - #12408: The `platform` field in the DataPlatformInstance GraphQL type is removed. Clients need to retrieve the platform via the optional `dataPlatformInstance` field.
+
+### Known Issues
+
+- #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 
 ### Potential Downtime
 
@@ -28,10 +34,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Mainly, users of Sigma and PowerBI Apps ingestion may be affected by this adjustment. Consequently, a [reindex](https://datahubproject.io/docs/how/restore-indices/) will be automatically triggered during the system upgrade.
+
 ## 0.15.0
 
 - OpenAPI Update: PIT Keep Alive parameter added to scroll endpoints. NOTE: This parameter requires the `pointInTimeCreationEnabled` feature flag to be enabled and the `elasticSearch.implementation` configuration to be `elasticsearch`. This feature is not supported for OpenSearch at this time and the parameter will not be respected without both of these set.
-- OpenAPI Update 2: Previously there was an incorrectly marked parameter named `sort` on the generic list entities endpoint for v3. This parameter is deprecated and only supports a single string value while the documentation indicates it supports a list of strings. This documentation error has been fixed and the correct field, `sortCriteria`, is now documented which supports a list of strings.- #12236: Data flow and data job entities may additionally produce container aspect that will require a corresponding upgrade of server. Otherwise server can reject the aspect.
+- OpenAPI Update 2: Previously there was an incorrectly marked parameter named `sort` on the generic list entities endpoint for v3. This parameter is deprecated and only supports a single string value while the documentation indicates it supports a list of strings. This documentation error has been fixed and the correct field, `sortCriteria`, is now documented which supports a list of strings.
 - #12236: Data flow and data job entities may additionally produce container aspect that will require a corresponding upgrade of server. Otherwise server can reject the aspect.
 
 ### Known Issues

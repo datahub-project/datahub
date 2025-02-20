@@ -48,6 +48,8 @@ public class SchemaMapper {
     result.setPrimaryKeys(input.getPrimaryKeys());
     result.setFields(
         input.getFields().stream()
+            // do not map the field if the field.getFieldPath() is null or empty
+            .filter(field -> field.getFieldPath() != null && !field.getFieldPath().isEmpty())
             .map(field -> SchemaFieldMapper.map(context, field, entityUrn))
             .collect(Collectors.toList()));
     result.setPlatformSchema(PlatformSchemaMapper.map(context, input.getPlatformSchema()));

@@ -450,6 +450,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     ... on Role {
         id
         properties {

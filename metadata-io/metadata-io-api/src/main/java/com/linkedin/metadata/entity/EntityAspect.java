@@ -9,6 +9,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;

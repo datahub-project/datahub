@@ -105,5 +105,41 @@ public class OpenAPIV3GeneratorTest {
             entry ->
                 assertEquals(
                     "#/components/schemas/BatchGetRequestBody", entry.getValue().get$ref()));
+
+    // Assert aspect response schemas have value property with oneOf references
+    Schema<?> aspectResponseSchema =
+        openAPI.getComponents().getSchemas().get("AspectsAspectResponse_v3");
+    Schema<?> valueProperty = aspectResponseSchema.getProperties().get("value");
+    assertTrue(
+        valueProperty.getOneOf() != null && !valueProperty.getOneOf().isEmpty(),
+        "value property should use oneOf");
+
+    // Check each reference has proper format and capitalization
+    valueProperty
+        .getOneOf()
+        .forEach(
+            schema -> {
+              String ref = schema.get$ref();
+              assertTrue(
+                  ref != null && ref.startsWith("#/components/schemas/"),
+                  "reference should start with '#/components/schemas/': " + ref);
+
+              // Extract the last part after the last slash and check first character
+              String refName = ref.substring(ref.lastIndexOf('/') + 1);
+              assertTrue(
+                  Character.isUpperCase(refName.charAt(0)),
+                  "schema reference should start with capital letter: " + name);
+            });
+
+    // Check for pegasus name example
+    assertTrue(
+        valueProperty.getOneOf().stream()
+            .anyMatch(
+                schema ->
+                    schema.get$ref().equals("#/components/schemas/StructuredPropertyDefinition")));
+    assertTrue(
+        valueProperty.getOneOf().stream()
+            .noneMatch(
+                schema -> schema.get$ref().equals("#/components/schemas/PropertyDefinition")));
   }
 }
