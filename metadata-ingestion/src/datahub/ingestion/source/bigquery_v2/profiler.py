@@ -276,7 +276,15 @@ class BigqueryProfiler(GenericProfiler):
         )
 
         partition = table.max_partition_id
-        if table.partition_info and partition:
+
+        # First try to get multi-partition filters for tables that require partition elimination
+        multi_partition_filters = self._generate_multi_partition_filter(
+            table, project, schema
+        )
+        if multi_partition_filters:
+            where_clause = " AND ".join(multi_partition_filters)
+            partition = "multi"  # Use a marker to indicate we're using multi-partition filtering
+        elif table.partition_info and partition:
             partition_where_clauses: List[str] = []
 
             # Handle legacy single column partitioning
@@ -308,30 +316,89 @@ class BigqueryProfiler(GenericProfiler):
                     return None, None
                 partition_where_clauses.extend(clauses)
 
-            if partition_where_clauses:
-                where_clause = " AND ".join(partition_where_clauses)
-                # For external tables, wrap in CTE to optimize partition access
-                if table.external:
-                    custom_sql = f"""
-    WITH partitioned_data AS (
-        SELECT * 
-        FROM `{project}.{schema}.{table.name}`
-        WHERE {where_clause}
-    )
-    SELECT * FROM partitioned_data"""
-                else:
-                    custom_sql = f"""
-    SELECT *
-    FROM `{project}.{schema}.{table.name}`
-    WHERE {where_clause}"""
+            if not partition_where_clauses:
+                return None, None
 
-                return (partition, custom_sql.strip())
-
+            where_clause = " AND ".join(partition_where_clauses)
         elif table.max_shard_id:
             # For sharded table we want to get the partition id but not needed to generate custom query
             return table.max_shard_id, None
+        else:
+            return None, None
 
-        return None, None
+        # Generate the appropriate query using the where clause
+        if table.external:
+            custom_sql = f"""
+WITH partitioned_data AS (
+    SELECT * 
+    FROM `{project}.{schema}.{table.name}`
+    WHERE {where_clause}
+)
+SELECT * FROM partitioned_data"""
+        else:
+            custom_sql = f"""
+SELECT *
+FROM `{project}.{schema}.{table.name}`
+WHERE {where_clause}"""
+
+        return partition, custom_sql.strip()
+
+    def _generate_multi_partition_filter(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Optional[List[str]]:
+        """
+        Generate partition filters for tables with multiple partition columns.
+        For tables that require partition elimination, we'll filter on the most recent partition.
+        """
+        if not table.partition_info or not table.partition_info.columns:
+            return None
+
+        current_time = datetime.now(timezone.utc)
+        partition_filters = []
+
+        for column in table.partition_info.columns:
+            if not column:
+                continue
+
+            # Handle different partition column types
+            if column.name.lower() == "year":
+                partition_filters.append(f"`{column.name}` = {current_time.year}")
+            elif column.name.lower() == "month":
+                partition_filters.append(f"`{column.name}` = {current_time.month}")
+            elif column.name.lower() == "day":
+                partition_filters.append(f"`{column.name}` = {current_time.day}")
+            elif column.name.lower() in ("timestamp", "date", "datetime", "time"):
+                partition_filters.append(
+                    f"`{column.name}` = {column.data_type}('{current_time}')"
+                )
+            else:
+                # For other types of partition columns, we'll need the max value
+                try:
+                    # Try to get the maximum value for this partition column
+                    max_value_query = f"""
+                    SELECT MAX({column.name}) as max_value
+                    FROM `{project}.{schema}.{table.name}`
+                    """
+                    query_job = self.config.get_bigquery_client().query(max_value_query)
+                    results = list(query_job)  # Convert iterator to list
+                    if results and results[0].max_value is not None:
+                        max_value = results[0].max_value
+                        partition_filters.append(f"`{column.name}` = '{max_value}'")
+                    else:
+                        logger.warning(
+                            f"No valid max value found for partition column {column.name}"
+                        )
+                        return None
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to get max value for partition column {column.name}: {e}"
+                    )
+                    return None
+
+        return partition_filters if partition_filters else None
 
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
