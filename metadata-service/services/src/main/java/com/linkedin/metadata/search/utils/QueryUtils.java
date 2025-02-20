@@ -43,23 +43,6 @@ public class QueryUtils {
   private QueryUtils() {}
 
   // Creates new Criterion with field and value, using EQUAL condition.
-  @Nonnull
-  public static Criterion newCriterion(@Nonnull String field, @Nonnull String value) {
-    return newCriterion(field, value, Condition.EQUAL);
-  }
-
-  // Creates new Criterion with field, value and condition.
-  @Nonnull
-  public static Criterion newCriterion(
-      @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion()
-        .setField(field)
-        .setValue(value)
-        .setValues(new StringArray(ImmutableList.of(value)))
-        .setCondition(condition);
-  }
-
-  // Creates new Criterion with field and value, using EQUAL condition.
   @Nullable
   public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
     return newCriterion(field, values, Condition.EQUAL);
