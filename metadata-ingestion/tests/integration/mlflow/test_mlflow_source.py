@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Dict, TypeVar
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 from mlflow import MlflowClient
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -43,7 +42,7 @@ def pipeline_config(tracking_uri: str, sink_file_path: str) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def generate_mlflow_data(tracking_uri: str, monkeypatch: MonkeyPatch) -> None:
+def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> None:
     test_uuid = "02660a3bee9941ed983667f678ce5611"
     monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID(test_uuid))
 

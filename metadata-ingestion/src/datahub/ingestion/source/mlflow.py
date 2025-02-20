@@ -55,45 +55,13 @@ from datahub.metadata.urns import (
     DataPlatformUrn,
     VersionSetUrn,
 )
+from datahub.sdk.container import Container
 
 T = TypeVar("T")
 
 
 class ContainerKeyWithId(ContainerKey):
     id: str
-
-
-@dataclass
-class Container:
-    key: ContainerKeyWithId
-    subtype: str
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-    def generate_mcp(
-        self,
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        container_urn = self.key.as_urn()
-
-        container_subtype = SubTypesClass(typeNames=[self.subtype])
-
-        container_info = ContainerPropertiesClass(
-            name=self.name or self.key.id,
-            description=self.description,
-            customProperties={},
-        )
-
-        browse_path = BrowsePathsV2Class(path=[])
-
-        dpi = DataPlatformInstanceClass(
-            platform=self.key.platform,
-            instance=self.key.instance,
-        )
-
-        return MetadataChangeProposalWrapper.construct_many(
-            entityUrn=container_urn,
-            aspects=[container_subtype, container_info, browse_path, dpi],
-        )
 
 
 class MLflowConfig(EnvConfigMixin):
@@ -241,19 +209,53 @@ class MLflowSource(Source):
         self, experiment: Experiment
     ) -> List[MetadataWorkUnit]:
         experiment_container = Container(
-            key=ContainerKeyWithId(
+            container_key=ContainerKeyWithId(
                 platform=str(DataPlatformUrn.create_from_id("mlflow")),
                 id=experiment.name,
             ),
             subtype="ML Experiment",
-            name=experiment.name,
+            display_name=experiment.name,
             description=experiment.tags.get("mlflow.note.content"),
         )
-        self.entity_map.experiment_id_to_urn[experiment.experiment_id] = (
-            experiment_container.key.as_urn()
+        self.entity_map.experiment_id_to_urn[experiment.experiment_id] = str(
+            experiment_container.urn
+        )
+        workunits = []
+
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(experiment_container.urn),
+                aspect=SubTypesClass(typeNames=[str(experiment_container.subtype)]),
+            ).as_workunit()
         )
 
-        workunits = [mcp.as_workunit() for mcp in experiment_container.generate_mcp()]
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(experiment_container.urn),
+                aspect=ContainerPropertiesClass(
+                    name=experiment_container.display_name,
+                    description=experiment_container.description,
+                    customProperties=self._get_experiment_custom_properties(experiment),
+                ),
+            ).as_workunit()
+        )
+
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(experiment_container.urn),
+                aspect=BrowsePathsV2Class(path=[]),
+            ).as_workunit()
+        )
+
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(experiment_container.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=str(DataPlatformUrn.create_from_id("mlflow")),
+                ),
+            ).as_workunit()
+        )
+
         return workunits
 
     def _get_run_custom_properties(self, run: Run) -> Dict[str, str]:
@@ -508,18 +510,6 @@ class MLflowSource(Source):
         else:
             return None
 
-    class SequencedMetadataWorkUnit(MetadataWorkUnit):
-        """A workunit that knows its dependencies"""
-
-        def __init__(
-            self,
-            id: str,
-            mcp: MetadataChangeProposalWrapper,
-            depends_on: Optional[str] = None,
-        ):
-            super().__init__(id=id, mcp=mcp)
-            self.depends_on = depends_on
-
     def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
@@ -539,10 +529,10 @@ class MLflowSource(Source):
                 yield self._get_version_set(
                     version_set_urn=version_set_urn,
                 )
-                yield self._get_ml_model_version_properties_workunit(
-                    model_version=model_version,
-                    version_set_urn=version_set_urn,
-                )
+                # yield self._get_ml_model_version_properties_workunit(
+                #     model_version=model_version,
+                #     version_set_urn=version_set_urn,
+                # )
                 # yield self._get_version_latest(
                 #     model_version=model_version,
                 #     version_set_urn=version_set_urn,
