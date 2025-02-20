@@ -26,7 +26,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_type,
@@ -138,12 +137,10 @@ class OracleInspectorObjectWrapper:
             ).scalar()
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
-            logger.error("Error fetching DB name: " + str(e))
             self.report.failure(
                 title="Error fetching database name using sys_context.",
                 message="database_fetch_error",
                 context=db_name,
-                level=StructuredLogLevel.ERROR,
                 exc=e,
             )
             return ""
@@ -381,7 +378,6 @@ class OracleInspectorObjectWrapper:
     ) -> List[sqlalchemy.engine.Row]:
         params = {"table_name": table_name}
 
-        # Simplified query that's more reliable with SQLAlchemy 1.4
         text = (
             "SELECT"
             "\nac.constraint_name,"
@@ -394,8 +390,8 @@ class OracleInspectorObjectWrapper:
             "\nNULL AS rem_pos,"
             "\nac.search_condition,"
             "\nac.delete_rule"
-            "\nFROM all_constraints ac"
-            "\nJOIN all_cons_columns acc"
+            "\nFROM dba_constraints ac"
+            "\nJOIN dba_cons_columns acc"
             "\nON ac.owner = acc.owner"
             "\nAND ac.constraint_name = acc.constraint_name"
             "\nAND ac.table_name = acc.table_name"
@@ -407,7 +403,6 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND ac.owner = :owner"
 
-        # For foreign keys, join with the remote columns
         text += (
             "\nUNION ALL"
             "\nSELECT"
@@ -421,12 +416,12 @@ class OracleInspectorObjectWrapper:
             "\nrcc.position AS rem_pos,"
             "\nac.search_condition,"
             "\nac.delete_rule"
-            "\nFROM all_constraints ac"
-            "\nJOIN all_cons_columns acc"
+            "\nFROM dba_constraints ac"
+            "\nJOIN dba_cons_columns acc"
             "\nON ac.owner = acc.owner"
             "\nAND ac.constraint_name = acc.constraint_name"
             "\nAND ac.table_name = acc.table_name"
-            "\nLEFT JOIN all_cons_columns rcc"
+            "\nLEFT JOIN dba_cons_columns rcc"
             "\nON ac.r_owner = rcc.owner"
             "\nAND ac.r_constraint_name = rcc.constraint_name"
             "\nAND acc.position = rcc.position"
@@ -470,7 +465,6 @@ class OracleInspectorObjectWrapper:
                     "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS.",
                 ),
                 context=f"{schema}.{table_name}",
-                level=StructuredLogLevel.ERROR,
                 exc=e,
             )
             # Return empty constraint if we can't process it
