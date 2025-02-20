@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+import RemoteExecutorPoolSelector from './RemoteExecutorPoolSelector';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -19,7 +20,7 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
+export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,
@@ -180,18 +181,17 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
-                                used to route execution requests of the recipe to the executor of the same ID. The
-                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a remote or custom executor.
+                                Provide the name of the executor pool that should execute this ingestion recipe. This
+                                name is used to route execution requests of the recipe to the executor pool of the same
+                                name. The built-in DataHub executor name is &apos;default&apos;. Do not change this
+                                unless you have configured a remote or custom executor.
                             </Typography.Paragraph>
-                            <Input
-                                placeholder="default"
-                                value={state.config?.executorId || ''}
-                                onChange={(event) => setExecutorId(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExecutorId)}
+                            <RemoteExecutorPoolSelector
+                                value={state.config?.executorId || (isEditing ? '' : undefined)}
+                                onChange={(newPoolName) => setExecutorId(newPoolName)}
+                                onBlur={(newPoolName) => setExecutorId(newPoolName)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>

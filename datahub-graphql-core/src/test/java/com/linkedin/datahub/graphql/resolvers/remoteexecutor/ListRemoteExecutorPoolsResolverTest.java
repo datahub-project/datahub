@@ -47,10 +47,11 @@ public class ListRemoteExecutorPoolsResolverTest {
 
   @Test
   public void testListRemoteExecutorPools() throws Exception {
-    // Setup input
+    // Setup input with query
     ListRemoteExecutorPoolsInput input = new ListRemoteExecutorPoolsInput();
     input.setStart(0);
     input.setCount(2);
+    input.setQuery("test-query");
     when(environment.getArgument("input")).thenReturn(input);
 
     // Setup mock URN
@@ -62,9 +63,10 @@ public class ListRemoteExecutorPoolsResolverTest {
     searchEntity.setEntity(executorUrn);
     searchResult.setEntities(new SearchEntityArray(List.of(searchEntity)));
     searchResult.setNumEntities(1);
-    when(entityClient.filter(
+    when(entityClient.search(
             eq(operationContext),
             eq(REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq("test-query"),
             any(Filter.class),
             any(List.class),
             eq(0),
@@ -90,6 +92,44 @@ public class ListRemoteExecutorPoolsResolverTest {
   }
 
   @Test
+  public void testListRemoteExecutorPoolsWithDefaultQuery() throws Exception {
+    // Setup input without query (should default to "*")
+    ListRemoteExecutorPoolsInput input = new ListRemoteExecutorPoolsInput();
+    input.setStart(0);
+    input.setCount(2);
+    when(environment.getArgument("input")).thenReturn(input);
+
+    // Setup mock URN
+    Urn executorUrn = Urn.createFromString("urn:li:remoteExecutorPool:test-pool");
+
+    // Setup search result
+    SearchResult searchResult = new SearchResult();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(executorUrn);
+    searchResult.setEntities(new SearchEntityArray(List.of(searchEntity)));
+    searchResult.setNumEntities(1);
+    when(entityClient.search(
+            eq(operationContext),
+            eq(REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq("*"),
+            any(Filter.class),
+            any(List.class),
+            eq(0),
+            eq(2)))
+        .thenReturn(searchResult);
+
+    // Execute resolver
+    CompletableFuture<ListRemoteExecutorPoolsResult> futureResult = resolver.get(environment);
+    ListRemoteExecutorPoolsResult result = futureResult.get();
+
+    // Verify results
+    assertNotNull(result);
+    assertEquals(1, result.getCount());
+    List<RemoteExecutorPool> executors = result.getRemoteExecutorPools();
+    assertEquals(1, executors.size());
+  }
+
+  @Test
   public void testListRemoteExecutorPoolsEmpty() throws Exception {
     // Setup input with defaults
     ListRemoteExecutorPoolsInput input = new ListRemoteExecutorPoolsInput();
@@ -99,7 +139,14 @@ public class ListRemoteExecutorPoolsResolverTest {
     SearchResult emptySearchResult = new SearchResult();
     emptySearchResult.setEntities(new SearchEntityArray());
     emptySearchResult.setNumEntities(0);
-    when(entityClient.filter(any(), any(), any(), any(), anyInt(), anyInt()))
+    when(entityClient.search(
+            eq(operationContext),
+            eq(REMOTE_EXECUTOR_POOL_ENTITY_NAME),
+            eq("*"),
+            any(Filter.class),
+            any(List.class),
+            anyInt(),
+            anyInt()))
         .thenReturn(emptySearchResult);
 
     // Execute resolver
@@ -120,7 +167,14 @@ public class ListRemoteExecutorPoolsResolverTest {
     when(environment.getArgument("input")).thenReturn(input);
 
     // Simulate error in entityClient
-    when(entityClient.filter(any(), any(), any(), any(), anyInt(), anyInt()))
+    when(entityClient.search(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            any(Filter.class),
+            any(List.class),
+            anyInt(),
+            anyInt()))
         .thenThrow(new RemoteInvocationException("Test error"));
 
     // Execute and verify exception

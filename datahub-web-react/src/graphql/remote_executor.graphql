@@ -6,8 +6,16 @@ mutation createRemoteExecutorPool($input: CreateRemoteExecutorPoolInput!) {
     createRemoteExecutorPool(input: $input)
 }
 
-query listRemoteExecutorPools($start: Int!, $count: Int!) {
-    listRemoteExecutorPools(input: { start: $start, count: $count }) {
+query getDefaultRemoteExecutorPool {
+    defaultRemoteExecutorPool {
+        pool {
+            poolName
+        }
+    }
+}
+
+query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
+    listRemoteExecutorPools(input: { start: $start, count: $count, query: $query }) {
         start
         count
         total

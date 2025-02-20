@@ -27,6 +27,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -80,7 +81,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   context.getOperationContext(), input.getFormFilter(), _formService);
           final Filter baseFilter =
               formFilter != null
-                  ? SearchUtils.combineFilters(inputFilter, formFilter)
+                  ? FilterUtils.combineFilters(inputFilter, formFilter)
                   : inputFilter;
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
@@ -106,7 +107,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
             Filter finalFilter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
             /* SAAS ONLY */

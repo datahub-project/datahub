@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -103,7 +104,7 @@ public class GetQuickFiltersResolver
             : entityNames,
         "*",
         maybeResolvedView != null
-            ? SearchUtils.combineFilters(null, maybeResolvedView.getDefinition().getFilter())
+            ? FilterUtils.combineFilters(null, maybeResolvedView.getDefinition().getFilter())
             : null,
         0,
         0,

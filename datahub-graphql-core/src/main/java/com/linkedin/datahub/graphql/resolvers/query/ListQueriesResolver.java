@@ -15,13 +15,13 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             : null;
     final Filter finalFilter =
         inputFilter != null
-            ? SearchUtils.combineFilters(inputFilter, buildFilters(input))
+            ? FilterUtils.combineFilters(inputFilter, buildFilters(input))
             : buildFilters(input);
 
     return GraphQLConcurrencyUtils.supplyAsync(

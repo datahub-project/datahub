@@ -50,6 +50,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.context.OperationContext;
@@ -141,10 +142,10 @@ public class FormUtils {
         new Filter()
             .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(andArray)));
     if (promptFilter != null) {
-      finalFilter = SearchUtils.combineFilters(finalFilter, promptFilter);
+      finalFilter = FilterUtils.combineFilters(finalFilter, promptFilter);
     }
     if (completeOrIncompleteFilter != null) {
-      finalFilter = SearchUtils.combineFilters(finalFilter, completeOrIncompleteFilter);
+      finalFilter = FilterUtils.combineFilters(finalFilter, completeOrIncompleteFilter);
     }
 
     return finalFilter;
@@ -496,7 +497,7 @@ public class FormUtils {
     final Filter finalFormFilter =
         SearchUtils.getFormFilter(context.getOperationContext(), formFilter, formService);
     return finalFormFilter != null
-        ? SearchUtils.combineFilters(inputFilter, finalFormFilter)
+        ? FilterUtils.combineFilters(inputFilter, finalFormFilter)
         : inputFilter;
   }
 

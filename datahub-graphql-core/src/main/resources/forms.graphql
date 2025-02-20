@@ -18,6 +18,12 @@ extend type Mutation {
     Update an existing form based on the input
     """
     updateForm(input: UpdateFormInput!): Form!
+
+    """
+    Reassign a given form to the assets matching the dynamicFormAssignment filter.
+    Additionally, remove assets that are assigned to this form that shouldn't be.
+    """
+    refreshFormAssignment(input: RefreshFormAssignmentInput!): Boolean!
 }
 
 """
@@ -1071,4 +1077,27 @@ type DynamicFormAssignment {
     json: String
 }
 
+"""
+Input for refreshing a form's assignment to assets
+"""
+input RefreshFormAssignmentInput {
+    """
+    The urn of the form being reassigned to its assets
+    """
+    urn: String!
+
+    """
+    Optional flag for force reassigning all assets. Default this is false and
+    only assets that don't currently have this form assigned but match the form
+    filter will get reassigned. Only set this to true if you want a hard retry
+    for everything.
+    """
+    reassignAllAssets: Boolean
+
+    """
+    Optional flag for unassigning the form to assets that do not match the dynamic
+    form filter. Default is true, but can be turned off if desired.
+    """
+    unassignForm: Boolean
+}
 

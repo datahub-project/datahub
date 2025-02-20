@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -46,7 +47,7 @@ public class AutocompleteUtils {
                               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
                           final Filter finalFilter =
                               view != null
-                                  ? SearchUtils.combineFilters(
+                                  ? FilterUtils.combineFilters(
                                       filter, view.getDefinition().getFilter())
                                   : filter;
 

@@ -47,6 +47,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaField;
@@ -242,15 +243,68 @@ public class FormService extends BaseService {
         applyAppSource(changes, _appSource);
       }
       ingestChangeProposals(opContext, changes, _isAsync);
-      Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(formFilters.getFilter());
 
+      return assignFormToFilter(opContext, formUrn, formFilters.getFilter());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
+    }
+  }
+
+  public Thread refreshFormAssignment(
+      @Nonnull OperationContext opContext, @Nonnull final Urn formUrn) {
+    return refreshFormAssignment(opContext, formUrn, false, true);
+  }
+
+  /**
+   * Pull the dynamic form assignment for the asset, then add one more filter to get only assets
+   * that don't currently have this form assigned, then assign them. This will help back-fill assets
+   * that should be assigned but maybe the process of assigning them was interrupted or for some
+   * other reason. Additionally, unassign assets that don't match the filter but have the form on
+   * them.
+   */
+  public Thread refreshFormAssignment(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Boolean reassignAllAssets,
+      @Nonnull final Boolean unassignForm) {
+    DynamicFormAssignment formAssignment = getDynamicFormAssignment(opContext, formUrn);
+
+    if (formAssignment == null) {
+      return null;
+    }
+
+    Filter formFilter = formAssignment.getFilter();
+    Filter assetsMissingFormFilter = FormUtils.buildAssetsMissingFormFilter(formUrn.toString());
+    // either manually re-trigger assignment to everything matching the filter, or just get assets
+    // missing form assignment currently
+    Filter finalFilter =
+        reassignAllAssets
+            ? formFilter
+            : FilterUtils.combineFilters(formFilter, assetsMissingFormFilter);
+
+    if (unassignForm) {
+      // unassign assets that shouldn't be assigned anymore
+      removeFormAssignmentAutomation(opContext, formUrn, formAssignment);
+    }
+
+    // assign to assets we need to
+    return assignFormToFilter(opContext, formUrn, finalFilter);
+  }
+
+  public Thread assignFormToFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Filter filter) {
+    try {
+      Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(filter);
       String predicateJson = opContext.getObjectMapper().writeValueAsString(predicate);
 
       return SearchBasedFormAssignmentRunner.assign(
           opContext, predicateJson, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
+          String.format("Failed to assign form with urn: %s to filter %s", formUrn, filter), e);
     }
   }
 
@@ -1614,6 +1668,37 @@ public class FormService extends BaseService {
           formInfoResponse.getAspects().get(FORM_INFO_ASPECT_NAME).getValue().data());
     } else {
       throw new RuntimeException(String.format("Form %s does not exist.", formUrn));
+    }
+  }
+
+  @Nullable
+  public DynamicFormAssignment getDynamicFormAssignment(
+      @Nonnull OperationContext opContext, @Nonnull final Urn formUrn) {
+    try {
+      final EntityResponse formInfoResponse =
+          entityClient.getV2(
+              opContext,
+              formUrn.getEntityType(),
+              formUrn,
+              ImmutableSet.of(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME));
+      if (formInfoResponse != null
+          && formInfoResponse.getAspects().containsKey(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)) {
+        return new DynamicFormAssignment(
+            formInfoResponse
+                .getAspects()
+                .get(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
+                .getValue()
+                .data());
+      } else {
+        log.warn(
+            String.format("Dynamic form assignment is missing for form with urn: %s", formUrn));
+        return null;
+      }
+    } catch (Exception e) {
+      log.warn(
+          String.format("Error fetching dynamic form assignment for form with urn: %s.", formUrn),
+          e);
+      return null;
     }
   }
 

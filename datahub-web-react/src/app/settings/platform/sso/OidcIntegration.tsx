@@ -280,7 +280,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings.scope || 'openid email profile'}
+                                                value={oidcSettings.scope ?? 'openid email profile'}
                                                 placeholder="openid email profile"
                                                 onChange={(e) =>
                                                     setOidcSettings({

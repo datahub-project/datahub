@@ -1,6 +1,7 @@
 extend type Query {
   listRemoteExecutorPools(input: ListRemoteExecutorPoolsInput!): ListRemoteExecutorPoolsResult!
   defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
+  getRemoteExecutor(urn: String!): RemoteExecutor
 }
 extend type Mutation {
   """
@@ -30,6 +31,7 @@ input CreateRemoteExecutorPoolInput {
 input ListRemoteExecutorPoolsInput {
     start: Int!
     count: Int!
+    query: String
 }
 
 type DefaultRemoteExecutorPoolResult {

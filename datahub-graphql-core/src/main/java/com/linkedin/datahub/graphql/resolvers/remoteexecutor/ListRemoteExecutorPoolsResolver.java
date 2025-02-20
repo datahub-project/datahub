@@ -44,6 +44,8 @@ public class ListRemoteExecutorPoolsResolver
         bindArgument(environment.getArgument("input"), ListRemoteExecutorPoolsInput.class);
     final int start = input.getStart();
     final int count = input.getCount();
+    final String maybeQuery = input.getQuery();
+    final String query = maybeQuery == null ? "*" : maybeQuery;
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -53,7 +55,7 @@ public class ListRemoteExecutorPoolsResolver
 
             // 1. List executor urns in an ordered manner
             final SearchResult searchResult =
-                searchExecutorPools(context.getOperationContext(), start, count);
+                searchExecutorPools(context.getOperationContext(), query, start, count);
 
             final List<Urn> executorUrns =
                 searchResult.getEntities().stream().map(SearchEntity::getEntity).toList();
@@ -91,11 +93,12 @@ public class ListRemoteExecutorPoolsResolver
 
   @Nonnull
   private SearchResult searchExecutorPools(
-      @Nonnull OperationContext operationContext, int start, int count)
+      @Nonnull OperationContext operationContext, @Nonnull String query, int start, int count)
       throws RemoteInvocationException {
-    return this._entityClient.filter(
+    return this._entityClient.search(
         operationContext,
         REMOTE_EXECUTOR_POOL_ENTITY_NAME,
+        query,
         new Filter().setOr(new ConjunctiveCriterionArray()),
         buildSort(),
         start,
