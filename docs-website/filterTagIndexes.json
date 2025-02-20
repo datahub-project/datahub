@@ -331,6 +331,17 @@
       }
     },
     {
+      "Path": "docs/generated/ingestion/sources/mlflow",
+      "imgPath": "img/logos/platforms/mlflow.svg",
+      "Title": "MLflow",
+      "Description": "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.",
+      "tags": {
+        "Platform Type": "AI+ML",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/mssql",
       "imgPath": "img/logos/platforms/mssql.svg",
       "Title": "Microsoft SQL Server",
