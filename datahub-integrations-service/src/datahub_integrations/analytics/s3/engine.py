@@ -21,10 +21,20 @@ class S3EngineConfig(DuckDBEngineConfig):
 
 class S3AnalyticsEngine(DuckDBAnalyticsEngine):
     def install_extensions(self, con: DuckDBPyConnection) -> None:
-        con.execute("INSTALL httpfs; INSTALL aws")
+        """Install required DuckDB extensions"""
+        try:
+            con.execute("INSTALL httpfs; INSTALL aws;")
+        except Exception as e:
+            logger.error(f"Failed to install extensions: {str(e)}")
+            raise RuntimeError("Unable to install required DuckDB extensions") from e
 
     def load_extensions(self, con: DuckDBPyConnection) -> None:
-        con.execute("LOAD httpfs; LOAD aws")
+        """Load required DuckDB extensions with error handling"""
+        try:
+            con.execute("LOAD httpfs; LOAD aws;")
+        except Exception as e:
+            logger.error(f"Failed to load extensions: {str(e)}")
+            raise RuntimeError("Unable to load required DuckDB extensions") from e
 
     def __init__(self, config: DuckDBEngineConfig) -> None:
         super().__init__(config=config)
