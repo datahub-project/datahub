@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 
@@ -21,6 +21,31 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
+
+
+class BigQueryPartitionTransformer:
+    @classmethod
+    def transform_select_query(cls, query: str, execution_engine_dict: dict) -> str:
+        """
+        Transform select queries to include partition filters when needed
+        """
+        if not execution_engine_dict.get("partition_handling"):
+            return query
+
+        project = execution_engine_dict.get("project")
+        dataset = execution_engine_dict.get("dataset")
+        if not (project and dataset):
+            return query
+
+        table = execution_engine_dict.get("table")
+        partition_profiler = execution_engine_dict.get("partition_profiler")
+
+        if table and partition_profiler:
+            return partition_profiler.wrap_query_for_partition_table(
+                table, query, project, dataset
+            )
+
+        return query
 
 
 class BigqueryProfiler(GenericProfiler):
@@ -440,6 +465,18 @@ WHERE {where_clause}"""
             profiler_args=self.get_profile_args(),
         )
 
+    def get_profile_args(self) -> Dict[str, Any]:
+        """
+        Override to add partition-aware query generation and query transformation
+        """
+        profiler_args = super().get_profile_args()
+        profiler_args["partition_profiler"] = self
+        profiler_args["query_transformer"] = (
+            BigQueryPartitionTransformer.transform_select_query
+        )
+        profiler_args["table"] = None
+        return profiler_args
+
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return BigqueryTableIdentifier(
             project_id=db_name, dataset=schema_name, table=table_name
@@ -448,10 +485,79 @@ WHERE {where_clause}"""
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
-        return dict(
+        """
+        Override to handle partition-aware querying
+        """
+        bq_table = cast(BigqueryTable, table)
+        batch_kwargs = dict(
             schema=db_name,  # <project>
             table=f"{schema_name}.{table.name}",  # <dataset>.<table>
         )
+
+        if bq_table.external or bq_table.partition_info:
+            batch_kwargs.update(
+                {
+                    "partition_handling": "true",  # Make this a string
+                    "project": db_name,
+                    "dataset": schema_name,
+                    "table_name": bq_table.name,  # Use table name instead of table object
+                }
+            )
+
+        return batch_kwargs
+
+    def wrap_query_for_partition_table(
+        self,
+        table: BigqueryTable,
+        base_query: str,
+        project: str,
+        schema: str,
+    ) -> str:
+        """
+        Helper method to wrap a base query with partition filters
+        """
+        current_time = datetime.now(timezone.utc)
+        partition_filters = []
+
+        # Handle required partition columns
+        if hasattr(table, "columns") and table.columns:  # Add hasattr check
+            # Common date partition columns + any custom partition columns marked in schema
+            required_columns = {"year", "month", "day"}
+            if (
+                table.partition_info
+                and hasattr(table.partition_info, "columns")
+                and table.partition_info.columns
+            ):  # Add hasattr check
+                required_columns.update(
+                    col.name.lower() for col in table.partition_info.columns
+                )
+
+            for col in table.columns:
+                if col.name.lower() in required_columns:
+                    if col.name.lower() == "year":
+                        partition_filters.append(f"`{col.name}` = {current_time.year}")
+                    elif col.name.lower() == "month":
+                        partition_filters.append(f"`{col.name}` = {current_time.month}")
+                    elif col.name.lower() == "day":
+                        partition_filters.append(f"`{col.name}` = {current_time.day}")
+                    else:
+                        # For any other required partition column, use IS NOT NULL
+                        partition_filters.append(f"`{col.name}` IS NOT NULL")
+
+        if not partition_filters:
+            return base_query
+
+        # Inject the partition filters into the base query
+        where_clause = " AND ".join(partition_filters)
+
+        if " WHERE " in base_query.upper():
+            modified_query = base_query.replace(
+                " WHERE ", f" WHERE {where_clause} AND ", 1
+            )
+        else:
+            modified_query = f"{base_query} WHERE {where_clause}"
+
+        return modified_query
 
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
