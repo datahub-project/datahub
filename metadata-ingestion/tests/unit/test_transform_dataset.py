@@ -4179,7 +4179,7 @@ def test_clean_owner_group_urn_transformation_remove_word_in_capital_letters(
     in_owner_urns: List[str] = []
     for group in group_ids:
         in_owner_urns.append(
-            builder.make_owner_urn(group, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(group, owner_type=builder.OwnerType.GROUP)
         )
 
     # if string between `:` and `@` is in CAPITAL then remove it
@@ -4221,7 +4221,7 @@ def test_clean_owner_group_urn_transformation_remove_pattern_with_alphanumeric_v
     in_owner_urns: List[str] = []
     for group in group_ids:
         in_owner_urns.append(
-            builder.make_owner_urn(group, owner_type=builder.OwnerType.USER)
+            builder.make_owner_urn(group, owner_type=builder.OwnerType.GROUP)
         )
 
     # remove any pattern having `id` followed by any digits

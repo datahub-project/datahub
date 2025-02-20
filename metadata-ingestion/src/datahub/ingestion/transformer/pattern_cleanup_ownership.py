@@ -6,12 +6,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import OwnershipTransformer
-from datahub.metadata._urns.urn_defs import CorpGroupUrn, CorpUserUrn
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -70,16 +70,22 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         # clean all the owners based on the parameters received from config
         cleaned_owner_urns: List[str] = []
         for owner_urn in current_owner_urns:
+            username = ""
             try:
                 owner: Urn = Urn.from_string(owner_urn)
                 if isinstance(owner, CorpUserUrn):
-                    cleaned_owner_urns.append(self._process_owner(owner.username))
+                    username = (
+                        f"{_USER_URN_PREFIX}{self._process_owner(owner.username)}"
+                    )
                 elif isinstance(owner, CorpGroupUrn):
-                    cleaned_owner_urns.append(self._process_owner(owner.name))
+                    username = f"{_GROUP_URN_PREFIX}{self._process_owner(owner.name)}"
                 else:
                     logger.warning(f"{owner_urn} is not a supported owner type.")
+                    username = owner_urn
             except InvalidUrnError:
                 logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
+                username = owner_urn
+            cleaned_owner_urns.append(username)
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
             OwnershipTypeClass.TECHNICAL_OWNER
