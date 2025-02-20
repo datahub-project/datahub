@@ -45,6 +45,7 @@ export function Pill({
     onPillClick,
     customStyle,
     customIconRenderer,
+    className,
 }: PillProps) {
     if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
         console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
@@ -62,6 +63,7 @@ export function Pill({
             style={{
                 backgroundColor: customStyle?.backgroundColor,
             }}
+            className={className}
         >
             {customIconRenderer
                 ? customIconRenderer()
