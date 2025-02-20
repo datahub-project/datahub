@@ -20,7 +20,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
@@ -131,7 +130,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             if isinstance(metadata, MetadataWorkUnit):
                 yield metadata
             else:
-                yield from auto_workunit(metadata._as_mcps())
+                yield from metadata.as_workunits()
 
     def _get_metadata(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         if not self.cassandra_api.authenticate():
