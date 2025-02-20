@@ -1,4 +1,6 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
+import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import * as React from 'react';
 import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
 import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
@@ -109,6 +111,15 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
+                {
+                    name: 'Incidents',
+                    icon: WarningOutlined,
+                    component: IncidentTab,
+                    getDynamicName: (_, mlFeature, loading) => {
+                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
+                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    },
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -141,10 +152,10 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
