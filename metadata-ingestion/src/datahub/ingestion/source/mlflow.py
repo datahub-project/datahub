@@ -75,6 +75,7 @@ T = TypeVar("T")
 class ContainerKeyWithId(ContainerKey):
     id: str
 
+
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
