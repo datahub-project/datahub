@@ -458,7 +458,7 @@ class OracleInspectorObjectWrapper:
         text += "\nORDER BY constraint_name, loc_pos"
 
         rp = self._inspector_instance.bind.execute(sql.text(text), params)
-        return list(rp.fetchall())
+        return rp.fetchall()
 
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
