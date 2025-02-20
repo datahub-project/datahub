@@ -550,6 +550,12 @@ public class PoliciesConfig {
           "Produce Platform Event API",
           "The ability to produce Platform Events using the API.");
 
+  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
+          "Edit Dataset Column Business Attribute",
+          "The ability to edit the column (field) Business Attribute associated with a dataset schema.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES =
       ResourcePrivileges.of(
           "dataset",
@@ -570,7 +576,8 @@ public class PoliciesConfig {
                       EDIT_QUERIES_PRIVILEGE,
                       CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
                       DATA_READ_ONLY_PRIVILEGE,
-                      DATA_READ_WRITE_PRIVILEGE))
+                      DATA_READ_WRITE_PRIVILEGE,
+                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 

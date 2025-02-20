@@ -111,6 +111,16 @@ fragment dataProcessInstanceFields on DataProcessInstance {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+        status
+        attempt
+        result {
+            resultType
+            nativeResultType
+        }
+        timestampMillis
+        durationMillis
+    }
     parentTemplate {
         urn
         type

@@ -103,7 +103,7 @@ export default function useSearchAcrossLineage(
         const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
         let addedNode = false;
 
-        data?.searchAcrossLineage?.searchResults.forEach((result) => {
+        data?.searchAcrossLineage?.searchResults?.forEach((result) => {
             addedNode = addedNode || !nodes.has(result.entity.urn);
             const node = setEntityNodeDefault(result.entity.urn, result.entity.type, direction, nodes);
             if (result.explored || result.ignoredAsHop) {

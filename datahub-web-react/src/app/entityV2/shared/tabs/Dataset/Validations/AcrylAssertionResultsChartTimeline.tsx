@@ -45,7 +45,7 @@ type Props = {
 export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRange }: Props) => {
     const entityRegistry = useEntityRegistry();
     const completedRuns =
-        results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
+        results?.runEvents?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
     /**
      * Data for the timeline of assertion results.

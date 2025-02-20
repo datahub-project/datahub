@@ -25,7 +25,7 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-export const INTERVAL_TO_MOMENT_INTERVAL = {
+export const INTERVAL_TO_MOMENT_INTERVAL: { [key: string]: moment.DurationInputArg2 } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -83,9 +83,13 @@ export const getTimeWindowStart = (endTimeMillis: number, interval: DateInterval
  * @param windowSize the
  */
 export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow => {
-    const endTime = Date.now();
+    const endTime = moment().valueOf();
+    const startTime = moment(endTime)
+        .subtract(windowSize.count, INTERVAL_TO_MOMENT_INTERVAL[windowSize.interval])
+        .valueOf();
+
     return {
-        startTime: endTime - getTimeWindowSizeMs(windowSize),
+        startTime,
         endTime,
     };
 };
@@ -220,7 +224,7 @@ export function formatDuration(durationMs: number): string {
     const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
-        return `${seconds} secs`;
+        return seconds === 1 ? `${seconds} sec` : `${seconds} secs`;
     }
 
     if (hours === 0) {
@@ -246,7 +250,7 @@ export function formatDetailedDuration(durationMs: number): string {
         parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
     }
     if (seconds > 0) {
-        parts.push(`${seconds} secs`);
+        parts.push(seconds === 1 ? `${seconds} sec` : `${seconds} secs`);
     }
     return parts.join(' ');
 }

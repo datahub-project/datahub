@@ -2,6 +2,7 @@ import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Modal } from 'antd';
+import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
@@ -44,6 +45,16 @@ export function SidebarDatasetViewDefinitionSection() {
     if (!statement) return null;
 
     return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
+}
+
+export function SidebarDataJobTransformationLogicSection() {
+    const baseEntity = useBaseEntity<GetDataJobQuery>();
+    const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
+    if (!statement) return null;
+
+    return <SidebarLogicSection title="Logic" statement={statement} externalUrl={externalUrl} />;
 }
 
 export function SidebarQueryLogicSection() {

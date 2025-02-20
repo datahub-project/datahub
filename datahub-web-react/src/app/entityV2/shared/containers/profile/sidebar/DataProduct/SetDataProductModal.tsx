@@ -64,7 +64,7 @@ export default function SetDataProductModal({
 
     const displayedDataProducts: Entity[] =
         !showRecommendations && data?.autoCompleteForMultiple?.suggestions
-            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
+            ? data?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities)
             : recommendedDataProducts;
 
     const handleSearch = useMemo(() => {

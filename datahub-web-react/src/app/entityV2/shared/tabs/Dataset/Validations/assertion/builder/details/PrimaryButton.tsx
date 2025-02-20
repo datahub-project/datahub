@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { HTMLAttributes } from 'react';
 
 import styled from 'styled-components';
 import { Button, Tooltip } from '@components';
@@ -12,11 +12,10 @@ type Props = {
     title: string;
     disabled?: boolean;
     tooltip?: React.ReactNode;
-    style?: any;
     onClick: () => void;
-};
+} & HTMLAttributes<HTMLDivElement>;
 
-export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, onClick }: Props) => {
+export const PrimaryButton = ({ icon, title, tooltip, disabled = false, onClick, ...props }: Props) => {
     return (
         <Tooltip title={tooltip} placement="left" showArrow={false}>
             <Button
@@ -25,7 +24,7 @@ export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, o
                     e.stopPropagation();
                     onClick();
                 }}
-                style={style}
+                {...props}
             >
                 {(icon && <Icon>{icon}</Icon>) || null}
                 {title}
