@@ -11716,11 +11716,7 @@ type Domain implements Entity {
     """
     privileges: EntityPrivileges
 
-    """
-    Display properties for the domain
-    """
-    displayProperties: DisplayProperties
-
+    # SaaS Only
     """
     Info about the results from sharing metadata for this entity
     """
