@@ -39,15 +39,8 @@ function createPolicy(decription, policyName) {
   updateAndSave("groups", "All", "All Groups");
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
-<<<<<<< HEAD
-  cy.get('[data-testid="search-input"]').should("be.visible");
-  cy.get('[data-testid="search-input"]').eq(1).type(policyName);
-  cy.get(".ant-table-tbody").should("be.visible");
-  cy.contains(policyName).should("have.length", 1);
-=======
   searchForPolicy(policyName);
   cy.waitTextVisible(policyName);
->>>>>>> master
 }
 
 function editPolicy(
