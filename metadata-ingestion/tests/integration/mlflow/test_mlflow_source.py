@@ -75,9 +75,9 @@ def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> 
     run_name = "test-run"
     model_name = "test-model"
 
-    experiment_id = client.create_experiment(experiment_name)
+    test_experiment_id = client.create_experiment(experiment_name)
     test_run = client.create_run(
-        experiment_id=experiment_id,
+        experiment_id=test_experiment_id,
         run_name=run_name,
     )
     client.log_param(
