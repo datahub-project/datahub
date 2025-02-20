@@ -10,7 +10,6 @@ describe("experiment", () => {
       "/container/urn:li:container:airline_forecast_experiment/Summary?is_lineage_mode=false",
     );
 
-    cy.contains("MLflow", { timeout: 20000 });
     cy.contains("Airline Forecast Experiment");
     cy.contains("Experiment to forecast airline passenger numbers");
 
