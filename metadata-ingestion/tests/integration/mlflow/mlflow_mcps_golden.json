@@ -96,7 +96,9 @@
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "artifacts_location": "s3://test-bucket"
+            },
             "name": "Default"
         }
     },
@@ -163,7 +165,9 @@
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "artifacts_location": "s3://test-bucket"
+            },
             "name": "test-experiment"
         }
     },
@@ -530,7 +534,7 @@
             "customProperties": {},
             "id": "02660a3bee9941ed983667f678ce5611",
             "outputUrls": [
-                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-53/test_ingestion0/mlruns/766847104871454225/02660a3bee9941ed983667f678ce5611/artifacts"
+                "s3://test-bucket"
             ],
             "hyperParams": [
                 {

@@ -5,11 +5,35 @@ from typing import Any, Dict, TypeVar
 import pytest
 from mlflow import MlflowClient
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.mlflow import MLflowSource
+from datahub.metadata.schema_classes import MLTrainingRunPropertiesClass
 from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
+
+
+def setup_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_run_props(self, experiment, run):
+        for wu in original_get_run_workunits(self, experiment, run):
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+                wu.metadata.aspect, MLTrainingRunPropertiesClass
+            ):
+                wu.metadata.aspect.outputUrls = ["s3://test-bucket"]
+            yield wu
+
+    # Fix environment-dependent values
+    original_get_run_workunits = MLflowSource._get_run_workunits
+    monkeypatch.setattr(
+        uuid, "uuid4", lambda: uuid.UUID("02660a3bee9941ed983667f678ce5611")
+    )
+    monkeypatch.setattr(
+        MLflowSource,
+        "_get_experiment_custom_properties",
+        lambda *_: {"artifacts_location": "s3://test-bucket"},
+    )
+    monkeypatch.setattr(MLflowSource, "_get_run_workunits", mock_run_props)
 
 
 @pytest.fixture
@@ -44,25 +68,12 @@ def pipeline_config(tracking_uri: str, sink_file_path: str) -> Dict[str, Any]:
 
 @pytest.fixture
 def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    test_uuid = "02660a3bee9941ed983667f678ce5611"
-    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID(test_uuid))
+    setup_test_environment(monkeypatch)
 
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_name = "test-experiment"
     run_name = "test-run"
     model_name = "test-model"
-
-    # Deliberately exclude artifacts_location since it's environment-specific
-    def mock_get_experiment_custom_properties(self, experiment):
-        experiment_custom_props = getattr(experiment, "tags", {}) or {}
-        experiment_custom_props.pop("mlflow.note.content", None)
-        return experiment_custom_props
-
-    monkeypatch.setattr(
-        MLflowSource,
-        "_get_experiment_custom_properties",
-        mock_get_experiment_custom_properties,
-    )
 
     experiment_id = client.create_experiment(experiment_name)
     test_run = client.create_run(

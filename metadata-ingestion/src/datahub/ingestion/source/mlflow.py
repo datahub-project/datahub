@@ -231,7 +231,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     ) -> List[MetadataWorkUnit]:
         experiment_container = Container(
             container_key=ContainerKeyWithId(
-                platform=str(DataPlatformUrn.create_from_id("mlflow")),
+                platform=str(DataPlatformUrn(platform_name="mlflow")),
                 id=experiment.name,
             ),
             subtype="ML Experiment",
@@ -272,7 +272,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             MetadataChangeProposalWrapper(
                 entityUrn=str(experiment_container.urn),
                 aspect=DataPlatformInstanceClass(
-                    platform=str(DataPlatformUrn.create_from_id("mlflow")),
+                    platform=str(DataPlatformUrn("mlflow")),
                 ),
             ).as_workunit()
         )
@@ -314,7 +314,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         self, experiment: Experiment, run: Run
     ) -> List[MetadataWorkUnit]:
         experiment_key = ContainerKeyWithId(
-            platform=str(DataPlatformUrn.create_from_id("mlflow")), id=experiment.name
+            platform=str(DataPlatformUrn("mlflow")), id=experiment.name
         )
 
         dpi_id = run.info.run_name or run.info.run_id
@@ -400,7 +400,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
                 aspect=DataPlatformInstanceClass(
-                    platform=str(DataPlatformUrn.create_from_id("mlflow"))
+                    platform=str(DataPlatformUrn("mlflow"))
                 ),
             ).as_workunit()
         )
