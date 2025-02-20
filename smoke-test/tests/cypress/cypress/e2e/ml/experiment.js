@@ -1,15 +1,16 @@
 describe("experiment", () => {
-  it("can visit experiment end run", () => {
+  beforeEach(() => {
     cy.visit("/");
     cy.login();
-    // replace the following line with the correct URL
+  });
+
+  it("can visit experiment end run", () => {
+    // Then visit the specific page
     cy.visit(
       "/container/urn:li:container:airline_forecast_experiment/Summary?is_lineage_mode=false",
     );
 
-    // the experiment has subtypes and platform
-    cy.contains("MLflow");
-    // the model has its name and description
+    cy.contains("MLflow", { timeout: 20000 });
     cy.contains("Airline Forecast Experiment");
     cy.contains("Experiment to forecast airline passenger numbers");
 

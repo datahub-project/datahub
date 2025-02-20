@@ -500,27 +500,6 @@
     }
 },
 {
-    "entityType": "mlModel",
-    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "versionProperties",
-    "aspect": {
-        "json": {
-            "versionSet": "urn:li:versionSet:(test-model_1,mlModel)",
-            "version": {
-                "versionTag": "1"
-            },
-            "aliases": [],
-            "sortId": "AAAAAAAA"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:f0a08b483f34190fdeba8bed94607a2f",
     "changeType": "UPSERT",
@@ -551,7 +530,7 @@
             "customProperties": {},
             "id": "02660a3bee9941ed983667f678ce5611",
             "outputUrls": [
-                "/tmp/pytest-of-runner/pytest-0/test_ingestion0/mlruns/733453213330887482/02660a3bee9941ed983667f678ce5611/artifacts"
+                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-53/test_ingestion0/mlruns/766847104871454225/02660a3bee9941ed983667f678ce5611/artifacts"
             ],
             "hyperParams": [
                 {

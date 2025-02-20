@@ -6,6 +6,7 @@ import pytest
 from mlflow import MlflowClient
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.mlflow import MLflowSource
 from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
@@ -51,9 +52,19 @@ def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> 
     run_name = "test-run"
     model_name = "test-model"
 
-    experiment_id = client.create_experiment(
-        experiment_name, artifact_location=f"{tracking_uri}/733453213330887482"
+    # Deliberately exclude artifacts_location since it's environment-specific
+    def mock_get_experiment_custom_properties(self, experiment):
+        experiment_custom_props = getattr(experiment, "tags", {}) or {}
+        experiment_custom_props.pop("mlflow.note.content", None)
+        return experiment_custom_props
+
+    monkeypatch.setattr(
+        MLflowSource,
+        "_get_experiment_custom_properties",
+        mock_get_experiment_custom_properties,
     )
+
+    experiment_id = client.create_experiment(experiment_name)
     test_run = client.create_run(
         experiment_id=experiment_id,
         run_name=run_name,
