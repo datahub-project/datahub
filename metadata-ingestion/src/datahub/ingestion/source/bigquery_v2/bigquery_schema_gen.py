@@ -2,7 +2,6 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
-from itertools import groupby
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
@@ -101,6 +100,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -296,6 +296,7 @@ class BigQuerySchemaGenerator:
         self,
         dataset: str,
         project_id: str,
+        description: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
@@ -311,8 +312,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -334,6 +337,7 @@ class BigQuerySchemaGenerator:
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
+            description=description,
             external_url=(
                 BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
                     project=project_id, dataset=dataset
@@ -469,14 +473,15 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
-                dataset_name,
-                project_id,
-                bigquery_dataset.labels,
-                (
+                dataset=dataset_name,
+                project_id=project_id,
+                tags=bigquery_dataset.labels,
+                extra_properties=(
                     {"location": bigquery_dataset.location}
                     if bigquery_dataset.location
                     else None
                 ),
+                description=bigquery_dataset.comment,
             )
 
         columns = None
@@ -728,7 +733,7 @@ class BigQuerySchemaGenerator:
         foreign_keys: List[BigqueryTableConstraint] = list(
             filter(lambda x: x.type == "FOREIGN KEY", table.constraints)
         )
-        for key, group in groupby(
+        for key, group in groupby_unsorted(
             foreign_keys,
             lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
         ):
@@ -820,8 +825,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -860,8 +867,10 @@ class BigQuerySchemaGenerator:
                         platform_resource: PlatformResource = self.platform_resource_helper.generate_label_platform_resource(
                             label, tag_urn, managed_by_datahub=False
                         )
-                        label_info: BigQueryLabelInfo = platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
-                            BigQueryLabelInfo
+                        label_info: BigQueryLabelInfo = (
+                            platform_resource.resource_info.value.as_pydantic_object(  # type: ignore
+                                BigQueryLabelInfo
+                            )
                         )
                         tag_urn = TagUrn.from_string(label_info.datahub_urn)
 
@@ -1203,9 +1212,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[
-            f"{project_id}.{dataset.name}"
-        ] = timer.elapsed_seconds(digits=2)
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (
+            timer.elapsed_seconds(digits=2)
+        )
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

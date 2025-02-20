@@ -2,7 +2,7 @@ import logging
 import pathlib
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Set, Union
 
 from deepmerge import always_merger
 from liquid import Undefined
@@ -27,15 +27,19 @@ from datahub.ingestion.source.looker.looker_liquid_tag import (
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_PATTERN,
     LookMLSourceConfig,
+    LookMLSourceReport,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 
 logger = logging.getLogger(__name__)
 
 
 class SpecialVariable:
-    SPECIAL_VARIABLE_PATTERN: ClassVar[
-        str
-    ] = r"\b\w+(\.\w+)*\._(is_selected|in_query|is_filtered)\b"
+    SPECIAL_VARIABLE_PATTERN: ClassVar[str] = (
+        r"\b\w+(\.\w+)*\._(is_selected|in_query|is_filtered)\b"
+    )
     liquid_variable: dict
 
     def __init__(self, liquid_variable):
@@ -82,7 +86,12 @@ class SpecialVariable:
         return self._create_new_liquid_variables_with_default(variables=variables)
 
 
-def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
+def resolve_liquid_variable(
+    text: str,
+    view_name: str,
+    liquid_variable: Dict[Any, Any],
+    report: LookMLSourceReport,
+) -> str:
     # Set variable value to NULL if not present in liquid_variable dictionary
     Undefined.__str__ = lambda instance: "NULL"  # type: ignore
     try:
@@ -96,6 +105,7 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
         # Resolve liquid template
         return create_template(text).render(liquid_variable)
     except LiquidSyntaxError as e:
+        # TODO: Will add warning once we get rid of duplcate warning message for same view
         logger.warning(f"Unsupported liquid template encountered. error [{e.message}]")
         # TODO: There are some tag specific to looker and python-liquid library does not understand them. currently
         #  we are not parsing such liquid template.
@@ -103,6 +113,7 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
         # See doc: https://cloud.google.com/looker/docs/templated-filters and look for { % condition region %}
         # order.region { % endcondition %}
     except CustomTagException as e:
+        # TODO: Will add warning once we get rid of duplcate warning message for same view
         logger.warning(e)
         logger.debug(e, exc_info=e)
 
@@ -192,15 +203,20 @@ class LookMLViewTransformer(ABC):
 
     source_config: LookMLSourceConfig
 
-    def __init__(self, source_config: LookMLSourceConfig):
+    def __init__(
+        self,
+        source_config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
+    ):
         self.source_config = source_config
+        self.reporter = reporter
 
     def transform(self, view: dict) -> dict:
         value_to_transform: Optional[str] = None
 
-        # is_attribute_supported check is required because not all transformer works on all attributes in current
-        # case mostly all transformer works on sql_table_name and derived.sql attributes,
-        # however IncompleteSqlTransformer only transform the derived.sql attribute
+        # is_attribute_supported check is required because not all transformers work on all attributes in the current
+        #  case, mostly all transformers work on sql_table_name and derived.sql attributes;
+        # however, IncompleteSqlTransformer only transform the derived.sql attribute
         if SQL_TABLE_NAME in view and self.is_attribute_supported(SQL_TABLE_NAME):
             # Give precedence to already processed transformed view.sql_table_name to apply more transformation
             value_to_transform = view.get(
@@ -252,7 +268,9 @@ class LiquidVariableTransformer(LookMLViewTransformer):
     def _apply_transformation(self, value: str, view: dict) -> str:
         return resolve_liquid_variable(
             text=value,
-            liquid_variable=self.source_config.liquid_variable,
+            liquid_variable=self.source_config.liquid_variables,
+            view_name=view["name"],
+            report=self.reporter,
         )
 
 
@@ -287,7 +305,7 @@ class IncompleteSqlTransformer(LookMLViewTransformer):
 
 class DropDerivedViewPatternTransformer(LookMLViewTransformer):
     """
-    drop ${} from datahub_transformed_sql_table_name and  view["derived_table"]["datahub_transformed_sql_table_name"] values.
+    drop ${} from datahub_transformed_sql_table_name and view["derived_table"]["datahub_transformed_sql_table_name"] values.
 
     Example: transform ${employee_income_source.SQL_TABLE_NAME} to employee_income_source.SQL_TABLE_NAME
     """
@@ -308,8 +326,8 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
     evaluate_to_true_regx: str
     remove_if_comment_line_regx: str
 
-    def __init__(self, source_config: LookMLSourceConfig):
-        super().__init__(source_config=source_config)
+    def __init__(self, source_config: LookMLSourceConfig, reporter: LookMLSourceReport):
+        super().__init__(source_config=source_config, reporter=reporter)
 
         # This regx will keep whatever after -- if looker_environment --
         self.evaluate_to_true_regx = r"-- if {} --".format(
@@ -333,6 +351,61 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
     def _apply_transformation(self, value: str, view: dict) -> str:
         return self._apply_regx(value)
+
+
+class LookmlConstantTransformer(LookMLViewTransformer):
+    """
+    Replace LookML constants @{constant} from the manifest/configuration.
+    """
+
+    CONSTANT_PATTERN = r"@{(\w+)}"  # Matches @{constant}
+
+    def __init__(
+        self,
+        source_config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
+        manifest_constants: Dict[str, "LookerConstant"],
+    ):
+        super().__init__(source_config=source_config, reporter=reporter)
+        self.manifest_constants = manifest_constants
+
+    def resolve_lookml_constant(self, text: str, view_name: Optional[str]) -> str:
+        """
+        Resolves LookML constants (@{ }) from manifest or config.
+        Logs warnings for misplaced or missing variables.
+        """
+
+        def replace_constants(match):
+            key = match.group(1)
+            # Resolve constant from config
+            if key in self.source_config.lookml_constants:
+                return str(self.source_config.lookml_constants.get(key))
+
+            # Resolve constant from manifest
+            if key in self.manifest_constants:
+                return self.manifest_constants[key].value
+
+            # Check if it's a misplaced lookml constant
+            if key in self.source_config.liquid_variables:
+                self.reporter.warning(
+                    title="Misplaced lookml constant",
+                    message="Use 'lookml_constants' instead of 'liquid_variables'.",
+                    context=f"Key {key}",
+                )
+                return f"@{{{key}}}"
+
+            self.reporter.warning(
+                title="LookML constant not found",
+                message="The constant is missing. Either add it under 'lookml_constants' in the config or define it in `manifest.lkml`.",
+                context=f"view-name: {view_name}, constant: {key}",
+            )
+            return f"@{{{key}}}"
+
+        # Resolve @{} (constant)
+        return re.sub(self.CONSTANT_PATTERN, replace_constants, text)
+
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        return self.resolve_lookml_constant(text=value, view_name=view.get("name"))
 
 
 class TransformedLookMlView:
@@ -390,24 +463,35 @@ class TransformedLookMlView:
 def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
+    reporter: LookMLSourceReport,
+    manifest_constants: Dict[str, "LookerConstant"] = {},
+    resolve_constants: bool = False,
 ) -> None:
     if "views" not in view_lkml_file_dict:
         return
 
     transformers: List[LookMLViewTransformer] = [
         LookMlIfCommentTransformer(
-            source_config=source_config
+            source_config=source_config, reporter=reporter
         ),  # First evaluate the -- if -- comments. Looker does the same
         LiquidVariableTransformer(
-            source_config=source_config
+            source_config=source_config, reporter=reporter
         ),  # Now resolve liquid variables
         DropDerivedViewPatternTransformer(
-            source_config=source_config
+            source_config=source_config, reporter=reporter
         ),  # Remove any ${} symbol
         IncompleteSqlTransformer(
-            source_config=source_config
+            source_config=source_config, reporter=reporter
         ),  # complete any incomplete sql
     ]
+    if resolve_constants:
+        transformers.append(
+            LookmlConstantTransformer(
+                source_config=source_config,
+                manifest_constants=manifest_constants,
+                reporter=reporter,
+            ),  # Resolve @{} constant with its corresponding value
+        )
 
     transformed_views: List[dict] = []
 
@@ -422,12 +506,18 @@ def process_lookml_template_language(
 def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
+    reporter: LookMLSourceReport,
+    manifest_constants: Dict[str, "LookerConstant"] = {},
+    resolve_constants: bool = False,
 ) -> dict:
     parsed = load_lkml(path)
 
     process_lookml_template_language(
         view_lkml_file_dict=parsed,
+        reporter=reporter,
         source_config=source_config,
+        manifest_constants=manifest_constants,
+        resolve_constants=resolve_constants,
     )
 
     return parsed

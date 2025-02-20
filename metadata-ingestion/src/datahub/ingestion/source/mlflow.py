@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Optional, TypeVar, Union
+from typing import Any, Callable, Iterable, List, Optional, TypeVar, Union
 
 from mlflow import MlflowClient
 from mlflow.entities import Run
@@ -8,7 +8,9 @@ from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -18,8 +20,20 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MLHyperParamClass,
@@ -35,7 +49,7 @@ from datahub.metadata.schema_classes import (
 T = TypeVar("T")
 
 
-class MLflowConfig(EnvConfigMixin):
+class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
         description=(
@@ -79,7 +93,7 @@ class MLflowRegisteredModelStageInfo:
     "Extract descriptions for MLflow Registered Models and Model Versions",
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
-class MLflowSource(Source):
+class MLflowSource(StatefulIngestionSourceBase):
     platform = "mlflow"
     registered_model_stages_info = (
         MLflowRegisteredModelStageInfo(
@@ -105,9 +119,10 @@ class MLflowSource(Source):
     )
 
     def __init__(self, ctx: PipelineContext, config: MLflowConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
-        self.report = SourceReport()
+        self.report = StaleEntityRemovalSourceReport()
         self.client = MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
@@ -115,6 +130,14 @@ class MLflowSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._get_tags_workunits()
@@ -172,10 +195,10 @@ class MLflowSource(Source):
         """
         Get all Registered Models in MLflow Model Registry.
         """
-        registered_models: Iterable[
-            RegisteredModel
-        ] = self._traverse_mlflow_search_func(
-            search_func=self.client.search_registered_models,
+        registered_models: Iterable[RegisteredModel] = (
+            self._traverse_mlflow_search_func(
+                search_func=self.client.search_registered_models,
+            )
         )
         return registered_models
 

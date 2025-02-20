@@ -262,7 +262,6 @@ class DatahubSensors:
             and context.dagster_run.job_code_origin.repository_origin
             and context.dagster_run.job_code_origin.repository_origin.code_pointer
         ):
-
             code_pointer = (
                 context.dagster_run.job_code_origin.repository_origin.code_pointer
             )

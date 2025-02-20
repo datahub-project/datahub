@@ -426,9 +426,9 @@ def batch_get_ids(
             entities_yielded += 1
             log.debug(f"yielding {x}")
             yield x
-        assert (
-            entities_yielded == num_entities
-        ), "Did not delete all entities, try running this command again!"
+        assert entities_yielded == num_entities, (
+            "Did not delete all entities, try running this command again!"
+        )
     else:
         log.error(f"Failed to execute batch get with {str(response.content)}")
         response.raise_for_status()

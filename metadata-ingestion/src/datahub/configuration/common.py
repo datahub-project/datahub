@@ -20,7 +20,7 @@ from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
-from datahub.configuration._config_enum import ConfigEnum as ConfigEnum  # noqa: I250
+from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -200,8 +200,7 @@ class IgnorableError(MetaError):
 
 @runtime_checkable
 class ExceptionWithProps(Protocol):
-    def get_telemetry_props(self) -> Dict[str, Any]:
-        ...
+    def get_telemetry_props(self) -> Dict[str, Any]: ...
 
 
 def should_show_stack_trace(exc: Exception) -> bool:

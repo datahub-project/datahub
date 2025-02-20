@@ -54,16 +54,15 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ examples/ && " +
-    "ruff check src/ tests/ && " +
+    "ruff check src/ tests/ examples/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ examples/ && " +
-    "ruff check --fix src/ tests/"
-    "mypy src/ tests/ examples/"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/ tests/ examples/ && " +
+    "ruff format src/ tests/ examples/ "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -72,9 +71,9 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-      "source ${venv_name}/bin/activate && set -x && " +
-      "${pip_install_command} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
-      "touch ${sentinel_file}"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
 }
 
 task testQuick(type: Exec, dependsOn: installDevTest) {
@@ -105,5 +104,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

@@ -36,7 +36,13 @@ fragment query on QueryEntity {
     subjects {
         dataset {
             urn
+            type
             name
+        }
+        schemaField {
+            urn
+            type
+            fieldPath
         }
     }
 }
@@ -66,4 +72,30 @@ mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
 
 mutation deleteQuery($urn: String!) {
     deleteQuery(urn: $urn)
+}
+
+query searchAcrossLineageForQueries($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ...searchResultFieldsNoLineage
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on QueryEntity {
+                        ...query
+                    }
+                }
+            }
+            explored
+            ignoredAsHop
+        }
+    }
 }

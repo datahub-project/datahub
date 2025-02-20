@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -16,7 +17,9 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -28,9 +31,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
@@ -60,6 +71,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +95,10 @@ class SalesforceProfilingConfig(ConfigModel):
     # TODO - support field level profiling
 
 
-class SalesforceConfig(DatasetSourceConfigMixin):
+class SalesforceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+):
     platform: str = "salesforce"
 
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
@@ -146,8 +161,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         return config_clean.remove_trailing_slashes(v)
 
 
-class SalesforceSourceReport(SourceReport):
-    filtered: List[str] = []
+@dataclass
+class SalesforceSourceReport(StaleEntityRemovalSourceReport):
+    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -211,7 +227,7 @@ FIELD_TYPE_MAPPING = {
     capability_name=SourceCapability.TAGS,
     description="Enabled by default",
 )
-class SalesforceSource(Source):
+class SalesforceSource(StatefulIngestionSourceBase):
     base_url: str
     config: SalesforceConfig
     report: SalesforceSourceReport
@@ -220,7 +236,8 @@ class SalesforceSource(Source):
     fieldCounts: Dict[str, int]
 
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
+        super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
         self.report = SalesforceSourceReport()
         self.session = requests.Session()
@@ -236,12 +253,12 @@ class SalesforceSource(Source):
         try:
             if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
                 logger.debug("Access Token Provided in Config")
-                assert (
-                    self.config.access_token is not None
-                ), "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
-                assert (
-                    self.config.instance_url is not None
-                ), "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                assert self.config.access_token is not None, (
+                    "Config access_token is required for DIRECT_ACCESS_TOKEN auth"
+                )
+                assert self.config.instance_url is not None, (
+                    "Config instance_url is required for DIRECT_ACCESS_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     instance_url=self.config.instance_url,
@@ -250,15 +267,15 @@ class SalesforceSource(Source):
                 )
             elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
                 logger.debug("Username/Password Provided in Config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.password is not None
-                ), "Config password is required for USERNAME_PASSWORD auth"
-                assert (
-                    self.config.security_token is not None
-                ), "Config security_token is required for USERNAME_PASSWORD auth"
+                assert self.config.username is not None, (
+                    "Config username is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.password is not None, (
+                    "Config password is required for USERNAME_PASSWORD auth"
+                )
+                assert self.config.security_token is not None, (
+                    "Config security_token is required for USERNAME_PASSWORD auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
@@ -269,15 +286,15 @@ class SalesforceSource(Source):
 
             elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
                 logger.debug("Json Web Token provided in the config")
-                assert (
-                    self.config.username is not None
-                ), "Config username is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.consumer_key is not None
-                ), "Config consumer_key is required for JSON_WEB_TOKEN auth"
-                assert (
-                    self.config.private_key is not None
-                ), "Config private_key is required for JSON_WEB_TOKEN auth"
+                assert self.config.username is not None, (
+                    "Config username is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.consumer_key is not None, (
+                    "Config consumer_key is required for JSON_WEB_TOKEN auth"
+                )
+                assert self.config.private_key is not None, (
+                    "Config private_key is required for JSON_WEB_TOKEN auth"
+                )
 
                 self.sf = Salesforce(
                     username=self.config.username,
@@ -324,6 +341,14 @@ class SalesforceSource(Source):
                 version=self.sf.sf_version
             )
         )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -439,7 +464,8 @@ class SalesforceSource(Source):
         dataPlatformInstance = DataPlatformInstanceClass(
             builder.make_data_platform_urn(self.platform),
             instance=builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance  # type:ignore
+                self.platform,
+                self.config.platform_instance,  # type:ignore
             ),
         )
 

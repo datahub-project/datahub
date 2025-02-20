@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import CreatePostModal from './CreatePostModal';
 import { PostColumn, PostEntry, PostListMenuColumn } from './PostsListColumns';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -62,6 +63,7 @@ export const PostList = () => {
                 start,
                 count: pageSize,
                 query,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: query && query.length > 0 ? 'no-cache' : 'cache-first',
@@ -145,12 +147,12 @@ export const PostList = () => {
             {error && <Message type="error" content="Failed to load Posts! An unexpected error occurred." />}
             <PostsContainer>
                 <TabToolbar>
-                    <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
-                        <PlusOutlined /> New Post
+                    <Button data-testid="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
+                        <PlusOutlined /> New
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search posts..."
+                        placeholderText="Search..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

@@ -126,9 +126,9 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for workspace_dict in response_dict[Constant.ENTRIES]:
-                    self.workspaces[
-                        workspace_dict[Constant.WORKSPACEID]
-                    ] = Workspace.parse_obj(workspace_dict)
+                    self.workspaces[workspace_dict[Constant.WORKSPACEID]] = (
+                        Workspace.parse_obj(workspace_dict)
+                    )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{workspace_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
@@ -147,9 +147,9 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for user_dict in response_dict[Constant.ENTRIES]:
-                    users[
-                        user_dict[Constant.MEMBERID]
-                    ] = f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                    users[user_dict[Constant.MEMBERID]] = (
+                        f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                    )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{members_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
@@ -327,10 +327,12 @@ class SigmaAPI:
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 if not element_dict.get(Constant.NAME):
-                    element_dict[Constant.NAME] = f"Element {i+1} of Page '{page.name}'"
-                element_dict[
-                    Constant.URL
-                ] = f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
+                    element_dict[Constant.NAME] = (
+                        f"Element {i + 1} of Page '{page.name}'"
+                    )
+                element_dict[Constant.URL] = (
+                    f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
+                )
                 element = Element.parse_obj(element_dict)
                 if (
                     self.config.extract_lineage

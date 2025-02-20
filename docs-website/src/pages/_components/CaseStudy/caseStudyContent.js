@@ -50,14 +50,14 @@ const caseStudyData = [
     link: "https://www.youtube.com/watch?v=YoxTg8tQSwg",
   },
   {
-    title: "Reliable Data Products",
+    title: "Powering Discovery in Slack's data ecosystem",
     description:
-      "How Miro leverages DataHub Cloud to deliver reliable data products.",
+      "Learn why DataHub was the obvious choice for Slack to solve their lineage and discovery needs.",
     tag: "Technology",
     backgroundImage:
-      "https://miro.com/blog/wp-content/uploads/2024/08/header-diagramming-s4-02.png",
-    image: "/img/logos/companies/miro.png",
-    link: "https://miro.com/careers/life-at-miro/tech/data-products-reliability-the-power-of-metadata/",
+      "https://i.pcmag.com/imagery/reviews/07td46ju7p6lLVb0QGwc5VF-19.fit_lim.size_1050x.png",
+    image: "/img/logos/companies/slack.png",
+    link: "https://datahubproject.io/adoption-stories/#slack",
   },
   {
     title: "Working with Petabyte Scale Healthcare Data",
@@ -88,6 +88,16 @@ const caseStudyData = [
       "https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/Zynga.svg/1200px-Zynga.svg.png",
     image: "/img/logos/companies/zynga.png",
     link: "https://datahubproject.io/adoption-stories/#zynga",
+  },
+  {
+    title: "Reliable Data Products",
+    description:
+      "How Miro leverages DataHub Cloud to deliver reliable data products.",
+    tag: "Technology",
+    backgroundImage:
+      "https://miro.com/blog/wp-content/uploads/2024/08/header-diagramming-s4-02.png",
+    image: "/img/logos/companies/miro.png",
+    link: "https://miro.com/careers/life-at-miro/tech/data-products-reliability-the-power-of-metadata/",
   },
   {
     title: "And many more...",

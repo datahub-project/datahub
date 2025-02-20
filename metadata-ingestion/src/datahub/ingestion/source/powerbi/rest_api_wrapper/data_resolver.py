@@ -337,41 +337,6 @@ class DataResolverBase(ABC):
         -tiles), there is no information available on pagination
 
         """
-
-        def new_dataset_or_report(tile_instance: Any) -> dict:
-            """
-            Find out which is the data source for tile. It is either REPORT or DATASET
-            """
-            report_fields = {
-                Constant.REPORT: (
-                    self.get_report(
-                        workspace=workspace,
-                        report_id=tile_instance.get(Constant.REPORT_ID),
-                    )
-                    if tile_instance.get(Constant.REPORT_ID) is not None
-                    else None
-                ),
-                Constant.CREATED_FROM: Tile.CreatedFrom.UNKNOWN,
-            }
-
-            # reportId and datasetId are exclusive in tile_instance
-            # if datasetId is present that means tile is created from dataset
-            # if reportId is present that means tile is created from report
-            # if both i.e. reportId and datasetId are not present then tile is created from some visualization
-            if tile_instance.get(Constant.REPORT_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.REPORT
-            elif tile_instance.get(Constant.DATASET_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.DATASET
-            else:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.VISUALIZATION
-
-            title: Optional[str] = tile_instance.get(Constant.TITLE)
-            _id: Optional[str] = tile_instance.get(Constant.ID)
-            created_from: Any = report_fields[Constant.CREATED_FROM]
-            logger.info(f"Tile {title}({_id}) is created from {created_from}")
-
-            return report_fields
-
         tile_list_endpoint: str = self.get_tiles_endpoint(
             workspace, dashboard_id=dashboard.id
         )
@@ -393,8 +358,18 @@ class DataResolverBase(ABC):
                 title=instance.get(Constant.TITLE),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
+                report_id=instance.get(Constant.REPORT_ID),
                 dataset=None,
-                **new_dataset_or_report(instance),
+                report=None,
+                createdFrom=(
+                    # In the past we considered that only one of the two report_id or dataset_id would be present
+                    # but we have seen cases where both are present. If both are present, we prioritize the report.
+                    Tile.CreatedFrom.REPORT
+                    if instance.get(Constant.REPORT_ID)
+                    else Tile.CreatedFrom.DATASET
+                    if instance.get(Constant.DATASET_ID)
+                    else Tile.CreatedFrom.VISUALIZATION
+                ),
             )
             for instance in tile_dict
             if instance is not None
@@ -425,9 +400,9 @@ class DataResolverBase(ABC):
 
             response.raise_for_status()
 
-            assert (
-                Constant.VALUE in response.json()
-            ), "'value' key is not present in paginated response"
+            assert Constant.VALUE in response.json(), (
+                "'value' key is not present in paginated response"
+            )
 
             if not response.json()[Constant.VALUE]:  # if it is an empty list then break
                 break
@@ -447,13 +422,13 @@ class DataResolverBase(ABC):
         if raw_app is None:
             return None
 
-        assert (
-            Constant.ID in raw_app
-        ), f"{Constant.ID} is required field not present in server response"
+        assert Constant.ID in raw_app, (
+            f"{Constant.ID} is required field not present in server response"
+        )
 
-        assert (
-            Constant.NAME in raw_app
-        ), f"{Constant.NAME} is required field not present in server response"
+        assert Constant.NAME in raw_app, (
+            f"{Constant.NAME} is required field not present in server response"
+        )
 
         return App(
             id=raw_app[Constant.ID],

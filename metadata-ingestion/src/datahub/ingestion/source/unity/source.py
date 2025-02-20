@@ -205,9 +205,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[
-            Tuple[TableReference, str]
-        ] = FileBackedDict()
+        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
+            FileBackedDict()
+        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -464,7 +464,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
             with self.report.new_stage(f"Ingest schema {schema.id}"):
                 yield from self.gen_schema_containers(schema)
-                yield from self.process_tables(schema)
+                try:
+                    yield from self.process_tables(schema)
+                except Exception as e:
+                    logger.exception(f"Error parsing schema {schema}")
+                    self.report.report_warning(
+                        message="Missed schema because of parsing issues",
+                        context=str(schema),
+                        title="Error parsing schema",
+                        exc=e,
+                    )
+                    continue
 
                 self.report.schemas.processed(schema.id)
 

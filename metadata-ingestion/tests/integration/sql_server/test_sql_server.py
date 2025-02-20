@@ -57,7 +57,7 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
         pytestconfig,
         output_path=tmp_path / "mssql_mces.json",
         golden_path=test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('yml','json')}",
+        / f"golden_files/golden_mces_{config_file.replace('yml', 'json')}",
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['job_id'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_created'\]",
@@ -73,9 +73,7 @@ procedure_sqls = [sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir()]
 
 @pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
-def test_stored_procedure_lineage(
-    pytestconfig: pytest.Config, procedure_sql_file: str
-) -> None:
+def test_stored_procedure_lineage(procedure_sql_file: str) -> None:
     sql_file_path = PROCEDURE_SQLS_DIR / procedure_sql_file
     procedure_code = sql_file_path.read_text()
 
@@ -105,7 +103,6 @@ def test_stored_procedure_lineage(
         )
     )
     mce_helpers.check_goldens_stream(
-        pytestconfig,
         outputs=mcps,
         golden_path=(
             PROCEDURES_GOLDEN_DIR / Path(procedure_sql_file).with_suffix(".json")

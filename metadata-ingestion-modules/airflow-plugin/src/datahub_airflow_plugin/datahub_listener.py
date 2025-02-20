@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
 
-    def hookimpl(f: _F) -> _F:  # type: ignore[misc] # noqa: F811
+    def hookimpl(f: _F) -> _F:  # type: ignore[misc]
         return f
 
 else:
@@ -286,9 +286,9 @@ class DataHubListener:
         if sql_parsing_result:
             if error := sql_parsing_result.debug_info.error:
                 logger.info(f"SQL parsing error: {error}", exc_info=error)
-                datajob.properties[
-                    "datahub_sql_parser_error"
-                ] = f"{type(error).__name__}: {error}"
+                datajob.properties["datahub_sql_parser_error"] = (
+                    f"{type(error).__name__}: {error}"
+                )
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)
