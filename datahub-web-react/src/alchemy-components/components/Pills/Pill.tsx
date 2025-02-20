@@ -11,6 +11,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
         ColorValues.green,
         ColorValues.red,
         ColorValues.yellow,
+        ColorValues.gray,
     ],
     [PillVariantValues.outline]: [
         ColorValues.violet,
@@ -18,6 +19,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
         ColorValues.green,
         ColorValues.red,
         ColorValues.yellow,
+        ColorValues.gray,
     ],
     [PillVariantValues.version]: [ColorValues.white, ColorValues.gray],
 };
