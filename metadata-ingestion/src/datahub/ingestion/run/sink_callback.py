@@ -1,4 +1,5 @@
-from typing import Optional, cast
+import threading
+from typing import Optional
 
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import WriteCallback
@@ -37,6 +38,7 @@ class DeadLetterQueueCallback(WriteCallback):
         if not config:
             config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
         self.file_sink: FileSink = FileSink(ctx, config)
+        self.file_sink_lock = threading.Lock()
         self.logging_callback = LoggingCallback(name="failure-queue")
         logger.info(f"Failure logging enabled. Will log to {config.filename}.")
 
@@ -51,19 +53,22 @@ class DeadLetterQueueCallback(WriteCallback):
         failure_exception: Exception,
         failure_metadata: dict,
     ) -> None:
-        if "workunit_id" in record_envelope.metadata:
-            if isinstance(record_envelope.record, MetadataChangeProposalClass):
-                mcp = cast(MetadataChangeProposalClass, record_envelope.record)
-                if mcp.systemMetadata:
-                    if not mcp.systemMetadata.properties:
-                        mcp.systemMetadata.properties = {}
-                    if "workunit_id" not in mcp.systemMetadata.properties:
-                        # update the workunit id
-                        mcp.systemMetadata.properties["workunit_id"] = (
-                            record_envelope.metadata["workunit_id"]
-                        )
-                record_envelope.record = mcp
-        self.file_sink.write_record_async(record_envelope, self.logging_callback)
+        if "workunit_id" in record_envelope.metadata and isinstance(
+            record_envelope.record, MetadataChangeProposalClass
+        ):
+            mcp: MetadataChangeProposalClass = record_envelope.record
+            if mcp.systemMetadata:
+                if not mcp.systemMetadata.properties:
+                    mcp.systemMetadata.properties = {}
+                if "workunit_id" not in mcp.systemMetadata.properties:
+                    # update the workunit id
+                    mcp.systemMetadata.properties["workunit_id"] = (
+                        record_envelope.metadata["workunit_id"]
+                    )
+            record_envelope.record = mcp
+        with self.file_sink_lock:
+            self.file_sink.write_record_async(record_envelope, self.logging_callback)
 
     def close(self) -> None:
-        self.file_sink.close()
+        with self.file_sink_lock:
+            self.file_sink.close()
