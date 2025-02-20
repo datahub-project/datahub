@@ -223,12 +223,10 @@ class OperationProcessor:
                     continue
                 raw_props_value = raw_props.get(operation_key)
                 if not raw_props_value and self.match_nested_props:
-                    try:
+                    with contextlib.suppress(KeyError):
                         raw_props_value = reduce(
                             operator.getitem, operation_key.split("."), raw_props
                         )
-                    except KeyError:
-                        pass
 
                 maybe_match = self.get_match(
                     self.operation_defs[operation_key][Constants.MATCH],

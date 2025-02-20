@@ -72,9 +72,9 @@ UpstreamLineageInputType: TypeAlias = Union[
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(upstream_input, models.UpstreamClass):
-        return upstream_input
-    elif isinstance(upstream_input, models.FineGrainedLineageClass):
+    if isinstance(
+        upstream_input, (models.UpstreamClass, models.FineGrainedLineageClass)
+    ):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
         return models.UpstreamClass(

@@ -279,11 +279,7 @@ class ClassificationHandler:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=(
-                        sample_data[schema_field.fieldPath]
-                        if schema_field.fieldPath in sample_data.keys()
-                        else []
-                    ),
+                    values=(sample_data.get(schema_field.fieldPath, [])),
                 )
             )
 

@@ -893,9 +893,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            description=(
-                column["col_description"] if "col_description" in column else ""
-            ),
+            description=(column.get("col_description", "")),
             default_nullable=True,
         )
 

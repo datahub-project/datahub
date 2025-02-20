@@ -396,7 +396,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location", None)
+        location: Optional[str] = custom_properties.get("location")
         if location is not None:
             if location.startswith("s3://"):
                 location = make_s3_urn(location, self.config.env)
@@ -538,21 +538,15 @@ class AthenaSource(SQLAlchemySource):
             column_name=column["name"],
             column_type=column["type"],
             inspector=inspector,
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column.get("nullable", True),
             is_part_of_key=(
-                True
-                if (
-                    pk_constraints is not None
-                    and isinstance(pk_constraints, dict)
-                    and column["name"] in pk_constraints.get("constrained_columns", [])
-                )
-                else False
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
             ),
             is_partitioning_key=(
-                True
-                if (partition_keys is not None and column["name"] in partition_keys)
-                else False
+                partition_keys is not None and column["name"] in partition_keys
             ),
         )
 

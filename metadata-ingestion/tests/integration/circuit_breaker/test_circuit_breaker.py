@@ -1,19 +1,18 @@
+import contextlib
 import json
 from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
 
-try:
+with contextlib.suppress(ImportError):
+    # Imports are only available if we are running integrations tests
     from datahub.api.circuit_breaker import (
         AssertionCircuitBreaker,
         AssertionCircuitBreakerConfig,
         OperationCircuitBreaker,
         OperationCircuitBreakerConfig,
     )
-# Imports are only available if we are running integrations tests
-except ImportError:
-    pass
 lastUpdatedResponseBeforeLastAssertion = {
     "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]}
 }

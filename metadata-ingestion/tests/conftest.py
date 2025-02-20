@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import pathlib
@@ -22,6 +23,7 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
+
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
     pytest_addoption,
@@ -35,11 +37,9 @@ from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph_instance,
 )
 
-try:
+with contextlib.suppress(ImportError):
     # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
     import pandas  # noqa: F401
-except ImportError:
-    pass
 
 import freezegun  # noqa: E402
 

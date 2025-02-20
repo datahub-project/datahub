@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import random
 import string
@@ -41,10 +42,8 @@ class DatabricksDataGenerator:
 
     def clear_data(self, seed_metadata: SeedMetadata) -> None:
         for container in seed_metadata.containers[0]:
-            try:
+            with contextlib.suppress(DatabricksError):
                 self.client.catalogs.delete(container.name, force=True)
-            except DatabricksError:
-                pass
 
     def create_data(
         self,
@@ -84,10 +83,8 @@ class DatabricksDataGenerator:
             self.client.schemas.create(schema.name, schema.parent.name)
 
     def _create_table(self, table: Table) -> None:
-        try:
+        with contextlib.suppress(DatabricksError):
             self.client.tables.delete(".".join(table.name_components))
-        except DatabricksError:
-            pass
 
         columns = ", ".join(
             f"{name} {_convert_column_type(column.type).value}"

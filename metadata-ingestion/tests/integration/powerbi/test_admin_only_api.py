@@ -472,7 +472,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
