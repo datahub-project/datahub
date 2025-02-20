@@ -237,7 +237,7 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        with contextlib.ExitStack() as exit_stack:
+        with contextlib.ExitStack() as exit_stack, contextlib.ExitStack() as inner_exit_stack:
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
@@ -301,7 +301,7 @@ class Pipeline:
                 with _add_init_error_context(
                     f"configure the source ({self.source_type})"
                 ):
-                    self.source = exit_stack.enter_context(
+                    self.source = inner_exit_stack.enter_context(
                         source_class.create(
                             self.config.source.dict().get("config", {}), self.ctx
                         )
@@ -316,7 +316,7 @@ class Pipeline:
                     f"configure the extractor ({extractor_type})"
                 ):
                     extractor_class = extractor_registry.get(extractor_type)
-                    self.extractor = exit_stack.enter_context(
+                    self.extractor = inner_exit_stack.enter_context(
                         extractor_class(self.config.source.extractor_config, self.ctx)
                     )
 
@@ -326,6 +326,9 @@ class Pipeline:
             # If all of the initialization succeeds, we can preserve the exit stack until the pipeline run.
             # We need to use an exit stack so that if we have an exception during initialization,
             # things that were already initialized are still cleaned up.
+            # We need to separate the source/extractor from the rest because stateful
+            # ingestion requires the source to be closed before the state can be updated.
+            self.inner_exit_stack = inner_exit_stack.pop_all()
             self.exit_stack = exit_stack.pop_all()
 
     @property
@@ -461,7 +464,7 @@ class Pipeline:
         return False
 
     def run(self) -> None:
-        with self.exit_stack:
+        with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
 
@@ -546,6 +549,11 @@ class Pipeline:
                     ):
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
+
+                # Stateful ingestion generates the updated state objects as part of the
+                # source's close method. Because of that, we need to close the source
+                # before we call process_commits.
+                self.inner_exit_stack.close()
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
