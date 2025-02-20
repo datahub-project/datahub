@@ -593,6 +593,9 @@ fragment dataJobFields on DataJob {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    dataTransformLogic {
+        ...dataTransformLogicFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -1441,6 +1444,9 @@ fragment entityDisplayNameFields on Entity {
             qualifiedName
         }
     }
+    ... on SchemaFieldEntity {
+        fieldPath
+    }
     ... on OwnershipTypeEntity {
         info {
             name
@@ -1787,6 +1793,14 @@ fragment datasetProfileFields on DatasetProfile {
         median
         stdev
         sampleValues
+        quantiles {
+            quantile
+            value
+        }
+        distinctValueFrequencies {
+            value
+            frequency
+        }
     }
 }
 
@@ -1816,6 +1830,15 @@ fragment notes on Entity {
                     }
                 }
             }
+        }
+    }
+}
+
+fragment dataTransformLogicFields on DataTransformLogic {
+    transforms {
+        queryStatement {
+            value
+            language
         }
     }
 }

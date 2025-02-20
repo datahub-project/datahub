@@ -1,5 +1,6 @@
 import datetime
 import logging
+import platform
 import re
 
 # This import verifies that the dependencies are available.
@@ -85,6 +86,16 @@ class OracleConfig(BasicSQLAlchemyConfig):
         description="The data dictionary views mode, to extract information about schema objects "
         "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
     )
+    # oracledb settings to enable thick mode and client library location
+    enable_thick_mode: Optional[bool] = Field(
+        default=False,
+        description="Connection defaults to thin mode. Set to True to enable thick mode.",
+    )
+    thick_mode_lib_dir: Optional[str] = Field(
+        default=None,
+        description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
+        "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
@@ -99,6 +110,18 @@ class OracleConfig(BasicSQLAlchemyConfig):
         if values not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return values
+
+    @pydantic.validator("thick_mode_lib_dir", always=True)
+    def check_thick_mode_lib_dir(cls, v, values):
+        if (
+            v is None
+            and values.get("enable_thick_mode")
+            and (platform.system() == "Darwin" or platform.system() == "Windows")
+        ):
+            raise ValueError(
+                "Specify 'thick_mode_lib_dir' on Mac/Windows when enable_thick_mode is true"
+            )
+        return v
 
     def get_sql_alchemy_url(self):
         url = super().get_sql_alchemy_url()
@@ -617,6 +640,17 @@ class OracleSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
+
+        # if connecting to oracle with enable_thick_mode, it must be initialized before calling
+        # create_engine, which is called in get_inspectors()
+        # https://python-oracledb.readthedocs.io/en/latest/user_guide/initialization.html#enabling-python-oracledb-thick-mode
+        if self.config.enable_thick_mode:
+            if platform.system() == "Darwin" or platform.system() == "Windows":
+                # windows and mac os require lib_dir to be set explicitly
+                oracledb.init_oracle_client(lib_dir=self.config.thick_mode_lib_dir)
+            else:
+                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                oracledb.init_oracle_client()
 
     @classmethod
     def create(cls, config_dict, ctx):

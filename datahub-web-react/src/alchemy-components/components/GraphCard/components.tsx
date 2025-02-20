@@ -3,6 +3,7 @@ import styled from 'styled-components';
 export const GraphCardHeader = styled.div`
     display: flex;
     flex-direction: row;
+    gap: 16px;
     justify-content: space-between;
 `;
 

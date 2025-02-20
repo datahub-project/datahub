@@ -127,12 +127,6 @@ public class TestMCP implements ChangeMCP {
   @Setter private long nextAspectVersion;
   @Setter private Map<String, String> headers;
 
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
-    return null;
-  }
-
   @Override
   public Map<String, String> getHeaders() {
     return Optional.ofNullable(metadataChangeProposal)
