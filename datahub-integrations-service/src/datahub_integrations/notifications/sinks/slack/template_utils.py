@@ -655,6 +655,210 @@ def build_incident_reopened_message(
 
     return (text, blocks, attachments)
 
+def build_proposal_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    # Extract parameters or set defaults if none provided
+    request_parameters = request.message.parameters or {}
+
+    # Extract proposal details
+    proposal_details = extract_proposal_details(
+        request_parameters, base_url, identity_provider
+    )
+
+    # Ensure URN is a string, even if None (fallback to empty string)
+    urn = proposal_details.get("urn", "")
+
+    proposal_context = ProposalContext(urn=urn)
+
+    # Accept button
+    accept_button = {
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Accept"},
+        "style": "primary",
+        "value": json.dumps(dataclasses.asdict(proposal_details)),
+        "action_id": "accept_proposal",
+    }
+
+    # Reject button
+    reject_button = {
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Reject"},
+        "style": "primary",
+        "value": json.dumps(dataclasses.asdict(proposal_details)),
+        "action_id": "reopen_incident",
+    }
+
+    # Define action buttons for the Slack message
+    action_buttons: List[Dict[str, Any]] = [
+        accept_button,
+        reject_button,
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "View Details"},
+            "url": proposal_context.get("url"),
+            "action_id": "external_redirect",
+        },
+    ]
+
+    # For now, we only show open proposal color. 
+    # status_color = (
+    #    ACTIVE_INCIDENT_COLOR if status == "ACTIVE" else RESOLVED_INCIDENT_COLOR
+    #)
+
+    # Create proposal attachment for the Slack message
+    attachments = create_proposal_attachment(
+        title=proposal_details.get("title"),
+        message=proposal_details.get("message"),
+        final_type=proposal_details.get("type"),  # Default to empty string if None
+        action_buttons=action_buttons,
+        color=ACTIVE_INCIDENT_COLOR,
+        context=proposal_context,
+    )
+
+    # Build the entity part only if an entity is specified.
+    entity_str = (
+        f" for {proposal_details.get('entity_platform') + ' ' if proposal_details.get('entity_platform') else ''}"
+        f"{proposal_details.get('entity_type') + ' ' if proposal_details.get('entity_type') else ''}"
+        f"<{proposal_details.get('url')}|{proposal_details.get('entity_name')}>"
+        if proposal_details.get('entity_name') else ""
+    )
+
+    # Build the actor part only if an actor is specified.
+    actor_str = f" by *{proposal_details.get('actor_name')}*" if proposal_details.get('actor_name') else ""
+
+    # Construct the full message.
+    text = (
+        f"*New Change Proposal*\n"
+        f"A new {proposal_details.get('type')} proposal has been raised"
+        f"{entity_str}"
+        f"{actor_str}."
+    )
+
+    # Prepare the textual content and structured blocks for the Slack message
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": text
+            },
+        },
+    ]
+
+    return (text, blocks, attachments)
+
+
+def build_proposal_status_change_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    # Safe extraction of parameters from the possibly None `parameters` field
+    request_parameters = request.message.parameters or {}
+
+    # Safely obtain the new status, with a default to None if not specified
+    new_status = request_parameters.get("newStatus")
+
+    # Handle different incident statuses robustly with explicit checks
+    if new_status == PROPOSAL_STATUS_ACCEPTED:
+        return build_proposal_accepted_message(
+            request, identity_provider, base_url
+        )
+    elif new_status == PROPOSAL_STATUS_REJECTED:
+        return build_proposal_rejected_message(
+            request, identity_provider, base_url
+        )
+    else:
+        # This handles cases where new_status is neither ACCEPTED nor REJECTED, including None
+        raise ValueError(f"Unrecognized proposal status {new_status} provided!")
+
+def build_proposal_accepted_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    # Extract parameters safely or default to an empty dictionary
+    request_parameters = request.message.parameters or {}
+    
+    # Extract proposal details (assume extract_proposal_details returns a dict)
+    proposal_details = extract_proposal_details(request_parameters, base_url, identity_provider)
+    
+    # Build the asset part only if an asset (entity_name) is provided
+    asset_str = (
+        f" for asset <{proposal_details.get('url')}|{proposal_details.get('entity_name')}>"
+        if proposal_details.get('entity_name') else ""
+    )
+    
+    # Build the actor part only if an actor name is provided
+    actor_str = f" by {proposal_details.get('actor_name')}" if proposal_details.get('actor_name') else ""
+    
+    # Construct the message text. It will read:
+    # "Proposal to add tag X for asset Y by U has been accepted!"
+    text = (
+        f":white_check_mark: *Proposal Accepted*\n\n"
+        f"Proposal to {proposal_details.get('title', 'None')}"
+        f"{asset_str}"
+        f"{actor_str}"
+        " has been accepted!"
+    )
+    
+    # Example Slack block layout using the constructed text
+    blocks = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": text},
+        }
+    ]
+    
+    return (text, blocks, [])
+
+
+def build_proposal_rejected_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    # Extract parameters safely or default to an empty dictionary
+    request_parameters = request.message.parameters or {}
+    
+    # Extract proposal details (assume extract_proposal_details returns a dict)
+    proposal_details = extract_proposal_details(request_parameters, base_url, identity_provider)
+    
+    # Build the asset part only if an asset (entity_name) is provided
+    asset_str = (
+        f" for asset <{proposal_details.get('url')}|{proposal_details.get('entity_name')}>"
+        if proposal_details.get('entity_name') else ""
+    )
+    
+    # Build the creator part only if an actor name is provided
+    creator_str = f" by {proposal_details.get('creator_name')}" if proposal_details.get('creator_name') else ""
+    actor_str = f" by {proposal_details.get('actor_name')}" if proposal_details.get('actor_name') else ""
+
+    # Construct the message text. It will read:
+    # "Proposal to add tag X for asset Y by U has been accepted!"
+    text = (
+        f":warning: *Proposal Rejected*\n\n"
+        f"Proposal to {proposal_details.get('title', 'None')}"
+        f"{asset_str}"
+        f"{creator_str}"
+        " has been rejected"
+        f"{actor_str}"
+    )
+
+    # Example Slack block layout using the constructed text
+    blocks = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": text},
+        }
+    ]
+    
+    return (text, blocks, [])
+
+
 
 def create_actors_tag_string(
     slack_client: WebClient, actors: List[Union[User, Group]]
