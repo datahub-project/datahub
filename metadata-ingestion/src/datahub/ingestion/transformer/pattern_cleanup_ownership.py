@@ -82,7 +82,7 @@ class PatternCleanUpOwnership(OwnershipTransformer):
                 logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
-            OwnershipTypeClass.DATAOWNER
+            OwnershipTypeClass.TECHNICAL_OWNER
         )
         owners = [
             OwnerClass(
