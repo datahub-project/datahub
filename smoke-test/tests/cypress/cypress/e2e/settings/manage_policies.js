@@ -78,8 +78,7 @@ function deletePolicy(policyEdited, deletePolicy) {
 
 describe("create and manage platform and metadata policies", () => {
   beforeEach(() => {
-    cy.loginWithCredentials();
-    cy.visit("/settings/permissions/policies");
+    cy.visitWithLogin("/settings/permissions/policies");
   });
 
   it("create platform policy", () => {

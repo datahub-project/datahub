@@ -23,8 +23,20 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
@@ -63,8 +75,7 @@ T = TypeVar("T")
 class ContainerKeyWithId(ContainerKey):
     id: str
 
-
-class MLflowConfig(EnvConfigMixin):
+class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
         description="Tracking server URI. If not set, an MLflow default tracking_uri is used (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)",
@@ -113,7 +124,7 @@ class MLflowEntityMap:
     "Extract descriptions for MLflow Registered Models and Model Versions",
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
-class MLflowSource(Source):
+class MLflowSource(StatefulIngestionSourceBase):
     platform = "mlflow"
     registered_model_stages_info = (
         MLflowRegisteredModelStageInfo(
@@ -139,9 +150,10 @@ class MLflowSource(Source):
     )
 
     def __init__(self, ctx: PipelineContext, config: MLflowConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
+        self.ctx = ctx
         self.config = config
-        self.report = SourceReport()
+        self.report = StaleEntityRemovalSourceReport()
         self.client = MlflowClient(
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
@@ -150,6 +162,14 @@ class MLflowSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._get_tags_workunits()
