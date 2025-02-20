@@ -250,8 +250,8 @@ def auto_browse_path_v2(
     emitted_urns: Set[str] = set()
     containers_used_as_parent: Set[str] = set()
     for urn, batch in _batch_workunits_by_urn(stream):
-        # DataProcessInstances aren't shown in search and don't support the browsePathV2 aspect
-        if guess_entity_type(urn) == "dataProcessInstance":
+        # Do not generate browse path v2 for entities that do not support it
+        if not entity_supports_aspect(guess_entity_type(urn), BrowsePathsV2Class):
             yield from batch
             continue
         container_path: Optional[List[BrowsePathEntryClass]] = None
