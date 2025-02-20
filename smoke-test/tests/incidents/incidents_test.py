@@ -141,7 +141,7 @@ def test_raise_resolve_incident(auth_session):
 
     # Resolve the incident.
     update_incident_status = {
-        "query": """mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {\n
+        "query": """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {\n
             updateIncidentStatus(urn: $urn, input: $input)
         }""",
         "variables": {
