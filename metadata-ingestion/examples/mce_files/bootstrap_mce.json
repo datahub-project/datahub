@@ -1820,6 +1820,25 @@
     "proposedDelta": null
   },
   {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "json": {
+        "siblings": [
+          "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+        ],
+        "primary": true
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1722387035241,
+      "runId": "datahub_source.DataHubSource-2024_07_30-17_50_34",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {

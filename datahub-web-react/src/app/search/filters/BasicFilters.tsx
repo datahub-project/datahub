@@ -25,6 +25,7 @@ import {
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
 import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -74,6 +75,7 @@ export default function BasicFilters({
     showAdvancedFilters,
 }: Props) {
     const userContext = useUserContext();
+    const { config } = useAppConfig();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
     // only want Environment filter if there's 2 or more envs
@@ -99,6 +101,7 @@ export default function BasicFilters({
                                 filter,
                                 activeFilters,
                                 onChangeFilters,
+                                config,
                             })
                         ) : (
                             <SearchFilter

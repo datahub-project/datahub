@@ -10,6 +10,7 @@ import useSearchFilterAnalytics from './useSearchFilterAnalytics';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
 import { FilterPredicate } from './types';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 const DropdownMenu = styled.div<{ padding?: string }>`
     background-color: white;
@@ -34,6 +35,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
+    const { config } = useAppConfig();
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
@@ -57,6 +59,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                                 filter,
                                 activeFilters,
                                 onChangeFilters: updateFiltersAndClose,
+                                config,
                             })
                         ) : (
                             <MoreFilterOption

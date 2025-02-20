@@ -9,6 +9,7 @@ import { SearchFilterLabel } from './styledComponents';
 import useSearchFilterAnalytics from './useSearchFilterAnalytics';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 const StyledPlus = styled(PlusOutlined)`
     svg {
@@ -39,6 +40,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
+    const { config } = useAppConfig();
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
@@ -62,6 +64,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
                                 filter,
                                 activeFilters,
                                 onChangeFilters: updateFiltersAndClose,
+                                config,
                             })
                         ) : (
                             <MoreFilterOption

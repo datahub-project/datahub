@@ -15,6 +15,7 @@ import { FilterScenarioType } from './render/types';
 import SearchFiltersLoadingSection from './SearchFiltersLoadingSection';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { FilterPredicate } from './types';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 
@@ -68,6 +69,7 @@ export default function SearchFilterOptions({
     // If we move view select down, then move this down into a sibling component.
     const userContext = useUserContext();
     const filterRendererRegistry = useFilterRendererRegistry();
+    const { config } = useAppConfig();
     const fieldsWithCustomRenderers = Array.from(filterRendererRegistry.fieldNameToRenderer.keys());
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
@@ -131,6 +133,7 @@ export default function SearchFilterOptions({
                             filter,
                             activeFilters,
                             onChangeFilters,
+                            config,
                         })
                     ) : (
                         <SearchFilter
