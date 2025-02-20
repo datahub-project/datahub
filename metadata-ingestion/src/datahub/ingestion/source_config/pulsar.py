@@ -33,7 +33,9 @@ def _is_valid_hostname(hostname: str) -> bool:
 
 
 class PulsarSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
 ):
     web_service_url: str = Field(
         default="http://localhost:8080", description="The web URL for the cluster."

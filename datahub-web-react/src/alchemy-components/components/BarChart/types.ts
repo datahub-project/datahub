@@ -1,38 +1,68 @@
-import { AxisScaleOutput } from '@visx/axis';
+import { AxisScaleOutput, TickRendererProps } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
 import { Margin } from '@visx/xychart';
 import { AxisProps as VisxAxisProps } from '@visx/xychart/lib/components/axis/Axis';
 import { GridProps as VisxGridProps } from '@visx/xychart/lib/components/grid/Grid';
 
-export type AxisProps<DatumType extends object> = Omit<VisxAxisProps, 'orientation' | 'numTicks'> & {
-    computeNumTicks?: (width: number, height: number, margin: Margin, data: DatumType[]) => number | undefined;
+export enum ColorScheme {
+    Violet = 'VIOLET',
+    Blue = 'BLUE',
+    Pink = 'PINK',
+    Orange = 'ORANGE',
+    Green = 'GREEN',
+}
+
+export interface BaseDatum {
+    x: number;
+    y: number;
+}
+
+export type Datum = BaseDatum & {
+    colorScheme?: ColorScheme;
 };
 
-export type GridProps<DatumType extends object> = Omit<VisxGridProps, 'numTicks'> & {
-    computeNumTicks?: (width: number, height: number, margin: Margin, data: DatumType[]) => number | undefined;
+export type AxisProps = Omit<VisxAxisProps, 'orientation' | 'numTicks'> & {
+    computeNumTicks?: (width: number, height: number, margin: Margin, data: BaseDatum[]) => number | undefined;
 };
 
-export type YAccessor<T> = (datum: T) => number;
+export type GridProps = Omit<VisxGridProps, 'numTicks'> & {
+    computeNumTicks?: (width: number, height: number, margin: Margin, data: BaseDatum[]) => number | undefined;
+};
 
-export type BarChartProps<DatumType extends object> = {
-    data: DatumType[];
+export type ValueAccessor = (datum: BaseDatum) => number;
+export type YAccessor = ValueAccessor;
+export type XAccessor = ValueAccessor;
+
+export type ColorAccessor = (datum: Datum, index: number) => string;
+
+export type Scale = ScaleConfig<AxisScaleOutput, any, any>;
+
+export type BarChartProps = {
+    data: Datum[];
     isEmpty?: boolean;
+    horizontal?: boolean;
 
-    xAccessor: (datum: DatumType) => string | number;
-    yAccessor: YAccessor<DatumType>;
-    xScale?: ScaleConfig<AxisScaleOutput, any, any>;
-    yScale?: ScaleConfig<AxisScaleOutput, any, any>;
+    xScale?: Scale;
+    yScale?: Scale;
     maxYDomainForZeroData?: number;
     minYForZeroData?: number;
 
-    barColor?: string;
-    barSelectedColor?: string;
-    margin?: Margin;
+    margin?: Partial<Margin>;
 
-    leftAxisProps?: AxisProps<DatumType>;
-    bottomAxisProps?: AxisProps<DatumType>;
-    gridProps?: GridProps<DatumType>;
+    leftAxisProps?: AxisProps;
+    showLeftAxisLine?: boolean;
+    maxLengthOfLeftAxisLabel?: number;
+    bottomAxisProps?: AxisProps;
+    gridProps?: GridProps;
 
-    popoverRenderer?: (datum: DatumType) => React.ReactNode;
-    renderGradients?: () => React.ReactNode;
+    popoverRenderer?: (datum: Datum) => React.ReactNode;
+};
+
+export type TruncatableTickProps = TickRendererProps & {
+    limit?: number;
+};
+
+export type ColorSchemeParams = {
+    mainColor: string;
+    alternativeColor: string;
 };
