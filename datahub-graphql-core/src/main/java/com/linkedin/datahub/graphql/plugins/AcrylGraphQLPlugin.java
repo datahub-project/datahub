@@ -115,6 +115,7 @@ import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.CreateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetDefaultRemoteExecutorPoolResolver;
+import com.linkedin.datahub.graphql.resolvers.remoteexecutor.GetRemoteExecutorResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorPoolsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutorsResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
@@ -550,6 +551,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "listRemoteExecutorPools",
                     new ListRemoteExecutorPoolsResolver(this.entityClient))
+                .dataFetcher("getRemoteExecutor", new GetRemoteExecutorResolver(this.entityClient))
                 .dataFetcher(
                     "defaultRemoteExecutorPool",
                     new GetDefaultRemoteExecutorPoolResolver(this.entityClient)));
