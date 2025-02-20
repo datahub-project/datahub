@@ -515,40 +515,89 @@ WHERE {where_clause}"""
     ) -> str:
         """
         Helper method to wrap a base query with partition filters
+        Ensures all required partition columns have appropriate filters by getting max values.
         """
         current_time = datetime.now(timezone.utc)
         partition_filters = []
 
+        # Get BQ client for querying partition values
+        bq_client = self.config.get_bigquery_client()
+
         # Handle required partition columns
-        if hasattr(table, "columns") and table.columns:  # Add hasattr check
-            # Common date partition columns + any custom partition columns marked in schema
-            required_columns = {"year", "month", "day"}
+        if hasattr(table, "columns") and table.columns:
+            # Get all partition columns
+            partition_columns = [
+                col for col in table.columns if col.is_partition_column
+            ]
+
+            # Also check partition info columns if available
             if (
                 table.partition_info
                 and hasattr(table.partition_info, "columns")
                 and table.partition_info.columns
-            ):  # Add hasattr check
-                required_columns.update(
-                    col.name.lower() for col in table.partition_info.columns
+            ):
+                partition_columns.extend(
+                    col
+                    for col in table.partition_info.columns
+                    if col not in partition_columns
                 )
 
-            for col in table.columns:
-                if col.name.lower() in required_columns:
-                    if col.name.lower() == "year":
-                        partition_filters.append(f"`{col.name}` = {current_time.year}")
-                    elif col.name.lower() == "month":
-                        partition_filters.append(f"`{col.name}` = {current_time.month}")
-                    elif col.name.lower() == "day":
-                        partition_filters.append(f"`{col.name}` = {current_time.day}")
-                    else:
-                        # For any other required partition column, use IS NOT NULL
-                        partition_filters.append(f"`{col.name}` IS NOT NULL")
+            # Add filters for each partition column
+            for col in partition_columns:
+                col_name_lower = col.name.lower()
+
+                # Handle common time-based partition columns
+                if col_name_lower == "year":
+                    partition_filters.append(f"`{col.name}` = {current_time.year}")
+                elif col_name_lower == "month":
+                    partition_filters.append(f"`{col.name}` = {current_time.month}")
+                elif col_name_lower == "day":
+                    partition_filters.append(f"`{col.name}` = {current_time.day}")
+                elif col.data_type and col.data_type.lower() in (
+                    "timestamp",
+                    "date",
+                    "datetime",
+                ):
+                    partition_filters.append(
+                        f"`{col.name}` = {col.data_type}('{current_time}')"
+                    )
+                else:
+                    # For any other partition column, we need to get a specific value
+                    try:
+                        # Query for the max value to use in partition filter
+                        query = f"""
+                        SELECT MAX({col.name}) as max_val 
+                        FROM `{project}.{schema}.{table.name}`
+                        """
+                        query_job = bq_client.query(query)
+                        results = list(query_job)
+
+                        if not results or results[0].max_val is None:
+                            logger.warning(
+                                f"No values found for partition column {col.name}"
+                            )
+                            return base_query
+
+                        max_val = results[0].max_val
+
+                        # Handle different data types
+                        if isinstance(max_val, (int, float)):
+                            partition_filters.append(f"`{col.name}` = {max_val}")
+                        else:
+                            partition_filters.append(f"`{col.name}` = '{max_val}'")
+
+                    except Exception as e:
+                        logger.error(
+                            f"Error getting partition value for {col.name}: {e}"
+                        )
+                        return base_query
 
         if not partition_filters:
             return base_query
 
         # Inject the partition filters into the base query
         where_clause = " AND ".join(partition_filters)
+        logger.debug(f"Adding partition filters: {where_clause}")
 
         if " WHERE " in base_query.upper():
             modified_query = base_query.replace(
