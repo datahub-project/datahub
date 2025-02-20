@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import { SlidersOutlined } from '@ant-design/icons';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { ORIGIN_FILTER_NAME, UnionType } from '../utils/constants';
@@ -15,7 +16,6 @@ import { FilterScenarioType } from './render/types';
 import SearchFiltersLoadingSection from './SearchFiltersLoadingSection';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { FilterPredicate } from './types';
-import { useAppConfig } from '@src/app/useAppConfig';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
 

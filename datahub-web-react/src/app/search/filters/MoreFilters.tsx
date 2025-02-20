@@ -2,6 +2,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import MoreFilterOption from './MoreFilterOption';
 import { getNumActiveFiltersForGroupOfFilters } from './utils';
@@ -9,7 +10,6 @@ import { SearchFilterLabel } from './styledComponents';
 import useSearchFilterAnalytics from './useSearchFilterAnalytics';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
-import { useAppConfig } from '@src/app/useAppConfig';
 
 const StyledPlus = styled(PlusOutlined)`
     svg {
