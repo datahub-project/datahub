@@ -107,6 +107,26 @@ class AlterTableRow:
     start_time: datetime
 
 
+@dataclass
+class OutboundDatashare:
+    share_name: str
+    producer_namespace: str
+    source_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+
+@dataclass
+class InboundDatashare:
+    share_name: str
+    producer_namespace: str
+    consumer_database: str
+
+    def get_key(self) -> str:
+        return f"{self.producer_namespace}.{self.share_name}"
+
+
 def _stringy(x: Optional[int]) -> Optional[str]:
     if x is None:
         return None
@@ -508,3 +528,32 @@ class RedshiftDataDictionary:
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_outbound_datashares(
+        conn: redshift_connector.Connection,
+    ) -> Iterable[OutboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.list_outbound_datashares())
+        for item in cursor.fetchall():
+            yield OutboundDatashare(
+                share_name=item[1],
+                producer_namespace=item[2],
+                source_database=item[3],
+            )
+
+    @staticmethod
+    def get_inbound_datashare(
+        conn: redshift_connector.Connection,
+        database: str,
+    ) -> Optional[InboundDatashare]:
+        cursor = conn.cursor()
+        cursor.execute(RedshiftCommonQuery.get_inbound_datashare(database))
+        item = cursor.fetchone()
+        if item:
+            return InboundDatashare(
+                share_name=item[1],
+                producer_namespace=item[2],
+                consumer_database=item[3],
+            )
+        return None
