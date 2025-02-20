@@ -312,6 +312,7 @@ const platformSelector: Field = {
                     'urn:li:dataPlatform:tableau',
                     'urn:li:dataPlatform:looker',
                     'urn:li:dataPlatform:powerbi',
+                    'urn:li:dataPlatform:hudi',
                     'urn:li:dataPlatform:kafka',
                 ],
             },
