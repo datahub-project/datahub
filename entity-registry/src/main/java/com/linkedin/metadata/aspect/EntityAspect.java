@@ -1,18 +1,21 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.aspect;
 
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.utils.EntityApiUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -21,6 +24,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
+@Builder(toBuilder = true)
 public class EntityAspect {
 
   @Nonnull private String urn;
@@ -76,57 +81,48 @@ public class EntityAspect {
   /**
    * Provide a typed EntityAspect without breaking the existing public contract with generic types.
    */
-  @Builder
+  @Accessors(chain = true)
+  @Builder(toBuilder = true)
   @Getter
   @EqualsAndHashCode
+  @AllArgsConstructor
   public static class EntitySystemAspect implements SystemAspect {
-    @Nonnull private final EntityAspect entityAspect;
+    @Nullable private EntityAspect entityAspect;
     @Nonnull private final Urn urn;
 
     /** Note that read mutations depend on the mutability of recordTemplate */
-    @Nullable private final RecordTemplate recordTemplate;
+    @Setter @Nullable private RecordTemplate recordTemplate;
+
+    @Setter @Nullable private SystemMetadata systemMetadata;
+    @Setter @Nullable private AuditStamp auditStamp;
 
     @Nonnull private final EntitySpec entitySpec;
     @Nullable private final AspectSpec aspectSpec;
 
     @Nonnull
     public String getUrnRaw() {
-      return entityAspect.getUrn();
-    }
-
-    @Nullable
-    public String getSystemMetadataRaw() {
-      return entityAspect.getSystemMetadata();
-    }
-
-    public String getMetadataRaw() {
-      return entityAspect.getMetadata();
+      return urn.toString();
     }
 
     @Override
     public Timestamp getCreatedOn() {
-      return entityAspect.getCreatedOn();
+      return auditStamp != null ? new Timestamp(auditStamp.getTime()) : null;
     }
 
     @Override
     public String getCreatedBy() {
-      return entityAspect.getCreatedBy();
+      return auditStamp != null ? auditStamp.getActor().toString() : null;
     }
 
     @Override
     @Nonnull
     public String getAspectName() {
-      return entityAspect.aspect;
+      return aspectSpec.getName();
     }
 
     @Override
     public long getVersion() {
-      return entityAspect.getVersion();
-    }
-
-    @Nullable
-    public SystemMetadata getSystemMetadata() {
-      return EntityApiUtils.parseSystemMetadata(getSystemMetadataRaw());
+      return entityAspect == null ? 0 : entityAspect.getVersion();
     }
 
     /**
@@ -165,24 +161,53 @@ public class EntityAspect {
       return envelopedAspect;
     }
 
-    @Override
-    public String toString() {
-      return entityAspect.toString();
-    }
-
     public static class EntitySystemAspectBuilder {
 
       private EntityAspect.EntitySystemAspect build() {
-        return null;
+        return new EntitySystemAspect(
+            this.entityAspect,
+            this.urn,
+            this.recordTemplate,
+            this.systemMetadata,
+            this.auditStamp,
+            this.entitySpec,
+            this.aspectSpec);
       }
 
-      public EntityAspect.EntitySystemAspect build(
+      public EntityAspect.EntitySystemAspect forInsert(
+          @Nonnull EntityAspect entityAspect, @Nonnull EntityRegistry entityRegistry) {
+        this.urn = UrnUtils.getUrn(entityAspect.getUrn());
+        this.entitySpec = entityRegistry.getEntitySpec(this.urn.getEntityType());
+        this.aspectSpec = entitySpec.getAspectSpec(entityAspect.getAspect());
+        fromEntityAspect(entityAspect);
+        return build();
+      }
+
+      public EntityAspect.EntitySystemAspect forUpdate(
+          @Nonnull EntityAspect entityAspect, @Nonnull EntityRegistry entityRegistry) {
+
+        this.entityAspect = entityAspect;
+
+        this.urn = UrnUtils.getUrn(entityAspect.getUrn());
+        this.entitySpec = entityRegistry.getEntitySpec(this.urn.getEntityType());
+        this.aspectSpec = entitySpec.getAspectSpec(entityAspect.getAspect());
+        fromEntityAspect(this.entityAspect);
+        return build();
+      }
+
+      public EntityAspect.EntitySystemAspect forUpdate(
           @Nonnull EntitySpec entitySpec,
           @Nullable AspectSpec aspectSpec,
           @Nonnull EntityAspect entityAspect) {
         this.entityAspect = entityAspect;
-        this.urn = UrnUtils.getUrn(entityAspect.getUrn());
+        this.entitySpec = entitySpec;
         this.aspectSpec = aspectSpec;
+        fromEntityAspect(this.entityAspect);
+        return build();
+      }
+
+      private void fromEntityAspect(@Nonnull EntityAspect entityAspect) {
+        this.urn = UrnUtils.getUrn(entityAspect.getUrn());
         if (entityAspect.getMetadata() != null) {
           this.recordTemplate =
               RecordUtils.toRecordTemplate(
@@ -192,9 +217,59 @@ public class EntityAspect {
                           : aspectSpec.getDataTemplateClass()),
                   entityAspect.getMetadata());
         }
-
-        return new EntitySystemAspect(entityAspect, urn, recordTemplate, entitySpec, aspectSpec);
+        if (entityAspect.getSystemMetadata() != null) {
+          this.systemMetadata =
+              SystemMetadataUtils.parseSystemMetadata(entityAspect.getSystemMetadata());
+        }
+        if (entityAspect.getCreatedBy() != null) {
+          this.auditStamp =
+              new AuditStamp()
+                  .setActor(UrnUtils.getUrn(entityAspect.getCreatedBy()))
+                  .setTime(entityAspect.getCreatedOn().getTime())
+                  .setImpersonator(
+                      Optional.ofNullable(entityAspect.getCreatedFor())
+                          .map(UrnUtils::getUrn)
+                          .orElse(null),
+                      SetMode.IGNORE_NULL);
+        }
       }
+    }
+
+    @Nonnull
+    @Override
+    public SystemAspect copy() {
+      return this.toBuilder().entityAspect(null).build();
+    }
+
+    @Nonnull
+    @Override
+    public Optional<SystemAspect> getDatabaseAspect() {
+      return Optional.ofNullable(entityAspect)
+          .map(a -> EntitySystemAspect.builder().forUpdate(entitySpec, aspectSpec, a));
+    }
+
+    @Nonnull
+    @Override
+    public SystemAspect setDatabaseAspect(@Nonnull SystemAspect databaseAspect) {
+      this.entityAspect = databaseAspect.withVersion(databaseAspect.getVersion());
+      return this;
+    }
+
+    @Override
+    @Nonnull
+    public EntityAspect withVersion(long version) {
+      return new EntityAspect(
+          urn.toString(),
+          aspectSpec.getName(),
+          version,
+          Optional.ofNullable(recordTemplate).map(RecordUtils::toJsonString).orElse(null),
+          Optional.ofNullable(systemMetadata).map(RecordUtils::toJsonString).orElse(null),
+          Optional.ofNullable(auditStamp).map(a -> new Timestamp(a.getTime())).orElse(null),
+          Optional.ofNullable(auditStamp).map(AuditStamp::getActor).map(Urn::toString).orElse(null),
+          Optional.ofNullable(auditStamp)
+              .map(AuditStamp::getImpersonator)
+              .map(Urn::toString)
+              .orElse(null));
     }
   }
 }

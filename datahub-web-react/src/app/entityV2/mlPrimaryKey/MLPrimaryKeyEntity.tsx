@@ -129,10 +129,10 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             component: SidebarGlossaryTermsSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 
