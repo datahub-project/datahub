@@ -1,5 +1,5 @@
-import {CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined} from '@ant-design/icons';
-import {LineageTab} from "@app/entityV2/shared/tabs/Lineage/LineageTab";
+import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '../../../types.generated';
