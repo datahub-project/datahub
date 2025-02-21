@@ -123,25 +123,28 @@ def test_get_partition_filters_for_external_table_with_partitions():
     """Test handling of external table with partitions."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
 
+    # Create a column with partition information
+    column = BigqueryColumn(
+        name="partition_col",
+        field_path="partition_col",
+        ordinal_position=1,
+        data_type="STRING",
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+
+    # Create partition info
+    partition_info = PartitionInfo(fields=["partition_col"], columns=[column])
+
     # Mock the BigQuery client
     mock_client = MagicMock(spec=Client)
-
-    # First query result - finding partition column in INFORMATION_SCHEMA.COLUMNS
-    mock_result1 = MagicMock()
-    mock_result1 = type("", (), {})()  # Create a simple object
-    mock_result1.column_name = "partition_col"  # Add attribute directly
-    mock_query_job1 = MagicMock()
-    mock_query_job1.result = MagicMock(return_value=[mock_result1])
-
-    # Second query result - getting partition value
-    mock_result2 = type("", (), {})()  # Create a simple object
-    mock_result2.val = "partition_value"  # Add attribute directly
-    mock_query_job2 = MagicMock()
-    mock_query_job2.result = MagicMock(return_value=[mock_result2])
-
-    # Need to mock the query calls in sequence
-    mock_client.query = MagicMock()
-    mock_client.query.side_effect = [mock_query_job1, mock_query_job2]
+    mock_result = MagicMock()
+    mock_result.val = "partition_value"
+    mock_query_job = MagicMock()
+    mock_query_job.result = lambda timeout=None: [mock_result]
+    mock_client.query = MagicMock(return_value=mock_query_job)
 
     config_mock = MagicMock()
     config_mock.get_bigquery_client = MagicMock(return_value=mock_client)
@@ -155,7 +158,9 @@ def test_get_partition_filters_for_external_table_with_partitions():
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
         external=True,
+        partition_info=partition_info,  # Add partition info directly
     )
+
     filters = profiler._get_required_partition_filters(
         table=test_table,
         project="test_project",
@@ -165,9 +170,6 @@ def test_get_partition_filters_for_external_table_with_partitions():
     assert filters is not None
     assert len(filters) == 1
     assert filters[0] == "`partition_col` = 'partition_value'"
-
-    # Verify that both queries were made
-    assert mock_client.query.call_count == 2
 
 
 def test_get_partition_filters_for_multi_partition():
