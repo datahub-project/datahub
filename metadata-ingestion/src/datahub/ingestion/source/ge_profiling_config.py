@@ -181,7 +181,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     profile_external_tables: bool = Field(
         default=False,
-        description="Whether to profile external tables. Only Snowflake, BigQuery and Redshift supports this.",
+        description="Whether to profile external tables. Only Snowflake, BigQuery and Redshift support this.",
     )
 
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
