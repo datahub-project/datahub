@@ -179,6 +179,7 @@ public class ServletConfig implements WebMvcConfigurer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);
@@ -235,7 +236,8 @@ public class ServletConfig implements WebMvcConfigurer {
             MediaType.APPLICATION_JSON,
             MediaType.APPLICATION_XML,
             MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
-            MediaType.valueOf("application/json-patch+json")));
+            MediaType.valueOf("application/json-patch+json"),
+            MediaType.valueOf("application/vnd.schemaregistry.v1+json")));
     return converter;
   }
 
