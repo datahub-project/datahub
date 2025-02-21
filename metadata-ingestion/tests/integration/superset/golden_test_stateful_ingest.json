@@ -45,7 +45,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -82,7 +82,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "BAR"
@@ -93,7 +93,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -130,7 +130,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "PIE"
@@ -141,7 +141,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -178,7 +178,7 @@
                         "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:external,test_database_name.test_schema_name.test_table_name,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
                             }
                         ],
                         "type": "AREA"
@@ -189,7 +189,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -197,7 +197,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -224,10 +224,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -235,7 +261,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -243,7 +269,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -270,10 +296,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -281,7 +333,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -289,7 +341,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -316,10 +368,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -327,7 +405,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -335,7 +413,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -362,10 +440,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -373,7 +477,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -381,7 +485,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -408,10 +512,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -419,7 +549,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -427,7 +557,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -454,10 +584,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -465,7 +621,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -473,7 +629,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -500,10 +656,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -511,7 +693,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -519,7 +701,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -546,10 +728,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -557,7 +765,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -565,7 +773,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
@@ -592,10 +800,36 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com",
+                        "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2",
                         "name": "Test Table 2",
                         "description": "",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgresql,test_database1.test_schema2.Test Table 2,PROD)",
+                                "type": "TRANSFORMED",
+                                "properties": {
+                                    "externalUrl": "mock://mock-domain.superset.com/tablemodelview/edit/2"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
                     }
                 }
             ]
@@ -603,14 +837,14 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema2.Test Table 2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -620,24 +854,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema1.Test Table 1,PROD)",
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:superset:physical",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "removed": true
+            "name": "superset:physical"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -654,7 +888,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -671,7 +905,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-83v7ts",
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-kiivj8",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
