@@ -426,6 +426,7 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND ac.owner = :owner"
 
+        # Splitting into queries with UNION ALL for execution efficiency
         text += (
             "\nUNION ALL"
             "\nSELECT"
@@ -478,9 +479,6 @@ class OracleInspectorObjectWrapper:
                     )  # local_column
                     pkeys.append(col_name)
         except Exception as e:
-            logger.error(
-                f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}"
-            )
             self.report.warning(
                 title="Failed to Process Primary Keys",
                 message=(

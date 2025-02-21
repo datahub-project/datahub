@@ -146,14 +146,9 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         assert "CAST(:schema_name AS VARCHAR(128))" in sql_text
 
 
-@pytest.fixture
-def mock_time():
-    return FROZEN_TIME
-
-
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path, mock_time):
+def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
@@ -166,7 +161,7 @@ def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path, moc
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_oracle_source_integration_with_database(pytestconfig, tmp_path, mock_time):
+def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
@@ -179,7 +174,7 @@ def test_oracle_source_integration_with_database(pytestconfig, tmp_path, mock_ti
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_oracle_source_error_handling(pytestconfig, tmp_path, mock_time):
+def test_oracle_source_error_handling(pytestconfig, tmp_path):
     test_case = TestOracleSourceErrorHandling(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
