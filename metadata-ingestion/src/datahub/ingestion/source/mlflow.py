@@ -640,8 +640,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             ),
             hyperParams=hyperparams,
             trainingMetrics=training_metrics,
+            # mlflow tags are dicts, but datahub tags are lists. currently use only keys from mlflow tags
             tags=list(model_version.tags.keys()),
-            groups=[str(ml_model_group_urn)],
+            groups=[ml_model_group_urn],
             trainingJobs=training_jobs,
         )
         wu = self._create_workunit(urn=ml_model_urn, aspect=ml_model_properties)
