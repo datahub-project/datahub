@@ -17,9 +17,6 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
-_USER_URN_PREFIX: str = "urn:li:corpuser:"
-_GROUP_URN_PREFIX: str = "urn:li:corpGroup:"
-
 
 class PatternCleanUpOwnershipConfig(ConfigModel):
     pattern_for_cleanup: List[str]
@@ -74,11 +71,9 @@ class PatternCleanUpOwnership(OwnershipTransformer):
             try:
                 owner: Urn = Urn.from_string(owner_urn)
                 if isinstance(owner, CorpUserUrn):
-                    username = (
-                        f"{_USER_URN_PREFIX}{self._process_owner(owner.username)}"
-                    )
+                    username = str(CorpUserUrn(self._process_owner(owner.username)))
                 elif isinstance(owner, CorpGroupUrn):
-                    username = f"{_GROUP_URN_PREFIX}{self._process_owner(owner.name)}"
+                    username = str(CorpGroupUrn(self._process_owner(owner.name)))
                 else:
                     logger.warning(f"{owner_urn} is not a supported owner type.")
                     username = owner_urn
