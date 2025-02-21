@@ -25,9 +25,38 @@ COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 # Create a symbolic link for CA certificates. This is a workaround
 # to make duckdb work with the CA certificates in the image.
 RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
-RUN wget https://github.com/duckdb/duckdb/releases/download/v0.10.0/duckdb_cli-linux-amd64.zip && \
-    unzip duckdb_cli-linux-amd64.zip && \
+
+# Install required runtime dependencies 
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    libc6 \
+    libstdc++6 \
+    zlib1g \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install DuckDB with extensions
+RUN DUCKDB_VERSION=v1.2.0 && \
+    # Get system architecture
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then \
+        DUCKDB_ARCH="aarch64"; \
+    else \
+        DUCKDB_ARCH="amd64"; \
+    fi && \
+    # Download and extract DuckDB
+    mkdir -p /tmp/duckdb && \
+    cd /tmp/duckdb && \
+    wget -q https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/duckdb_cli-linux-${DUCKDB_ARCH}.zip && \
+    unzip -q duckdb_cli-linux-${DUCKDB_ARCH}.zip && \
+    chmod +x duckdb && \
+    mv duckdb /usr/local/bin/ && \
+    # Clean up
+    cd / && \
+    rm -rf /tmp/duckdb && \
     chown -R datahub /datahub-ingestion
+
 
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 
@@ -41,6 +70,8 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 WORKDIR /datahub-integrations-service
 
 USER datahub
+# Initial extension installation (will be cached)
+RUN duckdb -c "INSTALL httpfs; INSTALL aws;"
 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
@@ -66,7 +97,6 @@ FROM build AS dev-install
 # COPY ./datahub-actions/datahub-actions/setup.py /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
-
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install AS final

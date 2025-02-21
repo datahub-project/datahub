@@ -1,4 +1,5 @@
 import { Tabs, Typography } from 'antd';
+import { useHistory } from 'react-router';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { IngestionSourceList } from './source/IngestionSourceList';
@@ -11,7 +12,8 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import { RemoteExecutorPoolsList } from './executor/RemoteExecutorPoolsList';
+import { RemoteExecutorPoolsList } from './executor_saas/RemoteExecutorPoolsList';
+import { TabType } from './source/types';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -54,18 +56,6 @@ const Tab = styled(Tabs.TabPane)`
 
 const ListContainer = styled.div``;
 
-enum TabType {
-    Sources = 'Sources',
-    Secrets = 'Secrets',
-    RemoteExecutors = 'Executors',
-}
-
-const TabTypeToListComponent = {
-    [TabType.Sources]: <IngestionSourceList />,
-    [TabType.Secrets]: <SecretsList />,
-    [TabType.RemoteExecutors]: <RemoteExecutorPoolsList />,
-};
-
 export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
@@ -75,10 +65,14 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
+
     // TODO: For now remote executors privilege is tied to manage ingestion
-    const showRemoteExecutorsTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
+    const showRemoteExecutorsTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion; // Saas only
+
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const history = useHistory();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -87,11 +81,20 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
-    const onClickTab = (newTab: string) => {
+    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
         setSelectedTab(matchingTab || selectedTab);
+        if (options?.clearQueryParams) {
+            history.push({ search: '' });
+        }
     };
 
+    const TabTypeToListComponent = {
+        [TabType.Sources]: <IngestionSourceList onSwitchTab={onSwitchTab} />,
+        [TabType.Secrets]: <SecretsList />,
+        // SaaS only
+        [TabType.RemoteExecutors]: <RemoteExecutorPoolsList onSwitchTab={onSwitchTab} />,
+    };
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
@@ -101,9 +104,14 @@ export const ManageIngestionPage = () => {
                     Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
-            <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
+            <StyledTabs
+                activeKey={selectedTab}
+                size="large"
+                onTabClick={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+            >
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
+                {/* SaaS only */}
                 {showRemoteExecutorsTab && <Tab key={TabType.RemoteExecutors} tab={TabType.RemoteExecutors} />}
             </StyledTabs>
             <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>

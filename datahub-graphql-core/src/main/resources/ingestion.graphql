@@ -127,6 +127,11 @@ type ExecutionRequestInput {
   Urn of the actor who created this execution request
   """
   actorUrn: String
+
+  """
+  The specific executor to route the request to. If none is provided, a "default" executor is used.
+  """
+  executorId: String
 }
 
 """
@@ -158,6 +163,10 @@ type ExecutionRequestResult {
   """
   structuredReport: StructuredReport
 
+  """
+  The id of the executor instance that handled the request
+  """
+  executorInstanceId: String
 }
 
 """

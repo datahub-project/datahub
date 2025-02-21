@@ -63,7 +63,7 @@ type RemoteExecutorPool implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  The unique identifier of the pool, derived from the urn.
+  The unique identifier of the pool, derived from the urn
   """
   poolName:  String!
 
@@ -81,7 +81,13 @@ type RemoteExecutorPool implements Entity {
   The remote executors within this pool
   """
   remoteExecutors(start: Int!, count: Int!): ListRemoteExecutorsResult
+
+  """
+  The ingestion sources that are associated with this pool
+  """
+  ingestionSources(start: Int!, count: Int!): ListIngestionSourcesResult
 }
+
 
 type ListRemoteExecutorsResult {
     remoteExecutors: [RemoteExecutor!]
@@ -162,4 +168,16 @@ type RemoteExecutor implements Entity {
   UTC-based timestamp of the last reported status
   """
   reportedAt: Long!
+
+  """
+  Execution tasks that are associated with this executor instance
+  """
+  executions(start: Int!, count: Int!): ListExecutionRequestsResult
+}
+
+type ListExecutionRequestsResult {
+    executionRequests: [ExecutionRequest!]
+    start: Int!
+    count: Int!
+    total: Int!
 }

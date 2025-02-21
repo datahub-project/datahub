@@ -76,13 +76,13 @@ export const RemoteExecutorsList = ({ remoteExecutors, onRefresh }: Props) => {
         {
             title: 'Details',
             dataIndex: 'x',
-            key: 'x',
+            key: 'details',
             render: (_, record) => <DetailsColumn executor={record} />,
         },
         {
             title: '',
             dataIndex: '',
-            key: 'x',
+            key: 'refresh',
             render: () => (
                 <Button onClick={onRefresh} style={{ border: 0, boxShadow: 'none', backgroundColor: 'transparent' }}>
                     <ArrowClockwise />

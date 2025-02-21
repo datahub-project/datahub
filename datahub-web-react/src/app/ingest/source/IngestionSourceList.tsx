@@ -1,10 +1,12 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, message, Modal, Pagination, Select } from 'antd';
 import styled from 'styled-components';
+import { X } from 'phosphor-react';
+import { colors } from '@src/alchemy-components';
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
@@ -33,6 +35,8 @@ import {
 } from '../../onboarding/config/IngestionOnboardingConfig';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
 import { useCommandS } from './hooks';
+import { INGESTION_TAB_QUERY_PARAMS } from './constants';
+import { usePoolActionsForIngestionSourceList } from './hooks.saas';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -50,6 +54,22 @@ const StyledSelect = styled(Select)`
 
 const FilterWrapper = styled.div`
     display: flex;
+`;
+
+// SaaS only button
+const PoolsFilterButton = styled(Button)`
+    margin: 8px;
+    font-weight: bold;
+    &:hover {
+        background-color: transparent;
+    }
+`;
+
+const CloseButton = styled(X)`
+    cursor: pointer;
+    margin-left: 2px;
+    position: relative;
+    top: 2px;
 `;
 
 const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
@@ -74,13 +94,28 @@ const removeExecutionsFromIngestionSource = (source) => {
     return undefined;
 };
 
-export const IngestionSourceList = () => {
+type Props = {
+    onSwitchTab: (tab: string) => void;
+};
+
+export const IngestionSourceList = ({ onSwitchTab }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    // parse query params
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
+    const paramsQuery = (params?.[INGESTION_TAB_QUERY_PARAMS.searchQuery] as string) || undefined;
+    const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
+
     const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            searchInputRef.current?.focus();
+        }
+    }, [paramsQuery]);
 
     const [page, setPage] = useState(1);
 
@@ -112,12 +147,18 @@ export const IngestionSourceList = () => {
     const filters = hideSystemSources
         ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
         : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
+
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
             values: [CLI_EXECUTOR_ID],
             negated: sourceFilter !== IngestionSourceType.CLI,
         });
+    }
+
+    // SaaS only
+    if (paramsPoolFilter) {
+        filters.push({ field: 'sourceExecutorId', values: [paramsPoolFilter], negated: false });
     }
 
     // Ingestion Source Queries
@@ -369,6 +410,7 @@ export const IngestionSourceList = () => {
             },
             onCancel() {},
             okText: 'Yes',
+            okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
             maskClosable: true,
             closable: true,
         });
@@ -390,6 +432,9 @@ export const IngestionSourceList = () => {
                 : undefined,
         );
     };
+
+    // SaaS only
+    const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, onSwitchTab);
 
     return (
         <>
@@ -423,6 +468,7 @@ export const IngestionSourceList = () => {
                         </StyledSelect>
 
                         <SearchBar
+                            searchInputRef={searchInputRef}
                             initialQuery={query || ''}
                             placeholderText="Search sources..."
                             suggestions={[]}
@@ -444,6 +490,13 @@ export const IngestionSourceList = () => {
                         />
                     </FilterWrapper>
                 </TabToolbar>
+
+                {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                {paramsPoolFilter && (
+                    <PoolsFilterButton type="text" onClick={clearPoolFilter}>
+                        Showing &quot;{paramsPoolFilter}&quot; pools <CloseButton color={colors.red[500]} size={12} />
+                    </PoolsFilterButton>
+                )}
                 <IngestionSourceTable
                     lastRefresh={lastRefresh}
                     sources={filteredSources || []}
@@ -454,6 +507,7 @@ export const IngestionSourceList = () => {
                     onDelete={onDelete}
                     onRefresh={onRefresh}
                     onChangeSort={onChangeSort}
+                    saasProps={{ onViewPool }}
                 />
                 <SourcePaginationContainer>
                     <Pagination
@@ -475,7 +529,12 @@ export const IngestionSourceList = () => {
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
-                <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
+                <ExecutionDetailsModal
+                    urn={focusExecutionUrn}
+                    open
+                    onClose={() => setFocusExecutionUrn(undefined)}
+                    saasProps={{ onViewPool }}
+                />
             )}
         </>
     );

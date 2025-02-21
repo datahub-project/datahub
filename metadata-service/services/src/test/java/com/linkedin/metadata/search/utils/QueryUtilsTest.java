@@ -122,7 +122,7 @@ public class QueryUtilsTest {
     Criterion crit = cc.getAnd().get(0);
     Assert.assertEquals(crit.getField(), "field2", "Field name should match");
     Assert.assertEquals(
-        crit.getValue(), "a", "Value should be set to the first element of the list");
+        crit.getValue(), "", "Value should not be used");
     Assert.assertEquals(
         crit.getValues(),
         new StringArray(Arrays.asList("a", "b")),

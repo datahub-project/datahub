@@ -6921,35 +6921,6 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     assertions(start: Int, count: Int): EntityAssertionsResult
 
     """
-    Incidents associated with the Data Job
-    """
-    incidents(
-      """
-      Optional incident state to filter by, defaults to any state.
-      """
-      state: IncidentState,
-      """
-      Optional incident stage to filter by, defaults to any state.
-      """
-      stage: IncidentStage,
-      """
-      Optional incident priority to filter by, defaults to any state.
-      """
-      priority: IncidentPriority,
-      """
-      Optional assignee urns for an incident.
-      """
-      assigneeUrns: [String!],
-      """
-      Optional start offset, defaults to 0.
-      """
-      start: Int,
-      """
-      Optional start offset, defaults to 20.
-      """
-      count: Int): EntityIncidentsResult
-
-    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult

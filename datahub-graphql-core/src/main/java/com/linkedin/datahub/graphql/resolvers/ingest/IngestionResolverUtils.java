@@ -86,6 +86,10 @@ public class IngestionResolverUtils {
       if (executionRequestInput.getActorUrn() != null) {
         inputResult.setActorUrn(executionRequestInput.getActorUrn().toString());
       }
+      if (executionRequestInput.hasExecutorId()) {
+        inputResult.setExecutorId(executionRequestInput.getExecutorId());
+      }
+
       result.setInput(inputResult);
     }
 
@@ -119,6 +123,9 @@ public class IngestionResolverUtils {
     result.setReport(execRequestResult.getReport());
     if (execRequestResult.hasStructuredReport()) {
       result.setStructuredReport(mapStructuredReport(execRequestResult.getStructuredReport()));
+    }
+    if (execRequestResult.hasExecutorInstanceId()) {
+      result.setExecutorInstanceId(execRequestResult.getExecutorInstanceId());
     }
     return result;
   }

@@ -14,6 +14,13 @@ query getDefaultRemoteExecutorPool {
     }
 }
 
+query getRemoteExecutor($urn: String!) {
+    getRemoteExecutor(urn: $urn) {
+        urn
+        poolName
+    }
+}
+
 query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
     listRemoteExecutorPools(input: { start: $start, count: $count, query: $query }) {
         start
@@ -40,6 +47,16 @@ query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
                     executorAddress
                     executorHostname
                     logDeliveryEnabled
+                }
+            }
+            # we query for 10k ingestion sources since customers usually only have <100 in a pool
+            ingestionSources(start: 0, count: 10000) {
+                total
+                count
+                ingestionSources {
+                    urn
+                    type
+                    name
                 }
             }
         }

@@ -22,10 +22,13 @@ import com.linkedin.datahub.graphql.generated.DomainProposalParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.FormForActor;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
 import com.linkedin.datahub.graphql.generated.Monitor;
@@ -85,6 +88,7 @@ import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
@@ -179,12 +183,14 @@ import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.MetadataTestClient;
+import graphql.schema.DataFetchingEnvironmentImpl;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
@@ -1079,8 +1085,32 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "RemoteExecutorPool",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "remoteExecutors", new ListRemoteExecutorsResolver(this.entityClient)))
+                typeWiring
+                    .dataFetcher(
+                        "remoteExecutors", new ListRemoteExecutorsResolver(this.entityClient))
+                    .dataFetcher(
+                        "ingestionSources",
+                        environment -> {
+                          final String poolName =
+                              ((RemoteExecutorPool) environment.getSource()).getPoolName();
+                          final List<FacetFilterInput> filterInputs =
+                              List.of(
+                                  FacetFilterInput.builder()
+                                      .setField("sourceExecutorId")
+                                      .setCondition(FilterOperator.EQUAL)
+                                      .setValues(List.of(poolName))
+                                      .build());
+                          final ListIngestionSourcesInput input = new ListIngestionSourcesInput();
+                          input.setFilters(filterInputs);
+                          input.setStart(environment.getArgument("start"));
+                          input.setCount(environment.getArgument("count"));
+                          return new ListIngestionSourcesResolver(this.entityClient)
+                              .get(
+                                  DataFetchingEnvironmentImpl.newDataFetchingEnvironment(
+                                          environment)
+                                      .arguments(Map.of("input", input))
+                                      .build());
+                        }))
         .type(
             "ListRemoteExecutorsResult",
             typeWiring ->
