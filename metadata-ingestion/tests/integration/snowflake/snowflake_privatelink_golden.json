@@ -175,6 +175,11 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/IS_HYBRID",
+                "value": "true"
             }
         ]
     },
@@ -889,6 +894,11 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/IS_ICEBERG",
+                "value": "true"
             }
         ]
     },
@@ -1886,6 +1896,11 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/IS_DYNAMIC",
+                "value": "true"
             }
         ]
     },

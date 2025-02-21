@@ -164,6 +164,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+
   private final Map<String, Boolean> applySyncMclForSources;
 
   @Getter
@@ -261,8 +262,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
         } else {
           // Do not increment version with the incoming change (match existing version)
-          changeMCP.setNextAspectVersion(Long.valueOf(latestSystemMetadata.getVersion()));
-          changeSystemMetadata.setVersion(latestSystemMetadata.getVersion());
+          long matchVersion =
+              Optional.ofNullable(latestSystemMetadata.getVersion())
+                  .map(Long::valueOf)
+                  .orElse(rowNextVersion);
+          changeMCP.setNextAspectVersion(matchVersion);
+          changeSystemMetadata.setVersion(String.valueOf(matchVersion));
+          latestSystemMetadata.setVersion(String.valueOf(matchVersion));
         }
 
         // update previous - based on database aspect, populates MCL
@@ -2561,7 +2567,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 1. Fetch the latest existing version of the aspect.
                   final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, true);
+                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {

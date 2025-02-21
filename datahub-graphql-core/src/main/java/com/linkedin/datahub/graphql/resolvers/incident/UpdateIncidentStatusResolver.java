@@ -22,6 +22,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -64,7 +65,13 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
             final Urn resourceUrn = info.getEntities().get(0);
             if (isAuthorizedToUpdateIncident(resourceUrn, context)) {
               if (input.getState() != null) {
-                info.getStatus().setState(IncidentState.valueOf(input.getState().name()));
+                info.setStatus(
+                    new IncidentStatus()
+                        .setState(IncidentState.valueOf(input.getState().name()))
+                        .setLastUpdated(
+                            new AuditStamp()
+                                .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                                .setTime(System.currentTimeMillis())));
               }
               if (input.getMessage() != null) {
                 info.getStatus().setMessage(input.getMessage());

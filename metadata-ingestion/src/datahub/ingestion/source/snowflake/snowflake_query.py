@@ -134,10 +134,11 @@ class SnowflakeQuery:
         clustering_key AS "CLUSTERING_KEY",
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
-        is_iceberg AS "IS_ICEBERG"
+        is_iceberg AS "IS_ICEBERG",
+        is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
+        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
@@ -156,10 +157,11 @@ class SnowflakeQuery:
         clustering_key AS "CLUSTERING_KEY",
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
-        is_iceberg AS "IS_ICEBERG"
+        is_iceberg AS "IS_ICEBERG",
+        is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
         where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
+        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
