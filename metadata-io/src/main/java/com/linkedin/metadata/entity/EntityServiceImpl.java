@@ -250,8 +250,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
         } else {
           // Do not increment version with the incoming change (match existing version)
-          changeMCP.setNextAspectVersion(Long.valueOf(latestSystemMetadata.getVersion()));
-          changeSystemMetadata.setVersion(latestSystemMetadata.getVersion());
+          long matchVersion =
+              Optional.ofNullable(latestSystemMetadata.getVersion())
+                  .map(Long::valueOf)
+                  .orElse(rowNextVersion);
+          changeMCP.setNextAspectVersion(matchVersion);
+          changeSystemMetadata.setVersion(String.valueOf(matchVersion));
+          latestSystemMetadata.setVersion(String.valueOf(matchVersion));
         }
 
         // update previous - based on database aspect, populates MCL
