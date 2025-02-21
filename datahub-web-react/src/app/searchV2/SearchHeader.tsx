@@ -27,7 +27,7 @@ const getStyles = ($isShowNavBarRedesign?: boolean) => {
             padding: 0,
             display: 'flex',
             justifyContent: 'center',
-            width: $isShowNavBarRedesign ? '439px' : '620px',
+            width: $isShowNavBarRedesign ? '648px' : '620px',
             minWidth: '400px',
         },
     };
@@ -48,17 +48,25 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
     background-color: transparent;
     height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
-    ${(props) => {
-        if (!props.$isShowNavBarRedesign) return '';
-        return `padding-left: ${props.$isNavBarCollapsed ? '68px;' : '270px'};`;
-    }}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         margin-top: 8px;
         gap: 16px;
         flex-direction: row;
-        transition: padding 250ms ease-in-out;
+
+        // preventing of NavBar's overlapping
+        position: relative;
+        padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};
+        left: ${props.$isNavBarCollapsed ? '-112px' : '-270px'};
+        transition: none;
+        @media only screen and (min-width: 1280px) {
+            padding-left: 540px;
+            left: -270px;
+        }
+        @media only screen and (max-width: 1200px) {
+            transition: padding 250ms ease-in-out;
+        }
     `}
     ${(props) => props.$isShowNavBarRedesign && !props.$isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;
@@ -76,10 +84,10 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     align-items: center;
+    justify-content: center;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        justify-content: center;
         margin-left: 80px;
         margin-top: 6px;
     `}
@@ -104,6 +112,11 @@ const StyledButton = styled(Button)`
     :focus {
         color: ${REDESIGN_COLORS.GREY_300};
     }
+`;
+
+const NavBarTogglerWrapper = styled.div`
+    position: fixed;
+    left: 68px;
 `;
 
 type Props = {
@@ -140,7 +153,11 @@ export const SearchHeader = ({
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
-                    {isShowNavBarRedesign && isCollapsed && <NavBarToggler />}
+                    {isShowNavBarRedesign && isCollapsed && (
+                        <NavBarTogglerWrapper>
+                            <NavBarToggler />
+                        </NavBarTogglerWrapper>
+                    )}
                     <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <SearchBar
                             isLoading={isUserInitializing || !appConfig.loaded}
