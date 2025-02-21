@@ -92,12 +92,10 @@ class BigqueryProfiler(GenericProfiler):
             if table.external:
                 # For external tables, check if it has external partitioning
                 try:
-                    query = f"""
-                    SELECT column_name
-                    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-                    WHERE table_name = '{table.name}'
-                    AND is_partitioning_column = 'YES'
-                    """
+                    query = f"""SELECT column_name
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'
+AND is_partitioning_column = 'YES'"""
                     query_job = self.config.get_bigquery_client().query(query)
                     results = list(query_job)
 
@@ -120,9 +118,17 @@ class BigqueryProfiler(GenericProfiler):
 
         logger.debug(f"Required partition columns: {required_partition_columns}")
 
-        # Add filters for each partition column
-        for col_name in required_partition_columns:
-            # Handle standard time-based columns first
+        # First handle all time-based columns without querying
+        standard_time_columns = {"year", "month", "day"}
+        time_based_columns = {
+            col
+            for col in required_partition_columns
+            if col.lower() in standard_time_columns
+        }
+        other_columns = required_partition_columns - time_based_columns
+
+        # Handle time-based columns
+        for col_name in time_based_columns:
             col_name_lower = col_name.lower()
             if col_name_lower == "year":
                 partition_filters.append(f"`{col_name}` = {current_time.year}")
@@ -130,36 +136,38 @@ class BigqueryProfiler(GenericProfiler):
                 partition_filters.append(f"`{col_name}` = {current_time.month}")
             elif col_name_lower == "day":
                 partition_filters.append(f"`{col_name}` = {current_time.day}")
-            else:
-                try:
-                    # Query for a valid partition value
-                    query = f"""
-                    SELECT DISTINCT {col_name} as val
-                    FROM `{project}.{schema}.{table.name}`
-                    WHERE {col_name} IS NOT NULL
-                    ORDER BY {col_name} DESC  -- Get most recent partition by default
-                    LIMIT 1
-                    """
-                    query_job = self.config.get_bigquery_client().query(query)
-                    results = list(query_job)
 
-                    if not results or results[0].val is None:
-                        logger.error(
-                            f"No values found for required partition column {col_name}"
-                        )
-                        return None
+        # Only query for non-time-based columns
+        for col_name in other_columns:
+            try:
+                query = f"""SELECT DISTINCT {col_name} as val
+FROM `{project}.{schema}.{table.name}`
+WHERE {col_name} IS NOT NULL
+ORDER BY {col_name} DESC
+LIMIT 1"""
+                logger.debug(f"Executing query for partition value: {query}")
 
-                    val = results[0].val
+                query_job = self.config.get_bigquery_client().query(query)
+                results = list(query_job.result(timeout=30))
 
-                    if isinstance(val, (int, float)):
-                        partition_filters.append(f"`{col_name}` = {val}")
-                    else:
-                        partition_filters.append(f"`{col_name}` = '{val}'")
-
-                except Exception as e:
-                    logger.error(f"Error getting partition value for {col_name}: {e}")
+                if not results or results[0].val is None:
+                    logger.error(
+                        f"No values found for required partition column {col_name}"
+                    )
                     return None
 
+                val = results[0].val
+
+                if isinstance(val, (int, float)):
+                    partition_filters.append(f"`{col_name}` = {val}")
+                else:
+                    partition_filters.append(f"`{col_name}` = '{val}'")
+
+            except Exception as e:
+                logger.error(f"Error getting partition value for {col_name}: {e}")
+                return None
+
+        logger.debug(f"Final partition filters: {partition_filters}")
         return partition_filters
 
     def get_batch_kwargs(
