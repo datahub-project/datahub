@@ -5,6 +5,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +22,15 @@ public interface MCPItem extends BatchItem {
 
   @Nullable
   MetadataChangeProposal getMetadataChangeProposal();
+
+  /**
+   * Set system metadata on the item
+   *
+   * @param systemMetadata
+   */
+  default void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    getMetadataChangeProposal().setSystemMetadata(systemMetadata);
+  }
 
   @Nonnull
   default Map<String, String> getHeaders() {

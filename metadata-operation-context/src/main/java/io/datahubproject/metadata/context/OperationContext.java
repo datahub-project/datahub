@@ -358,8 +358,13 @@ public class OperationContext implements AuthorizationSession {
 
   @Nullable
   public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata) {
+    return withTraceId(systemMetadata, false);
+  }
+
+  @Nullable
+  public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata, boolean force) {
     if (systemMetadata != null && traceContext != null) {
-      return traceContext.withTraceId(systemMetadata);
+      return traceContext.withTraceId(systemMetadata, force);
     }
     return systemMetadata;
   }

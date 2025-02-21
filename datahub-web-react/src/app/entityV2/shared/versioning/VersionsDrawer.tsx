@@ -153,7 +153,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             urn,
             label: (
                 <VersionPill
-                    label={versionProperties?.version.versionTag || '<unlabeled>'}
+                    label={versionProperties?.version?.versionTag || '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
             ),

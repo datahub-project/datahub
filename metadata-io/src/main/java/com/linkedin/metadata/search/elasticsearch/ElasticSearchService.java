@@ -26,6 +26,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,6 +116,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         urn.getEntityType(),
         docId,
         runId);
+
+    // Create an upsert document that will be used if the document doesn't exist
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("runId", Collections.singletonList(runId));
+
     esWriteDAO.applyScriptUpdate(
         opContext,
         urn.getEntityType(),
@@ -129,7 +136,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
                 + "ctx._source.runId.add('%s'); "
                 + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
                 + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId));
+            runId, runId, MAX_RUN_IDS_INDEXED, runId),
+        upsert);
   }
 
   @Nonnull
