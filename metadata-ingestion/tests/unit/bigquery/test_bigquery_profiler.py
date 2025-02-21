@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import List
 from unittest.mock import MagicMock
 
+import pytest
 from google.cloud.bigquery import Client
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -256,14 +257,71 @@ def test_get_partition_filters_for_multi_partition():
     current_time = datetime.now(timezone.utc)
 
     expected_filters: List[str] = [
-        f"`year` = {current_time.year}",
-        f"`month` = {current_time.month}",
-        f"`day` = {current_time.day}",
+        f"`year` = '{current_time.year}'",
+        f"`month` = '{current_time.month}'",
+        f"`day` = '{current_time.day}'",
         "`feed` = 'test_feed'",
     ]
 
     assert len(filters) == len(expected_filters)
     assert sorted(filters) == sorted(expected_filters)
+
+
+def test_get_partition_filters_for_time_partitions():
+    """Test handling of time partitions."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+    partition_info = PartitionInfo(fields=["year", "month", "day", "hour"])
+    test_table = BigqueryTable(
+        name="test_table",
+        comment="test_comment",
+        rows_count=1,
+        size_in_bytes=1,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+        partition_info=partition_info,
+    )
+    filters = profiler._get_required_partition_filters(
+        table=test_table,
+        project="test_project",
+        schema="test_dataset",
+    )
+    current_time = datetime.now(timezone.utc)
+    expected_filters = [
+        f"`year` = '{current_time.year}'",
+        f"`month` = '{current_time.month}'",
+        f"`day` = '{current_time.day}'",
+        f"`hour` = '{current_time.hour}'",
+    ]
+    assert set(filters) == set(expected_filters)
+
+
+def test_get_partition_range_from_partition_id():
+    """Test partition range calculation from partition ID."""
+    assert BigqueryProfiler.get_partition_range_from_partition_id("2024", None) == (
+        datetime(2024, 1, 1),
+        datetime(2025, 1, 1),
+    )
+    assert BigqueryProfiler.get_partition_range_from_partition_id("202402", None) == (
+        datetime(2024, 2, 1),
+        datetime(2024, 3, 1),
+    )
+    assert BigqueryProfiler.get_partition_range_from_partition_id("20240221", None) == (
+        datetime(2024, 2, 21),
+        datetime(2024, 2, 22),
+    )
+    assert BigqueryProfiler.get_partition_range_from_partition_id(
+        "2024022114", None
+    ) == (datetime(2024, 2, 21, 14), datetime(2024, 2, 21, 15))
+
+
+def test_invalid_partition_id():
+    """Test invalid partition IDs raise errors."""
+    with pytest.raises(ValueError):
+        BigqueryProfiler.get_partition_range_from_partition_id("abcd", None)
+    with pytest.raises(ValueError):
+        BigqueryProfiler.get_partition_range_from_partition_id("202402211412", None)
+    with pytest.raises(ValueError):
+        BigqueryProfiler.get_partition_range_from_partition_id("2024-02", None)
 
 
 def test_get_partition_filters_with_missing_values():

@@ -86,16 +86,14 @@ class BigqueryProfiler(GenericProfiler):
                     col.name for col in table.partition_info.columns if col
                 )
 
-        # If no partition columns found
+        # If no partition columns found, check for external table partitioning
         if not required_partition_columns:
             logger.debug(f"No partition columns found for table {table.name}")
             if table.external:
-                # For external tables, check if it has external partitioning
                 try:
-                    query = f"""SELECT column_name
+                    query = f"""SELECT column_name, data_type
 FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = '{table.name}'
-AND is_partitioning_column = 'YES'"""
+WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                     query_job = self.config.get_bigquery_client().query(query)
                     results = list(query_job)
 
@@ -107,19 +105,29 @@ AND is_partitioning_column = 'YES'"""
                             f"Found external partition columns: {required_partition_columns}"
                         )
                     else:
-                        # No partitions found at all - this is valid for external tables
-                        return []
+                        return []  # No partitions found (valid for external tables)
                 except Exception as e:
                     logger.error(f"Error checking external table partitioning: {e}")
                     return None
             else:
-                # Internal table with no partitions - this is unexpected
-                return None
+                return None  # Internal table without partitions (unexpected)
 
         logger.debug(f"Required partition columns: {required_partition_columns}")
 
-        # First handle all time-based columns without querying
-        standard_time_columns = {"year", "month", "day"}
+        # Get column data types to handle casting correctly
+        column_data_types = {}
+        try:
+            query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+            query_job = self.config.get_bigquery_client().query(query)
+            results = list(query_job)
+            column_data_types = {row.column_name: row.data_type for row in results}
+        except Exception as e:
+            logger.error(f"Error fetching column data types: {e}")
+
+        # Handle standard time-based columns without querying
+        standard_time_columns = {"year", "month", "day", "hour"}
         time_based_columns = {
             col
             for col in required_partition_columns
@@ -127,17 +135,28 @@ AND is_partitioning_column = 'YES'"""
         }
         other_columns = required_partition_columns - time_based_columns
 
-        # Handle time-based columns
         for col_name in time_based_columns:
             col_name_lower = col_name.lower()
-            if col_name_lower == "year":
-                partition_filters.append(f"`{col_name}` = {current_time.year}")
-            elif col_name_lower == "month":
-                partition_filters.append(f"`{col_name}` = {current_time.month}")
-            elif col_name_lower == "day":
-                partition_filters.append(f"`{col_name}` = {current_time.day}")
+            col_data_type = column_data_types.get(col_name, "STRING")
 
-        # Only query for non-time-based columns
+            if col_name_lower == "year":
+                value = current_time.year
+            elif col_name_lower == "month":
+                value = current_time.month
+            elif col_name_lower == "day":
+                value = current_time.day
+            elif col_name_lower == "hour":
+                value = current_time.hour
+            else:
+                continue
+
+            # Handle casting based on column type
+            if col_data_type.upper() in {"STRING"}:
+                partition_filters.append(f"`{col_name}` = '{value}'")
+            else:
+                partition_filters.append(f"`{col_name}` = {value}")
+
+        # Fetch latest value for non-time-based partitions
         for col_name in other_columns:
             try:
                 query = f"""SELECT DISTINCT {col_name} as val
@@ -151,10 +170,10 @@ LIMIT 1"""
                 results = list(query_job.result(timeout=30))
 
                 if not results or results[0].val is None:
-                    logger.error(
+                    logger.warning(
                         f"No values found for required partition column {col_name}"
                     )
-                    return None
+                    continue
 
                 val = results[0].val
 
@@ -165,10 +184,9 @@ LIMIT 1"""
 
             except Exception as e:
                 logger.error(f"Error getting partition value for {col_name}: {e}")
-                return None
 
         logger.debug(f"Final partition filters: {partition_filters}")
-        return partition_filters
+        return partition_filters if partition_filters else None
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
