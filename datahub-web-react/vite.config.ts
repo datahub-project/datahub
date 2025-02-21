@@ -88,6 +88,12 @@ export default defineConfig(({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            rollupOptions: {
+                input: {
+                    main: 'index.html',
+                    dev: 'index.dev.html',
+                },
+            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',
