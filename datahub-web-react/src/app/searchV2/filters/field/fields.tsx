@@ -14,6 +14,7 @@ import {
     TagOutlined,
     UserOutlined,
     WarningOutlined,
+    BuildOutlined,
 } from '@ant-design/icons';
 import { BookmarkSimple, Globe } from '@phosphor-icons/react';
 import { EntityType } from '../../../../types.generated';
@@ -42,6 +43,7 @@ import {
     STRUCTURED_PROPERTIES_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
+    HAS_SIBLINGS_FILTER_NAME,
 } from '../../utils/constants';
 import { FieldType, FilterField } from '../types';
 
@@ -201,6 +203,13 @@ export const STRUCTURED_PROPERTY_FILTER: FilterField = {
     icon: <Icon component={TableIcon} />,
 };
 
+export const HAS_SIBLINGS_FILTER: FilterField = {
+    field: HAS_SIBLINGS_FILTER_NAME,
+    displayName: FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME],
+    type: FieldType.BOOLEAN,
+    icon: <BuildOutlined />,
+};
+
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
 
 export const LAST_MODIFIED_FILTER: FilterField = {
@@ -272,6 +281,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     HAS_FAILING_ASSERTIONS_FILTER,
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
+    HAS_SIBLINGS_FILTER,
 ];
 
 export const VIEW_BUILDER_FIELDS: FilterField[] = [
