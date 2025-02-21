@@ -1,0 +1,26 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+/**
+ * The incident assignee type.
+ * This is in a record so that we can add additional fields if we need to later (e.g.
+ * the type of the assignee.
+ */
+record IncidentAssignee {
+  /**
+  * The user or group assigned to the incident.
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Assignee",
+    "fieldName": "assignees"
+  }
+  actor: Urn
+
+  /**
+  * The time & actor responsible for assiging the assignee.
+  */
+  assignedAt: AuditStamp
+}
