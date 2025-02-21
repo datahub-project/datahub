@@ -324,6 +324,7 @@ class SqlParsingAggregator(Closeable):
         platform_instance: Optional[str] = None,
         env: str = builder.DEFAULT_ENV,
         schema_resolver: Optional[SchemaResolver] = None,
+        default_dialect: Optional[str] = None,
         graph: Optional[DataHubGraph] = None,
         eager_graph_load: bool = True,
         generate_lineage: bool = True,
@@ -341,6 +342,7 @@ class SqlParsingAggregator(Closeable):
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
         self.env = env
+        self.default_dialect = default_dialect
 
         self.generate_lineage = generate_lineage
         self.generate_queries = generate_queries
@@ -1125,6 +1127,7 @@ class SqlParsingAggregator(Closeable):
                 schema_resolver=schema_resolver,
                 default_db=default_db,
                 default_schema=default_schema,
+                default_dialect=self.default_dialect,
             )
         self.report.num_sql_parsed += 1
 
