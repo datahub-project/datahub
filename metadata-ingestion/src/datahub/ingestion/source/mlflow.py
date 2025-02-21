@@ -1,6 +1,6 @@
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional, TypeVar, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Iterable, List, Optional, TypeVar, Union
 
 from mlflow import MlflowClient
 from mlflow.entities import Experiment, Run
@@ -29,6 +29,7 @@ from datahub.ingestion.api.source import (
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -49,6 +50,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     GlobalTagsClass,
+    MetadataAttributionClass,
     MLHyperParamClass,
     MLMetricClass,
     MLModelGroupPropertiesClass,
@@ -62,6 +64,7 @@ from datahub.metadata.schema_classes import (
     VersionSetKeyClass,
     VersionSetPropertiesClass,
     VersionTagClass,
+    _Aspect,
 )
 from datahub.metadata.urns import (
     DataPlatformUrn,
@@ -106,17 +109,6 @@ class MLflowRegisteredModelStageInfo:
     color_hex: str
 
 
-@dataclass
-class MLflowEntityMap:
-    """
-    Maintains mappings between MLflow IDs and DataHub URNs during ingestion.
-    """
-
-    experiment_id_to_urn: Dict[str, str] = field(default_factory=dict)
-    run_id_to_urn: Dict[str, str] = field(default_factory=dict)
-    model_version_to_urn: Dict[str, str] = field(default_factory=dict)
-
-
 @platform_name("MLflow")
 @config_class(MLflowConfig)
 @support_status(SupportStatus.TESTING)
@@ -159,7 +151,6 @@ class MLflowSource(StatefulIngestionSourceBase):
             tracking_uri=self.config.tracking_uri,
             registry_uri=self.config.registry_uri,
         )
-        self.entity_map = MLflowEntityMap()
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -199,7 +190,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _make_stage_tag_name(self, stage_name: str) -> str:
         return f"{self.platform}_{stage_name.lower()}"
 
-    def _create_workunit(self, urn: str, aspect: Any) -> MetadataWorkUnit:
+    def _create_workunit(self, urn: str, aspect: _Aspect) -> MetadataWorkUnit:
         """
         Utility to create an MCP workunit.
         """
@@ -211,14 +202,12 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_experiment_workunits(self) -> Iterable[MetadataWorkUnit]:
         experiments = self._get_mlflow_experiments()
         for experiment in experiments:
-            for wu in self._get_experiment_container_workunit(experiment):
-                yield wu
+            yield from self._get_experiment_container_workunit(experiment)
 
             runs = self._get_mlflow_runs_from_experiment(experiment)
             if runs:
                 for run in runs:
-                    for wu in self._get_run_workunits(experiment, run):
-                        yield wu
+                    yield from self._get_run_workunits(experiment, run)
 
     def _get_experiment_custom_properties(self, experiment):
         experiment_custom_props = getattr(experiment, "tags", {}) or {}
@@ -228,61 +217,42 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     def _get_experiment_container_workunit(
         self, experiment: Experiment
-    ) -> List[MetadataWorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         experiment_container = Container(
             container_key=ContainerKeyWithId(
-                platform=str(DataPlatformUrn(platform_name="mlflow")),
+                platform=str(DataPlatformUrn(platform_name=self.platform)),
                 id=experiment.name,
             ),
-            subtype="ML Experiment",
+            subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
             display_name=experiment.name,
             description=experiment.tags.get("mlflow.note.content"),
         )
-        self.entity_map.experiment_id_to_urn[experiment.experiment_id] = str(
-            experiment_container.urn
-        )
-        workunits = []
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(experiment_container.urn),
-                aspect=SubTypesClass(typeNames=[str(experiment_container.subtype)]),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(experiment_container.urn),
+            aspect=SubTypesClass(typeNames=[str(experiment_container.subtype)]),
+        ).as_workunit()
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(experiment_container.urn),
-                aspect=ContainerPropertiesClass(
-                    name=experiment_container.display_name,
-                    description=experiment_container.description,
-                    customProperties=self._get_experiment_custom_properties(experiment),
-                ),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(experiment_container.urn),
+            aspect=ContainerPropertiesClass(
+                name=experiment_container.display_name,
+                description=experiment_container.description,
+                customProperties=self._get_experiment_custom_properties(experiment),
+            ),
+        ).as_workunit()
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(experiment_container.urn),
-                aspect=BrowsePathsV2Class(path=[]),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(experiment_container.urn),
+            aspect=BrowsePathsV2Class(path=[]),
+        ).as_workunit()
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(experiment_container.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=str(DataPlatformUrn("mlflow")),
-                ),
-            ).as_workunit()
-        )
-
-        return workunits
-
-    def _get_run_custom_properties(self, run: Run) -> Dict[str, str]:
-        custom_props: Dict[str, str] = {}
-        custom_props.update(getattr(run, "tags", {}) or {})
-        return custom_props
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(experiment_container.urn),
+            aspect=DataPlatformInstanceClass(
+                platform=str(DataPlatformUrn(self.platform)),
+            ),
+        ).as_workunit()
 
     def _get_run_metrics(self, run: Run) -> List[MLMetricClass]:
         return [
@@ -299,120 +269,100 @@ class MLflowSource(StatefulIngestionSourceBase):
     ) -> DataProcessInstanceRunResultClass:
         if status == "FINISHED":
             return DataProcessInstanceRunResultClass(
-                type="SUCCESS", nativeResultType="mlflow"
+                type="SUCCESS", nativeResultType=self.platform
             )
         elif status == "FAILED":
             return DataProcessInstanceRunResultClass(
-                type="FAILURE", nativeResultType="mlflow"
+                type="FAILURE", nativeResultType=self.platform
             )
         else:
             return DataProcessInstanceRunResultClass(
-                type="SKIPPED", nativeResultType="mlflow"
+                type="SKIPPED", nativeResultType=self.platform
             )
 
     def _get_run_workunits(
         self, experiment: Experiment, run: Run
-    ) -> List[MetadataWorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         experiment_key = ContainerKeyWithId(
-            platform=str(DataPlatformUrn("mlflow")), id=experiment.name
+            platform=str(DataPlatformUrn(self.platform)), id=experiment.name
         )
 
-        dpi_id = run.info.run_name or run.info.run_id
         data_process_instance = DataProcessInstance(
-            id=dpi_id,
-            orchestrator="mlflow",
+            id=run.info.run_id,
+            orchestrator=self.platform,
             template_urn=None,
         )
 
-        self.entity_map.run_id_to_urn[run.info.run_id] = str(data_process_instance.urn)
-        workunits = []
-
-        run_custom_props = self._get_run_custom_properties(run)
         created_time = run.info.start_time or int(time.time() * 1000)
         created_actor = (
             f"urn:li:platformResource:{run.info.user_id}" if run.info.user_id else ""
         )
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=DataProcessInstancePropertiesClass(
-                    name=run.info.run_name or run.info.run_id,
-                    created=AuditStampClass(
-                        time=created_time,
-                        actor=created_actor,
-                    ),
-                    externalUrl=self._make_external_url_from_run(experiment, run),
-                    customProperties=run_custom_props,
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            aspect=DataProcessInstancePropertiesClass(
+                name=run.info.run_name or run.info.run_id,
+                created=AuditStampClass(
+                    time=created_time,
+                    actor=created_actor,
                 ),
-            ).as_workunit()
-        )
+                externalUrl=self._make_external_url_from_run(experiment, run),
+                customProperties=getattr(run, "tags", {}) or {},
+            ),
+        ).as_workunit()
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=ContainerClass(container=experiment_key.as_urn()),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            aspect=ContainerClass(container=experiment_key.as_urn()),
+        ).as_workunit()
 
         model_versions = self.get_mlflow_model_versions_from_run(run.info.run_id)
         if model_versions:
             model_version_urn = self._make_ml_model_urn(model_versions[0])
-            workunits.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
-                    aspect=DataProcessInstanceOutputClass(outputs=[model_version_urn]),
-                ).as_workunit()
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=DataProcessInstanceOutputClass(outputs=[model_version_urn]),
+            ).as_workunit()
 
         metrics = self._get_run_metrics(run)
         hyperparams = self._get_run_params(run)
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=MLTrainingRunPropertiesClass(
-                    hyperParams=hyperparams,
-                    trainingMetrics=metrics,
-                    outputUrls=[run.info.artifact_uri],
-                    id=run.info.run_id,
-                ),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            aspect=MLTrainingRunPropertiesClass(
+                hyperParams=hyperparams,
+                trainingMetrics=metrics,
+                outputUrls=[run.info.artifact_uri],
+                id=run.info.run_id,
+            ),
+        ).as_workunit()
 
         if run.info.end_time:
             duration_millis = run.info.end_time - run.info.start_time
-            workunits.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
-                    aspect=DataProcessInstanceRunEventClass(
-                        status=DataProcessRunStatusClass.COMPLETE,
-                        timestampMillis=run.info.end_time,
-                        result=DataProcessInstanceRunResultClass(
-                            type=self._convert_run_result_type(run.info.status).type,
-                            nativeResultType="mlflow",
-                        ),
-                        durationMillis=duration_millis,
-                    ),
-                ).as_workunit()
-            )
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
-                aspect=DataPlatformInstanceClass(
-                    platform=str(DataPlatformUrn("mlflow"))
+                aspect=DataProcessInstanceRunEventClass(
+                    status=DataProcessRunStatusClass.COMPLETE,
+                    timestampMillis=run.info.end_time,
+                    result=DataProcessInstanceRunResultClass(
+                        type=self._convert_run_result_type(run.info.status).type,
+                        nativeResultType=self.platform,
+                    ),
+                    durationMillis=duration_millis,
                 ),
             ).as_workunit()
-        )
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(data_process_instance.urn),
-                aspect=SubTypesClass(typeNames=["ML Training Run"]),
-            ).as_workunit()
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            aspect=DataPlatformInstanceClass(
+                platform=str(DataPlatformUrn(self.platform))
+            ),
+        ).as_workunit()
 
-        return workunits
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(data_process_instance.urn),
+            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.MLFLOW_TRAINING_RUN]),
+        ).as_workunit()
 
     def _get_mlflow_registered_models(self) -> Iterable[RegisteredModel]:
         """
@@ -480,7 +430,11 @@ class MLflowSource(StatefulIngestionSourceBase):
                 actor=None,
             ),
             version=VersionTagClass(
-                versionTag=self._get_latest_version(registered_model)
+                versionTag=self._get_latest_version(registered_model),
+                metadataAttribution=MetadataAttributionClass(
+                    time=registered_model.last_updated_timestamp,
+                    actor="urn:li:corpuser:datahub",
+                ),
             ),
         )
         wu = self._create_workunit(
@@ -537,18 +491,16 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
+            version_set_urn = self._get_version_set_urn(registered_model)
             yield self._get_ml_group_workunit(registered_model)
+            yield self._get_version_set(version_set_urn)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                version_set_urn = self._get_version_set_urn(model_version)
                 yield self._get_ml_model_properties_workunit(
                     registered_model=registered_model,
                     model_version=model_version,
                     run=run,
-                )
-                yield self._get_version_set(
-                    version_set_urn=version_set_urn,
                 )
                 # yield self._get_ml_model_version_properties_workunit(
                 #     model_version=model_version,
@@ -560,12 +512,9 @@ class MLflowSource(StatefulIngestionSourceBase):
                 # )
                 yield self._get_global_tags_workunit(model_version=model_version)
 
-    def _get_version_set_urn(
-        self,
-        model_version: ModelVersion,
-    ) -> VersionSetUrn:
+    def _get_version_set_urn(self, registered_model: RegisteredModel) -> VersionSetUrn:
         version_set_urn = VersionSetUrn(
-            id=f"{model_version.name}{self.config.model_name_separator}{model_version.version}",
+            id=f"{registered_model.name}",  # TODO: where's id?
             entity_type="mlModel",
         )
 
@@ -616,6 +565,10 @@ class MLflowSource(StatefulIngestionSourceBase):
         ml_model_version_properties = VersionPropertiesClass(
             version=VersionTagClass(
                 versionTag=str(model_version.version),
+                metadataAttribution=MetadataAttributionClass(
+                    time=model_version.creation_timestamp,
+                    actor="urn:li:corpuser:datahub",
+                ),
             ),
             versionSet=str(version_set_urn),
             sortId="AAAAAAAA",  # TODO: wait for change in the backend
@@ -649,9 +602,12 @@ class MLflowSource(StatefulIngestionSourceBase):
             # Use the same metrics and hyperparams from the run
             hyperparams = self._get_run_params(run)
             training_metrics = self._get_run_metrics(run)
-            # TODO: this should be actually mapped the guid from the run id
-            run_urn = self.entity_map.run_id_to_urn.get(run.info.run_id)
-            training_jobs = [run_urn] if run_urn else []
+            run_urn = DataProcessInstance(
+                id=run.info.run_id,
+                orchestrator=self.platform,
+            ).urn
+
+            training_jobs = [str(run_urn)] if run_urn else []
         else:
             hyperparams = None
             training_metrics = None

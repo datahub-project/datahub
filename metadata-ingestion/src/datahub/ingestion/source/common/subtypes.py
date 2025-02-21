@@ -85,3 +85,8 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+
+class MLAssetSubTypes(StrEnum):
+    MLFLOW_TRAINING_RUN = "ML Training Run"
+    MLFLOW_EXPERIMENT = "ML Experiment"
