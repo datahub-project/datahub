@@ -25,6 +25,10 @@ DataHub provides 3 mechanisms for authentication at login time:
 In subsequent requests, the session token is used to represent the authenticated identity of the user, and is validated by DataHub's backend service (discussed below).
 Eventually, the session token is expired (24 hours by default), at which point the end user is required to log in again.
 
+DataHub also supports Guest users to access the system without requiring an explicit login when enabled. The default configuration disables guest authentication. 
+When Guest access is enabled, accessing datahub with a configurable URL path logs the user in an existing user that is designated as the guest. The privileges of the guest user
+are controlled by adjusting privileges of that designated guest user. 
+
 ### Authentication in the Backend (Metadata Service)
 
 When a user makes a request for Data within DataHub, the request is authenticated by DataHub's Backend (Metadata Service) via a JSON Web Token. This applies to both requests originating from the DataHub application,
@@ -40,11 +44,14 @@ more about Personal Access Tokens [here](personal-access-tokens.md).
 
 To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](introducing-metadata-service-authentication.md).
 
-Credentials must be provided as Bearer Tokens inside of the **Authorization** header in any request made to DataHub's API layer. To learn 
+Credentials must be provided as Bearer Tokens inside of the **Authorization** header in any request made to DataHub's API layer. 
 
 ```shell
 Authorization: Bearer <your-token>
 ```
+
+As with the frontend, the backend also can optionally enable Guest authentication. If Guest authentication is enabled, all API calls made to the backend
+without an Authorization header are treated as guest users and the privileges associated with the designated guest user apply to those requests. 
 
 Note that in DataHub local quickstarts, Authentication at the backend layer is disabled for convenience. This leaves the backend
 vulnerable to unauthenticated requests and should not be used in production. To enable
