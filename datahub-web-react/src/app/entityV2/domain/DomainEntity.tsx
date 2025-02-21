@@ -159,10 +159,10 @@ export class DomainEntity implements Entity<Domain> {
             component: SidebarOwnerSection,
         },
         {
-            component: StatusSection,
+            component: SidebarStructuredProperties,
         },
         {
-            component: SidebarStructuredProperties,
+            component: StatusSection,
         },
     ];
 

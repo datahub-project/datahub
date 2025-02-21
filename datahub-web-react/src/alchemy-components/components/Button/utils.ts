@@ -184,6 +184,10 @@ const getButtonPadding = (size: SizeOptions, variant: ButtonVariant, isCircle: b
     if (isCircle) return { padding: spacing.xsm };
 
     const paddingStyles = {
+        xs: {
+            vertical: 0,
+            horizontal: 0,
+        },
         sm: {
             vertical: 8,
             horizontal: 12,

@@ -9,7 +9,6 @@ from tenacity import retry, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -18,8 +17,19 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
     DatasetPropertiesClass,
@@ -44,7 +54,9 @@ class CorpUser:
     slack_display_name: Optional[str] = None
 
 
-class SlackSourceConfig(ConfigModel):
+class SlackSourceConfig(
+    StatefulIngestionConfigBase,
+):
     bot_token: SecretStr = Field(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email` and `users.profile:read` scopes.",
     )
@@ -58,22 +70,22 @@ class SlackSourceConfig(ConfigModel):
         default=10,
         description="Number of API requests per minute. Low-level config. Do not tweak unless you are facing any issues.",
     )
-    ingest_public_channels = Field(
+    ingest_public_channels: bool = Field(
         type=bool,
         default=False,
         description="Whether to ingest public channels. If set to true needs `channels:read` scope.",
     )
-    channels_iteration_limit = Field(
+    channels_iteration_limit: int = Field(
         type=int,
         default=200,
         description="Limit the number of channels to be ingested in a iteration. Low-level config. Do not tweak unless you are facing any issues.",
     )
-    channel_min_members = Field(
+    channel_min_members: int = Field(
         type=int,
         default=2,
         description="Ingest channels with at least this many members.",
     )
-    should_ingest_archived_channels = Field(
+    should_ingest_archived_channels: bool = Field(
         type=bool,
         default=False,
         description="Whether to ingest archived channels.",
@@ -81,7 +93,7 @@ class SlackSourceConfig(ConfigModel):
 
 
 @dataclass
-class SlackSourceReport(SourceReport):
+class SlackSourceReport(StaleEntityRemovalSourceReport):
     channels_reported: int = 0
     archived_channels_reported: int = 0
 
@@ -92,11 +104,12 @@ PLATFORM_NAME = "slack"
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.TESTING)
-class SlackSource(Source):
+class SlackSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
+        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report = SlackSourceReport()
+        self.report: SlackSourceReport = SlackSourceReport()
         self.workspace_base_url: Optional[str] = None
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_requests_per_min, period=60
@@ -110,6 +123,14 @@ class SlackSource(Source):
 
     def get_slack_client(self) -> WebClient:
         return WebClient(token=self.config.bot_token.get_secret_value())
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(
         self,

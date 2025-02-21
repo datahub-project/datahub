@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nullable;
@@ -33,5 +34,12 @@ public class SystemMetadataUtils {
       result.setLastObserved(System.currentTimeMillis());
     }
     return result;
+  }
+
+  public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
+    if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
+      return createDefaultSystemMetadata();
+    }
+    return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 }
