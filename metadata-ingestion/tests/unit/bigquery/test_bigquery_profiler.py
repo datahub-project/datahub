@@ -285,6 +285,10 @@ def test_get_partition_filters_for_time_partitions():
         project="test_project",
         schema="test_dataset",
     )
+
+    # Add assertion to ensure filters is not None
+    assert filters is not None
+
     current_time = datetime.now(timezone.utc)
     expected_filters = [
         f"`year` = '{current_time.year}'",
