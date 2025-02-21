@@ -249,4 +249,48 @@ public class EntityServiceImplApplyUpsertTest {
     assertNotNull(result2.getCreatedOn());
     assertEquals(result2.getCreatedBy(), TEST_AUDIT_STAMP.getActor().toString());
   }
+
+  @Test
+  public void testApplyUpsertNullVersionException() {
+    // Set up initial system metadata with null version
+    SystemMetadata initialMetadata = new SystemMetadata();
+    initialMetadata.setRunId("run-1");
+
+    // Create initial aspect that will be stored in database
+    CorpUserInfo originalInfo = AspectGenerationUtils.createCorpUserInfo("test@test.com");
+    EbeanAspectV2 databaseAspectV2 =
+        new EbeanAspectV2(
+            "urn:li:corpuser:test",
+            "corpUserInfo",
+            0L,
+            RecordUtils.toJsonString(originalInfo),
+            new Timestamp(TEST_AUDIT_STAMP.getTime()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(initialMetadata));
+
+    // Create the latest aspect that includes database reference
+    SystemAspect latestAspect =
+        EbeanSystemAspect.builder().forUpdate(databaseAspectV2, testEntityRegistry);
+
+    // Create change with different content to trigger update path
+    SystemMetadata newMetadata = new SystemMetadata();
+    newMetadata.setRunId("run-2");
+
+    ChangeMCP changeMCP =
+        ChangeItemImpl.builder()
+            .urn(UrnUtils.getUrn("urn:li:corpuser:test"))
+            .aspectName("corpUserInfo")
+            .recordTemplate(originalInfo)
+            .systemMetadata(newMetadata)
+            .auditStamp(TEST_AUDIT_STAMP)
+            .nextAspectVersion(1L)
+            .build(opContext.getAspectRetriever());
+
+    SystemAspect upsert = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    assertEquals(upsert.getSystemMetadataVersion(), Optional.of(1L));
+    assertEquals(upsert.getVersion(), 0);
+    assertEquals(changeMCP.getNextAspectVersion(), 1);
+    assertEquals(changeMCP.getSystemMetadata().getVersion(), "1");
+  }
 }
