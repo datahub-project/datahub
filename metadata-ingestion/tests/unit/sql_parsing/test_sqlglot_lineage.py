@@ -1312,3 +1312,39 @@ GROUP BY Age
         },
         expected_file=RESOURCE_DIR / "test_mssql_select_into.json",
     )
+
+
+def test_bigquery_indirect_references() -> None:
+    # We don't currently support the `IF` construct's variable reference and hence this test
+    # only detects `constant1` and `constant2` as columns. So this test is more of a
+    # placeholder that we can revisit if we add support.
+
+    assert_sql_result(
+        """\
+-- Merge users from the main_users and external_users tables.
+SELECT
+    1 as constant1,
+    IF (main.id is not null, main, extras).* REPLACE (
+        least(main.created_at, extras.created_at) as created_at
+    ),
+    2 as constant2
+FROM my_schema.main_users main
+FULL JOIN my_schema.external_users extras
+    USING (id)
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_indirect_references.json",
+        default_db="playground-1",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)": {
+                "id": "INTEGER",
+                "name": "STRING",
+                "created_at": "TIMESTAMP",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)": {
+                "id": "INTEGER",
+                "name": "STRING",
+                "created_at": "TIMESTAMP",
+            },
+        },
+    )
