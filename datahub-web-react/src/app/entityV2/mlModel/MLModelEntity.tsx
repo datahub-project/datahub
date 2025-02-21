@@ -220,6 +220,10 @@ export class MLModelEntity implements Entity<MlModel> {
         return data.name || data.urn;
     };
 
+    createdTime = (data: MlModel) => {
+        return data?.properties?.created?.time || data?.properties?.date;
+    };
+
     getGenericEntityProperties = (mlModel: MlModel) => {
         return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
     };

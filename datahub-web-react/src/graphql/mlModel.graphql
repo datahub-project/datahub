@@ -51,6 +51,12 @@ query getMLModel($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        properties {
+            created {
+                time
+            }
+            date
+        }
         forms {
             ...formsFields
         }

@@ -501,6 +501,10 @@ export class DatasetEntity implements Entity<Dataset> {
         return data?.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: Dataset) => {
+        return data?.properties?.created;
+    };
+
     platformLogoUrl = (data: Dataset) => {
         return data.platform.properties?.logoUrl || undefined;
     };

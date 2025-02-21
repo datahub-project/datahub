@@ -296,7 +296,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
@@ -340,7 +340,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
@@ -390,6 +390,10 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     displayName = (data: Dashboard) => {
         return data.properties?.name || data.urn;
+    };
+
+    createdTime = (data: Dashboard) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
     };
 
     getGenericEntityProperties = (data: Dashboard) => {

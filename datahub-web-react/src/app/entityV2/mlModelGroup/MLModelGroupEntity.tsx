@@ -191,6 +191,10 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         return data.name || data.urn;
     };
 
+    createdTime = (data: MlModelGroup) => {
+        return data?.properties?.created?.time || data?.properties?.createdAt;
+    };
+
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {
         return getDataForEntityType({
             data: mlModelGroup,
