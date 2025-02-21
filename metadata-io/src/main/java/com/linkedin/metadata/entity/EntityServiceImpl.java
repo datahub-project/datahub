@@ -2549,7 +2549,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 1. Fetch the latest existing version of the aspect.
                   final SystemAspect latest =
-                      aspectDao.getLatestAspect(opContext, urn, aspectName, true);
+                      aspectDao.getLatestAspect(opContext, urn, aspectName, false);
 
                   // 1.1 If no latest exists, skip this aspect
                   if (latest == null) {
