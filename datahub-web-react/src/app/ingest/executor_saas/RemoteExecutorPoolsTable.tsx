@@ -1,9 +1,11 @@
+import { uniq } from 'lodash';
 import { StyledTable } from '@src/app/entityV2/shared/components/styled/StyledTable';
 import { RemoteExecutorPool } from '@src/types.generated';
 import { Button, Empty, Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { Check } from 'phosphor-react';
+import { colors } from '@src/alchemy-components';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
 import { PoolStatusColumn } from './Columns';
 
@@ -37,13 +39,27 @@ const DefaultButton = styled(Button)`
     }
 `;
 
+const LinkButton = styled(Button)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: none;
+    color: ${colors.blue[500]};
+    display: inline-block;
+    &:hover {
+        background: none;
+    }
+`;
+
 type Props = {
     pools: RemoteExecutorPool[];
     onRefresh: () => void;
     updateDefaultPool: (urn: string) => void;
+    viewSourcesForPool: (poolName: string) => void;
 };
 
-export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool }: Props) => {
+export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, viewSourcesForPool }: Props) => {
     const tableData = pools.map((pool) => ({
         urn: pool.urn,
         isDataHubCloud: !!pool.remoteExecutors?.remoteExecutors?.find((executor) => executor.executorInternal),
@@ -53,6 +69,7 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool }
             ...(pool.remoteExecutors?.remoteExecutors?.map((executor) => executor.reportedAt) ?? []),
         ),
         remoteExecutors: pool.remoteExecutors,
+        ingestionSources: pool.ingestionSources,
         isDefault: pool.isDefault,
     }));
     const tableColumns = [
@@ -87,6 +104,28 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool }
                 reportedAt
                     ? `${new Date(reportedAt).toLocaleDateString()} at ${new Date(reportedAt).toLocaleTimeString()}`
                     : 'No status reported yet',
+        },
+        {
+            title: 'Used by',
+            dataIndex: 'x',
+            key: 'ingestionSources',
+            render: (_, record: (typeof tableData)[0]) => (
+                <LinkButton onClick={() => viewSourcesForPool(record.name)}>
+                    {record.ingestionSources?.total ?? 0} sources
+                </LinkButton>
+            ),
+        },
+        {
+            title: 'Versions',
+            dataIndex: 'x',
+            key: 'versions',
+            render: (_, record: (typeof tableData)[0]) => (
+                <Typography.Text>
+                    {uniq(record.remoteExecutors?.remoteExecutors?.map((exec) => exec.executorReleaseVersion))?.join(
+                        ', ',
+                    ) || 'Unknown'}
+                </Typography.Text>
+            ),
         },
         {
             title: 'Configuration',

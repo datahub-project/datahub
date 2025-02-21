@@ -37,3 +37,10 @@ export interface StructuredReport {
     warnCount: number;
     items: StructuredReportLogEntry[];
 }
+
+export enum TabType {
+    Sources = 'Sources',
+    Secrets = 'Secrets',
+    // SaaS only
+    RemoteExecutors = 'Executors',
+}

@@ -3,6 +3,9 @@ import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.generated';
+import { colors } from '@src/alchemy-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -99,6 +102,19 @@ const DetailsContainer = styled.div<DetailsContainerProps>`
     `}
 `;
 
+const LinkButton = styled(Button)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: none;
+    color: ${colors.blue[500]};
+    display: inline-block;
+    &:hover {
+        background: none;
+    }
+`;
+
 const modalStyle = {
     top: 100,
 };
@@ -116,9 +132,12 @@ type Props = {
     urn: string;
     open: boolean;
     onClose: () => void;
+    saasProps?: {
+        onViewPool?: (poolName: string) => void;
+    };
 };
 
-export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -130,8 +149,16 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     };
 
     const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
-    const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
+    const result = data?.executionRequest?.result as Maybe<Partial<ExecutionRequestResult>>;
     const status = getIngestionSourceStatus(result);
+
+    // SaaS only //
+    const executorInstanceId = result?.executorInstanceId;
+    const { data: executorResult } = useGetRemoteExecutorQuery({
+        variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
+    });
+    const poolName = executorResult?.getRemoteExecutor?.poolName;
+    // End SaaS only //
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -189,6 +216,26 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                     <Typography.Title level={5}>Status</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {/* SaaS only */}
+                    <SubHeaderParagraph>
+                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
+                        <br />
+                        Pool:{' '}
+                        <LinkButton
+                            disabled={!poolName}
+                            onClick={
+                                poolName
+                                    ? () => {
+                                          onClose();
+                                          saasProps?.onViewPool?.(poolName);
+                                      }
+                                    : undefined
+                            }
+                        >
+                            {poolName || 'Unknown'}
+                        </LinkButton>
+                    </SubHeaderParagraph>
+                    {/* End SaaS only */}
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
                 {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (

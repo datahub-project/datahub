@@ -1,4 +1,13 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
+import React, {
+    useEffect,
+    useMemo,
+    useState,
+    useRef,
+    useCallback,
+    EventHandler,
+    SyntheticEvent,
+    MutableRefObject,
+} from 'react';
 import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -123,6 +132,7 @@ interface Props {
     onFocus?: () => void;
     onBlur?: () => void;
     showViewAllResults?: boolean;
+    searchInputRef?: MutableRefObject<any>;
 }
 
 const defaultProps = {
@@ -152,6 +162,7 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    ...props
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
@@ -253,7 +264,7 @@ export const SearchBar = ({
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
             onQueryChange(searchQuery);
         }
-    });
+    }, [searchQuery, selectedQuickFilter, previousSelectedQuickFilterValue, onQueryChange]);
 
     // clear quick filters when this search bar is unmounted (ie. going from search results to home page)
     useEffect(() => {
@@ -303,7 +314,8 @@ export const SearchBar = ({
         }
     }
 
-    const searchInputRef = useRef(null);
+    const searchInputFallbackRef: MutableRefObject<any> = useRef(null);
+    const searchInputRef: MutableRefObject<any> = props.searchInputRef || searchInputFallbackRef;
 
     useEffect(() => {
         if (showCommandK) {
@@ -316,7 +328,7 @@ export const SearchBar = ({
                 // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
                 if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
-                    (searchInputRef?.current as any)?.focus();
+                    searchInputRef.current?.focus();
                 }
             };
             document.addEventListener('keydown', handleKeyDown);
@@ -325,7 +337,7 @@ export const SearchBar = ({
             };
         }
         return () => null;
-    }, [showCommandK]);
+    }, [showCommandK, searchInputRef]);
 
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
@@ -382,6 +394,7 @@ export const SearchBar = ({
                 listHeight={480}
             >
                 <StyledSearchBar
+                    ref={searchInputRef}
                     bordered={false}
                     placeholder={placeholderText}
                     onPressEnter={() => {
@@ -430,7 +443,6 @@ export const SearchBar = ({
                             />
                         </>
                     }
-                    ref={searchInputRef}
                     suffix={(showCommandK && !isFocused && <CommandK />) || null}
                 />
             </StyledAutoComplete>

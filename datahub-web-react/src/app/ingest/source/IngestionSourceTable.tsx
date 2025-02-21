@@ -1,22 +1,16 @@
-import { Empty, Typography } from 'antd';
+import { Button, Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { SorterResult } from 'antd/lib/table/interface';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { colors } from '@src/alchemy-components';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
-import {
-    LastStatusColumn,
-    TypeColumn,
-    ActionsColumn,
-    ScheduleColumn,
-    LastExecutionColumn,
-} from './IngestionSourceTableColumns';
+import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 
-const MIN_EXECUTION_COLUMN_WIDTH = 125;
 const PAGE_HEADER_HEIGHT = 395;
 
 const StyledSourceTable = styled(StyledTable)`
@@ -36,6 +30,19 @@ const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
     }
 ` as typeof StyledSourceTable;
 
+const LinkButton = styled(Button)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: none;
+    color: ${colors.blue[500]};
+    display: inline-block;
+    &:hover {
+        background: none;
+    }
+`;
+
 interface Props {
     lastRefresh: number;
     sources: IngestionSource[];
@@ -46,6 +53,9 @@ interface Props {
     onDelete: (urn: string) => void;
     onRefresh: () => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    saasProps: {
+        onViewPool: (poolName: string) => void;
+    };
 }
 
 function IngestionSourceTable({
@@ -58,8 +68,33 @@ function IngestionSourceTable({
     onDelete,
     onRefresh,
     onChangeSort,
+    saasProps,
 }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const tableData = sources.map((source) => ({
+        urn: source.urn,
+        type: source.type,
+        name: source.name,
+        platformUrn: source.platform?.urn,
+        schedule: source.schedule?.interval,
+        timezone: source.schedule?.timezone,
+        execCount: source.executions?.total || 0,
+        lastExecUrn:
+            source.executions &&
+            source.executions?.executionRequests?.length > 0 &&
+            source.executions?.executionRequests[0]?.urn,
+        lastExecTime:
+            source.executions &&
+            source.executions?.executionRequests?.length > 0 &&
+            source.executions?.executionRequests[0]?.result?.startTimeMs,
+        lastExecStatus:
+            source.executions &&
+            source.executions?.executionRequests?.length > 0 &&
+            getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
+        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+        poolName: source.config.executorId, // SaaS only
+    }));
 
     const tableColumns = [
         {
@@ -83,20 +118,19 @@ function IngestionSourceTable({
             render: ScheduleColumn,
         },
         {
-            title: 'Execution Count',
-            dataIndex: 'execCount',
-            key: 'execCount',
-            width: isShowNavBarRedesign ? MIN_EXECUTION_COLUMN_WIDTH : undefined,
-            render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
+            // SaaS only
+            title: 'Executor Pool',
+            dataIndex: 'x',
+            key: 'x',
+            render: (_, record: (typeof tableData)[0]) =>
+                record.poolName && !record.cliIngestion ? (
+                    <LinkButton onClick={() => saasProps.onViewPool(record.poolName)}>{record.poolName}</LinkButton>
+                ) : (
+                    <span>{record.cliIngestion ? 'N/A' : 'Unknown'}</span>
+                ),
         },
         {
-            title: 'Last Execution',
-            dataIndex: 'lastExecTime',
-            key: 'lastExecTime',
-            render: LastExecutionColumn,
-        },
-        {
-            title: 'Last Status',
+            title: 'Status',
             dataIndex: 'lastExecStatus',
             key: 'lastExecStatus',
             render: (status: any, record) => (
@@ -119,29 +153,6 @@ function IngestionSourceTable({
             ),
         },
     ];
-
-    const tableData = sources.map((source) => ({
-        urn: source.urn,
-        type: source.type,
-        name: source.name,
-        platformUrn: source.platform?.urn,
-        schedule: source.schedule?.interval,
-        timezone: source.schedule?.timezone,
-        execCount: source.executions?.total || 0,
-        lastExecUrn:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            source.executions?.executionRequests[0]?.urn,
-        lastExecTime:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            source.executions?.executionRequests[0]?.result?.startTimeMs,
-        lastExecStatus:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
-        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
-    }));
 
     const handleTableChange = (_: any, __: any, sorter: any) => {
         const sorterTyped: SorterResult<any> = sorter;
@@ -171,6 +182,7 @@ function IngestionSourceTable({
                             isExpanded={expanded}
                             lastRefresh={lastRefresh}
                             onRefresh={onRefresh}
+                            saasProps={{ onViewPool: saasProps.onViewPool }}
                         />
                     );
                 },

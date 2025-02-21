@@ -1,14 +1,24 @@
+// SaaS only
 import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import { Message } from '@src/app/shared/Message';
+import * as QueryString from 'query-string';
 import {
     useListRemoteExecutorPoolsQuery,
     useUpdateDefaultRemoteExecutorPoolMutation,
 } from '@src/graphql/remote_executor.generated';
 import { Button, Pagination } from 'antd';
 import { ArrowClockwise, Plus } from 'phosphor-react';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { RemoteExecutorPool } from '@src/types.generated';
+import { ONE_SECOND_IN_MS } from '@src/app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import { debounce } from 'lodash';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { SearchBar } from '@src/app/search/SearchBar';
+import { useQueryParamValue } from '@src/app/entityV2/shared/useQueryParamValue';
+import { useHistory } from 'react-router';
+import { INGESTION_TAB_QUERY_PARAMS } from '../source/constants';
+import { TabType } from '../source/types';
 import { RemoteExecutorPoolsTable } from './RemoteExecutorPoolsTable';
 import CreateRemoteExecutorPoolModal from './CreateRemoteExecutorPoolModal';
 
@@ -27,8 +37,16 @@ const ArrowClockwiseStyled = styled(ArrowClockwise)`
     top: 2px;
 `;
 
-export const RemoteExecutorPoolsList = () => {
-    // ---------------------- loading data ---------------------- //
+type Props = {
+    onSwitchTab: (tab: string) => void;
+};
+
+export const RemoteExecutorPoolsList = ({ onSwitchTab }: Props) => {
+    const entityRegistry = useEntityRegistry();
+    const defaultQuery = useQueryParamValue('pool');
+
+    // ---------------------- load & search data ---------------------- //
+    const [query, setQuery] = useState<string | undefined>(typeof defaultQuery === 'string' ? defaultQuery : undefined);
     const [page, setPage] = useState(1);
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -37,6 +55,7 @@ export const RemoteExecutorPoolsList = () => {
         variables: {
             start,
             count: pageSize,
+            query,
         },
         fetchPolicy: 'no-cache',
         pollInterval: 10000,
@@ -54,6 +73,11 @@ export const RemoteExecutorPoolsList = () => {
         setPage(newPage);
     };
 
+    const onSearch = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+        setPage(1);
+    }, ONE_SECOND_IN_MS);
+
     // ---------------------- updating default pools ---------------------- //
     const [updateDefaultPoolMutation] = useUpdateDefaultRemoteExecutorPoolMutation();
     const updateDefaultPool = (urn: string) => {
@@ -66,6 +90,25 @@ export const RemoteExecutorPoolsList = () => {
         setShowCreatePoolModal(true);
     };
 
+    // ---------------------- default search handling ---------------------- //
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (defaultQuery?.length) {
+            searchInputRef.current?.focus();
+        }
+    }, [defaultQuery]);
+
+    // ---------------------- open source tab with parameters ---------------------- //
+    const history = useHistory();
+    const onViewSourcesForPool = (pool: string) => {
+        // first, add pool to query parameters
+        const newParams = { [INGESTION_TAB_QUERY_PARAMS.pool]: pool };
+        const newSearch = QueryString.stringify(newParams);
+        history.push(`${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
+        // then, switch to the correct tab
+        onSwitchTab(TabType.Sources);
+    };
+
     // ---------------------- render ---------------------- //
     return (
         <>
@@ -76,20 +119,41 @@ export const RemoteExecutorPoolsList = () => {
             <ExecutorsContainer>
                 {/* ----------- Toolbar ----------- */}
                 <TabToolbar>
-                    <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
-                        <PlusStyled />
-                        <span style={{ marginLeft: 4 }}>Create</span>
-                    </Button>
-                    <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} type="text" onClick={onRefresh}>
-                        <ArrowClockwiseStyled />
-                        <span style={{ marginLeft: 4 }}>Refresh</span>
-                    </Button>
+                    <div>
+                        <Button id={REMOTE_EXECUTORS_CREATE_SOURCE_ID} type="text" onClick={onCreatePool}>
+                            <PlusStyled />
+                            <span style={{ marginLeft: 4 }}>Create</span>
+                        </Button>
+                        <Button id={REMOTE_EXECUTORS_REFRESH_SOURCE_ID} type="text" onClick={onRefresh}>
+                            <ArrowClockwiseStyled />
+                            <span style={{ marginLeft: 4 }}>Refresh</span>
+                        </Button>
+                    </div>
+                    <SearchBar
+                        searchInputRef={searchInputRef}
+                        initialQuery={query || ''}
+                        placeholderText="Search pools..."
+                        suggestions={[]}
+                        style={{
+                            maxWidth: 220,
+                            padding: 0,
+                        }}
+                        inputStyle={{
+                            height: 32,
+                            fontSize: 12,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={onSearch}
+                        entityRegistry={entityRegistry}
+                        hideRecommendations
+                    />
                 </TabToolbar>
                 {/* ----------- Table ----------- */}
                 <RemoteExecutorPoolsTable
                     pools={remoteExecutorPools}
                     onRefresh={onRefresh}
                     updateDefaultPool={updateDefaultPool}
+                    viewSourcesForPool={onViewSourcesForPool}
                 />
                 {/* ----------- Pagination ----------- */}
                 <Pagination

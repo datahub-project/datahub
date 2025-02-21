@@ -2,7 +2,7 @@ import React from 'react';
 import { Popover, Typography } from 'antd';
 import { RemoteExecutor } from '@src/types.generated';
 import { formatDuration } from '@src/app/shared/formatDuration';
-import { CheckCircle, Stop, WarningCircle } from 'phosphor-react';
+import { CheckCircle, StopCircle, WarningCircle } from 'phosphor-react';
 
 export function TimeColumn(time: string) {
     const date = time && new Date(time);
@@ -53,7 +53,7 @@ const getStoppedLabel = (numStopped?: number) => (
         }
     >
         <Typography.Text type="secondary" style={{ fontWeight: 700, marginRight: 8 }}>
-            <Stop size={14} style={{ marginBottom: -2 }} />
+            <StopCircle size={14} style={{ marginBottom: -2 }} />
             {numStopped !== undefined ? ` ${numStopped}` : ''} Stopped
         </Typography.Text>
     </Popover>
@@ -64,8 +64,8 @@ export function StatusColumn({
     executorStopped,
     executorUptime,
 }: {
-    executorExpired: number;
-    executorStopped: number;
+    executorExpired: boolean;
+    executorStopped: boolean;
     executorUptime: number;
 }) {
     let status: any;
