@@ -97,7 +97,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-8/test_ingestion0/mlruns/0"
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-35/test_ingestion0/mlruns/0"
             },
             "name": "Default"
         }
@@ -166,7 +166,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-8/test_ingestion0/mlruns/375862264488761128"
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-35/test_ingestion0/mlruns/766847104871454225"
             },
             "name": "test-experiment"
         }
@@ -211,7 +211,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -222,22 +222,6 @@
                 "time": 1615443388097,
                 "actor": "urn:li:platformResource:unknown"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815"
         }
     },
     "systemMetadata": {
@@ -281,6 +265,72 @@
     }
 },
 {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "02660a3bee9941ed983667f678ce5611",
+            "outputUrls": [
+                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-35/test_ingestion0/mlruns/766847104871454225/02660a3bee9941ed983667f678ce5611/artifacts"
+            ],
+            "hyperParams": [
+                {
+                    "name": "p",
+                    "value": "1"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "m",
+                    "value": "0.85"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
@@ -291,7 +341,7 @@
                 "model_version_id": "1"
             },
             "trainingJobs": [
-                "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f"
+                "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca"
             ],
             "created": {
                 "time": 1615443388097
@@ -316,72 +366,6 @@
             ],
             "groups": [
                 "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:mlflow"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
-    "changeType": "UPSERT",
-    "aspectName": "mlTrainingRunProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "id": "46f1a037b43e4caabe2000573d08bb74",
-            "outputUrls": [
-                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-8/test_ingestion0/mlruns/375862264488761128/46f1a037b43e4caabe2000573d08bb74/artifacts"
-            ],
-            "hyperParams": [
-                {
-                    "name": "p",
-                    "value": "1"
-                }
-            ],
-            "trainingMetrics": [
-                {
-                    "name": "m",
-                    "value": "0.85"
-                }
             ]
         }
     },
@@ -429,6 +413,22 @@
     }
 },
 {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
@@ -446,7 +446,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -481,22 +481,6 @@
 {
     "entityType": "tag",
     "entityUrn": "urn:li:tag:mlflow_staging",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d1534a1bb266c4ee4663d78ff4af734f",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -561,6 +545,22 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
