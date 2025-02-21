@@ -47,10 +47,39 @@ query listRemoteExecutorPools($start: Int!, $count: Int!, $query: String) {
                     executorAddress
                     executorHostname
                     logDeliveryEnabled
+                    # we query for 25 recent executions since we only want to show the active stuff
+                    recentExecutions(start: 0, count: 25) {
+                        start
+                        count
+                        total
+                        executionRequests {
+                            urn
+                            id
+                            input {
+                                requestedAt
+                                actorUrn
+                                executorId
+                                source {
+                                    type
+                                    ingestionSource
+                                }
+                            }
+                            result {
+                                status
+                                startTimeMs
+                                durationMs
+                                executorInstanceId
+                                structuredReport {
+                                    type
+                                    serializedValue
+                                }
+                            }
+                        }
+                    }
                 }
             }
             # we query for 10k ingestion sources since customers usually only have <100 in a pool
-            ingestionSources(start: 0, count: 10000) {
+            ingestionSources(input: { start: 0, count: 10000, hideSystemSources: true }) {
                 total
                 count
                 ingestionSources {

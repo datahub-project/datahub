@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.plugins;
 
 import static com.linkedin.datahub.graphql.AcrylConstants.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
@@ -28,6 +30,8 @@ import com.linkedin.datahub.graphql.generated.FormForActor;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.IngestionSourceSourceType;
+import com.linkedin.datahub.graphql.generated.ListExecutionRequestsInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
@@ -35,9 +39,12 @@ import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
 import com.linkedin.datahub.graphql.generated.RemoteExecutor;
 import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
+import com.linkedin.datahub.graphql.generated.RemoteExecutorPoolIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
@@ -87,6 +94,7 @@ import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
@@ -1094,24 +1102,73 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         environment -> {
                           final String poolName =
                               ((RemoteExecutorPool) environment.getSource()).getPoolName();
+                          final RemoteExecutorPoolIngestionSourcesInput input =
+                              bindArgument(
+                                  environment.getArgument("input"),
+                                  RemoteExecutorPoolIngestionSourcesInput.class);
+
                           final List<FacetFilterInput> filterInputs =
-                              List.of(
-                                  FacetFilterInput.builder()
-                                      .setField("sourceExecutorId")
-                                      .setCondition(FilterOperator.EQUAL)
-                                      .setValues(List.of(poolName))
-                                      .build());
-                          final ListIngestionSourcesInput input = new ListIngestionSourcesInput();
-                          input.setFilters(filterInputs);
-                          input.setStart(environment.getArgument("start"));
-                          input.setCount(environment.getArgument("count"));
+                              new ArrayList<>(
+                                  List.of(
+                                      FacetFilterInput.builder()
+                                          .setField("sourceExecutorId")
+                                          .setCondition(FilterOperator.EQUAL)
+                                          .setValues(List.of(poolName))
+                                          .build()));
+                          if (input.getHideSystemSources()) {
+                            filterInputs.add(
+                                FacetFilterInput.builder()
+                                    .setField("sourceType")
+                                    .setCondition(FilterOperator.EQUAL)
+                                    .setValues(List.of(IngestionSourceSourceType.SYSTEM.name()))
+                                    .setNegated(true)
+                                    .build());
+                          }
+                          final ListIngestionSourcesInput newInput =
+                              new ListIngestionSourcesInput();
+                          newInput.setFilters(filterInputs);
+                          newInput.setStart(input.getStart());
+                          newInput.setCount(input.getCount());
                           return new ListIngestionSourcesResolver(this.entityClient)
                               .get(
                                   DataFetchingEnvironmentImpl.newDataFetchingEnvironment(
                                           environment)
-                                      .arguments(Map.of("input", input))
+                                      .arguments(Map.of("input", newInput))
                                       .build());
                         }))
+        .type(
+            "RemoteExecutor",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "recentExecutions",
+                    environment -> {
+                      final String executorInstanceId =
+                          UrnUtils.getUrn(((RemoteExecutor) environment.getSource()).getUrn())
+                              .getId();
+                      final List<FacetFilterInput> filterInputs =
+                          List.of(
+                              FacetFilterInput.builder()
+                                  .setField("executorInstanceId")
+                                  .setCondition(FilterOperator.EQUAL)
+                                  .setValues(List.of(executorInstanceId))
+                                  .build());
+
+                      final SortCriterion sortCriterion = new SortCriterion();
+                      sortCriterion.setSortOrder(SortOrder.DESCENDING);
+                      sortCriterion.setField("requestTimeMs");
+
+                      final ListExecutionRequestsInput input = new ListExecutionRequestsInput();
+                      input.setFilters(filterInputs);
+                      input.setStart(environment.getArgument("start"));
+                      input.setCount(environment.getArgument("count"));
+                      input.setSort(sortCriterion);
+
+                      return new ListExecutionRequestsResolver(this.entityClient)
+                          .get(
+                              DataFetchingEnvironmentImpl.newDataFetchingEnvironment(environment)
+                                  .arguments(Map.of("input", input))
+                                  .build());
+                    }))
         .type(
             "ListRemoteExecutorsResult",
             typeWiring ->

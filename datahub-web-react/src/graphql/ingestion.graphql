@@ -52,6 +52,13 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
     }
 }
 
+query getIngestionSourceName($urn: String!) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         urn

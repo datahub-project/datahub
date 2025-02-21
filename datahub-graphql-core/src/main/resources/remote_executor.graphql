@@ -3,6 +3,7 @@ extend type Query {
   defaultRemoteExecutorPool: DefaultRemoteExecutorPoolResult!
   getRemoteExecutor(urn: String!): RemoteExecutor
 }
+
 extend type Mutation {
   """
   Creates a remote executor pool and returns its urn
@@ -85,7 +86,13 @@ type RemoteExecutorPool implements Entity {
   """
   The ingestion sources that are associated with this pool
   """
-  ingestionSources(start: Int!, count: Int!): ListIngestionSourcesResult
+  ingestionSources(input: RemoteExecutorPoolIngestionSourcesInput!): ListIngestionSourcesResult
+}
+
+input RemoteExecutorPoolIngestionSourcesInput {
+    start: Int!
+    count: Int!
+    hideSystemSources: Boolean!
 }
 
 
@@ -170,14 +177,7 @@ type RemoteExecutor implements Entity {
   reportedAt: Long!
 
   """
-  Execution tasks that are associated with this executor instance
+  Active execution tasks that are associated with this executor instance
   """
-  executions(start: Int!, count: Int!): ListExecutionRequestsResult
-}
-
-type ListExecutionRequestsResult {
-    executionRequests: [ExecutionRequest!]
-    start: Int!
-    count: Int!
-    total: Int!
+  recentExecutions(start: Int!, count: Int!): IngestionSourceExecutionRequests
 }

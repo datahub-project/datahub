@@ -218,8 +218,6 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {/* SaaS only */}
                     <SubHeaderParagraph>
-                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
-                        <br />
                         Pool:{' '}
                         <LinkButton
                             disabled={!poolName}
@@ -234,6 +232,8 @@ export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) 
                         >
                             {poolName || 'Unknown'}
                         </LinkButton>
+                        <br />
+                        Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
                     </SubHeaderParagraph>
                     {/* End SaaS only */}
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}

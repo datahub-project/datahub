@@ -34,6 +34,10 @@ describe("managing secrets for ingestion creation", () => {
     // Create an ingestion source using a secret
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
+    cy.on("uncaught:exception", (err) => {
+      expect(err.message).to.include("ResizeObserver loop limit exceeded");
+      return false;
+    });
     cy.get("#ingestion-create-source").click();
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
     cy.clickOptionWithText("Snowflake");
@@ -53,6 +57,10 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
     cy.waitTextVisible(ingestion_source_name);
+    cy.on("uncaught:exception", (err) => {
+      expect(err.message).to.include("ResizeObserver loop limit exceeded");
+      return false;
+    });
     cy.get("button").contains("Pending...").should("be.visible");
 
     // Remove a secret

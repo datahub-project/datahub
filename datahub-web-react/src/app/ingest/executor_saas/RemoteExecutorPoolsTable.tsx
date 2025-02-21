@@ -6,8 +6,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { Check } from 'phosphor-react';
 import { colors } from '@src/alchemy-components';
+import { pluralize } from '@src/app/shared/textUtil';
 import { RemoteExecutorsList } from './RemoteExecutorsList';
 import { PoolStatusColumn } from './Columns';
+import { checkIsExecutionRequestRunning } from '../source/utils';
 
 const PAGE_HEADER_HEIGHT = 395;
 const ExecutorsTable = styled(StyledTable)`
@@ -111,8 +113,25 @@ export const RemoteExecutorPoolsTable = ({ pools, onRefresh, updateDefaultPool, 
             key: 'ingestionSources',
             render: (_, record: (typeof tableData)[0]) => (
                 <LinkButton onClick={() => viewSourcesForPool(record.name)}>
-                    {record.ingestionSources?.total ?? 0} sources
+                    {record.ingestionSources?.total ?? 0} {pluralize(record.ingestionSources?.total ?? 0, 'source')}
                 </LinkButton>
+            ),
+        },
+        {
+            title: 'Tasks',
+            dataIndex: 'x',
+            key: 'runningTasks',
+            render: (_, record: (typeof tableData)[0]) => (
+                <Typography.Text>
+                    {record.remoteExecutors?.remoteExecutors?.reduce(
+                        (total, exec) =>
+                            total +
+                            (exec.recentExecutions?.executionRequests.filter((task) =>
+                                checkIsExecutionRequestRunning(task.result),
+                            ).length || 0),
+                        0,
+                    ) || 'None'}
+                </Typography.Text>
             ),
         },
         {

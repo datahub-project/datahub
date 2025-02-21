@@ -34,6 +34,10 @@ describe("run managed ingestion", () => {
     cy.clickOptionWithTextToScrollintoView("Save & Run");
     cy.waitTextVisible(testName);
 
+    cy.on("uncaught:exception", (err, runnable) => {
+      expect(err.message).to.include("ResizeObserver loop limit exceeded");
+      return false;
+    });
     cy.contains(testName)
       .parent()
       .within(() => {

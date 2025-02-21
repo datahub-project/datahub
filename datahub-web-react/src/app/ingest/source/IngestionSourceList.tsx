@@ -494,7 +494,8 @@ export const IngestionSourceList = ({ onSwitchTab }: Props) => {
                 {/* SaaS only: Pools filter query param indicator with an 'x' button */}
                 {paramsPoolFilter && (
                     <PoolsFilterButton type="text" onClick={clearPoolFilter}>
-                        Showing &quot;{paramsPoolFilter}&quot; pools <CloseButton color={colors.red[500]} size={12} />
+                        Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                        <CloseButton color={colors.red[500]} size={12} />
                     </PoolsFilterButton>
                 )}
                 <IngestionSourceTable

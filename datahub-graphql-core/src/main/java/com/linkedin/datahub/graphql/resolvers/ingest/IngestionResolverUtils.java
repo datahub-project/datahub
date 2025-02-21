@@ -110,6 +110,9 @@ public class IngestionResolverUtils {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestSource result =
         new com.linkedin.datahub.graphql.generated.ExecutionRequestSource();
     result.setType(execRequestSource.getType());
+    if (execRequestSource.hasIngestionSource()) {
+      result.setIngestionSource(execRequestSource.getIngestionSource().toString());
+    }
     return result;
   }
 

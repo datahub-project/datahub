@@ -98,7 +98,6 @@ export default function IngestionExecutionTable({
                 />
             ),
         },
-
         {
             title: '',
             dataIndex: '',
