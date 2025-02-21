@@ -82,11 +82,17 @@ class ContainerKeyWithId(ContainerKey):
 class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
-        description="Tracking server URI. If not set, an MLflow default tracking_uri is used (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)",
+        description=(
+            "Tracking server URI. If not set, an MLflow default tracking_uri is used"
+            " (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)"
+        ),
     )
     registry_uri: Optional[str] = Field(
         default=None,
-        description="Registry server URI. If not set, an MLflow default registry_uri is used (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)",
+        description=(
+            "Registry server URI. If not set, an MLflow default registry_uri is used"
+            " (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)"
+        ),
     )
     model_name_separator: str = Field(
         default="_",
@@ -399,7 +405,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         next_page_token = None
         while True:
             paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list
+            yield from paged_list.to_list()
             next_page_token = paged_list.token
             if not next_page_token:
                 return
@@ -622,11 +628,11 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         ml_model_properties = MLModelPropertiesClass(
             customProperties=model_version.tags,
+            externalUrl=self._make_external_url(model_version),
             lastModified=TimeStampClass(
                 time=model_version.last_updated_timestamp,
                 actor=None,
             ),
-            externalUrl=self._make_external_url_from_model_version(model_version),
             description=model_version.description,
             created=TimeStampClass(
                 time=created_time,
@@ -648,15 +654,6 @@ class MLflowSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
         return urn
-
-    def _make_external_url_from_model_version(
-        self, model_version: ModelVersion
-    ) -> Union[None, str]:
-        base_uri = self.client.tracking_uri
-        if base_uri.startswith("http"):
-            return f"{base_uri.rstrip('/')}/#/models/{model_version.name}/versions/{model_version.version}"
-        else:
-            return None
 
     def _get_base_external_url_from_tracking_uri(self) -> Optional[str]:
         if isinstance(
