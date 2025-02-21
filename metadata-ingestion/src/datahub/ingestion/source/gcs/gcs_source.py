@@ -20,9 +20,10 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import get_gcs_bucket_name
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
-from datahub.ingestion.source.s3.source import S3Source
+from datahub.ingestion.source.s3.source import S3Source, TableData
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -145,6 +146,12 @@ class GCSSource(StatefulIngestionSourceBase):
         source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
             f"s3://{bucket_name}/{key}"
         )
+
+        def get_external_url_override(table_data: TableData) -> Optional[str]:
+            bucket_name = get_gcs_bucket_name(table_data.table_path)
+            return f"https://console.cloud.google.com/storage/browser/{bucket_name}"
+
+        source.get_external_url = get_external_url_override  # type: ignore
         return source
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
