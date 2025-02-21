@@ -110,6 +110,11 @@ buildCache {
 }
 
 def installPreCommitHooks() {
+    try {
+        def process = ["git", "config", "--unset-all", "core.hooksPath"].execute()
+    } catch (Exception e) {
+        println "Error removing core.hooksPath: ${e.message}"
+    }
     def preCommitInstalled = false
     try {
         def process = ["which", "pre-commit"].execute()

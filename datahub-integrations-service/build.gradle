@@ -56,7 +56,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
     outputs.file("${venv_name}/.build_install_sentinel")
 
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/sync.sh && " +
         "touch ${venv_name}/.build_install_sentinel"
 }
@@ -67,25 +67,25 @@ task installDev(dependsOn: [install])
 
 task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile.sh"
 }
 task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile-check.sh"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "ruff check src/ tests/ && " +
         "ruff format --check src/ tests/ && " +
         "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "ruff check --fix src/ tests/ && " +
         "ruff format src/ tests/ "
 }

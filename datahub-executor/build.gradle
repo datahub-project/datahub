@@ -45,7 +45,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_sentinel")
     commandLine 'bash', '-x', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "uv pip install -e . &&" +
         "touch ${venv_name}/.build_install_sentinel"
 }
@@ -56,7 +56,7 @@ task installDev(type: Exec, dependsOn: [install]) {
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "uv pip install -e . &&" +
         "uv pip install -r requirements-dev.txt &&" +
         "touch ${venv_name}/.build_install_dev_sentinel"
@@ -64,27 +64,27 @@ task installDev(type: Exec, dependsOn: [install]) {
 
 task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile.sh"
 }
 task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
     commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile-check.sh"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "set -x &&" +
-        "${venv_name}/bin/ruff check src/ tests/ && " +
-        "${venv_name}/bin/ruff format --check src/ tests/ && " +
-        "${venv_name}/bin/mypy src/ tests/"
+        "set +x && source ${venv_name}/bin/activate &&  set -x &&" +
+        "ruff check src/ tests/ && " +
+        "ruff format --check src/ tests/ && " +
+        "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "set -x &&" +
-        "${venv_name}/bin/ruff check --fix src/ tests/ && " +
-        "${venv_name}/bin/ruff format src/ tests/"
+        "set +x && source ${venv_name}/bin/activate &&  set -x &&" +
+        "ruff check --fix src/ tests/ && " +
+        "ruff format src/ tests/"
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {
