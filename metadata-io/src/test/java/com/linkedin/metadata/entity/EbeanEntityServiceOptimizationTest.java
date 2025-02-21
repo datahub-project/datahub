@@ -73,6 +73,7 @@ public class EbeanEntityServiceOptimizationTest {
     entityService =
         new EntityServiceImpl(aspectDao, mock(EventProducer.class), false, preProcessHooks, true);
     entityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
+    entityService.setRetentionService(null);
   }
 
   @Test
