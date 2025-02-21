@@ -9,6 +9,8 @@ import { AssertionsSummary } from './assertion/AssertionsSummary';
 import { IncidentsSummary } from './incident/IncidentsSummary';
 import { EntityType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
+import { PageTitle } from '@components';
+import { PageContainer, HeaderContainer } from '../../govern/structuredProperties/styledComponents';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     height: 100%;
@@ -24,32 +26,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
 `;
 
-const Header = styled.div`
-    && {
-        padding-left: 40px;
-        padding-right: 40px;
-        padding-bottom: 12px;
-        padding-top: 20px;
-    }
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
-`;
-
-const Title = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
-`;
-
-const SubTitle = styled(Typography.Paragraph)`
-    && {
-        font-size: 16px;
-    }
-`;
-
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding-left: 40px;
-    padding-right: 40px;
-    padding-top: 20px;
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -57,14 +34,6 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         overflow-y: auto;
         height: calc(100% - 115px);
     `}
-`;
-
-const ContentSectionTitle = styled(Typography.Title)`
-    padding-left: 20px;
-`;
-
-const ContentSection = styled.div`
-    height: 100%;
 `;
 
 const Section = styled.div`
@@ -75,25 +44,12 @@ const Section = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
 `;
 
-const LeftColumn = styled.div`
-    width: 100%;
-    padding: 20px 20px 10px 20px;
-`;
-
-const RightColumn = styled.div`
-    width: 100%;
-    padding: 10px 20px 20px 20px;
-`;
-
 const StyledDatabaseOutlined = styled(DatabaseOutlined)`
     && {
         font-size: 18px;
         padding-right: 12px;
     }
 `;
-
-const PAGE_TITLE = 'Dataset Health';
-const PAGE_SUB_TITLE = "Monitor the health of your organization's datasets";
 
 /**
  * The top-level Dataset Health Dashboard which lives under the Observe module.
@@ -119,29 +75,19 @@ export const DatasetHealthPage = () => {
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (
-        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <Header>
-                <Title level={3}>
-                    <StyledDatabaseOutlined />
-                    {PAGE_TITLE}
-                </Title>
-                <SubTitle type="secondary">{PAGE_SUB_TITLE}</SubTitle>
-            </Header>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <HeaderContainer>
+                <PageTitle title="Dataset Health" subTitle="Monitor the health of your organization's datasets" />
+            </HeaderContainer>
             <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <ContentSectionTitle level={3}>Overview</ContentSectionTitle>
-                <ContentSection>
-                    <LeftColumn>
-                        <Section>
-                            <IncidentsSummary total={total} />
-                        </Section>
-                    </LeftColumn>
-                    <RightColumn>
-                        <Section>
-                            <AssertionsSummary total={total} />
-                        </Section>
-                    </RightColumn>
-                </ContentSection>
+                <Section>
+                    <IncidentsSummary total={total} />
+                </Section>
+
+                <Section>
+                    <AssertionsSummary total={total} />
+                </Section>
             </Content>
-        </Container>
+        </PageContainer>
     );
 };
