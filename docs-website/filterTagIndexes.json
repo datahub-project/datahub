@@ -24,7 +24,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/azure-ad",
-      "imgPath": "img/logos/platforms/azure-ad.png",
+      "imgPath": "img/logos/platforms/azure-ad.svg",
       "Title": "Azure AD",
       "Description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications.",
       "tags": {
