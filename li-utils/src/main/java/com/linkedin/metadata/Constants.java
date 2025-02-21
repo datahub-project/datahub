@@ -339,6 +339,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
