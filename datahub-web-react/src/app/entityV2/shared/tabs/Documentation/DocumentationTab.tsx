@@ -1,9 +1,10 @@
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
+import { Button } from '@src/alchemy-components';
 import { useLocation } from 'react-router-dom';
 
 import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Divider, Typography } from 'antd';
+import { Button as AntButton, Divider, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -13,7 +14,7 @@ import { DescriptionEditor } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
 import { useEntityData, useRefetch, useRouteToTab } from '../../../../entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../constants';
+import { REDESIGN_COLORS } from '../../constants';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
 import { Editor } from './components/editor/Editor';
@@ -35,22 +36,6 @@ const StyledTabToolbar = styled(TabToolbar)`
 
     position: sticky;
     top: 0;
-`;
-
-const PrimaryButton = styled(Button)`
-    color: ${ANTD_GRAY[1]};
-    font-size: 12px;
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    margin-left: 9px;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
 `;
 
 const EmptyTabWrapper = styled.div`
@@ -97,17 +82,17 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 <>
                     <StyledTabToolbar>
                         <div>
-                            <Button
+                            <AntButton
                                 data-testid="edit-documentation-button"
                                 type="text"
                                 onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                             >
                                 <EditOutlined /> Edit
-                            </Button>
-                            {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                            </AntButton>
+                            {!hideLinksButton && <AddLinkModal buttonType="text" refetch={refetch} />}
                         </div>
                         <div>
-                            <Button
+                            <AntButton
                                 type="text"
                                 onClick={() =>
                                     routeToTab({
@@ -117,7 +102,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 }
                             >
                                 <ExpandAltOutlined />
-                            </Button>
+                            </AntButton>
                         </div>
                     </StyledTabToolbar>
                     <div>
@@ -137,15 +122,13 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
-                        {!hideLinksButton && <AddLinkModal buttonType="transparent" refetch={refetch} />}
-                        <PrimaryButton
-                            type="primary"
-                            size="large"
+                        {!hideLinksButton && <AddLinkModal refetch={refetch} />}
+                        <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <PlusOutlined /> Add Documentation
-                        </PrimaryButton>
+                        </Button>
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}

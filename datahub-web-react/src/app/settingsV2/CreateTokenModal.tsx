@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
+import { message, Input, Modal, Typography, Form, Select } from 'antd';
 import styled from 'styled-components';
 import { red } from '@ant-design/colors';
+import { Button } from '@src/alchemy-components';
 
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
@@ -9,6 +10,7 @@ import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
 import { AccessTokenModal } from './AccessTokenModal';
 import analytics, { EventType } from '../analytics';
+import { ModalButtonContainer } from '../shared/button/styledComponents';
 
 type Props = {
     currentUserUrn: string;
@@ -130,12 +132,16 @@ export default function CreateTokenModal({
                 visible={visible}
                 onCancel={onModalClose}
                 footer={
-                    <>
-                        <Button onClick={onModalClose} type="text" data-testid="cancel-create-access-token-button">
+                    <ModalButtonContainer>
+                        <Button
+                            onClick={onModalClose}
+                            variant="text"
+                            color="gray"
+                            data-testid="cancel-create-access-token-button"
+                        >
                             Cancel
                         </Button>
                         <Button
-                            type="primary"
                             id="createTokenButton"
                             onClick={onCreateNewToken}
                             disabled={createButtonEnabled}
@@ -143,7 +149,7 @@ export default function CreateTokenModal({
                         >
                             Create
                         </Button>
-                    </>
+                    </ModalButtonContainer>
                 }
             >
                 <Form

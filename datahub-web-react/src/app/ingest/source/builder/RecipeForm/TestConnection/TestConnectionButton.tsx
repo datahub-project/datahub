@@ -1,7 +1,7 @@
 import { CheckCircleOutlined } from '@ant-design/icons';
-import { Button, message } from 'antd';
+import { message } from 'antd';
+import { Button } from '@src/alchemy-components';
 import React, { useEffect, useState } from 'react';
-import { green } from '@ant-design/colors';
 import {
     useCreateTestConnectionRequestMutation,
     useGetIngestionExecutionRequestLazyQuery,
@@ -108,8 +108,8 @@ function TestConnectionButton(props: Props) {
 
     return (
         <>
-            <Button onClick={testConnection}>
-                <CheckCircleOutlined style={{ color: green[5] }} />
+            <Button variant="outline" onClick={testConnection}>
+                <CheckCircleOutlined />
                 Test Connection
             </Button>
             {isModalVisible && (

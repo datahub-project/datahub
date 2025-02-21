@@ -1,6 +1,8 @@
-import { Button, Modal } from 'antd';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { EntityAndType } from '../../../types';
@@ -71,8 +73,8 @@ export const SearchSelectModal = ({
                 open
                 onCancel={onCancelSelect}
                 footer={
-                    <>
-                        <Button onClick={onCancel} type="text">
+                    <ModalButtonContainer>
+                        <Button onClick={onCancel} variant="text" color="gray">
                             Cancel
                         </Button>
                         <Button
@@ -82,7 +84,7 @@ export const SearchSelectModal = ({
                         >
                             {continueText || 'Done'}
                         </Button>
-                    </>
+                    </ModalButtonContainer>
                 }
             >
                 <SearchSelect
