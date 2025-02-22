@@ -57,7 +57,7 @@
         "dayjs": "^1.11.7",
         "deepmerge": "^4.2.2",
         "diff": "^5.0.0",
-        "dompurify": "^2.5.4",
+        "dompurify": "^3.2.4",
         "dotenv": "^8.2.0",
         "faker": "5.5.3",
         "fuse.js": "^7.0.0",
