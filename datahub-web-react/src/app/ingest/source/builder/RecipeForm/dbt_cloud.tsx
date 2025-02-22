@@ -233,6 +233,62 @@ export const NODE_DENY: RecipeField = {
     section: 'Nodes',
 };
 
+const databaseAllowFieldPath = 'source.config.database_name_pattern.allow';
+export const DATABASE_ALLOW: RecipeField = {
+    name: 'database_name_pattern.allow',
+    label: 'Allow Database Patterns',
+    tooltip:
+        'Only include specific dbt Databases by providing their name, or a Regular Expression (REGEX). If not provided, all Databases will be included.',
+    placeholder: 'database_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: databaseAllowFieldPath,
+    rules: null,
+    section: 'Databases',
+};
+
+const databaseDenyFieldPath = 'source.config.database_name_pattern.deny';
+export const DATABASE_DENY: RecipeField = {
+    name: 'database_name_pattern.deny',
+    label: 'Deny Database Patterns',
+    tooltip:
+        'Exclude specific dbt Databases by providing their name, or a Regular Expression (REGEX). If not provided, all Databases will be included. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'database_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: databaseDenyFieldPath,
+    rules: null,
+    section: 'Databases',
+};
+
+const schemaAllowFieldPath = 'source.config.schema_name_pattern.allow';
+export const SCHEMA_ALLOW: RecipeField = {
+    name: 'schema_name_pattern.allow',
+    label: 'Allow Schema Patterns',
+    tooltip:
+        'Only include specific dbt Schemas by providing their name, or a Regular Expression (REGEX). If not provided, all Schemas will be included.',
+    placeholder: 'schema_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: schemaAllowFieldPath,
+    rules: null,
+    section: 'Schemas',
+};
+
+const schemaDenyFieldPath = 'source.config.schema_name_pattern.deny';
+export const SCHEMA_DENY: RecipeField = {
+    name: 'schema_name_pattern.deny',
+    label: 'Deny Schema Patterns',
+    tooltip:
+        'Exclude specific dbt Schemas by providing their name, or a Regular Expression (REGEX). If not provided, all Schemas will be included. Deny patterns always take precedence over Allow patterns.',
+    placeholder: 'schema_name',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: schemaDenyFieldPath,
+    rules: null,
+    section: 'Schemas',
+};
+
 export const METADATA_ENDPOINT: RecipeField = {
     name: 'metadata_endpoint',
     label: 'Custom Metadata Endpoint URL',
