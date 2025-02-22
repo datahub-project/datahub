@@ -1,0 +1,33 @@
+source:
+  type: jdbc
+  config:
+    # Coordinates
+    platform: mssql
+    platform_instance: test
+    sqlglot_dialect: tsql
+    driver:
+      driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
+      maven_coordinates: com.microsoft.sqlserver:mssql-jdbc:12.8.0.jre11
+    connection:
+      uri: jdbc:sqlserver://
+      username: sa
+      password: Password123!
+      properties:
+        serverName: localhost
+        port: 41433
+        databaseName: test
+        encrypt: false
+
+    # Options
+    include_tables: true
+    include_views: true
+    include_stored_procedures: true
+
+    schema_pattern:
+      allow:
+        - ".*dbo.*"
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"
