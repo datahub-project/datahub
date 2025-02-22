@@ -9,6 +9,7 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -24,6 +25,7 @@ import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -101,4 +103,10 @@ public class MCLSpringCommonTestConfiguration {
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
+
+  @MockBean(name = "kafkaThrottle")
+  public ThrottleSensor kafkaThrottle;
+
+  @MockBean(name = "traceAdminClient")
+  public AdminClient traceAdminClient;
 }
