@@ -11,7 +11,16 @@ import {
     LEGACY_ENTITY_FILTER_NAME,
 } from './utils/constants';
 
-const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
+const TOP_FILTERS = [
+    'degree',
+    ENTITY_FILTER_NAME,
+    'typeNames',
+    'platform',
+    'tags',
+    'glossaryTerms',
+    'domains',
+    'owners',
+];
 
 const FILTERS_TO_EXCLUDE = [LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME];
 
