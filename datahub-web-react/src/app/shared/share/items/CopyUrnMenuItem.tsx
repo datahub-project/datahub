@@ -25,19 +25,23 @@ export default function CopyUrnMenuItem({ urn, type }: CopyUrnMenuItemProps) {
      */
     const [isClicked, setIsClicked] = useState(false);
 
-    return (
-        <StyledMenuItem
-            onClick={() => {
-                navigator.clipboard.writeText(urn);
-                setIsClicked(true);
-            }}
-        >
-            <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
-                {isClicked ? <CheckOutlined /> : <CopyOutlined />}
-                <TextSpan>
-                    <b>Copy URN</b>
-                </TextSpan>
-            </Tooltip>
-        </StyledMenuItem>
-    );
+    if (navigator.clipboard) {
+        return (
+            <StyledMenuItem
+                onClick={() => {
+                    navigator.clipboard.writeText(urn);
+                    setIsClicked(true);
+                }}
+            >
+                <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
+                    {isClicked ? <CheckOutlined /> : <CopyOutlined />}
+                    <TextSpan>
+                        <b>Copy URN</b>
+                    </TextSpan>
+                </Tooltip>
+            </StyledMenuItem>
+        );
+    }
+
+    return null;
 }
