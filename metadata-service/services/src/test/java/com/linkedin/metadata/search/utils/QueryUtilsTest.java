@@ -121,8 +121,7 @@ public class QueryUtilsTest {
     Assert.assertEquals(cc.getAnd().size(), 1, "Expected one criterion in the filter");
     Criterion crit = cc.getAnd().get(0);
     Assert.assertEquals(crit.getField(), "field2", "Field name should match");
-    Assert.assertEquals(
-        crit.getValue(), "", "Value should not be used");
+    Assert.assertEquals(crit.getValue(), "", "Value should not be used");
     Assert.assertEquals(
         crit.getValues(),
         new StringArray(Arrays.asList("a", "b")),
