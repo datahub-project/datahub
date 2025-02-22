@@ -99,9 +99,9 @@ usage_common = {
 
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
-    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "sqlglot[rs]==25.32.1",
+    # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    # but not longer do.
+    "sqlglot[rs]==26.6.0",
     "patchy==2.8.0",
 }
 
