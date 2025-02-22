@@ -11,6 +11,37 @@ import styles from "./styles.module.scss";
 
 const getVersionMainDoc = (version) => version.docs.find((doc) => doc.id === version.mainDocId);
 
+const archivedVersionLinks = [
+  {
+    label: '0.14.1',
+    to: 'https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features',
+  },
+  {
+    label: '0.14.0',
+    to: 'https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features',
+  },
+  {
+    label: '0.13.1',
+    to: 'https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features',
+  },
+  {
+    label: '0.13.0',
+    to: 'https://docs-website-lzxh86531-acryldata.vercel.app/docs/features',
+  },
+  {
+    label: '0.12.1',
+    to: 'https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features',
+  },
+  {
+    label: '0.11.0',
+    to: 'https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features',
+  },
+  {
+    label: '0.10.5',
+    to: 'https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features',
+  },
+]
+
 export default function DocsVersionDropdownNavbarItem({
   mobile,
   docsPluginId = 'default',
@@ -42,54 +73,14 @@ export default function DocsVersionDropdownNavbarItem({
       type: 'html',
       value: '<div class="dropdown__link"><b>Archived versions</b></div>',
     },
-    {
+    ...archivedVersionLinks.map((version) => ({
       value: `
-         <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app//docs/features">0.14.0
+         <a class="dropdown__link" href="${version.to}">${version.label}
          <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
          </a>
       `,
       type: "html",
-    },
-    {
-      value: `
-         <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
-         <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-         </a>
-      `,
-      type: "html",
-    },
-    {
-      value: `
-         <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
-         <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-         </a>
-      `,
-      type: "html",
-    },
-    {
-      value: `
-         <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
-         <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-         </a>
-      `,
-      type: "html",
-    },
-    {
-      value: `
-         <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
-         <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-         </a>
-      `,
-      type: "html",
-    },
-    {
-      value: `
-         <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
-         <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-         </a>
-      `,
-      type: "html",
-    },
+    })),
   ];
 
   const items = [...dropdownItemsBefore, ...versionLinks, ...archivedVersions, ...dropdownItemsAfter];
