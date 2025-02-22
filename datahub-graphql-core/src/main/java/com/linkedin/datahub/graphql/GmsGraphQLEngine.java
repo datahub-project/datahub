@@ -210,6 +210,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionEx
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
@@ -1097,6 +1098,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "listIngestionSources", new ListIngestionSourcesResolver(this.entityClient))
                 .dataFetcher("ingestionSource", new GetIngestionSourceResolver(this.entityClient))
+                .dataFetcher(
+                    "listExecutionRequests", new ListExecutionRequestsResolver(this.entityClient))
                 .dataFetcher(
                     "executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
                 .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
