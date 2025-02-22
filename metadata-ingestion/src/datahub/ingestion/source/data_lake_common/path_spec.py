@@ -145,6 +145,11 @@ class PathSpec(ConfigModel):
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
 
+    allowed_tables: Optional[List[str]] = Field(
+        default=None,
+        description="RegExp patterns for table names that are allowed to be ingested. If not set, all tables will be ingested.",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -177,6 +182,11 @@ class PathSpec(ConfigModel):
                 ):
                     return False
         logger.debug(f"{path} is not excluded")
+
+        if not self.is_allowed_table(self._get_table_name(path) or ""):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
@@ -218,6 +228,11 @@ class PathSpec(ConfigModel):
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
                     return False
+
+        if not self.is_allowed_table(self._get_table_name(path) or ""):
+            return False
+        logger.debug(f"{path} is passed table name check")
+
         return True
 
     @classmethod
@@ -561,3 +576,25 @@ class PathSpec(ConfigModel):
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
+
+    def _get_table_name(self, path: str) -> Optional[str]:
+        if "{table}" not in self.include:
+            return None
+
+        table_idx = self.include.split("/").index("{table}")
+        path_items = path.rstrip("/").split("/")
+
+        if table_idx >= len(path_items):
+            raise ValueError(f"Table not found in path: {path}")
+
+        return path_items[table_idx]
+
+    def is_allowed_table(self, table_name: str) -> bool:
+        if not self.allowed_tables:
+            return True
+
+        for pattern in self.allowed_tables:
+            if re.fullmatch(pattern, table_name):
+                return True
+
+        return False
