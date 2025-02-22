@@ -87,7 +87,7 @@ export const ManageIngestionPage = () => {
         [TabType.Sources]: <IngestionSourceList />,
         [TabType.Secrets]: <SecretsList />,
     };
-    
+
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
@@ -97,7 +97,11 @@ export const ManageIngestionPage = () => {
                     Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
-            <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab) => onSwitchTab(tab, { clearQueryParams: true })}>
+            <StyledTabs
+                activeKey={selectedTab}
+                size="large"
+                onTabClick={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+            >
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>

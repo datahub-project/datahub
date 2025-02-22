@@ -6,12 +6,7 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
-import {
-    LastStatusColumn,
-    TypeColumn,
-    ActionsColumn,
-    ScheduleColumn,
-} from './IngestionSourceTableColumns';
+import { LastStatusColumn, TypeColumn, ActionsColumn, ScheduleColumn } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 
