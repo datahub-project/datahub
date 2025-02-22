@@ -39,7 +39,10 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
-          // First, validate the batch
+          // First, validate the tag urns
+          validateTags(tagUrns, context);
+
+          // Next, validate the batch
           validateInputResources(context.getOperationContext(), resources, context);
 
           try {
@@ -55,6 +58,15 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private void validateTags(List<Urn> tagUrns, QueryContext context) {
+    for (Urn tagUrn : tagUrns) {
+      if (!LabelUtils.isAuthorizedToAssociateEntity(context, tagUrn)) {
+        throw new AuthorizationException(
+            "Only users granted permission to this entity can assign or remove it");
+      }
+    }
   }
 
   private void validateInputResources(
