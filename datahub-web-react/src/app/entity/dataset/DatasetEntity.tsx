@@ -183,7 +183,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Governance',
                     component: GovernanceTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            const testResults = dataset?.dataset?.testResults;
+                            const totalResults =
+                                (testResults?.passing?.length || 0) + (testResults?.failing?.length || 0);
+                            return totalResults !== 0;
+                        },
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return dataset?.dataset?.testResults !== null;
                         },
