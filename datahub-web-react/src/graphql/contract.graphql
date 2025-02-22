@@ -43,6 +43,15 @@ query getDatasetContract($urn: String!) {
         contract {
             ...dataContractDetails
         }
+        siblings {
+            siblings {
+                ...on Dataset {
+                    contract {
+                        ...dataContractDetails
+                    }
+                }
+            }
+        }
     }
 }
 
