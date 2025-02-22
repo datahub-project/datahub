@@ -37,7 +37,10 @@ describe("managing secrets for ingestion creation", () => {
     cy.get('[data-node-key="Sources"]').click();
     cy.get("#ingestion-create-source").click();
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
-    cy.get('.ant-btn').contains("Snowflake").should("be.visible").click({ force: true });
+    cy.get(".ant-btn")
+      .contains("Snowflake")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
@@ -80,7 +83,10 @@ describe("managing secrets for ingestion creation", () => {
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
-    cy.get('.ant-btn').contains("Snowflake").should("be.visible").click({ force: true });
+    cy.get(".ant-btn")
+      .contains("Snowflake")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
