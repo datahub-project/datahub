@@ -8,12 +8,13 @@ describe("manage ownership", () => {
     cy.login();
     cy.goToOwnershipTypesSettings();
     cy.waitTextVisible("Manage Ownership");
+    cy.ensureTextNotPresent("Loading Ownership Types");
     cy.clickOptionWithTestId("create-owner-type");
-    cy.get('[data-testid="ownership-type-name-input"]').clear("T");
+    cy.get('[data-testid="ownership-type-name-input"]').clear();
     cy.get('[data-testid="ownership-type-name-input"]').type(
       "Test Ownership Type",
     );
-    cy.get('[data-testid="ownership-type-description-input"]').clear("T");
+    cy.get('[data-testid="ownership-type-description-input"]').clear();
     cy.get('[data-testid="ownership-type-description-input"]').type(
       "This is a test ownership type description.",
     );
