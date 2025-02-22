@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from urllib.parse import quote
 
 from datahub.metadata.schema_classes import (
@@ -104,55 +105,149 @@ def build_new_proposal_parameters(
     if request.message.parameters is None:
         raise ValueError("Parameters are required for new proposal notifications.")
 
-    # Assuming get_user_name is a function you have defined to extract the user name from actorUrn
-    actor_name = get_actor_name(request.message.parameters.get("actorName"))
-    entity_name = request.message.parameters.get("entityName", "")
-    entity_path = request.message.parameters.get("entityPath")
-    entity_url = f"{base_url}{entity_path}"
-    entity_platform = request.message.parameters.get("entityPlatform", "")
-    entity_type = request.message.parameters.get("entityType", "")
-    modifier_type = (request.message.parameters.get("modifierType") or "").capitalize()
-    modifier_name = request.message.parameters.get("modifierName", "")
+    inbox_url = f"{base_url}/requests"
 
-    maybe_sub_resource_type = request.message.parameters.get("subResourceType")
-    maybe_sub_resource = request.message.parameters.get("subResource")
+    params = request.message.parameters
+    actor_name = params.get("actorName", "Someone")
+    entity_name = params.get("entityName", "UnknownEntity")
+    entity_type = params.get("entityType", "")
+    operation = params.get("operation", "add")
 
-    subject = None
-    message = None
+    modifier_type = params.get("modifierType", "UnknownModifier")
+    modifier_names = safe_deserialize_json_list(params.get("modifierNames"))
+    modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
 
-    entity_title = build_entity_title(entity_platform, entity_type, entity_name)
+    all_modifiers_str = (
+        join_modifiers_text(modifier_names) if modifier_names else modifier_type
+    )
+    all_modifiers_str_with_links = (
+        join_modifiers(modifier_names, modifier_paths, base_url)
+        if modifier_names
+        else modifier_type
+    )
 
-    if maybe_sub_resource is not None and maybe_sub_resource_type is not None:
-        # Examples:
-        # - Tag PII has been proposed for column foo of SampleKafkaDataset by John Joyce.
-        # - Glossary term FOOBAR has been proposed for column bar of SampleKafkaDataset.
-        subject = (
-            f"{modifier_type} {modifier_name} has been proposed for column {maybe_sub_resource} of {entity_title}"
-            f"{' by ' + actor_name if actor_name else ''}."
+    sub_resource_type = params.get("subResourceType")
+    sub_resource_name = params.get("subResource")
+
+    # 1) Special case for creating a Glossary Term or Term Group
+    if modifier_type in ("Glossary Term", "Glossary Term Group"):
+        parent_term_group_name = params.get("parentTermGroupName")
+        # e.g. " in Term Group PII"
+        term_group_string = (
+            f" in Term Group <b>{parent_term_group_name}</b>"
+            if parent_term_group_name
+            else ""
         )
+
+        # Example subject:
+        # "John Joyce has proposed creating Glossary Term named Email Address in Term Group PII."
+        subject = (
+            f"{actor_name} has proposed creating {modifier_type} named {entity_name}"
+            f"{f' in Term Group {parent_term_group_name}' if parent_term_group_name else ''}."
+        )
+        # Example message:
         message = (
-            f"{modifier_type} <b>{modifier_name}</b> has been proposed for column <b>{maybe_sub_resource}</b> of <b>{entity_title}</b>"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"<b>{actor_name}</b> has proposed creating <b>{modifier_type}</b> named <b>{entity_name}</b>"
+            f"{term_group_string}."
+        )
+        return {
+            "subject": subject,
+            "message": message,
+            "baseUrl": base_url,
+            "detailsUrl": inbox_url,
+        }
+
+    # 2) If NOT a glossary term scenario, follow your usual format
+    if sub_resource_name and sub_resource_type:
+        subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {sub_resource_type} {sub_resource_name} of {entity_type} {entity_name}"
+        message = (
+            f"<b>{actor_name}</b> has proposed to {operation} <b>{all_modifiers_str_with_links}</b> "
+            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
         )
     else:
-        # Examples:
-        # - Tag PII has been proposed for SampleKafkaDataset by John Joyce.
-        # - Glossary Term TERM has been proposed proposed for SampleKafkaDataset by John Joyce.
-        subject = (
-            f"{modifier_type} {modifier_name} has been proposed for {entity_title}"
-            f"{' by ' + actor_name if actor_name else ''}."
-        )
+        subject = f"{actor_name} proposed to {operation} {all_modifiers_str} for {entity_type} {entity_name}"
         message = (
-            f"{modifier_type} <b>{modifier_name}</b> has been proposed for <b>{entity_title}</b>"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"<b>{actor_name}</b> has proposed to {operation} <b>{all_modifiers_str_with_links}</b> "
+            f"for <b>{entity_type} {entity_name}</b>."
         )
 
     return {
         "subject": subject,
         "message": message,
-        "entityName": entity_name,
-        "detailsUrl": entity_url,
-        "entityUrl": entity_url,
+        "baseUrl": base_url,
+        "detailsUrl": inbox_url,
+    }
+
+
+def build_proposer_proposal_status_change_parameters(
+    request: NotificationRequestClass, base_url: str
+) -> Dict[str, str | None]:
+    """
+    Builds the personalized "Your proposal has been accepted/rejected..." email parameters,
+    specifically for the user who originally created the proposal.
+    """
+    if request.message.parameters is None:
+        raise ValueError(
+            "Parameters are required for proposal status change notifications."
+        )
+
+    params = request.message.parameters
+    action = params.get("action", "accepted")  # "accepted", "rejected", ...
+    operation = params.get("operation", "add")
+    modifier_type = params.get("modifierType", "UnknownModifier")
+
+    entity_name = params.get("entityName", "UnknownEntity")
+    entity_type = params.get("entityType", "")
+
+    modifier_names = safe_deserialize_json_list(params.get("modifierNames"))
+    modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
+
+    all_modifiers_str = (
+        join_modifiers(modifier_names, modifier_paths, base_url)
+        if modifier_names
+        else modifier_type
+    )
+
+    sub_resource_type = params.get("subResourceType")
+    sub_resource_name = params.get("subResource")
+
+    # Subject is simpler: "Your proposal has been accepted."
+    subject = f"Your proposal has been {action}."
+
+    # 1) Glossary Term / Term Group special case
+    if modifier_type in ("Glossary Term", "Glossary Term Group"):
+        parent_term_group_name = params.get("parentTermGroupName")
+        term_group_string = (
+            f" in Term Group <b>{parent_term_group_name}</b>"
+            if parent_term_group_name
+            else ""
+        )
+        message = (
+            f"Your proposal to create <b>{modifier_type}</b> named <b>{entity_name}</b>"
+            f"{term_group_string} has been <b>{action}</b>."
+        )
+        return {
+            "subject": subject,
+            "message": message,
+            "baseUrl": base_url,
+        }
+
+    # 2) Normal scenario
+    if sub_resource_name and sub_resource_type:
+        message = (
+            f"Your proposal to {operation} <b>{all_modifiers_str}</b> "
+            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b> "
+            f"has been <b>{action}</b>."
+        )
+    else:
+        message = (
+            f"Your proposal to {operation} <b>{all_modifiers_str}</b> "
+            f"for <b>{entity_type} {entity_name}</b> has been <b>{action}</b>."
+        )
+
+    return {
+        "subject": subject,
+        "message": message,
         "baseUrl": base_url,
     }
 
@@ -160,63 +255,87 @@ def build_new_proposal_parameters(
 def build_proposal_status_change_parameters(
     request: NotificationRequestClass, base_url: str
 ) -> Dict[str, str | None]:
+    """
+    Builds the email parameters for all "other" recipients (not the original proposer).
+    Essentially: "John Joyce has accepted the proposal to add Tag(s) for Dataset Foo."
+    """
     if request.message.parameters is None:
         raise ValueError(
             "Parameters are required for proposal status change notifications."
         )
 
-    actor_name = get_actor_name(request.message.parameters.get("actorName"))
-    entity_name = request.message.parameters.get("entityName", "")
-    entity_path = request.message.parameters.get("entityPath")
-    entity_platform = request.message.parameters.get("entityPlatform", "")
-    entity_type = request.message.parameters.get("entityType", "")
-    entity_url = f"{base_url}{entity_path}"
-    request.message.parameters.get("entityType")
-    modifier_type = request.message.parameters.get("modifierType")
-    modifier_name = request.message.parameters.get("modifierName")
-    operation = request.message.parameters.get("operation")
-    action = request.message.parameters.get("action")
+    inbox_url = f"{base_url}/requests"
 
-    maybe_sub_resource_type = request.message.parameters.get("subResourceType")
-    maybe_sub_resource = request.message.parameters.get("subResource")
+    params = request.message.parameters
+    actor_name = params.get("actorName", "Someone")
+    entity_name = params.get("entityName", "UnknownEntity")
+    entity_type = params.get("entityType", "")
+    operation = params.get("operation", "add")
+    action = params.get("action", "accepted")  # e.g. "accepted", "rejected", etc
 
-    subject = None
-    message = None
+    modifier_type = params.get("modifierType", "UnknownModifier")
+    modifier_names = safe_deserialize_json_list(params.get("modifierNames"))
+    modifier_paths = safe_deserialize_json_list(params.get("modifierPaths"))
+    all_modifiers_str = (
+        join_modifiers_text(modifier_names) if modifier_names else modifier_type
+    )
+    all_modifiers_str_with_links = (
+        join_modifiers(modifier_names, modifier_paths, base_url)
+        if modifier_names
+        else modifier_type
+    )
 
-    entity_title = build_entity_title(entity_platform, entity_type, entity_name)
+    sub_resource_type = params.get("subResourceType")
+    sub_resource_name = params.get("subResource")
 
-    # Examples:
-    # - Proposal to add tag PII for column foo of Dataset SampleKafkaDataset has been approved by John Joyce.
-    # - Proposal to remove glossary term FOOBAR for column foo of SampleKafkaDataset has been denied by John Joyce.
-    if maybe_sub_resource is not None and maybe_sub_resource_type is not None:
+    # 1) Special-case for Glossary Terms / Term Groups
+    if modifier_type in ("Glossary Term", "Glossary Term Group"):
+        parent_term_group_name = params.get("parentTermGroupName")
+        term_group_string = (
+            f" in Term Group <b>{parent_term_group_name}</b>"
+            if parent_term_group_name
+            else ""
+        )
         subject = (
-            f"Proposal to {operation} {modifier_type} {modifier_name} for column {maybe_sub_resource} of {entity_title} has been {action}"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"{actor_name} has {action} the proposal to create {modifier_type} named {entity_name}"
+            f"{f' in Term Group {parent_term_group_name}' if parent_term_group_name else ''}."
         )
         message = (
-            f"Proposal to {operation} {modifier_type} <b>{modifier_name}</b> for column <b>{maybe_sub_resource}</b> of <b>{entity_title}</b> has been {action}"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to create <b>{modifier_type}</b> "
+            f"named <b>{entity_name}</b>{term_group_string}."
+        )
+        return {
+            "subject": subject,
+            "message": message,
+            "baseUrl": base_url,
+            "detailsUrl": inbox_url,
+        }
+
+    # 2) Normal (non-glossary) scenario
+    if sub_resource_name and sub_resource_type:
+        subject = (
+            f"{actor_name} has {action} the proposal to {operation} {all_modifiers_str} "
+            f"for {sub_resource_type} {sub_resource_name} of {entity_type} {entity_name}."
+        )
+        message = (
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} <b>{all_modifiers_str_with_links}</b> "
+            f"for {sub_resource_type} <b>{sub_resource_name}</b> of <b>{entity_type} {entity_name}</b>."
         )
     else:
-        # Examples:
-        # - Proposal to add tag PII for SampleKafkaDataset has been approved by John Joyce.
-        # - Proposal to remove glossary term FOOBAR for SampleKafkaDataset has been denied by John Joyce.
         subject = (
-            f"Proposal to {operation} {modifier_type} {modifier_name} for {entity_title} has been {action}"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"{actor_name} has {action} the proposal to {operation} {all_modifiers_str} "
+            f"for {entity_type} {entity_name}."
         )
         message = (
-            f"Proposal to {operation} {modifier_type} <b>{modifier_name}</b> for <b>{entity_title}</b> has been {action}"
-            f"{' by ' + actor_name if actor_name else ''}."
+            f"<b>{actor_name}</b> has <b>{action}</b> the proposal to {operation} <b>{all_modifiers_str_with_links}</b> "
+            f"for <b>{entity_type} {entity_name}</b>."
         )
 
     return {
         "subject": subject,
         "message": message,
-        "entityName": entity_name,
-        "detailsUrl": entity_url,
-        "entityUrl": entity_url,
         "baseUrl": base_url,
+        "detailsUrl": inbox_url,
     }
 
 
@@ -565,3 +684,54 @@ def build_entity_title(
     """
     platform_prefix = entity_platform + " " if entity_platform is not None else ""
     return f"{platform_prefix}{entity_type} {entity_name}"
+
+
+def safe_deserialize_json_list(json_str: str | None) -> List[str]:
+    if not json_str:
+        return []
+    try:
+        return json.loads(json_str)
+    except Exception:
+        return []
+
+
+def join_modifiers_text(modifier_names: List[str]) -> str:
+    if not modifier_names:
+        return ""
+    if len(modifier_names) == 1:
+        return modifier_names[0]
+    if len(modifier_names) == 2:
+        return f"{modifier_names[0]} and {modifier_names[1]}"
+    return f"{', '.join(modifier_names[:-1])}, and {modifier_names[-1]}"
+
+
+def join_modifiers(
+    modifier_names: List[str], modifier_paths: List[str], base_url: str
+) -> str:
+    """
+    Joins modifier names with "and" before the last item. If the length of
+    modifier_paths is the same as modifier_names, we'll wrap each name
+    in an HTML <a> tag using base_url + path. Otherwise, we use plain text.
+    """
+    if not modifier_names:
+        return ""
+
+    # 1) If lengths match, build anchor tags. Otherwise, just use the raw names.
+    if len(modifier_names) == len(modifier_paths):
+        linked_modifiers = []
+        for name, path in zip(modifier_names, modifier_paths, strict=False):
+            if path:  # If path is non-empty, linkify
+                linked_modifiers.append(f'<a href="{base_url}{path}">{name}</a>')
+            else:
+                # No path provided, fallback to plain text
+                linked_modifiers.append(name)
+    else:
+        # If lengths differ, fallback to plain text
+        linked_modifiers = modifier_names[:]
+
+    # 2) Perform the "join with and" logic
+    if len(linked_modifiers) == 1:
+        return linked_modifiers[0]
+    if len(linked_modifiers) == 2:
+        return f"{linked_modifiers[0]} and {linked_modifiers[1]}"
+    return f"{', '.join(linked_modifiers[:-1])}, and {linked_modifiers[-1]}"

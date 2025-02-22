@@ -632,26 +632,27 @@ public class EntityNameProvider {
                 }));
   }
 
-    private Map<Urn, String> batchGetStructuredPropertyName(
-            @Nonnull OperationContext opContext, Set<Urn> structuredPropertyUrns) {
-        Map<Urn, DataMap> dataMap =
-                batchGetAspectData(
-                        opContext,
-                        structuredPropertyUrns,
-                        Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
-                        Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-        return structuredPropertyUrns.stream()
-                .collect(
-                        Collectors.toMap(
-                                k -> k,
-                                urn -> {
-                                    DataMap data = dataMap.get(urn);
-                                    return data != null ? new StructuredPropertyDefinition(data).getDisplayName() : urn.toString();
-                                }));
-    }
+  private Map<Urn, String> batchGetStructuredPropertyName(
+      @Nonnull OperationContext opContext, Set<Urn> structuredPropertyUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            structuredPropertyUrns,
+            Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
+            Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    return structuredPropertyUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new StructuredPropertyDefinition(data).getDisplayName()
+                      : urn.toString();
+                }));
+  }
 
-
-    @Nullable
+  @Nullable
   private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {
     DataMap data =
         batchGetAspectData(
@@ -777,7 +778,7 @@ public class EntityNameProvider {
         return "Column";
       case Constants.DATA_PRODUCT_ENTITY_NAME:
         return "Data Product";
-    case Constants.STRUCTURED_PROPERTY_ENTITY_NAME:
+      case Constants.STRUCTURED_PROPERTY_ENTITY_NAME:
         return "Structured Property";
       default:
         // JUST RETURN THE ENTITY TYPE ITSELF OTHERWISE.

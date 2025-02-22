@@ -95,7 +95,7 @@ public enum NotificationTemplateType {
           "actorUrn", // User who approved or rejected the proposal
           "actorName",
           "creatorUrn" // User who initially created the proposal
-      ),
+          ),
       ImmutableSet.of("entityPath", "subResourceType", "subResourceUrn", "context")),
   /** Broadcast an Assertion status change as a FAILURE or SUCCESS */
   BROADCAST_ASSERTION_STATUS_CHANGE(

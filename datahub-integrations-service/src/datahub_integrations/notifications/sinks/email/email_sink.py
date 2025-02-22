@@ -27,6 +27,7 @@ from datahub_integrations.notifications.sinks.email.template_utils import (
     build_new_incident_parameters,
     build_new_proposal_parameters,
     build_proposal_status_change_parameters,
+    build_proposer_proposal_status_change_parameters,
 )
 from datahub_integrations.notifications.sinks.sink import NotificationSink
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
@@ -55,6 +56,14 @@ class EmailNotificationSink(NotificationSink):
         self, request: NotificationRequestClass, context: NotificationContext
     ) -> None:
         template_type: str = str(request.message.template)
+
+        # --- We add a custom branch for BROADCAST_PROPOSAL_STATUS_CHANGE
+        if (
+            template_type
+            == NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE
+        ):
+            self._send_broadcast_proposal_status_change_notification(request)
+            return
 
         # Mapping template types to functions
         action_map = {
@@ -104,6 +113,52 @@ class EmailNotificationSink(NotificationSink):
         else:
             logger.warning(
                 f"Unsupported template type {template_type} provided. Not sending notification."
+            )
+
+    def _send_broadcast_proposal_status_change_notification(
+        self, request: NotificationRequestClass
+    ) -> None:
+        """
+        1) If there's a `creatorUrn`, send a personalized email to the original proposer.
+        2) Then send a broadcast email to the rest of the recipients.
+        """
+        recipients = request.recipients or []
+        parameters = request.message.parameters or {}
+
+        creator_urn = parameters.get("creatorUrn")
+
+        # 1) Send the personal notification to the creator (if present in the recipients).
+        if creator_urn:
+            # Find the matching recipient (with origin=ACTOR_NOTIFICATION if you replicate that Slack logic exactly)
+            # but commonly you might just match on the actor URN if it exists among recipients.
+            creator_recipient = next(
+                (r for r in recipients if r.actor == creator_urn),
+                None,
+            )
+            if creator_recipient:
+                # Build a specialized parameter set for the "proposer" message
+                proposer_params = build_proposer_proposal_status_change_parameters(
+                    request, self.base_url
+                )
+                # Send the personal email
+                self._send_change_notification(
+                    [creator_recipient],
+                    proposer_params,
+                    retry_mode=RetryMode.DISABLED,
+                )
+
+        # 2) Send the "normal" proposal status change message to everyone else
+        broadcast_recipients = [
+            r for r in recipients if not (creator_urn and r.actor == creator_urn)
+        ]
+        if broadcast_recipients:
+            broadcast_params = build_proposal_status_change_parameters(
+                request, self.base_url
+            )
+            self._send_change_notification(
+                broadcast_recipients,
+                broadcast_params,
+                retry_mode=RetryMode.DISABLED,
             )
 
     def _send_custom_notification(self, request: NotificationRequestClass) -> None:

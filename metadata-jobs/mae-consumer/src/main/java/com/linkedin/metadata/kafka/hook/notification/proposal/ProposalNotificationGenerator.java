@@ -405,7 +405,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
     }
-    addContextToTemplateParams(templateParams, info);
+    addContextToTemplateParams(opCtemplateParams, info);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
@@ -526,6 +526,10 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
         && info.getParams().hasStructuredPropertyProposal()) {
       templateParams.put(
           "context", toSerializedJsonObject(info.getParams().getStructuredPropertyProposal()));
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL.equals(info.getType())) {
+      templateParams.put("parentTermGroupName", _entityNameProvider.getName(systemOpContext, info.getParams().getCreateGlossaryNodeProposal().getParentNode()));
+    } else if (AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL.equals(info.getType())) {
+      templateParams.put("parentTermGroupName", _entityNameProvider.getName(systemOpContext, info.getParams().getCreateGlossaryTermProposal().getParentNode()));
     }
   }
 

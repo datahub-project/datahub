@@ -31,8 +31,6 @@ from datahub_integrations.notifications.sinks.slack.send_slack_message import (
 from datahub_integrations.notifications.sinks.slack.template_utils import (
     build_incident_message,
     build_incident_status_change_message,
-    build_proposal_message,
-    build_proposal_status_change_message,
 )
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
@@ -151,36 +149,6 @@ class SlackNotificationSink(NotificationSink):
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_incident_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
-        )
-
-        return self._send_change_notification(
-            request.recipients,
-            text,
-            blocks,
-            attachments,
-            RetryMode.ENABLED,
-        )
-
-    def _send_new_proposal_notification(
-        self, request: NotificationRequestClass
-    ) -> List[SlackMessageDetails]:
-        text, blocks, attachments = build_proposal_message(
-            request, self.identity_provider, self.base_url
-        )
-
-        return self._send_change_notification(
-            request.recipients,
-            text,
-            blocks,
-            attachments,
-            RetryMode.ENABLED,
-        )
-
-    def _send_proposal_status_change(
-        self, request: NotificationRequestClass
-    ) -> List[SlackMessageDetails]:
-        text, blocks, attachments = build_proposal_status_change_message(
-            request, self.identity_provider, self.base_url
         )
 
         return self._send_change_notification(

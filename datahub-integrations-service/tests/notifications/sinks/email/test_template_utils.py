@@ -17,12 +17,13 @@ from datahub_integrations.notifications.sinks.email.template_utils import (
     build_new_incident_parameters,
     build_new_proposal_parameters,
     build_proposal_status_change_parameters,
+    build_proposer_proposal_status_change_parameters,
     timestamp_to_date,
 )
 
 
 @pytest.fixture
-def base_url() -> str:
+def base_url_fix() -> str:
     return "https://example.acryl.io"
 
 
@@ -33,7 +34,7 @@ def get_notification_request(
     return NotificationRequestClass(message=message, recipients=[], sinks=[])
 
 
-def test_build_new_incident_parameters(base_url: str) -> None:
+def test_build_new_incident_parameters(base_url_fix: str) -> None:
     parameters = {
         "actorName": "John Doe",
         "entityPath": "/datasets/dataset123",
@@ -52,12 +53,12 @@ def test_build_new_incident_parameters(base_url: str) -> None:
         "entityName": "Dataset123",
         "detailsUrl": "https://example.acryl.io/datasets/dataset123/Incidents",
         "entityUrl": "https://example.acryl.io/datasets/dataset123",
-        "baseUrl": base_url,
+        "baseUrl": base_url_fix,
     }
-    assert build_new_incident_parameters(notification_request, base_url) == expected
+    assert build_new_incident_parameters(notification_request, base_url_fix) == expected
 
 
-def test_build_incident_status_change_parameters(base_url: str) -> None:
+def test_build_incident_status_change_parameters(base_url_fix: str) -> None:
     parameters = {
         "actorName": "John Doe",
         "entityPath": "/datasets/dataset123",
@@ -78,15 +79,24 @@ def test_build_incident_status_change_parameters(base_url: str) -> None:
         "entityName": "Dataset123",
         "detailsUrl": "https://example.acryl.io/datasets/dataset123/Incidents",
         "entityUrl": "https://example.acryl.io/datasets/dataset123",
-        "baseUrl": base_url,
+        "baseUrl": base_url_fix,
     }
     assert (
-        build_incident_status_change_parameters(notification_request, base_url)
+        build_incident_status_change_parameters(notification_request, base_url_fix)
         == expected
     )
 
 
-def test_build_new_proposal_parameters_for_entity(base_url: str) -> None:
+#
+# Tests for build_new_proposal_parameters(...)
+#
+
+
+def test_build_new_proposal_parameters_for_entity(base_url_fix: str) -> None:
+    """
+    Tests a "new proposal" for a normal (non-glossary) modifier, no sub-resource,
+    using JSON array for modifierNames.
+    """
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
@@ -94,28 +104,40 @@ def test_build_new_proposal_parameters_for_entity(base_url: str) -> None:
                 "actorName": "John Joyce",
                 "entityName": "SampleKafkaDataset",
                 "entityType": "Table",
-                "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplekafkadataset",
+                "operation": "add",
                 "modifierType": "Tag",
-                "modifierName": "PII",
+                "modifierNames": '["PII"]',  # JSON string => ["PII"]
+                "modifierPaths": '["/glossary/urn:li:glossaryTerm:pii"]',
             },
         ),
         recipients=[],
     )
 
+    # According to your updated code:
+    # subject => "John Joyce proposed to add PII for Table SampleKafkaDataset"
+    # message => "<b>John Joyce</b> has proposed to <b>add</b> PII for <b>Table SampleKafkaDataset</b>."
     expected = {
-        "subject": "Tag PII has been proposed for Hive Table SampleKafkaDataset by John Joyce.",
-        "message": "Tag <b>PII</b> has been proposed for <b>Hive Table SampleKafkaDataset</b> by John Joyce.",
-        "entityName": "SampleKafkaDataset",
-        "detailsUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "entityUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "baseUrl": base_url,
+        "subject": "John Joyce proposed to add PII for Table SampleKafkaDataset",
+        "message": (
+            '<b>John Joyce</b> has proposed to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
+            "for <b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
     }
 
-    assert build_new_proposal_parameters(request, base_url) == expected
+    actual = build_new_proposal_parameters(request, base_url_fix)
+    assert actual == expected
 
 
-def test_build_new_proposal_parameters_for_sub_resource(base_url: str) -> None:
+def test_build_new_proposal_parameters_for_sub_resource_no_modifier_paths(
+    base_url_fix: str,
+) -> None:
+    """
+    Tests a "new proposal" for a normal (non-glossary) modifier WITH a sub-resource,
+    with multiple modifierNames in the array.
+    """
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
@@ -123,10 +145,11 @@ def test_build_new_proposal_parameters_for_sub_resource(base_url: str) -> None:
                 "actorName": "John Joyce",
                 "entityName": "SampleKafkaDataset",
                 "entityType": "Table",
-                "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplekafkadataset",
-                "modifierType": "glossary term",
-                "modifierName": "FOOBAR",
+                "operation": "add",
+                "modifierType": "Tag",
+                "modifierNames": '["Sensitive","Confidential"]',
+                "modifierPaths": "[]",
                 "subResourceType": "column",
                 "subResource": "bar",
             },
@@ -134,19 +157,101 @@ def test_build_new_proposal_parameters_for_sub_resource(base_url: str) -> None:
         recipients=[],
     )
 
+    # The code will join "Sensitive" and "Confidential" as "Sensitive and Confidential"
     expected = {
-        "subject": "Glossary term FOOBAR has been proposed for column bar of Hive Table SampleKafkaDataset by John Joyce.",
-        "message": "Glossary term <b>FOOBAR</b> has been proposed for column <b>bar</b> of <b>Hive Table SampleKafkaDataset</b> by John Joyce.",
-        "entityName": "SampleKafkaDataset",
-        "detailsUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "entityUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "baseUrl": base_url,
+        "subject": "John Joyce proposed to add Sensitive and Confidential for column bar of Table SampleKafkaDataset",
+        "message": (
+            "<b>John Joyce</b> has proposed to add <b>Sensitive and Confidential</b> "
+            "for column <b>bar</b> of <b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
     }
 
-    assert build_new_proposal_parameters(request, base_url) == expected
+    actual = build_new_proposal_parameters(request, base_url_fix)
+    assert actual == expected
 
 
-def test_build_new_proposal_parameters_missing_parameters(base_url: str) -> None:
+def test_build_new_proposal_parameters_for_glossary_term(base_url_fix: str) -> None:
+    """
+    Tests a "new proposal" for a Glossary Term, ignoring modifierNames array
+    in favor of entityName for the "named ...".
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
+            parameters={
+                "actorName": "Alice",
+                "entityName": "Email Address",
+                "entityPath": "/glossary/term/123",
+                "operation": "create",
+                "modifierType": "Glossary Term",  # triggers special-case
+                "modifierNames": "[]",  # not used in the special block
+                "modifierPaths": "[]",
+                # optional
+                "parentTermGroupName": "PII",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No "entityUrl" returned for glossary scenario, per your snippet
+    expected = {
+        "subject": "Alice has proposed creating Glossary Term named Email Address in Term Group PII.",
+        "message": (
+            "<b>Alice</b> has proposed creating <b>Glossary Term</b> named <b>Email Address</b>"
+            " in Term Group <b>PII</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_new_proposal_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_new_proposal_parameters_for_glossary_node(base_url_fix: str) -> None:
+    """
+    Tests a "new proposal" for a Glossary Term Group, ignoring modifierNames array
+    in favor of entityName for the "named ...".
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
+            parameters={
+                "actorName": "Alice",
+                "entityName": "PII",
+                "entityPath": "/glossary/term/123",
+                "operation": "create",
+                "modifierType": "Glossary Term Group",  # triggers special-case
+                "modifierNames": "[]",  # not used in the special block
+                "modifierPaths": "[]",
+                # optional
+                "parentTermGroupName": "Root",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No "entityUrl" returned for glossary scenario, per your snippet
+    expected = {
+        "subject": "Alice has proposed creating Glossary Term Group named PII in Term Group Root.",
+        "message": (
+            "<b>Alice</b> has proposed creating <b>Glossary Term Group</b> named <b>PII</b>"
+            " in Term Group <b>Root</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_new_proposal_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_new_proposal_parameters_missing_parameters(base_url_fix: str) -> None:
+    """
+    Validates that passing None for 'parameters' raises ValueError.
+    """
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL,
@@ -155,10 +260,19 @@ def test_build_new_proposal_parameters_missing_parameters(base_url: str) -> None
         recipients=[],
     )
     with pytest.raises(ValueError):
-        build_new_proposal_parameters(request, base_url)
+        build_new_proposal_parameters(request, base_url_fix)
 
 
-def test_build_proposal_status_change_parameters_for_entity(base_url: str) -> None:
+#
+# Tests for build_proposal_status_change_parameters(...)
+#
+
+
+def test_build_proposal_status_change_parameters_for_entity(base_url_fix: str) -> None:
+    """
+    "Proposal status change" for a normal (non-glossary) scenario, no sub-resource,
+    with single item in modifierNames array.
+    """
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
@@ -167,9 +281,9 @@ def test_build_proposal_status_change_parameters_for_entity(base_url: str) -> No
                 "entityName": "SampleKafkaDataset",
                 "entityPath": "/datasets/samplekafkadataset",
                 "entityType": "Table",
-                "entityPlatform": "Hive",
                 "modifierType": "tag",
-                "modifierName": "PII",
+                "modifierNames": '["PII"]',  # single item array
+                "modifierPaths": '["/glossary/urn:li:glossaryTerm:pii"]',
                 "operation": "add",
                 "action": "approved",
             },
@@ -178,31 +292,37 @@ def test_build_proposal_status_change_parameters_for_entity(base_url: str) -> No
     )
 
     expected = {
-        "subject": "Proposal to add tag PII for Hive Table SampleKafkaDataset has been approved by John Joyce.",
-        "message": "Proposal to add tag <b>PII</b> for <b>Hive Table SampleKafkaDataset</b> has been approved by John Joyce.",
-        "entityName": "SampleKafkaDataset",
-        "detailsUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "entityUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "baseUrl": base_url,
+        "subject": "John Joyce has approved the proposal to add PII for Table SampleKafkaDataset.",
+        "message": (
+            '<b>John Joyce</b> has <b>approved</b> the proposal to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a></b> '
+            "for <b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
     }
 
-    assert build_proposal_status_change_parameters(request, base_url) == expected
+    actual = build_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
 
 
-def test_build_proposal_status_change_parameters_for_sub_resource(
-    base_url: str,
+def test_build_proposal_status_change_parameters_for_sub_resource_no_paths(
+    base_url_fix: str,
 ) -> None:
+    """
+    "Proposal status change" for a normal scenario WITH sub-resource,
+    with multiple items in modifierNames array.
+    """
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
             parameters={
                 "actorName": "John Joyce",
                 "entityName": "SampleKafkaDataset",
-                "entityType": "Table",
-                "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplekafkadataset",
-                "modifierType": "glossary term",
-                "modifierName": "FOOBAR",
+                "entityType": "Table",
+                "modifierType": "tag",
+                "modifierNames": '["PII","Sensitive"]',
+                "modifierPaths": "[]",
                 "operation": "remove",
                 "action": "denied",
                 "subResourceType": "column",
@@ -212,20 +332,103 @@ def test_build_proposal_status_change_parameters_for_sub_resource(
         recipients=[],
     )
 
+    # "PII" and "Sensitive" => "PII and Sensitive"
     expected = {
-        "subject": "Proposal to remove glossary term FOOBAR for column foo of Hive Table SampleKafkaDataset has been denied by John Joyce.",
-        "message": "Proposal to remove glossary term <b>FOOBAR</b> for column <b>foo</b> of <b>Hive Table SampleKafkaDataset</b> has been denied by John Joyce.",
-        "entityName": "SampleKafkaDataset",
-        "detailsUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "entityUrl": "https://example.acryl.io/datasets/samplekafkadataset",
-        "baseUrl": base_url,
+        "subject": "John Joyce has denied the proposal to remove PII and Sensitive for column foo of Table SampleKafkaDataset.",
+        "message": (
+            "<b>John Joyce</b> has <b>denied</b> the proposal to remove <b>PII and Sensitive</b> "
+            "for column <b>foo</b> of <b>Table SampleKafkaDataset</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
     }
 
-    assert build_proposal_status_change_parameters(request, base_url) == expected
+    actual = build_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposal_status_change_parameters_for_glossary_term(
+    base_url_fix: str,
+) -> None:
+    """
+    "Proposal status change" for a Glossary Term or Term Group scenario,
+    ignoring modifierNames in favor of entityName as "named X".
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "actorName": "Bob",
+                "entityName": "SSN",
+                "entityPath": "/glossary/term/456",
+                "modifierType": "Glossary Term",
+                "modifierNames": '["SomeTerm"]',  # not used in the special-case block
+                "modifierPaths": "[]",
+                "operation": "create",
+                "action": "accepted",
+                "parentTermGroupName": "PII",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No entityUrl in the returned dict for glossary scenario
+    expected = {
+        "subject": "Bob has accepted the proposal to create Glossary Term named SSN in Term Group PII.",
+        "message": (
+            "<b>Bob</b> has <b>accepted</b> the proposal to create <b>Glossary Term</b> "
+            "named <b>SSN</b> in Term Group <b>PII</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposal_status_change_parameters_for_glossary_node(
+    base_url_fix: str,
+) -> None:
+    """
+    "Proposal status change" for a Glossary Term or Term Group scenario,
+    ignoring modifierNames in favor of entityName as "named X".
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "actorName": "Bob",
+                "entityName": "PII",
+                "entityPath": "/glossary/term/456",
+                "modifierType": "Glossary Term Group",
+                "modifierNames": '["SomeTerm"]',  # not used in the special-case block
+                "modifierPaths": "[]",
+                "operation": "create",
+                "action": "accepted",
+                "parentTermGroupName": "Root",
+            },
+        ),
+        recipients=[],
+    )
+
+    # No entityUrl in the returned dict for glossary scenario
+    expected = {
+        "subject": "Bob has accepted the proposal to create Glossary Term Group named PII in Term Group Root.",
+        "message": (
+            "<b>Bob</b> has <b>accepted</b> the proposal to create <b>Glossary Term Group</b> "
+            "named <b>PII</b> in Term Group <b>Root</b>."
+        ),
+        "baseUrl": base_url_fix,
+        "detailsUrl": "https://example.acryl.io/requests",
+    }
+
+    actual = build_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
 
 
 def test_build_proposal_status_change_parameters_missing_parameters(
-    base_url: str,
+    base_url_fix: str,
 ) -> None:
     request = NotificationRequestClass(
         message=NotificationMessageClass(
@@ -235,10 +438,168 @@ def test_build_proposal_status_change_parameters_missing_parameters(
         recipients=[],
     )
     with pytest.raises(ValueError):
-        build_proposal_status_change_parameters(request, base_url)
+        build_proposal_status_change_parameters(request, base_url_fix)
 
 
-def test_build_assertion_status_change_parameters_success(base_url: str) -> None:
+#
+# Tests for build_proposer_proposal_status_change_parameters(...)
+#
+
+
+def test_build_proposer_proposal_status_change_parameters_normal(
+    base_url_fix: str,
+) -> None:
+    """
+    "Personalized" scenario for a normal, non-glossary proposal,
+    with multiple items in modifierNames.
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "action": "approved",
+                "operation": "add",
+                "modifierType": "tag",
+                "modifierNames": '["PII","Sensitive"]',  # => "PII and Sensitive"
+                "modifierPaths": '["/glossary/urn:li:glossaryTerm:pii", "/glossary/urn:li:glossaryTerm:sensitive"]',
+                "entityName": "SampleKafkaDataset",
+                "entityPath": "/datasets/samplekafkadataset",
+                "entityType": "Table",
+            },
+        ),
+        recipients=[],
+    )
+
+    # => "Your proposal to add PII and Sensitive for Table SampleKafkaDataset has been approved."
+    expected = {
+        "subject": "Your proposal has been approved.",
+        "message": (
+            'Your proposal to add <b><a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:pii">PII</a> and <a href="https://example.acryl.io/glossary/urn:li:glossaryTerm:sensitive">Sensitive</a></b> '
+            "for <b>Table SampleKafkaDataset</b> has been <b>approved</b>."
+        ),
+        "baseUrl": base_url_fix,
+    }
+
+    actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposer_proposal_status_change_parameters_for_sub_resource_no_modifier_paths(
+    base_url_fix: str,
+) -> None:
+    """
+    "Proposal status change" for a normal scenario WITH sub-resource,
+    with multiple items in modifierNames array.
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "actorName": "John Joyce",
+                "entityName": "SampleKafkaDataset",
+                "entityPath": "/datasets/samplekafkadataset",
+                "entityType": "Table",
+                "modifierType": "tag",
+                "modifierNames": '["PII","Sensitive"]',
+                "modifierPaths": "[]",
+                "operation": "remove",
+                "action": "approved",
+                "subResourceType": "column",
+                "subResource": "foo",
+            },
+        ),
+        recipients=[],
+    )
+
+    # => "Your proposal to add PII and Sensitive for schema field foo fo Table SampleKafkaDataset has been approved."
+    expected = {
+        "subject": "Your proposal has been approved.",
+        "message": (
+            "Your proposal to remove <b>PII and Sensitive</b> "
+            "for column <b>foo</b> of <b>Table SampleKafkaDataset</b> has been <b>approved</b>."
+        ),
+        "baseUrl": base_url_fix,
+    }
+
+    actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposer_proposal_status_change_parameters_glossary_term(
+    base_url_fix: str,
+) -> None:
+    """
+    "Personalized" scenario for a Glossary Term proposal,
+    ignoring the modifierNames array.
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "action": "accepted",
+                "operation": "create",
+                "modifierType": "Glossary Term",
+                "modifierNames": '["Ignored"]',
+                "modifierPaths": "[]",
+                "entityName": "Email Address",
+                "entityPath": "/glossary/term/123",
+                "parentTermGroupName": "PII",
+            },
+        ),
+        recipients=[],
+    )
+
+    expected = {
+        "subject": "Your proposal has been accepted.",
+        "message": (
+            "Your proposal to create <b>Glossary Term</b> named <b>Email Address</b>"
+            " in Term Group <b>PII</b> has been <b>accepted</b>."
+        ),
+        "baseUrl": base_url_fix,
+    }
+
+    actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_proposer_proposal_status_change_parameters_glossary_node(
+    base_url_fix: str,
+) -> None:
+    """
+    Tests the "personalized" scenario for a Glossary Term Group proposal.
+    E.g. "Your proposal to create Glossary Term Group named PII has been accepted."
+    """
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            parameters={
+                "action": "rejected",
+                "operation": "create",
+                "modifierType": "Glossary Term Group",
+                "modifierNames": '["Ignored"]',
+                "modifierPaths": "[]",
+                "entityName": "PII",
+                "entityPath": "/glossary/term/123",
+                "parentTermGroupName": "Root",
+            },
+        ),
+        recipients=[],
+    )
+
+    expected = {
+        "subject": "Your proposal has been rejected.",
+        "message": (
+            "Your proposal to create <b>Glossary Term Group</b> named <b>PII</b>"
+            " in Term Group <b>Root</b> has been <b>rejected</b>."
+        ),
+        "baseUrl": base_url_fix,
+    }
+
+    actual = build_proposer_proposal_status_change_parameters(request, base_url_fix)
+    assert actual == expected
+
+
+def test_build_assertion_status_change_parameters_success(base_url_fix: str) -> None:
     # Case 1: Normal assertion.
     request = NotificationRequestClass(
         message=NotificationMessageClass(
@@ -264,10 +625,10 @@ def test_build_assertion_status_change_parameters_success(base_url: str) -> None
         "entityName": "SampleHiveDataset",
         "detailsUrl": "https://external.com/results123",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",
-        "baseUrl": base_url,
+        "baseUrl": base_url_fix,
     }
 
-    assert build_assertion_status_change_parameters(request, base_url) == expected
+    assert build_assertion_status_change_parameters(request, base_url_fix) == expected
 
     # Case 2: Smart Assertion
     request = NotificationRequestClass(
@@ -295,14 +656,14 @@ def test_build_assertion_status_change_parameters_success(base_url: str) -> None
         "entityName": "SampleHiveDataset",
         "detailsUrl": "https://external.com/results123",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",
-        "baseUrl": base_url,
+        "baseUrl": base_url_fix,
     }
 
-    assert build_assertion_status_change_parameters(request, base_url) == expected
+    assert build_assertion_status_change_parameters(request, base_url_fix) == expected
 
 
 def test_build_assertion_status_change_parameters_failure_with_default_url(
-    base_url: str,
+    base_url_fix: str,
 ) -> None:
     assertion_urn = "assertion123"
     request = NotificationRequestClass(
@@ -328,14 +689,14 @@ def test_build_assertion_status_change_parameters_failure_with_default_url(
         "entityName": "SampleHiveDataset",
         "detailsUrl": f"https://example.acryl.io/datasets/samplehivedataset/Validation/Assertions?assertion_urn={quote(assertion_urn)}",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",
-        "baseUrl": base_url,
+        "baseUrl": base_url_fix,
     }
 
-    assert build_assertion_status_change_parameters(request, base_url) == expected
+    assert build_assertion_status_change_parameters(request, base_url_fix) == expected
 
 
 def test_build_assertion_status_change_parameters_missing_parameters(
-    base_url: str,
+    base_url_fix: str,
 ) -> None:
     request = NotificationRequestClass(
         message=NotificationMessageClass(
@@ -345,7 +706,7 @@ def test_build_assertion_status_change_parameters_missing_parameters(
         recipients=[],
     )
     with pytest.raises(ValueError):
-        build_assertion_status_change_parameters(request, base_url)
+        build_assertion_status_change_parameters(request, base_url_fix)
 
 
 def test_build_entity_change_parameters_with_single_modifier() -> None:
@@ -518,7 +879,7 @@ def test_build_entity_change_parameters_for_deprecation() -> None:
     assert build_entity_change_parameters(request, base_url) == expected
 
 
-def test_build_entity_change_parameters_missing_parameters(base_url: str) -> None:
+def test_build_entity_change_parameters_missing_parameters(base_url_fix: str) -> None:
     request = NotificationRequestClass(
         message=NotificationMessageClass(
             template=NotificationTemplateTypeClass.BROADCAST_ENTITY_CHANGE,
@@ -527,7 +888,7 @@ def test_build_entity_change_parameters_missing_parameters(base_url: str) -> Non
         recipients=[],
     )
     with pytest.raises(ValueError):
-        build_entity_change_parameters(request, base_url)
+        build_entity_change_parameters(request, base_url_fix)
 
 
 @pytest.mark.parametrize(

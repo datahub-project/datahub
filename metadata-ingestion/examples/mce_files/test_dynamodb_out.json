@@ -1,0 +1,130 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2.Music,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "Music",
+        "qualifiedName": "Music",
+        "created": {
+          "time": 1740067699567
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2.Music,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "Music",
+        "platform": "urn:li:dataPlatform:dynamodb",
+        "version": 0,
+        "hash": "",
+        "fields": [
+          {
+            "fieldPath": "Artist",
+            "nullable": false,
+            "description": "Partition key",
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "S",
+            "isPartioningKey": true,
+            "isPartOfKey": true
+          },
+          {
+            "fieldPath": "SongTitle",
+            "nullable": false,
+            "description": "Sort key",
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "S",
+            "isPartioningKey": true,
+            "isPartOfKey": true
+          },
+          {
+            "fieldPath": "Awards",
+            "nullable": true,
+            "description": "",
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "N",
+            "isPartioningKey": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "AlbumTitle",
+            "nullable": true,
+            "description": "",
+            "type": {
+              "type": {
+                "com.linkedin.pegasus2avro.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "S",
+            "isPartioningKey": false,
+            "isPartOfKey": false
+          }
+        ],
+        "platformSchema": {
+          "com.linkedin.pegasus2avro.schema.OtherSchema": {
+            "rawSchema": "{\"TableName\": \"Music\", \"KeySchema\": [{\"AttributeName\": \"Artist\", \"KeyType\": \"HASH\"}, {\"AttributeName\": \"SongTitle\", \"KeyType\": \"RANGE\"}]}"
+          }
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2.Music,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "table"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2.Music,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:dynamodb",
+        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2)"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,795586375822_us-west-2.Music,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+      "json": {
+        "path": [
+          {
+            "id": "us-west-2"
+          }
+        ]
+      }
+    }
+  }
+]
