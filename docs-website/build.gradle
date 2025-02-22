@@ -83,7 +83,6 @@ task yarnInstall(type: YarnTask) {
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
-    ':python-build:buildWheels',
     ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }

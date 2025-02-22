@@ -11,7 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  staticDirectories: ["static", "genStatic"],
+  staticDirectories: ["static"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
   headTags: [
     {
