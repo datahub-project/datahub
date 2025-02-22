@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 
-import { Button, Input } from 'antd';
+import { Input } from 'antd';
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
 import { IngestionSourceBuilderStep } from './steps';
 import useGetSourceLogoUrl from './useGetSourceLogoUrl';
@@ -21,10 +22,6 @@ const Section = styled.div`
     flex-direction: column;
     padding-bottom: 12px;
     overflow: hidden;
-`;
-
-const CancelButton = styled(Button)`
-    max-width: 120px;
 `;
 
 const SearchBarContainer = styled.div`
@@ -134,7 +131,9 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     ))}
                 </PlatformListContainer>
             </Section>
-            <CancelButton onClick={cancel}>Cancel</CancelButton>
+            <Button variant="text" color="gray" onClick={cancel}>
+                Cancel
+            </Button>
         </Container>
     );
 };

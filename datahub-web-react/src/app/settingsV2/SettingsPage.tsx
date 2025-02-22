@@ -1,7 +1,6 @@
 import React from 'react';
 import { useHistory, useLocation, useRouteMatch, Redirect, Route, Switch } from 'react-router';
-import { colors } from '@src/alchemy-components';
-import { Button } from 'antd';
+import { Button, colors } from '@src/alchemy-components';
 import {
     Bank,
     Bell,
@@ -247,9 +246,16 @@ export const SettingsPage = () => {
                         <NavBarSubTitle>Manage your settings</NavBarSubTitle>
                     </div>
                     {isThemeV2 && !isShowNavBarRedesign && (
-                        <Button href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item" danger>
-                            Log Out
-                        </Button>
+                        <a href="/logOut">
+                            <Button
+                                variant="outline"
+                                color="red"
+                                onClick={handleLogout}
+                                data-testid="log-out-menu-item"
+                            >
+                                Log Out
+                            </Button>
+                        </a>
                     )}
                 </NavBarHeader>
                 <NavBarMenuContainer>

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
+import { message, Modal, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components';
 import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button } from '@src/alchemy-components';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
@@ -122,12 +124,14 @@ export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }:
                 onCancel={handleClose}
                 width={600}
                 footer={[
-                    <Button type="text" onClick={handleClose}>
-                        Cancel
-                    </Button>,
-                    <Button type="primary" form="addIncidentForm" key="submit" htmlType="submit">
-                        Raise
-                    </Button>,
+                    <ModalButtonContainer>
+                        <Button variant="text" onClick={handleClose}>
+                            Cancel
+                        </Button>
+                        <Button form="addIncidentForm" key="submit">
+                            Raise
+                        </Button>
+                    </ModalButtonContainer>,
                 ]}
             >
                 <Form form={form} name="addIncidentForm" onFinish={handleAddIncident} layout="vertical">

@@ -1,7 +1,8 @@
 import { EditOutlined, ExpandAltOutlined, FileOutlined } from '@ant-design/icons';
-import { Button, Divider, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { Button } from '@src/alchemy-components';
 import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
 import { AddLinkModal } from '../../shared/components/styled/AddLinkModal';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
@@ -66,7 +67,7 @@ export const DocumentationSection = () => {
                 </Title>
                 {hasDescription && (
                     <Button
-                        type="text"
+                        variant="text"
                         onClick={() =>
                             routeToTab({
                                 tabName: 'Documentation',
@@ -82,13 +83,13 @@ export const DocumentationSection = () => {
             <Documentation>
                 {(hasDescription && <Editor content={description} readOnly />) || (
                     <EmptyTab tab="documentation">
+                        <AddLinkModal refetch={refetch} />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <EditOutlined /> Add Documentation
                         </Button>
-                        <AddLinkModal refetch={refetch} />
                     </EmptyTab>
                 )}
                 <LinkList refetch={refetch} />
