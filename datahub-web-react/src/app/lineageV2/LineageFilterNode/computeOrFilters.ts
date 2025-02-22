@@ -13,10 +13,27 @@ import { AndFilterInput, EntityType, FacetFilterInput } from '@types';
 export default function computeOrFilters(
     defaultFilters: FacetFilterInput[],
     hideTransformations = true,
+    hideDataProcessInstances = true,
 ): AndFilterInput[] {
-    if (!hideTransformations) {
+    if (!hideTransformations && !hideDataProcessInstances) {
         return [{ and: defaultFilters }];
     }
+
+    if (!hideTransformations) {
+        return [
+            {
+                and: [
+                    ...defaultFilters,
+                    {
+                        field: ENTITY_FILTER_NAME,
+                        values: [EntityType.DataProcessInstance],
+                        negated: true,
+                    },
+                ],
+            },
+        ];
+    }
+
     return [
         {
             and: [

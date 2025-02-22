@@ -1,17 +1,10 @@
 import pathlib
 import site
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from _pytest.config import Parser
-
-
-def pytest_addoption(parser: "Parser") -> None:
-    parser.addoption(
-        "--update-golden-files",
-        action="store_true",
-        default=False,
-    )
+from datahub.testing.pytest_hooks import (  # noqa: F401,E402
+    load_golden_flags,
+    pytest_addoption,
+)
 
 
 # See https://coverage.readthedocs.io/en/latest/subprocess.html#configuring-python-for-sub-process-measurement

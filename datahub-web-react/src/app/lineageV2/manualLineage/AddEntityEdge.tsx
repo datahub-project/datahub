@@ -85,7 +85,7 @@ export default function AddEntityEdge({ direction, setEntitiesToAdd, entitiesToA
     );
 
     const selectEntity = (urn: string) => {
-        const resultEntities = autoCompleteResults?.autoCompleteForMultiple?.suggestions.flatMap(
+        const resultEntities = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.flatMap(
             (suggestion) => suggestion.entities || [],
         );
         const selectedEntity = resultEntities?.find((entity) => entity.urn === urn);

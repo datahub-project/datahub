@@ -11,6 +11,7 @@ x-datahub-frontend-service: &datahub-frontend-service
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
+    THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 

@@ -36,10 +36,11 @@ export default function LineageExplorer(props: Props) {
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
+    const [showDataProcessInstances, setShowDataProcessInstances] = useState(false);
 
     const [showGhostEntities, setShowGhostEntities] = useState(false);
 
-    const context = {
+    const context: NodeContext = {
         rootUrn: urn,
         rootType: type,
         nodes,
@@ -55,6 +56,8 @@ export default function LineageExplorer(props: Props) {
         setColumnEdgeVersion,
         hideTransformations,
         setHideTransformations,
+        showDataProcessInstances,
+        setShowDataProcessInstances,
         showGhostEntities,
         setShowGhostEntities,
     };

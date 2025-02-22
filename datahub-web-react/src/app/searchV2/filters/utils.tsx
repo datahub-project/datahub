@@ -306,7 +306,7 @@ export function getFilterOptions(
 ) {
     const aggregationFilterOptions = aggregations.map((agg) => ({ field: filterField, ...agg }));
 
-    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions.find((suggestion) =>
+    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.find((suggestion) =>
         FACETS_TO_ENTITY_TYPES[filterField]?.includes(suggestion.type),
     );
     const searchFilterOptions = searchResults?.entities

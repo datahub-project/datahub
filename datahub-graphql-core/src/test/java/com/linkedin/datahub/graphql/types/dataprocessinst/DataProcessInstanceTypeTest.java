@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
@@ -61,7 +62,11 @@ public class DataProcessInstanceTypeTest {
   private static final DataProcessInstanceKey TEST_DPI_1_KEY =
       new DataProcessInstanceKey().setId("id-1");
   private static final DataProcessInstanceProperties TEST_DPI_1_PROPERTIES =
-      new DataProcessInstanceProperties().setName("Test DPI").setType(DataProcessType.STREAMING);
+      new DataProcessInstanceProperties()
+          .setName("Test DPI")
+          .setType(DataProcessType.STREAMING)
+          .setCreated(
+              new AuditStamp().setTime(1234L).setActor(UrnUtils.getUrn("urn:li:corpuser:1")));
   private static final DataProcessInstanceInput TEST_DPI_1_DPI_INPUT =
       new DataProcessInstanceInput().setInputs(new UrnArray(ImmutableList.of(DATASET_URN)));
   private static final DataProcessInstanceOutput TEST_DPI_1_DPI_OUTPUT =

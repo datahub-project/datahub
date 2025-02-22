@@ -32,7 +32,6 @@ def test_structuredproperties_load(pytestconfig: pytest.Config) -> None:
         mcps.extend(property.generate_mcps())
 
     check_goldens_stream(
-        pytestconfig,
         mcps,
         golden_path=RESOURCE_DIR / "example_structured_properties_golden.json",
     )

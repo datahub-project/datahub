@@ -207,6 +207,7 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
   the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
   directly to an array of Urns. That’s why you see the use of an Annotation override (`"/*":`) to apply the @Relationship
   annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
+- **@UrnValidation**: This annotation can enforce constraints on Urn fields, including entity type restrictions and existence.
 
 After you create your Aspect, you need to attach to all the entities that it applies to.
 
@@ -361,6 +362,8 @@ It takes the following parameters:
 This annotation is applied to fields inside an Aspect. It instructs DataHub to index the field so it can be retrieved
 via the search APIs.
 
+:::note If you are adding @Searchable to a field that already has data, you'll want to restore indices [via api](https://datahubproject.io/docs/api/restli/restore-indices/) or [via upgrade step](https://github.com/datahub-project/datahub/blob/master/metadata-service/factories/src/main/java/com/linkedin/metadata/boot/steps/RestoreGlossaryIndices.java) to have it be populated with existing data.
+
 It takes the following parameters:
 
 - **fieldType**: string - The settings for how each field is indexed is defined by the field type. Each field type is
@@ -493,6 +496,27 @@ record Owner {
 This annotation says that when we ingest an Entity with an Ownership Aspect, DataHub will create an OwnedBy relationship
 between that entity and the CorpUser or CorpGroup who owns it. This will be queryable using the Relationships resource
 in both the forward and inverse directions.
+
+#### @UrnValidation
+
+This annotation can be applied to Urn fields inside an aspect. The annotation can optionally perform one or more of the following:
+- Enforce that the URN exists
+- Enforce stricter URN validation
+- Restrict the URN to specific entity types
+
+##### Example
+
+Using this example from StructuredPropertyDefinition, we are enforcing that the valueType URN must exist,
+it must follow stricter Urn encoding logic, and it can only be of entity type `dataType`.
+
+```
+    @UrnValidation = {
+      "exist": true,
+      "strict": true,
+      "entityTypes": [ "dataType" ],
+    }
+    valueType: Urn
+```
 
 #### Annotating Collections & Annotation Overrides
 

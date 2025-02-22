@@ -165,7 +165,7 @@ export const SearchHeader = ({
                         />
                         {isShowNavBarRedesign && (
                             <StyledButton type="link" onClick={searchViewAll}>
-                                Explore all <ArrowRight />
+                                View all <ArrowRight />
                             </StyledButton>
                         )}
                     </SearchBarContainer>

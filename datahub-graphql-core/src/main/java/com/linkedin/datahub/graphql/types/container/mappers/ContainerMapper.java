@@ -23,7 +23,16 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.*;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -169,16 +178,16 @@ public class ContainerMapper {
           FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
     }
 
-    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
-    if (envelopedShare != null) {
-      result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
-    }
-
     final EnvelopedAspect envelopedBrowsePathsV2 = aspects.get(BROWSE_PATHS_V2_ASPECT_NAME);
     if (envelopedBrowsePathsV2 != null) {
       result.setBrowsePathV2(
           BrowsePathsV2Mapper.map(
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
     }
 
     final EnvelopedAspect envelopedOrigin = aspects.get(ORIGIN_ASPECT_NAME);

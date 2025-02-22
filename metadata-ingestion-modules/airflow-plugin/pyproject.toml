@@ -44,6 +44,7 @@ extend-select = [
     "G010", # logging.warn -> logging.warning
     "I",    # isort
     "TID",  # flake8-tidy-imports
+    "RUF100",  # unused-noqa
 ]
 ignore = [
     "E501",  # Line length violations (handled by formatter)

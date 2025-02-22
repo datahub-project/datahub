@@ -142,7 +142,7 @@ export default function DomainNode({
     const isInSelectMode = !!selectDomainOverride;
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
     const shouldAutoOpen = useMemo(
-        () => !isInSelectMode && entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
+        () => !isInSelectMode && entityData?.parentDomains?.domains?.some((parent) => parent.urn === domain.urn),
         [isInSelectMode, entityData, domain.urn],
     );
     const paddingLeft = $paddingLeft + 16;

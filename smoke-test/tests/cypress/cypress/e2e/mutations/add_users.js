@@ -16,7 +16,7 @@ const tryToSignUp = () => {
 
 describe("add_user", () => {
   let registeredEmail = "";
-  it.skip("go to user link and invite a user", () => {
+  it("go to user link and invite a user", () => {
     cy.login();
 
     cy.visit("/settings/identities/users");
@@ -33,7 +33,7 @@ describe("add_user", () => {
         cy.visit(inviteLink);
         const { name, email } = tryToSignUp();
         registeredEmail = email;
-        cy.waitTextVisible("Welcome");
+        cy.waitTextVisible("Welcome back");
         cy.hideOnboardingTour();
         cy.waitTextVisible(name);
       })
@@ -45,7 +45,7 @@ describe("add_user", () => {
       });
   });
 
-  it.skip("Verify you can’t generate a reset password link for a non-native user", () => {
+  it("Verify you can’t generate a reset password link for a non-native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
@@ -57,7 +57,7 @@ describe("add_user", () => {
     );
   });
 
-  it.skip("Generate a reset password link for a native user", () => {
+  it("Generate a reset password link for a native user", () => {
     cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");

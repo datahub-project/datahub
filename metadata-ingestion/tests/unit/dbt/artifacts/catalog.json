@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+    "dbt_version": "1.9.0",
+    "generated_at": "2025-01-22T10:56:18.229568Z",
+    "invocation_id": "385456c0-b0ca-43b6-aa5a-422539d1f142",
+    "env": {}
+  },
+  "nodes": {
+    "model.tdd.simple": {
+      "metadata": {
+        "type": "iceberg_table",
+        "schema": "sandbox",
+        "name": "simple",
+        "database": "awsdatacatalog",
+        "comment": "This model calculates the count of records in the stg_simple table.",
+        "owner": null
+      },
+      "columns": {
+        "action_type_id": {
+          "type": "int",
+          "index": 0,
+          "name": "action_type_id",
+          "comment": null
+        }
+      },
+      "stats": {
+        "has_stats": {
+          "id": "has_stats",
+          "label": "Has Stats?",
+          "value": false,
+          "include": false,
+          "description": "Indicates whether there are statistics for this table"
+        }
+      },
+      "unique_id": "model.tdd.simple"
+    }
+  },
+  "sources": {}
+}

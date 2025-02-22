@@ -24,6 +24,7 @@ import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -73,6 +74,7 @@ public class EbeanEntityServiceOptimizationTest {
     entityService =
         new EntityServiceImpl(aspectDao, mock(EventProducer.class), false, preProcessHooks, true);
     entityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
+    entityService.setRetentionService(null);
   }
 
   @Test
@@ -83,13 +85,15 @@ public class EbeanEntityServiceOptimizationTest {
         0,
         0,
         0,
-        "empty");
+        "empty",
+        "");
   }
 
   @Test
   public void testUpsertOptimization() {
     Urn testUrn1 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testUpsertOptimization,PROD)");
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:opt,testOptimization,PROD)");
+    final String mustInclude = "urn:li:dataPlatform:opt";
 
     // single insert (non-existing)
     assertSQL(
@@ -108,7 +112,8 @@ public class EbeanEntityServiceOptimizationTest {
         nonExistingBaseCount + 1,
         1,
         0,
-        "initial: single insert");
+        "initial: single insert",
+        mustInclude);
 
     // single update (existing from previous - no-op)
     // 1. nextVersion
@@ -129,7 +134,8 @@ public class EbeanEntityServiceOptimizationTest {
         existingBaseCount + 2,
         0,
         1,
-        "existing: single no-op");
+        "existing: single no-op",
+        mustInclude);
 
     // multiple (existing from previous - multiple no-ops)
     assertSQL(
@@ -155,7 +161,8 @@ public class EbeanEntityServiceOptimizationTest {
         existingBaseCount + 2,
         0,
         1,
-        "existing: multiple no-ops. expected no additional interactions vs single no-op");
+        "existing: multiple no-ops. expected no additional interactions vs single no-op",
+        mustInclude);
 
     // single update (existing from previous - with actual change)
     // 1. nextVersion
@@ -176,7 +183,8 @@ public class EbeanEntityServiceOptimizationTest {
         existingBaseCount + 2,
         1,
         1,
-        "existing: single change");
+        "existing: single change",
+        mustInclude);
 
     // multiple update (existing from previous - with 2 actual changes)
     // 1. nextVersion
@@ -204,7 +212,8 @@ public class EbeanEntityServiceOptimizationTest {
         existingBaseCount + 2,
         1,
         1,
-        "existing: multiple change. expected no additional statements over single change");
+        "existing: multiple change. expected no additional statements over single change",
+        mustInclude);
   }
 
   private void assertSQL(
@@ -212,7 +221,8 @@ public class EbeanEntityServiceOptimizationTest {
       int expectedSelectCount,
       int expectedInsertCount,
       int expectedUpdateCount,
-      @Nullable String description) {
+      @Nullable String description,
+      @Nonnull String mustInclude) {
 
     // Clear any existing logged statements
     LoggedSql.stop();
@@ -222,11 +232,26 @@ public class EbeanEntityServiceOptimizationTest {
 
     try {
       entityService.ingestProposal(opContext, batch, false);
+      List<String> txnLog =
+          LoggedSql.collect().stream()
+              .filter(sql -> sql.startsWith("txn[]"))
+              .collect(
+                  ArrayList::new,
+                  (ArrayList<String> list, String sql) -> {
+                    // fold into previous line
+                    if (sql.startsWith("txn[]  -- ")) {
+                      String current = list.get(list.size() - 1);
+                      list.set(list.size() - 1, current + "\n" + sql);
+                    } else {
+                      list.add(sql);
+                    }
+                  },
+                  ArrayList::addAll);
+
       // Get the captured SQL statements
       Map<String, List<String>> statementMap =
-          LoggedSql.stop().stream()
-              // only consider transaction statements
-              .filter(sql -> sql.startsWith("txn[]") && !sql.startsWith("txn[]  -- "))
+          txnLog.stream()
+              .filter(sql -> sql.contains(mustInclude))
               .collect(
                   Collectors.groupingBy(
                       sql -> {
@@ -251,20 +276,20 @@ public class EbeanEntityServiceOptimizationTest {
           statementMap.getOrDefault("SELECT", List.of()).size(),
           expectedSelectCount,
           String.format(
-              "(%s) Expected SELECT SQL count mismatch: %s",
-              description, statementMap.get("SELECT")));
+              "(%s) Expected SELECT SQL count mismatch filtering for (%s): %s",
+              description, mustInclude, statementMap.get("SELECT")));
       assertEquals(
           statementMap.getOrDefault("INSERT", List.of()).size(),
           expectedInsertCount,
           String.format(
-              "(%s) Expected INSERT SQL count mismatch: %s",
-              description, statementMap.get("INSERT")));
+              "(%s) Expected INSERT SQL count mismatch filtering for (%s): %s",
+              description, mustInclude, statementMap.get("INSERT")));
       assertEquals(
           statementMap.getOrDefault("UPDATE", List.of()).size(),
           expectedUpdateCount,
           String.format(
-              "(%s), Expected UPDATE SQL count mismatch: %s",
-              description, statementMap.get("UPDATE")));
+              "(%s), Expected UPDATE SQL count mismatch filtering for (%s): %s",
+              description, mustInclude, statementMap.get("UPDATE")));
     } finally {
       // Ensure logging is stopped even if assertions fail
       LoggedSql.stop();

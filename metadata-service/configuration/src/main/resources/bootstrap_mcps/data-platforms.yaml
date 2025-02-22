@@ -417,7 +417,7 @@
     name: mlflow
     displayName: MLflow
     type: OTHERS
-    logoUrl: "/assets/platforms/mlflowlogo.png"
+    logoUrl: "/assets/platforms/mlflowlogo2.png"
 - entityUrn: urn:li:dataPlatform:glue
   entityType: dataPlatform
   aspectName: dataPlatformInfo
