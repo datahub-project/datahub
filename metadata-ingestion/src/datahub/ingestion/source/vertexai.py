@@ -77,6 +77,11 @@ class VertexAISource(Source):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Main Function to fetch and yields workunits for various VertexAI resources.
+        - Models and Model Versions from the Model Registry
+        - Training Jobs
+        """
         # Fetch Models, Model Versions a from Model Registry
         yield from self._get_ml_model_workunits()
         # Fetch Training Jobs
@@ -177,7 +182,7 @@ class VertexAISource(Source):
     def _make_ml_model_group_urn(self, model: Model) -> str:
         urn = builder.make_ml_model_group_urn(
             platform=self.platform,
-            group_name=model.name,
+            group_name=self._make_vertexai_name("model",model.name),
             env=self.config.env,
         )
         return urn
@@ -202,6 +207,7 @@ class VertexAISource(Source):
                 ),
                 externalUrl=self._make_job_external_url(job),
                 customProperties={"displayName": job.display_name},
+                type=
             )
 
         return self._create_workunit(urn=entityUrn, aspect=aspect)
@@ -307,6 +313,8 @@ class VertexAISource(Source):
         ml_model_properties = MLModelPropertiesClass(
             name=model.name,
             description=model_version.version_description,
+            customProperties={"displayName": model_version.model_display_name +
+                                             self.config.model_name_separator + model_version.version_id},
             created=model_version.version_create_time,
             lastModified=model_version.version_update_time,
             version=VersionTagClass(versionTag=str(model_version.version_id)),
