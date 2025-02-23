@@ -49,6 +49,11 @@ _DEFAULT_REST_SINK_MAX_THREADS = int(
 )
 
 
+class RestSinkEndpoint(ConfigEnum):
+    RESTLI = auto()
+    OPENAPI = auto()
+
+
 class RestSinkMode(ConfigEnum):
     SYNC = auto()
     ASYNC = auto()
@@ -64,8 +69,15 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 )
 
 
+_DEFAULT_REST_SINK_ENDPOINT = pydantic.parse_obj_as(
+    RestSinkEndpoint,
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+)
+
+
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
+    endpoint: RestSinkEndpoint = _DEFAULT_REST_SINK_ENDPOINT
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -172,6 +184,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
+            openapi_ingestion=True
+            if config.endpoint == RestSinkEndpoint.OPENAPI
+            else False,
         )
 
     @property
