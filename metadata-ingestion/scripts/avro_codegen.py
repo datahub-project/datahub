@@ -714,7 +714,7 @@ class {class_name}(_SpecificUrn):
         code += f"""
     @property
     def {field_name(field)}(self) -> {field_type(field)}:
-        return self.entity_ids[{i}]
+        return self._entity_ids[{i}]
 """
 
     return code

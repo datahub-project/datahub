@@ -43,6 +43,7 @@ from datahub.ingestion.transformer.system_metadata_transformer import (
     SystemMetadataTransformer,
 )
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities._custom_package_loader import model_version_name
@@ -409,6 +410,10 @@ class Pipeline:
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
+
+            self.exit_stack.enter_context(
+                change_default_attribution(KnownAttribution.INGESTION)
+            )
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
