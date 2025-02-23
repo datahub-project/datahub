@@ -8,5 +8,22 @@ datasources:
     database: grafana
     user: grafana
     password: grafana
+    uid: test-postgres
     jsonData:
       sslmode: disable
+      postgresVersion: 1300
+      timescaledb: false
+      maxIdleConns: 100
+      maxOpenConns: 100
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: grafana
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    uid: test-prometheus
+    jsonData:
+      httpMethod: GET
+      timeInterval: "15s"
