@@ -69,13 +69,19 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
-    username: Optional[str] = Field(default=None, description="Metabase username.")
-    password: Optional[pydantic.SecretStr] = Field(
-        default=None, description="Metabase password."
+    username: Optional[str] = Field(
+        default=None,
+        description="Metabase username, used when an API key is not provided.",
     )
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None,
+        description="Metabase password, used when an API key is not provided.",
+    )
+
+    # https://www.metabase.com/learn/metabase-basics/administration/administration-and-operation/metabase-api#example-get-request
     api_key: Optional[pydantic.SecretStr] = Field(
         default=None,
-        description="Metabase API key. If provided, the username and password will be ignored.",
+        description="Metabase API key. If provided, the username and password will be ignored. Recommended method.",
     )
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -192,6 +198,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 }
             )
         else:
+            # If no API key is provided, generate a session token using username and password.
             login_response = requests.post(
                 f"{self.config.connect_uri}/api/session",
                 None,
@@ -230,6 +237,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
+        # API key authentication does not require session closure.
         if not self.config.api_key:
             response = requests.delete(
                 f"{self.config.connect_uri}/api/session",
