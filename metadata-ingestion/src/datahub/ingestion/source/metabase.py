@@ -73,6 +73,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
     password: Optional[pydantic.SecretStr] = Field(
         default=None, description="Metabase password."
     )
+    api_key: Optional[pydantic.SecretStr] = Field(
+        default=None,
+        description="Metabase API key. If provided, the username and password will be ignored.",
+    )
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
     database_alias_map: Optional[dict] = Field(
@@ -178,30 +182,39 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.source_config: MetabaseConfig = config
 
     def setup_session(self) -> None:
-        login_response = requests.post(
-            f"{self.config.connect_uri}/api/session",
-            None,
-            {
-                "username": self.config.username,
-                "password": (
-                    self.config.password.get_secret_value()
-                    if self.config.password
-                    else None
-                ),
-            },
-        )
-
-        login_response.raise_for_status()
-        self.access_token = login_response.json().get("id", "")
-
         self.session = requests.session()
-        self.session.headers.update(
-            {
-                "X-Metabase-Session": f"{self.access_token}",
-                "Content-Type": "application/json",
-                "Accept": "*/*",
-            }
-        )
+        if self.config.api_key:
+            self.session.headers.update(
+                {
+                    "x-api-key": self.config.api_key.get_secret_value(),
+                    "Content-Type": "application/json",
+                    "Accept": "*/*",
+                }
+            )
+        else:
+            login_response = requests.post(
+                f"{self.config.connect_uri}/api/session",
+                None,
+                {
+                    "username": self.config.username,
+                    "password": (
+                        self.config.password.get_secret_value()
+                        if self.config.password
+                        else None
+                    ),
+                },
+            )
+
+            login_response.raise_for_status()
+            self.access_token = login_response.json().get("id", "")
+
+            self.session.headers.update(
+                {
+                    "X-Metabase-Session": f"{self.access_token}",
+                    "Content-Type": "application/json",
+                    "Accept": "*/*",
+                }
+            )
 
         # Test the connection
         try:
@@ -217,15 +230,16 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
-        response = requests.delete(
-            f"{self.config.connect_uri}/api/session",
-            headers={"X-Metabase-Session": self.access_token},
-        )
-        if response.status_code not in (200, 204):
-            self.report.report_failure(
-                title="Unable to Log User Out",
-                message=f"Unable to logout for user {self.config.username}",
+        if not self.config.api_key:
+            response = requests.delete(
+                f"{self.config.connect_uri}/api/session",
+                headers={"X-Metabase-Session": self.access_token},
             )
+            if response.status_code not in (200, 204):
+                self.report.report_failure(
+                    title="Unable to Log User Out",
+                    message=f"Unable to logout for user {self.config.username}",
+                )
         super().close()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
