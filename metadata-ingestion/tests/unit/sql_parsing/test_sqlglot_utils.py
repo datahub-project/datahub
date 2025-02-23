@@ -8,6 +8,7 @@ from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 from datahub.sql_parsing.sqlglot_utils import (
+    _TABLE_NAME_NORMALIZATION_RULES,
     generalize_query,
     generalize_query_fast,
     get_dialect,
@@ -173,7 +174,11 @@ def test_query_generalization(
         assert generalize_query(query, dialect=dialect) == expected
     if mode in {QueryGeneralizationTestMode.FAST, QueryGeneralizationTestMode.BOTH}:
         assert (
-            generalize_query_fast(query, dialect=dialect, change_table_names=True)
+            generalize_query_fast(
+                query,
+                dialect=dialect,
+                table_name_normalization_rules=_TABLE_NAME_NORMALIZATION_RULES,
+            )
             == expected
         )
 
