@@ -5,6 +5,7 @@ import { EntityRegistry } from '../../../../entityRegistryContext';
 import {
     useAggregateAcrossEntitiesQuery,
     useGetAutoCompleteMultipleResultsQuery,
+    useGetSearchResultsForMultipleQuery,
 } from '../../../../graphql/search.generated';
 import { EntityType } from '../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
@@ -94,6 +95,19 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
         fetchPolicy: 'cache-first',
     });
 
+    // do initial search to get initial data to display
+    const { data: searchData, loading: searchLoading } = useGetSearchResultsForMultipleQuery({
+        skip: skip || !!query, // only do a search if not doing auto-complete,
+        variables: {
+            input: {
+                query: '*',
+                types: field.entityTypes,
+                count: 10,
+            },
+        },
+        fetchPolicy: 'cache-first',
+    });
+
     if (skip) {
         return { loading: false, options: [] };
     }
@@ -107,7 +121,13 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
                 icon: field.icon,
             };
         });
-    return { options: options || [], loading };
+    const searchOptions = searchData?.searchAcrossEntities?.searchResults.map((result) => ({
+        value: result.entity.urn,
+        entity: result.entity,
+        icon: field.icon,
+    }));
+
+    return { options: options || searchOptions || [], loading: loading || searchLoading };
 };
 
 /**

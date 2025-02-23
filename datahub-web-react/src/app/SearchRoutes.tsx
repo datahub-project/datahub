@@ -6,14 +6,14 @@ import { BrowseResultsPage } from './browse/BrowseResultsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
 import { useUserContext } from './context/useUserContext';
 import DomainRoutes from './domain/DomainRoutes';
+import { ManageDomainsPage } from './domain/ManageDomainsPage';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
     useIsNestedDomainsEnabled,
 } from './useAppConfig';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 
 import { EntityPage } from './entity/EntityPage';
 import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
