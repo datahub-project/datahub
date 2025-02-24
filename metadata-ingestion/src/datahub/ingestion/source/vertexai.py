@@ -274,6 +274,11 @@ class VertexAISource(Source):
 
 
     def _search_dataset(self, dataset_id: str) -> Optional[DatasetProperties]:
+        """
+        Search for a dataset by its ID in Vertex AI.
+        This method iterates through different types of datasets (Text, Tabular, Image,
+        TimeSeries, and Video) to find a dataset that matches the given dataset ID.
+        """
         for ds in self.client.datasets.TextDataset.list():
             if ds.name == dataset_id:
                 return ds
@@ -292,6 +297,9 @@ class VertexAISource(Source):
         return None
 
     def _make_dataset_aspect(self, ds: _Dataset) -> Optional[DatasetPropertiesClass]:
+        """
+        Create a DatasetPropertiesClass aspect for a given Vertex AI dataset.
+        """
         aspect = DatasetPropertiesClass(
             name=self._make_vertexai_name("dataset", ds.name),
             created=TimeStampClass(time=int(ds.create_time.timestamp())),
