@@ -72,6 +72,8 @@ asttokens==2.4.1
     # via
     #   -r requirements.txt
     #   stack-data
+async-timeout==4.0.3 ; python_full_version < '3.11'
+    # via aiohttp
 asyncer==0.0.8
     # via
     #   -r requirements.txt
@@ -263,6 +265,11 @@ entrypoints==0.4
     #   altair
     #   jupyter-client
     #   papermill
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
+    # via
+    #   anyio
+    #   ipython
+    #   pytest
 executing==2.0.1
     # via
     #   -r requirements.txt
@@ -1187,6 +1194,12 @@ toml==0.10.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+tomli==2.2.1 ; python_full_version <= '3.11'
+    # via
+    #   build
+    #   coverage
+    #   mypy
+    #   pytest
 tomlkit==0.12.4
     # via
     #   -r requirements.txt
@@ -1250,6 +1263,7 @@ typing-extensions==4.11.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   asgiref
     #   fastapi
     #   great-expectations
     #   inflect
@@ -1263,6 +1277,7 @@ typing-extensions==4.11.0
     #   snowflake-connector-python
     #   typeguard
     #   typing-inspect
+    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   -r requirements.txt

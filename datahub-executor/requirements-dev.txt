@@ -84,6 +84,10 @@ asttokens==3.0.0
     # via
     #   -r requirements.txt
     #   stack-data
+async-timeout==5.0.1 ; python_full_version < '3.11.3'
+    # via
+    #   aiohttp
+    #   redis
 attrs==24.2.0
     # via
     #   -r requirements.txt
@@ -321,6 +325,11 @@ et-xmlfile==2.0.0
     # via
     #   -r requirements.txt
     #   openpyxl
+exceptiongroup==1.2.2 ; python_full_version < '3.11'
+    # via
+    #   anyio
+    #   ipython
+    #   pytest
 executing==2.1.0
     # via
     #   -r requirements.txt
@@ -1305,6 +1314,11 @@ toml==0.10.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+tomli==2.2.1 ; python_full_version <= '3.11'
+    # via
+    #   coverage
+    #   mypy
+    #   pytest
 tomlkit==0.13.2
     # via
     #   -r requirements.txt
@@ -1368,17 +1382,23 @@ typing-extensions==4.12.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-executor
     #   alembic
     #   anyio
+    #   cloudpathlib
     #   faker
     #   great-expectations
+    #   multidict
     #   mypy
     #   pydantic
     #   python-utils
+    #   rich
+    #   schwifty
     #   snowflake-connector-python
     #   sqlalchemy-stubs
     #   typer
     #   typing-inspect
+    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   -r requirements.txt
