@@ -845,6 +845,7 @@ module.exports = {
         "docs/authorization/README",
         "docs/authorization/roles",
         "docs/authorization/policies",
+        "docs/authorization/accessmanagement",
         "docs/authorization/groups",
       ],
     },
