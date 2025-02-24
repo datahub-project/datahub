@@ -1,11 +1,11 @@
 plugins {
   id 'org.springframework.boot'
-  id 'com.palantir.docker'
   id 'java'
 }
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: "../../gradle/docker/docker.gradle"
 
 ext {
   docker_repo = 'datahub-gms'
@@ -82,8 +82,8 @@ bootRun {
 }
 
 docker {
+  dependsOn bootJar
   name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -94,12 +94,12 @@ docker {
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-  // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  //platform('linux/arm64', 'linux/amd64')
+  //buildx(true)
+  //load(true)
+  //push(false)
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -117,14 +117,6 @@ docker {
     buildArgs(dockerBuildArgs)
   }
 }
-tasks.getByPath(":metadata-service:war:docker").dependsOn([bootJar])
-
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
 
 test {
   jacoco {

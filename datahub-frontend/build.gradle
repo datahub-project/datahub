@@ -1,12 +1,12 @@
 plugins {
   id 'scala'
-  id 'com.palantir.docker'
   id 'org.gradle.playframework'
 }
 
 apply from: '../gradle/versioning/versioning.gradle'
 apply from: './play.gradle'
 apply from: '../gradle/coverage/java-coverage.gradle'
+apply from: '../gradle/docker/docker.gradle'
 
 ext {
   docker_repo = 'datahub-frontend-react'
@@ -66,10 +66,20 @@ distributions {
   }
 }
 
+task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
+
+  from ("${buildDir}/distributions")
+  include "datahub-frontend-${version}.zip"
+  into "${buildDir}/distributions"
+  rename "datahub-frontend-${version}.zip", "datahub-frontend.zip"
+}
+
 docker {
+  dependsOn(unversionZip)
   name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
+  //version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+  files "${buildDir}/distributions/datahub-frontend.zip"
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
@@ -77,12 +87,12 @@ docker {
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  //buildx(true)
+  //load(true)
+  //push(false)
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -101,20 +111,6 @@ docker {
   }
 }
 
-task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
-  from ("${buildDir}/distributions")
-  include "datahub-frontend-${version}.zip"
-  into "${buildDir}/docker/"
-  rename "datahub-frontend-${version}.zip", "datahub-frontend.zip"
-}
-tasks.getByPath(":datahub-frontend:docker").dependsOn(unversionZip)
-
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
 
 // gradle 8 fixes
 tasks.getByName('createDatahub-frontendTarDist').dependsOn 'stageMainDist'
