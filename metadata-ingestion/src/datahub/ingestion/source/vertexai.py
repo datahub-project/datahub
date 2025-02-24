@@ -56,6 +56,11 @@ class VertexAIConfig(EnvConfigMixin):
         description=("Bucket URI used in your project"),
     )
 
+    vertexai_url: Optional[str] = Field(
+        default="https://console.cloud.google.com/vertex-ai",
+        description=("VertexUI URI"),
+    )
+
     model_name_separator: str = Field(
         default="_",
         description="A string which separates model name from its version (e.g. model_1 or model-1)",
@@ -72,7 +77,6 @@ class VertexAIConfig(EnvConfigMixin):
 @capability(SourceCapability.TAGS, "Extract tags for VertexAI Registered Model Stages")
 class VertexAISource(Source):
     platform = "vertexai"
-    vertexai_base_url = "https://console.cloud.google.com/vertex-ai"
 
     def __init__(self, ctx: PipelineContext, config: VertexAIConfig):
         super().__init__(ctx)
@@ -414,7 +418,7 @@ class VertexAISource(Source):
         https://console.cloud.google.com/vertex-ai/training/training-pipelines?project=acryl-poc&trainingPipelineId=5401695018589093888
         """
         entity_type = "training"
-        external_url = (f"{self.vertexai_base_url}/{entity_type}/training-pipelines?trainingPipelineId={job.name}"
+        external_url = (f"{self.config.vertexai_url}/{entity_type}/training-pipelines?trainingPipelineId={job.name}"
                         f"?project={self.config.project_id}")
         return external_url
 
@@ -425,7 +429,7 @@ class VertexAISource(Source):
         https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336?project=acryl-poc
         """
         entity_type = "models"
-        external_url = (f"{self.vertexai_base_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
+        external_url = (f"{self.config.vertexai_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
                         f"?project={self.config.project_id}")
         return external_url
 
@@ -436,7 +440,7 @@ class VertexAISource(Source):
         https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336/versions/1?project=acryl-poc
         """
         entity_type = "models"
-        external_url = (f"{self.vertexai_base_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
+        external_url = (f"{self.config.vertexai_url}/{entity_type}/locations/{self.config.region}/{entity_type}/{model.name}"
                         f"/versions/{model.version_id}"
                         f"?project={self.config.project_id}")
         return external_url
