@@ -9,8 +9,9 @@ from google.cloud.aiplatform import (
     AutoMLTabularTrainingJob,
     AutoMLTextTrainingJob,
     AutoMLVideoTrainingJob,
-    Endpoint,
+    Endpoint, TabularDataset, TextDataset,
 )
+from google.cloud.aiplatform.datasets import _Dataset
 from google.cloud.aiplatform.models import Model, VersionInfo
 from google.cloud.aiplatform.training_jobs import _TrainingJob
 from pydantic.fields import Field
@@ -32,8 +33,9 @@ from datahub.metadata._schema_classes import (
     AuditStampClass,
     DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
-    TimeStampClass,
+    TimeStampClass, DatasetPropertiesClass,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
@@ -142,11 +144,11 @@ class VertexAISource(Source):
                 # create work unit for Training Job (if Model has reference to Training Job)
                 if self._validate_training_job(model):
                     logger.info(
-                        f"generating TrainingJob work unit for model: {model_version.model_display_name}")
+                        f"Generating TrainingJob work unit for model: {model_version.model_display_name}")
                     yield from self._get_data_process_properties_workunit(model.training_job)
 
                 # create work unit for Model (= Model Version in VertexAI)
-                logger.info(f"generating MLProperties work unit for model (name: {model.display_name} id:{model.name})")
+                logger.info(f"Generating work unit for model (name: {model.display_name} id:{model.name})")
                 yield from self._get_ml_model_endpoint_workunit(model=model, model_version=model_version)
 
 
@@ -161,21 +163,21 @@ class VertexAISource(Source):
         """
         logger.info("Fetching a list of CustomJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.CustomJob.list())
-        logger.info("fetching a list of CustomTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of CustomTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.CustomTrainingJob.list())
-        logger.info("fetching a list of CustomContainerTrainingJob from VertexAI server")
+        logger.info("Fetching a list of CustomContainerTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.CustomContainerTrainingJob.list())
-        logger.info("fetching a list of CustomPythonPackageTrainingJob from VertexAI server")
+        logger.info("Fetching a list of CustomPythonPackageTrainingJob from VertexAI server")
         yield from self._get_data_process_workunit(self.client.CustomPythonPackageTrainingJob.list())
-        logger.info("fetching a list of AutoMLTabularTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of AutoMLTabularTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.AutoMLTabularTrainingJob.list())
-        logger.info("fetching a list of AutoMLTextTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of AutoMLTextTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.AutoMLTextTrainingJob.list())
-        logger.info("fetching a list of AutoMLImageTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of AutoMLImageTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.AutoMLImageTrainingJob.list())
-        logger.info("fetching a list of AutoMLVideoTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of AutoMLVideoTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.AutoMLVideoTrainingJob.list())
-        logger.info("fetching a list of AutoMLForecastingTrainingJobs from VertexAI server")
+        logger.info("Fetching a list of AutoMLForecastingTrainingJobs from VertexAI server")
         yield from self._get_data_process_workunit(self.client.AutoMLForecastingTrainingJob.list())
 
     def _get_data_process_workunit(self, jobs: List[_TrainingJob]) -> Iterable[MetadataWorkUnit]:
@@ -270,6 +272,39 @@ class VertexAISource(Source):
                     f"a model (name:{model.display_name} id:{model_version_str})")
                 yield from self._get_ml_model_endpoint_workunit(model, model_version, job_urn)
 
+
+    def _search_dataset(self, dataset_id: str) -> Optional[DatasetProperties]:
+        for ds in self.client.datasets.TextDataset.list():
+            if ds.name == dataset_id:
+                return ds
+        for ds in self.client.datasets.TabularDataset.list():
+            if ds.name == dataset_id:
+                return ds
+        for ds in self.client.datasets.ImageDataset.list():
+            if ds.name == dataset_id:
+                return ds
+        for ds in self.client.datasets.TimeSeriesDataset.list():
+            if ds.name == dataset_id:
+                return ds
+        for ds in self.client.datasets.VideoDataset.list():
+            if ds.name == dataset_id:
+                return ds
+        return None
+
+    def _make_dataset_aspect(self, ds: _Dataset) -> Optional[DatasetPropertiesClass]:
+        aspect = DatasetPropertiesClass(
+            name=self._make_vertexai_name("dataset", ds.name),
+            created=TimeStampClass(time=int(ds.create_time.timestamp())),
+            description=f"Dataset: {ds.display_name} for training job",
+            customProperties={"displayName": ds.display_name,
+                              "resourceName": ds.resource_name,
+                              },
+            qualifiedName=ds.resource_name
+        )
+        return aspect
+
+
+
     def _get_job_input_workunit(self, job: _TrainingJob) -> Iterable[MetadataWorkUnit]:
         """
          Generate work units for the input data of a training job.
@@ -285,9 +320,9 @@ class VertexAISource(Source):
                 logger.info(f"found that training job {job.display_name} used input dataset: {dataset_id}")
 
                 if dataset_id:
-                    yield self._get_data_process_input_workunit(job, dataset_id)
+                    yield from self._get_data_process_input_workunit(job, dataset_id)
 
-    def _get_data_process_input_workunit(self, job: _TrainingJob, dataset_id: str) -> MetadataWorkUnit:
+    def _get_data_process_input_workunit(self, job: _TrainingJob, dataset_id: str) -> Iterable[MetadataWorkUnit]:
         """
         This method creates a work unit for the input dataset of a training job. It constructs the URN
         for the input dataset and the training job, and then creates a DataProcessInstanceInputClass aspect
@@ -302,15 +337,25 @@ class VertexAISource(Source):
             env=self.config.env,
         )
 
+        dataset = self._search_dataset(dataset_id)
+        if dataset:
+            if isinstance(dataset, TabularDataset):
+                aspect = DatasetPropertiesClass(
+                name=dataset_name,
+                description=f"Input dataset for training job: {job.display_name}",
+            )
+            aspect = self._make_dataset_aspect(dataset)
+            if aspect:
+                yield self._create_workunit(urn=dataset_urn, aspect=aspect)
+
         # Create URN of Training Job
         job_id = self._make_vertexai_name(entity_type="job", entity_id=job.name)
         entityUrn = builder.make_data_process_instance_urn(job_id)
-        aspect = DataProcessInstanceInputClass(
+        dp_aspect = DataProcessInstanceInputClass(
             inputs=[dataset_urn]
         )
         logger.info(f"generating input dataset {dataset_urn}")
-
-        return self._create_workunit(urn=entityUrn, aspect=aspect)
+        yield self._create_workunit(urn=entityUrn, aspect=dp_aspect)
 
     def _get_ml_model_endpoint_workunit(self, model: Model, model_version: VersionInfo,
                                           training_job_urn: Optional[str] = None) -> Iterable[MetadataWorkUnit]:
